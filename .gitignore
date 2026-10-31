@@ -16,14 +16,11 @@ daemon.pid
 daemon.log
 *.jar
 
-# Native Android app: keep the Gradle wrapper and the shared debug/release signing keys.
+# Native Android app: keep the Gradle wrapper, never signing keys.
 !android/gradle/wrapper/gradle-wrapper.jar
-!android/app/debug.keystore
-!bin/release.keystore
 
 # Never commit CI signing secret property files materialized from GitHub repository secrets.
 *.secrets.properties
 keystore.properties
 android/keystore.secrets.properties
 android/app/keystore.secrets.properties
-

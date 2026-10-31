@@ -13,7 +13,6 @@ const {
   resolveQuickSettingsOverlay,
   verifyAllPluginsForOneUi9,
   buildThemeJsonObject,
-  buildSignedUniversalReleaseApk,
   handleCompile,
   filterThemePluginsByName,
 } = require('../server.js');
@@ -284,47 +283,28 @@ test('Safe One UI 9.0 Quick Settings Overlay generates crash-free drawable XML f
   }
 });
 
-test('Signed Universal Release APK supports 64-bit & 32-bit ABIs, English-only localization, and META-INF V1/V2/V3 signing', () => {
-  const spec = {
-    accent: '#00E5FF',
-    secondary: '#FF2A85',
-    surface: '#080B12',
-    card: '#121826',
-    pure_black: true,
-    plugin_id: 'project_x',
-    tile_shape: 'px_qs1',
-    extra_tweaks: {
-      settings_icon_style: 'px_style1',
-      brightness_bar_style: 'px_rbb_neon',
-      volume_panel_style: 'px_vpanel_cyber',
-      settframe: false,
-      use_apk_png_icons: true,
-      app_png_pack_mode: 'auto_skin',
-    },
-  };
+test('Preview cannot claim that configuration checks prove a signed release is ready', () => {
+  const { buildReleaseReadinessReport } = require('../server.js');
+  const report = buildReleaseReadinessReport({});
+  assert.equal(report.ready_for_release, false);
+  assert.equal(report.signing.signed, false);
+  assert.match(report.sdk_environment_check.verification_scope, /configuration-only/);
+  assert.equal(require('../server.js').buildSignedUniversalReleaseApk, undefined);
+});
 
-  const apkBuffer = buildSignedUniversalReleaseApk(spec, {});
-  assert.ok(Buffer.isBuffer(apkBuffer));
-  assert.ok(apkBuffer.length > 2000, 'Expected non-trivial signed APK binary size');
-  // Check PK\x03\x04 ZIP magic header
-  assert.equal(apkBuffer[0], 0x50);
-  assert.equal(apkBuffer[1], 0x4b);
-  assert.equal(apkBuffer[2], 0x03);
-  assert.equal(apkBuffer[3], 0x04);
-
-  const apkText = apkBuffer.toString('latin1');
-  // Verify 64-bit & 32-bit native libraries
-  assert.ok(apkText.includes('lib/arm64-v8a/libhexnext_rro_bridge.so'));
-  assert.ok(apkText.includes('lib/x86_64/libhexnext_rro_bridge.so'));
-  assert.ok(apkText.includes('lib/armeabi-v7a/libhexnext_rro_bridge.so'));
-  assert.ok(apkText.includes('lib/x86/libhexnext_rro_bridge.so'));
-  // Verify English-only resources
-  assert.ok(apkText.includes('res/xml/locales_config.xml'));
-  assert.ok(apkText.includes('res/values-en/strings.xml'));
-  // Verify META-INF JAR/V2/V3 signing entries
-  assert.ok(apkText.includes('META-INF/MANIFEST.MF'));
-  assert.ok(apkText.includes('META-INF/HEXNEXT.SF'));
-  assert.ok(apkText.includes('META-INF/HEXNEXT.RSA'));
+test('Deprecated APK export endpoints return an explicit error instead of a placeholder APK', async () => {
+  const { server } = require('../server.js');
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    for (const endpoint of ['/api/export/apk', '/HexNext_OneUI9_Universal_EN_Signed.apk']) {
+      const response = await fetch(base + endpoint);
+      assert.equal(response.status, 410);
+      assert.match((await response.json()).error, /native app/);
+    }
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 
 test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadata, Drive APK gallery, and plugin verification report', () => {
@@ -366,7 +346,7 @@ test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadat
   assert.ok(fs.existsSync(path.join(__dirname, '..', '.github', 'PULL_REQUEST_TEMPLATE.md')));
 });
 
-test('GitHub CI/CD pipeline and Gradle configuration enforce 64-bit & 32-bit architectures, verify SDK tools via Gradle check task, and pull signing credentials from GitHub repository secrets without log exposure', () => {
+test('Release configuration uses native Gradle builds and external signing without manufacturing keystores', () => {
   const { verifyCiCdAndSdkEnvironment } = require('../server.js');
   const audit = verifyCiCdAndSdkEnvironment();
 
@@ -386,8 +366,12 @@ test('GitHub CI/CD pipeline and Gradle configuration enforce 64-bit & 32-bit arc
   assert.deepEqual(audit.abis_32_bit, ['armeabi-v7a', 'x86']);
   assert.deepEqual(audit.required_sdk_tools, ['sdkmanager', 'aapt2', 'apksigner', 'zipalign', 'keytool']);
   assert.ok(audit.keystore_env_vars.includes('HEXNEXT_KEYSTORE_PATH'));
-  assert.ok(audit.keystore_env_vars.includes('KEYSTORE_PATH'));
   assert.ok(audit.keystore_env_vars.includes('HEXNEXT_KEYSTORE_BASE64'));
+  assert.equal(fs.existsSync(path.join(__dirname, '..', 'android', 'app', 'debug.keystore')), false);
+  assert.equal(fs.existsSync(path.join(__dirname, '..', 'bin', 'release.keystore')), false);
+  const legacyBuilder = fs.readFileSync(path.join(__dirname, '..', 'apps', 'hex-next', 'compile.sh'), 'utf8');
+  assert.match(legacyBuilder, /exec .*bin\/build-and-sign-release-apk\.sh/);
+  assert.equal(legacyBuilder.includes('libhexnext_rro_bridge.so'), false);
 });
 
 test('Recent Logs widget classifies and isolates IDMAP2 Conflicts, SystemUI Resource Mismatches, and Permission Denied compilation failures', () => {
@@ -542,8 +526,6 @@ test('Compiler Console progress bar uses non-linear cubic-bezier CSS transitions
   assert.ok(html.includes('.compiler-progress-phase-sweep'));
   assert.ok(html.includes('.compiler-progress-phase-commit'));
 });
-
-
 
 
 

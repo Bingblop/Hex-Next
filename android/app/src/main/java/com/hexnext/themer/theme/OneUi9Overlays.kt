@@ -191,7 +191,7 @@ data class PackedAppOverlay(
 
 /**
  * All 26 One UI 9.0 SecSettings Dashboard Icons rebuilt from `project.vivid.ui.plugin.niferpitou`
- * (`assets/anaconda_tints/once/base/lxx1/settingsicon-*/*.png`) as One UI 9.0 VectorDrawables & RRO color tokens.
+ * (PNG files under `assets/anaconda_tints/once/base/lxx1/settingsicon-*`) as One UI 9.0 VectorDrawables & RRO color tokens.
  */
 data class OneUi9SettingsIcon(
     val id: String,
