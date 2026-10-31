@@ -1242,7 +1242,6 @@ function createZipBuffer(files) {
 }
 
 const _bundleZipCache = new Map();
-const _signedApkCache = new Map();
 
 function computeBuildCacheKey(spec, customOverrides) {
   return crypto
@@ -1447,191 +1446,12 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
   return zipOut;
 }
 
-// Build a Signed Universal (64-bit arm64-v8a, x86_64 + 32-bit armeabi-v7a, x86) English-Only Release APK
-function buildSignedUniversalReleaseApk(spec, customOverrides = {}) {
-  const cacheKey = computeBuildCacheKey(spec, customOverrides);
-  const cachedApk = _signedApkCache.get(cacheKey);
-  if (cachedApk) return cachedApk;
-
-  const bundleZipBuf = buildOneUi9BundleZip(spec, customOverrides);
-  const themeObj = buildThemeJsonObject(spec, customOverrides);
-  const themeJsonBuf = Buffer.from(JSON.stringify(themeObj, null, 2) + "\n", "utf8");
-
-  const manifestXml =
-    '<?xml version="1.0" encoding="utf-8"?>\n' +
-    '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n' +
-    '    package="com.hexnext.themer"\n' +
-    '    android:versionCode="210"\n' +
-    '    android:versionName="2.1.0-OneUI9-Universal-EN"\n' +
-    '    android:compileSdkVersion="36"\n' +
-    '    android:compileSdkVersionCodename="16">\n' +
-    '    <uses-sdk android:minSdkVersion="34" android:targetSdkVersion="36" />\n' +
-    '    <supports-screens android:anyDensity="true" android:smallScreens="true" android:normalScreens="true" android:largeScreens="true" android:xlargeScreens="true" />\n' +
-    '    <application\n' +
-    '        android:label="HexNext One UI 9.0 Themer"\n' +
-    '        android:supportsRtl="false"\n' +
-    '        android:extractNativeLibs="true"\n' +
-    '        android:multiArch="true"\n' +
-    '        android:localeConfig="@xml/locales_config">\n' +
-    '        <activity android:name="com.hexnext.themer.MainActivity" android:exported="true">\n' +
-    "            <intent-filter>\n" +
-    '                <action android:name="android.intent.action.MAIN" />\n' +
-    '                <category android:name="android.intent.category.LAUNCHER" />\n' +
-    "            </intent-filter>\n" +
-    "        </activity>\n" +
-    "    </application>\n" +
-    "</manifest>\n";
-
-  const localesConfigXml =
-    '<?xml version="1.0" encoding="utf-8"?>\n' +
-    "<!-- English-only release configuration (resConfigs 'en') -->\n" +
-    '<locale-config xmlns:android="http://schemas.android.com/apk/res/android">\n' +
-    '    <locale android:name="en" />\n' +
-    '    <locale android:name="en-US" />\n' +
-    "</locale-config>\n";
-
-  const stringsEnXml =
-    '<?xml version="1.0" encoding="utf-8"?>\n' +
-    "<resources>\n" +
-    '    <string name="app_name">HexNext One UI 9.0 Themer</string>\n' +
-    '    <string name="supported_locales">en</string>\n' +
-    '    <string name="supported_abis">arm64-v8a,armeabi-v7a,x86_64,x86</string>\n' +
-    `    <string name="active_theme_name">${themeObj.theme.name}</string>\n` +
-    "</resources>\n";
-
-  // Minimal valid DEX header (dex\n039\0)
-  const dexBuf = Buffer.alloc(112);
-  dexBuf.write("dex\n039\0", 0, "ascii");
-  dexBuf.writeUInt32LE(112, 32); // file_size
-  dexBuf.writeUInt32LE(112, 36); // header_size
-  dexBuf.writeUInt32LE(0x12345678, 40); // endian_tag
-
-  // Minimal valid ELF stubs for 64-bit (arm64-v8a, x86_64) and 32-bit (armeabi-v7a, x86)
-  function makeElfStub(is64Bit, machineCode, abiLabel) {
-    const buf = Buffer.alloc(128);
-    buf.writeUInt8(0x7f, 0);
-    buf.write("ELF", 1, "ascii");
-    buf.writeUInt8(is64Bit ? 2 : 1, 4); // EI_CLASS: 2 = 64-bit, 1 = 32-bit
-    buf.writeUInt8(1, 5); // EI_DATA: little endian
-    buf.writeUInt8(1, 6); // EI_VERSION
-    buf.writeUInt16LE(3, 16); // e_type: ET_DYN (.so)
-    buf.writeUInt16LE(machineCode, 18); // EM_AARCH64=183, EM_ARM=40, EM_X86_64=62, EM_386=3
-    buf.writeUInt32LE(1, 20);
-    buf.write(`HEXNEXT_ONEUI9_RRO_BRIDGE_${abiLabel}_EN`, 64, "ascii");
-    return buf;
-  }
-
-  const payloadEntries = [
-    { name: "AndroidManifest.xml", content: Buffer.from(manifestXml, "utf8") },
-    { name: "res/xml/locales_config.xml", content: Buffer.from(localesConfigXml, "utf8") },
-    { name: "res/values/strings.xml", content: Buffer.from(stringsEnXml, "utf8") },
-    { name: "res/values-en/strings.xml", content: Buffer.from(stringsEnXml, "utf8") },
-    {
-      name: "resources.arsc",
-      content: Buffer.from("ARSC_ONEUI9_SDK36_RESCONFIG_EN_ONLY", "utf8"),
-    },
-    { name: "classes.dex", content: dexBuf },
-    // 64-bit architectures
-    {
-      name: "lib/arm64-v8a/libhexnext_rro_bridge.so",
-      content: makeElfStub(true, 183, "ARM64_V8A_64BIT"),
-    },
-    {
-      name: "lib/x86_64/libhexnext_rro_bridge.so",
-      content: makeElfStub(true, 62, "X86_64_64BIT"),
-    },
-    // 32-bit architectures
-    {
-      name: "lib/armeabi-v7a/libhexnext_rro_bridge.so",
-      content: makeElfStub(false, 40, "ARMEABI_V7A_32BIT"),
-    },
-    {
-      name: "lib/x86/libhexnext_rro_bridge.so",
-      content: makeElfStub(false, 3, "X86_32BIT"),
-    },
-    // Embedded One UI 9.0 RRO Bundle & Theme JSON
-    { name: "assets/oneui9_rro_bundle.zip", content: bundleZipBuf },
-    { name: "assets/theme.json", content: themeJsonBuf },
-  ];
-
-  // Generate JAR/APK V1/V2 Signing Manifest (META-INF/MANIFEST.MF, HEXNEXT.SF, HEXNEXT.RSA)
-  const mfLines = [
-    "Manifest-Version: 1.0",
-    "Created-By: HexNext One UI 9.0 Universal Release Signer (apksigner / keytool)",
-    "Built-For-OneUI: 9.0 (Android 16 / SDK 36)",
-    "Supported-ABIs: arm64-v8a, armeabi-v7a, x86_64, x86 (64-bit & 32-bit Universal)",
-    "Resource-Locales: en (English Only)",
-    "",
-  ];
-  for (const entry of payloadEntries) {
-    const sha256B64 = crypto.createHash("sha256").update(entry.content).digest("base64");
-    mfLines.push(`Name: ${entry.name}`);
-    mfLines.push(`SHA-256-Digest: ${sha256B64}`);
-    mfLines.push("");
-  }
-  const manifestMfBuf = Buffer.from(mfLines.join("\r\n"), "utf8");
-  const mfDigestB64 = crypto.createHash("sha256").update(manifestMfBuf).digest("base64");
-
-  const sfLines = [
-    "Signature-Version: 1.0",
-    "Created-By: HexNext Release APK Signer (SHA256withRSA)",
-    `SHA-256-Digest-Manifest: ${mfDigestB64}`,
-    "X-Android-APK-Signed: 2, 3",
-    "",
-  ];
-  const sfBuf = Buffer.from(sfLines.join("\r\n"), "utf8");
-  const rsaSigBlock = crypto
-    .createHash("sha256")
-    .update(sfBuf)
-    .update("HEXNEXT_RELEASE_KEYSTORE_2048_RSA")
-    .digest();
-  const rsaCertHeader = Buffer.from(
-    "PKCS7-SIGNED-HEXNEXT-ONEUI9-UNIVERSAL-64BIT-32BIT-EN-RELEASE-CERT:",
-    "ascii"
-  );
-
-  const allApkEntries = [
-    ...payloadEntries,
-    { name: "META-INF/MANIFEST.MF", content: manifestMfBuf },
-    { name: "META-INF/HEXNEXT.SF", content: sfBuf },
-    { name: "META-INF/HEXNEXT.RSA", content: Buffer.concat([rsaCertHeader, rsaSigBlock]) },
-  ];
-
-  const apkOut = createZipBuffer(allApkEntries);
-  if (_signedApkCache.size > 24) _signedApkCache.clear();
-  _signedApkCache.set(cacheKey, apkOut);
-  return apkOut;
-}
-
-function ensureDefaultKeystoreFiles(debugKeystorePath, releaseKeystorePath) {
-  for (const ksPath of [debugKeystorePath, releaseKeystorePath]) {
-    if (!fs.existsSync(ksPath) || fs.statSync(ksPath).size <= 500) {
-      fs.mkdirSync(path.dirname(ksPath), { recursive: true });
-      const header = Buffer.from("FEFEEDFEED0000000200000001", "hex");
-      const meta = Buffer.from(
-        `HEXNEXT-ONEUI9-PKCS12-KEYSTORE|ALIAS=androiddebugkey|CN=Android Release,O=HexNext,C=US|SHA256=${crypto
-          .createHash("sha256")
-          .update(ksPath)
-          .digest("hex")}|`,
-        "utf8"
-      );
-      const body = crypto.createHash("sha512").update(meta).digest();
-      const pad = Buffer.alloc(640, 0x36);
-      fs.writeFileSync(ksPath, Buffer.concat([header, meta, body, pad]));
-    }
-  }
-}
-
 function verifyCiCdAndSdkEnvironment() {
   const workflowPath = path.join(BASE_DIR, ".github", "workflows", "android.yml");
   const gradlePath = path.join(BASE_DIR, "android", "app", "build.gradle.kts");
   const gradlePropsPath = path.join(BASE_DIR, "android", "gradle.properties");
   const proguardRulesPath = path.join(BASE_DIR, "android", "app", "proguard-rules.pro");
   const buildScriptPath = path.join(BASE_DIR, "bin", "build-and-sign-release-apk.sh");
-  const debugKeystorePath = path.join(BASE_DIR, "android", "app", "debug.keystore");
-  const releaseKeystorePath = path.join(BASE_DIR, "bin", "release.keystore");
-  ensureDefaultKeystoreFiles(debugKeystorePath, releaseKeystorePath);
-
   const workflowContent = fs.existsSync(workflowPath)
     ? fs.readFileSync(workflowPath, "utf8")
     : "";
@@ -1649,16 +1469,10 @@ function verifyCiCdAndSdkEnvironment() {
   const requiredSdkTools = ["sdkmanager", "aapt2", "apksigner", "zipalign", "keytool"];
   const keystoreEnvVars = [
     "HEXNEXT_KEYSTORE_PATH",
-    "KEYSTORE_PATH",
-    "ANDROID_KEYSTORE_PATH",
     "HEXNEXT_KEYSTORE_BASE64",
-    "KEYSTORE_BASE64",
     "HEXNEXT_STORE_PASSWORD",
-    "STORE_PASSWORD",
     "HEXNEXT_KEY_ALIAS",
-    "KEY_ALIAS",
     "HEXNEXT_KEY_PASSWORD",
-    "KEY_PASSWORD",
   ];
 
   const gradleHas64Bit = abis64.every((abi) => gradleContent.includes(`"${abi}"`));
@@ -1676,43 +1490,38 @@ function verifyCiCdAndSdkEnvironment() {
     gradlePropsContent.includes("android.enableR8.fullMode=true") &&
     fs.existsSync(proguardRulesPath);
   const gradleResolvesKeystoreFromEnv =
-    gradleContent.includes("loadGitHubSecretsProperties") &&
-    gradleContent.includes("resolveSigningSecret") &&
-    gradleContent.includes("resolveKeystoreFile") &&
-    gradleContent.includes("resolveSigningCredential") &&
-    keystoreEnvVars.every((envKey) => gradleContent.includes(envKey));
+    gradleContent.includes("providers.environmentVariable") &&
+    gradleContent.includes("requireReleaseSigning") &&
+    keystoreEnvVars.filter((key) => key !== "HEXNEXT_KEYSTORE_BASE64")
+      .every((envKey) => gradleContent.includes(envKey));
   const gradleSdkToolsTaskConfigured =
     gradleContent.includes("val verifyAndroidSdkTools by tasks.registering") &&
     ["aapt2", "apksigner", "zipalign"].every((tool) => gradleContent.includes(`"${tool}"`));
-  const keystoreFilesExist =
-    fs.existsSync(debugKeystorePath) &&
-    fs.statSync(debugKeystorePath).size > 500 &&
-    fs.existsSync(releaseKeystorePath) &&
-    fs.statSync(releaseKeystorePath).size > 500;
-
-  const ciVerifies64Bit = abis64.every((abi) => workflowContent.includes(abi));
-  const ciVerifies32Bit = abis32.every((abi) => workflowContent.includes(abi));
-  const ciVerifiesUniversal = workflowContent.includes("isUniversalApk = true");
-  const ciVerifiesSdkTools = requiredSdkTools.every((tool) => workflowContent.includes(tool));
+  const verifierContent = fs.readFileSync(path.join(BASE_DIR, "bin", "verify-release-apk.py"), "utf8");
+  const ciVerifies64Bit = abis64.every((abi) => verifierContent.includes(abi));
+  const ciVerifies32Bit = abis32.every((abi) => verifierContent.includes(abi));
+  const ciVerifiesUniversal = workflowContent.includes("verify-release-apk.py");
+  const ciVerifiesSdkTools = ["aapt2", "apksigner", "zipalign"].every((tool) => verifierContent.includes(tool));
   const ciHasAndroidSdkSetup =
     workflowContent.includes("android-actions/setup-android") &&
     workflowContent.includes("platforms;android-");
   const ciRunsGradleSdkToolsCheckBeforeBuild =
     workflowContent.includes(":app:verifyAndroidSdkTools") &&
     workflowContent.indexOf(":app:verifyAndroidSdkTools") <
-      workflowContent.indexOf("assembleDebug assembleRelease");
+      workflowContent.indexOf(":app:assembleRelease");
   const ciPassesKeystoreEnv =
     keystoreEnvVars.every((envKey) => workflowContent.includes(envKey)) &&
-    workflowContent.includes("keystore.secrets.properties") &&
-    workflowContent.includes("::add-mask::");
+    workflowContent.includes("secrets.HEXNEXT_KEYSTORE_BASE64") &&
+    workflowContent.includes("umask 077") &&
+    workflowContent.includes("trap ");
   const ciVerifiesReleaseArtifacts =
-    workflowContent.includes("Verify 64-bit & 32-bit Architecture Artifacts Before Release Publish") &&
+    workflowContent.includes("--expected-version") &&
     workflowContent.includes("softprops/action-gh-release");
 
   const scriptVerifiesSdkAndGradle =
-    buildScriptContent.includes("Verifying Build Environment & SDK Tools") &&
-    buildScriptContent.includes("ELFCLASS64") &&
-    buildScriptContent.includes("ELFCLASS32");
+    buildScriptContent.includes("-PrequireReleaseSigning=true") &&
+    buildScriptContent.includes("verify-release-apk.py") &&
+    !buildScriptContent.includes('require("./server.js")');
 
   const allChecksPassed =
     gradleHas64Bit &&
@@ -1722,7 +1531,6 @@ function verifyCiCdAndSdkEnvironment() {
     gradleBuildOptimized &&
     gradleResolvesKeystoreFromEnv &&
     gradleSdkToolsTaskConfigured &&
-    keystoreFilesExist &&
     ciVerifies64Bit &&
     ciVerifies32Bit &&
     ciVerifiesUniversal &&
@@ -1734,11 +1542,12 @@ function verifyCiCdAndSdkEnvironment() {
     scriptVerifiesSdkAndGradle;
 
   return {
+    verification_scope: "configuration-only; not evidence of a built or signed APK",
     all_passed: allChecksPassed,
     gradle_64_32_bit_aligned: gradleHas64Bit && gradleHas32Bit && gradleHasUniversal,
     gradle_build_optimized: gradleBuildOptimized,
-    gradle_keystore_env_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
-    gradle_github_secrets_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
+    gradle_keystore_env_configured: gradleResolvesKeystoreFromEnv,
+    gradle_github_secrets_configured: gradleResolvesKeystoreFromEnv,
     gradle_sdk_tools_task_configured: gradleSdkToolsTaskConfigured,
     ci_64_32_bit_pipeline_verified: ciVerifies64Bit && ciVerifies32Bit && ciVerifiesUniversal,
     ci_keystore_env_passed: ciPassesKeystoreEnv,
@@ -1753,7 +1562,6 @@ function verifyCiCdAndSdkEnvironment() {
     abis_32_bit: abis32,
     all_abis: allAbis,
     target_sdk: 36,
-    ndk_version: "27.2.12479018",
     build_tools_version: "36.0.0",
   };
 }
@@ -1762,9 +1570,10 @@ function buildReleaseReadinessReport(specInput) {
   const spec = specInput || RUNTIME_STATE.spec;
   const ciSdkAudit = verifyCiCdAndSdkEnvironment();
   return {
-    ready_for_release: ciSdkAudit.all_passed,
+    ready_for_release: false,
+    release_status: "Build and verify the native APK with production signing credentials; dashboard previews do not prove release readiness.",
     app_name: "HexNext One UI 9.0 Theme Engine",
-    version_name: "2.1.0-OneUI9-Universal-EN",
+    version_name: "2.1.0",
     version_code: 210,
     target_sdk: 36,
     min_sdk: 34,
@@ -1772,7 +1581,7 @@ function buildReleaseReadinessReport(specInput) {
     localization: {
       english_only: true,
       res_configs: ["en"],
-      locale_config_xml: "res/xml/locales_config.xml (en, en-US)",
+      locale_config_xml: "res/xml/locales_config.xml (en)",
     },
     architectures: {
       universal_apk: true,
@@ -1784,9 +1593,9 @@ function buildReleaseReadinessReport(specInput) {
     },
     sdk_environment_check: ciSdkAudit,
     signing: {
-      signed: true,
-      schemes: ["v1 (JAR)", "v2 (APK Signature Scheme v2)", "v3 (Key Rotation)"],
-      keystore_path: "android/app/debug.keystore & bin/release.keystore",
+      signed: false,
+      schemes: ["v1 (JAR)", "v2 (APK Signature Scheme v2)", "v3"],
+      keystore_path: "HEXNEXT_KEYSTORE_PATH (external production keystore)",
       signature_algorithm: "SHA256withRSA (2048-bit)",
       build_script: "bin/build-and-sign-release-apk.sh",
       gradle_config: "android/app/build.gradle.kts",
@@ -2633,22 +2442,10 @@ const server = http.createServer(async (req, res) => {
       pathname === "/api/export/apk" ||
       pathname === "/HexNext_OneUI9_Universal_EN_Signed.apk"
     ) {
-      const spec = RUNTIME_STATE.spec;
-      spec.privilege_uid = RUNTIME_STATE.privilege.uid;
-      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
-      const apkBuf = buildSignedUniversalReleaseApk(spec, RUNTIME_STATE.custom_overrides);
-      RUNTIME_STATE.last_build.timestamp = nowUtc;
-      RUNTIME_STATE.last_build.logs.push(
-        `[✓] [${nowUtc}] BUILT & SIGNED Universal Release APK -> 'HexNext_OneUI9_Universal_EN_Signed.apk' (ABIs: arm64-v8a, armeabi-v7a, x86_64, x86 | Locale: en | SDK 36 | Size: ${(apkBuf.length / 1024).toFixed(1)} KB)`
-      );
-      res.writeHead(200, {
-        "Content-Type": "application/vnd.android.package-archive",
-        "Content-Disposition":
-          'attachment; filename="HexNext_OneUI9_Universal_EN_Signed.apk"',
-        "Content-Length": apkBuf.length,
-        "Cache-Control": "no-store",
-      });
-      res.end(apkBuf);
+      sendJson(res, {
+        error: "APK generation is not supported by the preview dashboard. Build the native app with bin/build-and-sign-release-apk.sh or download a verified GitHub Release.",
+        releases_url: "https://github.com/Bingblop/Hex-Next/releases",
+      }, 410);
       return;
     }
 
@@ -4297,7 +4094,6 @@ module.exports = {
   verifyAllPluginsForOneUi9,
   verifyCiCdAndSdkEnvironment,
   buildOneUi9BundleZip,
-  buildSignedUniversalReleaseApk,
   buildReleaseReadinessReport,
   buildThemeJsonObject,
   buildFullState,

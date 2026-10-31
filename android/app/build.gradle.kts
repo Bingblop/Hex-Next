@@ -1,5 +1,4 @@
 import java.io.File
-import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -8,112 +7,29 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Loads signing credentials provisioned from encrypted GitHub repository secrets (keystore.secrets.properties)
-// without exposing any secret values, aliases, or passwords in Gradle build logs.
-fun Project.loadGitHubSecretsProperties(): Properties {
-    val props = Properties()
-    val secretFiles = listOfNotNull(
-        project.file("keystore.secrets.properties"),
-        rootProject.file("keystore.secrets.properties"),
-        rootProject.projectDir.parentFile?.resolve("android/keystore.secrets.properties"),
-        project.file("keystore.properties"),
-        rootProject.file("keystore.properties")
-    )
-    for (secretFile in secretFiles) {
-        if (secretFile.exists() && secretFile.isFile) {
-            secretFile.inputStream().use { props.load(it) }
-            break
-        }
-    }
-    return props
+val signingProperties = Properties().apply {
+    val propertiesFile = rootProject.file("keystore.properties")
+    if (propertiesFile.isFile) propertiesFile.inputStream().use { load(it) }
 }
+fun signingValue(name: String): String? =
+    providers.environmentVariable(name).orNull?.takeIf { it.isNotEmpty() }
+        ?: signingProperties.getProperty(name)?.takeIf { it.isNotEmpty() }
 
-// Resolves a signing secret from GitHub repository secrets (keystore.secrets.properties or Gradle -P/ORG_GRADLE_PROJECT_ properties),
-// falling back to environment providers or default fallback values without logging secret contents.
-fun Project.resolveSigningSecret(vararg keys: String, defaultValue: String): String {
-    val secretProps = loadGitHubSecretsProperties()
-    for (key in keys) {
-        val fromSecretsFile = secretProps.getProperty(key)?.trim()
-        if (!fromSecretsFile.isNullOrEmpty()) return fromSecretsFile
-
-        val fromGradleProp = providers.gradleProperty(key).orNull?.trim()
-            ?: findProperty(key)?.toString()?.trim()
-        if (!fromGradleProp.isNullOrEmpty()) return fromGradleProp
-
-        val fromEnvProvider = providers.environmentVariable(key).orNull?.trim()
-        if (!fromEnvProvider.isNullOrEmpty()) return fromEnvProvider
-    }
-    return defaultValue
+val releaseStorePath = signingValue("HEXNEXT_KEYSTORE_PATH")
+val releaseStorePassword = signingValue("HEXNEXT_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("HEXNEXT_KEY_ALIAS")
+val releaseKeyPassword = signingValue("HEXNEXT_KEY_PASSWORD")
+val signingValues = listOf(releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+val releaseSigningConfigured = signingValues.all { it != null }
+require(signingValues.all { it == null } || releaseSigningConfigured) {
+    "Incomplete release signing: configure all four HEXNEXT_* signing values or none."
 }
-
-// Backwards-compatible delegate for resolving signing credentials
-fun Project.resolveSigningCredential(vararg keys: String, defaultValue: String): String =
-    resolveSigningSecret(*keys, defaultValue = defaultValue)
-
-// Locates or materializes the release keystore file from encrypted GitHub repository secrets
-// with restricted owner-only (0600) permissions and zero key/password output in build logs.
-fun Project.resolveKeystoreFile(defaultFallbackName: String = "debug.keystore"): File {
-    val rawPath = resolveSigningSecret(
-        "HEXNEXT_KEYSTORE_PATH",
-        "KEYSTORE_PATH",
-        "ANDROID_KEYSTORE_PATH",
-        "RELEASE_STORE_FILE",
-        defaultValue = ""
-    )
-
-    val base64Keystore = resolveSigningSecret(
-        "HEXNEXT_KEYSTORE_BASE64",
-        "KEYSTORE_BASE64",
-        "ANDROID_KEYSTORE_BASE64",
-        defaultValue = ""
-    )
-
-    // 1. If a Base64-encoded keystore secret is provided from GitHub Secrets, materialize it with 0600 permissions
-    if (base64Keystore.isNotEmpty()) {
-        val targetFile = if (rawPath.isNotEmpty()) {
-            val candidate = File(rawPath)
-            if (candidate.isAbsolute) candidate else project.file(rawPath)
-        } else {
-            layout.buildDirectory.file("keystore/ci-release.keystore").get().asFile
-        }
-        if (!targetFile.exists() || targetFile.length() == 0L) {
-            targetFile.parentFile?.mkdirs()
-            val cleanB64 = base64Keystore.replace("\\s".toRegex(), "")
-            targetFile.writeBytes(Base64.getDecoder().decode(cleanB64))
-            targetFile.setReadable(false, false)
-            targetFile.setReadable(true, true)
-            targetFile.setWritable(false, false)
-            targetFile.setWritable(true, true)
-        }
-        return targetFile
-    }
-
-    // 2. If a keystore path secret is configured, search candidate roots silently
-    if (rawPath.isNotEmpty()) {
-        val directFile = File(rawPath)
-        val candidates = listOfNotNull(
-            directFile.takeIf { it.isAbsolute },
-            project.file(rawPath),                                  // relative to android/app/
-            rootProject.file(rawPath),                              // relative to android/
-            rootProject.projectDir.parentFile?.resolve(rawPath),    // relative to repo root
-            directFile
-        )
-        val existing = candidates.firstOrNull { it.exists() && it.isFile }
-        if (existing != null) {
-            return existing
-        }
-        return if (directFile.isAbsolute) directFile else project.file(rawPath)
-    }
-
-    // 3. Fallback to committed project/repo keystores so local & fork PR builds sign automatically
-    val fallbackCandidates = listOfNotNull(
-        project.file(defaultFallbackName),
-        project.file("release.keystore"),
-        rootProject.file(defaultFallbackName),
-        rootProject.projectDir.parentFile?.resolve("bin/release.keystore"),
-        rootProject.projectDir.parentFile?.resolve("android/app/$defaultFallbackName")
-    )
-    return fallbackCandidates.firstOrNull { it.exists() && it.isFile } ?: project.file(defaultFallbackName)
+val releaseStoreFile = releaseStorePath?.let { rootProject.file(it) }
+require(releaseStoreFile == null || releaseStoreFile.isFile) {
+    "The configured release keystore does not exist."
+}
+require(providers.gradleProperty("requireReleaseSigning").orNull != "true" || releaseSigningConfigured) {
+    "Release signing is required. Configure HEXNEXT_KEYSTORE_PATH, HEXNEXT_STORE_PASSWORD, HEXNEXT_KEY_ALIAS and HEXNEXT_KEY_PASSWORD."
 }
 
 android {
@@ -126,7 +42,7 @@ android {
         minSdk = 34
         targetSdk = 36
         versionCode = 210
-        versionName = "2.1.0-OneUI9-Universal-EN"
+        versionName = "2.1.0"
 
         // English-only release configuration
         resourceConfigurations += listOf("en")
@@ -148,44 +64,16 @@ android {
     }
 
     signingConfigs {
-        val resolvedKeystore = project.resolveKeystoreFile("debug.keystore")
-        val resolvedStorePassword = project.resolveSigningSecret(
-            "HEXNEXT_STORE_PASSWORD",
-            "KEYSTORE_PASSWORD",
-            "STORE_PASSWORD",
-            "ANDROID_STORE_PASSWORD",
-            defaultValue = "android"
-        )
-        val resolvedKeyAlias = project.resolveSigningSecret(
-            "HEXNEXT_KEY_ALIAS",
-            "KEY_ALIAS",
-            "ANDROID_KEY_ALIAS",
-            defaultValue = "androiddebugkey"
-        )
-        val resolvedKeyPassword = project.resolveSigningSecret(
-            "HEXNEXT_KEY_PASSWORD",
-            "KEY_PASSWORD",
-            "ANDROID_KEY_PASSWORD",
-            defaultValue = resolvedStorePassword
-        )
-
-        getByName("debug") {
-            storeFile = resolvedKeystore
-            storePassword = resolvedStorePassword
-            keyAlias = resolvedKeyAlias
-            keyPassword = resolvedKeyPassword
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
-        }
-        create("release") {
-            storeFile = resolvedKeystore
-            storePassword = resolvedStorePassword
-            keyAlias = resolvedKeyAlias
-            keyPassword = resolvedKeyPassword
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
         }
     }
 
@@ -200,7 +88,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -240,7 +128,7 @@ android {
     lint {
         // Material color utilities are marked @RestrictTo but are the reference Monet implementation.
         disable += "RestrictedApi"
-        checkReleaseBuilds = false
+        checkReleaseBuilds = true
     }
 }
 

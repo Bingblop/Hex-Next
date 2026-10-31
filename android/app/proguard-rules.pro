@@ -13,6 +13,7 @@
 -keep interface android.content.om.** { *; }
 
 # Keep Shizuku Binder, Provider & AIDL interfaces
+-keep class com.hexnext.themer.shizuku.ThemeService { *; }
 -keep class rikka.shizuku.** { *; }
 -keep class dev.rikka.shizuku.** { *; }
 -keep class * extends android.os.Binder { *; }

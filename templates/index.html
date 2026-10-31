@@ -265,9 +265,9 @@
                 <span class="hidden lg:inline">Release &amp; PR CI</span>
             </button>
 
-            <a href="/api/export/apk" id="btn-download-signed-apk" onclick="showToast('Building & signing Universal One UI 9.0 APK (64-bit + 32-bit • English Only)...', 'emerald')" class="px-2.5 sm:px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/15 cursor-pointer" title="Download Signed Universal Release APK (arm64-v8a, armeabi-v7a, x86_64, x86 • English Only)">
+            <a href="https://github.com/Bingblop/Hex-Next/releases" id="btn-download-signed-apk" class="px-2.5 sm:px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/15 cursor-pointer" title="Download a verified native universal APK from GitHub Releases">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                <span class="hidden sm:inline">Signed APK (64/32-bit)</span>
+                <span class="hidden sm:inline">APK Releases</span>
                 <span class="sm:hidden">APK</span>
             </a>
 
@@ -1996,8 +1996,8 @@
                     <button onclick="runReleasePrepareAndRepair()" class="px-3.5 py-2 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display font-bold text-xs cursor-pointer">
                         Repair All &amp; Stabilize
                     </button>
-                    <a href="/api/export/apk" onclick="closeReleaseAuditModal(); showToast('Downloading Signed Universal APK (64-bit + 32-bit, English-only)...', 'emerald');" class="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs">
-                        Download Signed APK
+                    <a href="https://github.com/Bingblop/Hex-Next/releases" class="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs">
+                        View APK Releases
                     </a>
                     <a href="/api/export/zip" onclick="closeReleaseAuditModal(); showToast('Exporting Production One UI 9.0 RRO ZIP Bundle...', 'cyan');" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-display font-bold text-xs">
                         Download Release ZIP
@@ -2466,15 +2466,15 @@
                 body.innerHTML = `
                     <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-2">
                         <span>1. Universal APK Architecture (64-bit + 32-bit ABIs)</span>
-                        <span class="text-emerald-400 font-bold">arm64-v8a, x86_64 + armeabi-v7a, x86 ✓</span>
+                        <span class="text-amber-300 font-bold">Configured; verified during native build</span>
                     </div>
                     <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-2">
                         <span>2. Android SDK &amp; Build-Tools Environment Check</span>
-                        <span class="text-emerald-400 font-bold">${sdkToolsList} (SDK ${sdkAudit.target_sdk || 36}) ✓</span>
+                        <span class="text-amber-300 font-bold">Checked in CI, not by this preview</span>
                     </div>
                     <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-2">
                         <span>3. APK Localization &amp; V1/V2/V3 Release Signing</span>
-                        <span class="text-emerald-400 font-bold">English-Only (en) • Signed ✓</span>
+                        <span class="text-amber-300 font-bold">English (en) • Production signing required</span>
                     </div>
                     <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-2">
                         <span>4. All 5 Google Drive APKs Integrated for One UI 9.0</span>
@@ -2494,7 +2494,7 @@
                     </div>
                     <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-2">
                         <span>8. GitHub CI/CD 64/32-bit Build &amp; Release Pipeline</span>
-                        <span class="text-emerald-400 font-bold">.github/workflows/android.yml Verified ✓</span>
+                        <span class="text-amber-300 font-bold">Configuration only; check GitHub Actions results</span>
                     </div>
                 `;
             }
@@ -2508,7 +2508,7 @@
         async function runReleasePrepareAndRepair() {
             await repairAllFailedOverlays();
             openReleaseAuditModal();
-            showToast('All 26 One UI 9.0 RRO packages repaired & verified for release!', 'emerald');
+            showToast('Preview updated. Native APK release verification runs separately in CI.', 'amber');
         }
 
         async function updateTweak(payload) {

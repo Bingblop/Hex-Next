@@ -1,8 +1,8 @@
-name: One UI 9.0 CI & Signed Universal APK Release
+name: Android Universal APK
 
 on:
   push:
-    branches: [main, master, "feature/**", "release/**"]
+    branches: [main, master, "release/**"]
     tags: ["v*"]
   pull_request:
     branches: [main, master]
@@ -10,294 +10,122 @@ on:
 
 permissions:
   contents: read
-  checks: write
-  pull-requests: write
 
-env:
-  COMPILE_SDK_VERSION: "36"
-  BUILD_TOOLS_VERSION: "36.0.0"
-  NDK_VERSION: "27.2.12479018"
-  ABIS_64_BIT: "arm64-v8a,x86_64"
-  ABIS_32_BIT: "armeabi-v7a,x86"
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  verify-oneui9-features:
-    name: "CI Check 1: One UI 9.0 Overlays, Drive APKs, .PNG Suites & Safe QS Sliders"
+  test-web:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+      - run: node --check server.js && node --test tests/*.test.js
+      - run: python3 -m unittest discover -s tests -p 'test_*.py'
 
-      - name: Setup Python 3
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Verify Build Environment & Host Tooling (node, python3, keytool, zip)
-        run: |
-          echo "[*] Verifying CI host build environment tools..."
-          command -v node >/dev/null 2>&1 && echo "[✓] node: $(node -v)"
-          command -v python3 >/dev/null 2>&1 && echo "[✓] python3: $(python3 --version)"
-          command -v keytool >/dev/null 2>&1 && echo "[✓] keytool: available"
-          test -f android/app/build.gradle.kts && echo "[✓] Gradle config: android/app/build.gradle.kts present"
-
-      - name: Run One UI 9.0 Comprehensive Feature & APK Suite Tests
-        run: node --test tests/oneui9_release.test.js
-
-      - name: Build & Verify Universal (64-bit + 32-bit, English-Only) Signed APK Bundle
-        run: |
-          chmod +x bin/build-and-sign-release-apk.sh
-          ./bin/build-and-sign-release-apk.sh dist/HexNext_OneUI9_Universal_EN_Signed.apk
-
-      - name: Upload Signed Universal Engine APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: HexNext-OneUI9-Universal-EN-Signed-APK
-          path: dist/HexNext_OneUI9_Universal_EN_Signed.apk
-          if-no-files-found: error
-
-  build-android-gradle:
-    name: "CI Check 2: Android SDK Tools Check & Gradle Build (64-bit & 32-bit • EN Only)"
-    needs: verify-oneui9-features
+  build-android:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: android
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java 17 (Temurin)
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install & Verify Android SDK Tools (SDK 36, Build-Tools, NDK, aapt2, apksigner, zipalign)
-        run: |
-          echo "=================================================================="
-          echo " Verifying Android SDK Environment & Required Build Tools"
-          echo "=================================================================="
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
-            echo "[!] ERROR: ANDROID_HOME / ANDROID_SDK_ROOT is not set or directory is missing." >&2
-            exit 1
-          fi
-          echo "[✓] ANDROID_SDK_ROOT: $SDK_ROOT"
-
-          # Locate sdkmanager
-          SDKMANAGER_BIN="$(command -v sdkmanager || find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)"
-          if [ -z "$SDKMANAGER_BIN" ]; then
-            echo "[!] ERROR: sdkmanager not found in PATH or $SDK_ROOT/cmdline-tools" >&2
-            exit 1
-          fi
-          echo "[✓] sdkmanager: $SDKMANAGER_BIN"
-
-          # Accept licenses and provision Platform 36, Build-Tools, Platform-Tools, and NDK for 64/32-bit ABIs
-          yes | "$SDKMANAGER_BIN" --licenses >/dev/null || true
-          "$SDKMANAGER_BIN" --install \
-            "platform-tools" \
-            "platforms;android-${COMPILE_SDK_VERSION}" \
-            "build-tools;${BUILD_TOOLS_VERSION}" \
-            "ndk;${NDK_VERSION}" || \
-          "$SDKMANAGER_BIN" --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-          # Verify required SDK build-tools binaries (aapt2, apksigner, zipalign)
-          BUILD_TOOLS_DIR="$(find "$SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          if [ -z "$BUILD_TOOLS_DIR" ]; then
-            echo "[!] ERROR: No Android build-tools directory found under $SDK_ROOT/build-tools" >&2
-            exit 1
-          fi
-          for tool in aapt2 apksigner zipalign; do
-            if [ ! -x "$BUILD_TOOLS_DIR/$tool" ]; then
-              echo "[!] ERROR: Required Android SDK build tool '$tool' missing in $BUILD_TOOLS_DIR" >&2
-              exit 1
-            fi
-            echo "[✓] Verified SDK build tool: $BUILD_TOOLS_DIR/$tool"
-          done
-
-          # Verify platform-tools (adb) and JDK keytool
-          command -v keytool >/dev/null 2>&1 && echo "[✓] Verified JDK keytool: $(command -v keytool)"
-          if [ -x "$SDK_ROOT/platform-tools/adb" ]; then
-            echo "[✓] Verified Android platform-tools: $SDK_ROOT/platform-tools/adb"
-          fi
-
-      - name: Provision Secure GitHub Repository Secrets for Gradle Signing (Zero Log Exposure)
-        run: |
-          set +x
-          echo "[*] Provisioning Gradle signing credentials from encrypted GitHub repository secrets..."
-          umask 077
-
-          SECRET_KS_PATH="${{ secrets.HEXNEXT_KEYSTORE_PATH || secrets.KEYSTORE_PATH || secrets.ANDROID_KEYSTORE_PATH || 'app/debug.keystore' }}"
-          SECRET_KS_B64="${{ secrets.HEXNEXT_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 || '' }}"
-          SECRET_STORE_PASS="${{ secrets.HEXNEXT_STORE_PASSWORD || secrets.STORE_PASSWORD || 'android' }}"
-          SECRET_KEY_ALIAS="${{ secrets.HEXNEXT_KEY_ALIAS || secrets.KEY_ALIAS || 'androiddebugkey' }}"
-          SECRET_KEY_PASS="${{ secrets.HEXNEXT_KEY_PASSWORD || secrets.KEY_PASSWORD || 'android' }}"
-
-          # Explicitly mask all credential values so they can never appear in GitHub Actions logs
-          [ -n "$SECRET_STORE_PASS" ] && echo "::add-mask::$SECRET_STORE_PASS"
-          [ -n "$SECRET_KEY_ALIAS" ] && echo "::add-mask::$SECRET_KEY_ALIAS"
-          [ -n "$SECRET_KEY_PASS" ] && echo "::add-mask::$SECRET_KEY_PASS"
-          [ -n "$SECRET_KS_B64" ] && echo "::add-mask::$SECRET_KS_B64"
-
-          if [ -n "$SECRET_KS_B64" ]; then
-            mkdir -p "$(dirname "$SECRET_KS_PATH")"
-            printf '%s' "$SECRET_KS_B64" | tr -d ' \n\r\t' | base64 -d > "$SECRET_KS_PATH"
-            chmod 600 "$SECRET_KS_PATH"
-          elif [ ! -f "$SECRET_KS_PATH" ]; then
-            mkdir -p "$(dirname "$SECRET_KS_PATH")"
-            keytool -genkeypair \
-              -keystore "$SECRET_KS_PATH" \
-              -storepass "$SECRET_STORE_PASS" \
-              -alias "$SECRET_KEY_ALIAS" \
-              -keypass "$SECRET_KEY_PASS" \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Release,O=HexNext,C=US" >/dev/null 2>&1
-            chmod 600 "$SECRET_KS_PATH"
-          fi
-
-          # Write restricted (0600) keystore.secrets.properties consumed by loadGitHubSecretsProperties() in build.gradle.kts
-          cat > keystore.secrets.properties <<EOF
-          HEXNEXT_KEYSTORE_PATH=$SECRET_KS_PATH
-          KEYSTORE_PATH=$SECRET_KS_PATH
-          ANDROID_KEYSTORE_PATH=$SECRET_KS_PATH
-          HEXNEXT_STORE_PASSWORD=$SECRET_STORE_PASS
-          STORE_PASSWORD=$SECRET_STORE_PASS
-          HEXNEXT_KEY_ALIAS=$SECRET_KEY_ALIAS
-          KEY_ALIAS=$SECRET_KEY_ALIAS
-          HEXNEXT_KEY_PASSWORD=$SECRET_KEY_PASS
-          KEY_PASSWORD=$SECRET_KEY_PASS
-          EOF
-          chmod 600 keystore.secrets.properties
-
-          keytool -list -keystore "$SECRET_KS_PATH" -storepass "$SECRET_STORE_PASS" -alias "$SECRET_KEY_ALIAS" >/dev/null 2>&1
-          echo "[✓] Provisioned encrypted GitHub repository signing secrets into restricted keystore.secrets.properties (0600, masked)"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
         with:
-          cache-read-only: false
-
-      - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & GitHub Secrets Signing Configuration
-        run: |
-          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI, SDK 36, R8 optimization & GitHub Secrets signing..."
-          grep -q 'compileSdk = 36' app/build.gradle.kts
-          grep -q 'targetSdk = 36' app/build.gradle.kts
-          grep -q 'minSdk = 34' app/build.gradle.kts
-          grep -q 'resourceConfigurations += listOf("en")' app/build.gradle.kts
-          # Verify 64-bit architectures (arm64-v8a, x86_64) in both ndk.abiFilters and splits.abi
-          grep -q 'abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
-          grep -q 'include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
-          grep -q 'isUniversalApk = true' app/build.gradle.kts
-          grep -q 'isMinifyEnabled = true' app/build.gradle.kts
-          grep -q 'isShrinkResources = true' app/build.gradle.kts
-          grep -q 'loadGitHubSecretsProperties' app/build.gradle.kts
-          grep -q 'resolveSigningSecret' app/build.gradle.kts
-          grep -q 'resolveKeystoreFile' app/build.gradle.kts
-          grep -q 'HEXNEXT_KEYSTORE_PATH' app/build.gradle.kts
-          grep -q 'KEYSTORE_PATH' app/build.gradle.kts
-          grep -q 'HEXNEXT_KEYSTORE_BASE64' app/build.gradle.kts
-          grep -q 'enableV1Signing = true' app/build.gradle.kts
-          grep -q 'enableV2Signing = true' app/build.gradle.kts
-          grep -q 'enableV3Signing = true' app/build.gradle.kts
-          grep -q 'verifyAndroidSdkTools' app/build.gradle.kts
-          test -f app/proguard-rules.pro
-          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK, R8 Optimization & GitHub Secrets V1/V2/V3 Signing in build.gradle.kts"
-
-      - name: Run Gradle Check Task to Verify Required Android SDK Tools (aapt2, apksigner, zipalign)
-        run: |
-          echo "[*] Executing Gradle check task (:app:verifyAndroidSdkTools) to verify aapt2, apksigner, and zipalign..."
-          ./gradlew --no-daemon --build-cache --parallel --console=plain :app:verifyAndroidSdkTools
-
-      - name: Run Android Unit Tests
-        run: ./gradlew --no-daemon --build-cache --parallel --console=plain testDebugUnitTest
-
-      - name: Assemble & Sign Universal + 64-bit & 32-bit ABI Split APKs (Debug & Release)
-        run: ./gradlew --no-daemon --build-cache --parallel --console=plain assembleDebug assembleRelease
-
-      - name: Clean Up Temporary GitHub Signing Secrets
-        if: always()
-        run: |
-          rm -f keystore.secrets.properties app/keystore.secrets.properties app/build/keystore/ci-release.keystore
-          echo "[✓] Removed temporary CI signing secrets file"
-
-      - name: Verify & Collect Signed 64-bit, 32-bit & Universal APKs
-        run: |
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-          APKSIGNER_BIN="$(find "$SDK_ROOT/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
-          mkdir -p dist
-          find app/build/outputs/apk -name "*.apk" -exec cp {} dist/ \;
-          ls -lh dist/
-
-          # Ensure Universal APK and all 4 ABI split APKs (arm64-v8a, x86_64, armeabi-v7a, x86) were generated and signed
-          for expected_abi in universal arm64-v8a x86_64 armeabi-v7a x86; do
-            matched_apk="$(find dist -name "*${expected_abi}*release*.apk" | head -n 1 || true)"
-            if [ -z "$matched_apk" ]; then
-              echo "[!] ERROR: Missing expected release APK for architecture target: $expected_abi" >&2
-              exit 1
-            fi
-            echo "[✓] Found release APK for $expected_abi: $matched_apk"
-            if [ -n "$APKSIGNER_BIN" ] && [ -x "$APKSIGNER_BIN" ]; then
-              "$APKSIGNER_BIN" verify --verbose "$matched_apk"
-              echo "[✓] apksigner verified V1/V2/V3 signature on $matched_apk"
-            fi
-          done
-
-      - name: Upload Signed Gradle Universal & 64/32-bit ABI APK Artifacts
-        uses: actions/upload-artifact@v4
+          packages: "platform-tools"
+      - name: Install SDK 36 and build-tools 36.0.0
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          name: HexNext-Gradle-Universal-APKs
-          path: android/dist/*.apk
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Test and build unsigned universal candidate
+        run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+      - name: Verify installable universal candidate
+        run: |
+          python3 ../bin/verify-release-apk.py \
+            app/build/outputs/apk/release/app-universal-release-unsigned.apk --unsigned
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Universal-Unsigned-Candidate
+          path: |
+            android/app/build/outputs/apk/release/app-universal-release-unsigned.apk
+            android/app/build/outputs/mapping/release/mapping.txt
+            android/app/build/reports/lint-results-release.html
           if-no-files-found: error
 
-  release:
-    name: "Release: Publish Signed Universal & 64/32-bit (EN) APKs"
+      - name: Exercise signed release path with an ephemeral CI-only key
+        env:
+          HEXNEXT_STORE_PASSWORD: ci-test-only
+          HEXNEXT_KEY_ALIAS: ci-test
+          HEXNEXT_KEY_PASSWORD: ci-test-only
+        run: |
+          set -euo pipefail
+          export HEXNEXT_KEYSTORE_PATH="$RUNNER_TEMP/hexnext-ci-test.keystore"
+          trap 'rm -f "$HEXNEXT_KEYSTORE_PATH"' EXIT
+          keytool -genkeypair -keystore "$HEXNEXT_KEYSTORE_PATH" \
+            -storepass:env HEXNEXT_STORE_PASSWORD -keypass:env HEXNEXT_KEY_PASSWORD \
+            -alias "$HEXNEXT_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
+            -dname "CN=HexNext CI Test"
+          ../bin/build-and-sign-release-apk.sh "$RUNNER_TEMP/HexNext-ci-test.apk"
+
+  signed-release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [verify-oneui9-features, build-android-gradle]
+    needs: [test-web, build-android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download Signed Universal Engine APK
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
-          name: HexNext-OneUI9-Universal-EN-Signed-APK
-          path: release_dist
-
-      - name: Download Signed Gradle Universal & 64/32-bit Split APKs
-        uses: actions/download-artifact@v4
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
         with:
-          name: HexNext-Gradle-Universal-APKs
-          path: release_dist
-
-      - name: Verify 64-bit & 32-bit Architecture Artifacts Before Release Publish
+          packages: "platform-tools"
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and verify production-signed universal APK
+        env:
+          HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 }}
+          HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD }}
+          HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS }}
+          HEXNEXT_KEY_PASSWORD: ${{ secrets.HEXNEXT_KEY_PASSWORD }}
         run: |
-          echo "[*] Auditing release_dist/ artifacts before publishing GitHub Release..."
-          ls -lh release_dist/
-          test -f release_dist/HexNext_OneUI9_Universal_EN_Signed.apk
-          python3 - "release_dist/HexNext_OneUI9_Universal_EN_Signed.apk" << 'PYEOF'
-          import sys, zipfile
-          with zipfile.ZipFile(sys.argv[1], "r") as zf:
-              names = set(zf.namelist())
-              for abi in ["arm64-v8a", "x86_64", "armeabi-v7a", "x86"]:
-                  assert f"lib/{abi}/libhexnext_rro_bridge.so" in names, f"Missing {abi} native library"
-              assert "META-INF/MANIFEST.MF" in names and "META-INF/HEXNEXT.RSA" in names
-          print("[✓] Release artifact verified: 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + V1/V2/V3 signed.")
-          PYEOF
-
-      - name: Publish GitHub Release
+          set -euo pipefail
+          : "${HEXNEXT_KEYSTORE_BASE64:?Missing HEXNEXT_KEYSTORE_BASE64 release secret}"
+          : "${HEXNEXT_STORE_PASSWORD:?Missing HEXNEXT_STORE_PASSWORD release secret}"
+          : "${HEXNEXT_KEY_ALIAS:?Missing HEXNEXT_KEY_ALIAS release secret}"
+          : "${HEXNEXT_KEY_PASSWORD:?Missing HEXNEXT_KEY_PASSWORD release secret}"
+          umask 077
+          export HEXNEXT_KEYSTORE_PATH="$RUNNER_TEMP/hexnext-release.keystore"
+          trap 'rm -f "$HEXNEXT_KEYSTORE_PATH"' EXIT
+          printf '%s' "$HEXNEXT_KEYSTORE_BASE64" | base64 --decode > "$HEXNEXT_KEYSTORE_PATH"
+          unset HEXNEXT_KEYSTORE_BASE64
+          ./bin/build-and-sign-release-apk.sh
+          python3 bin/verify-release-apk.py dist/HexNext_OneUI9_Universal_EN_Signed.apk \
+            --expected-version "${GITHUB_REF_NAME#v}" \
+            --report dist/HexNext_OneUI9_Universal_EN_Signed.apk.json
+          cp android/app/build/outputs/mapping/release/mapping.txt dist/mapping.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Universal-Signed-Release
+          path: dist/*
+          if-no-files-found: error
+      - name: Publish verified APK and checksum
         uses: softprops/action-gh-release@v2
         with:
-          files: release_dist/*.apk
+          fail_on_unmatched_files: true
           generate_release_notes: true
+          files: |
+            dist/HexNext_OneUI9_Universal_EN_Signed.apk
+            dist/HexNext_OneUI9_Universal_EN_Signed.apk.sha256
+            dist/HexNext_OneUI9_Universal_EN_Signed.apk.json
+            dist/mapping.txt
