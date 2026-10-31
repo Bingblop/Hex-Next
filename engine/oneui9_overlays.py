@@ -139,6 +139,26 @@ HEX_PLUGINS: Dict[str, Dict[str, Any]] = {
         "pure_black": False,
         "tile_shape": "squircle",
     },
+    "mimi_miui11": {
+        "id": "mimi_miui11",
+        "name": "MIMI (Miui 11)",
+        "short_name": "MIMI",
+        "plugin_pkg": "project.vivid.ui.plugin.miui",
+        "author": "Rohit_S_Shetty • One UI 9.0 Rebuild",
+        "seed": "#4C9FFD",
+        "secondary": "#F16E9A",
+        "secondary_accent": "#6EBAF1",
+        "welcome_accent": "#B7AEBD",
+        "bg": "#000000",
+        "surface": "#121212",
+        "card": "#1A1A1A",
+        "nav_color": "#181818",
+        "qs_inactive": "#181818",
+        "style": "VIBRANT",
+        "pure_black": True,
+        "tile_shape": "circle",
+        "overlay_count": 66,
+    },
     "ayos_dark": {
         "id": "ayos_dark",
         "name": "AyOS Dark Retina",
@@ -1180,6 +1200,9 @@ def resolve_settings_dashboard_icons(
     active_folder = style_meta["frameless_folder"] if settframe else style_meta["asset_folder"]
     icon_dp = 36 if bigsetico else 28
 
+    is_mimi_style = icon_style == "mimi_sett"
+    mimi_drawables = MIMI_SKIN_MANIFEST.get("drawables", {}) if isinstance(MIMI_SKIN_MANIFEST, dict) else {}
+
     resolved_icons = []
     fab_icon_args = []
     for ic in SETTINGS_DASHBOARD_ICONS:
@@ -1188,7 +1211,10 @@ def resolve_settings_dashboard_icons(
         custom_hex = per_icon_colors.get(ic["id"]) or custom_overrides.get(override_key)
         if custom_hex:
             fg_color = custom_hex.upper()
-            badge_color = secondary
+            badge_color = ic.get("mimi_badge", "#F16E9A").upper() if is_mimi_style else secondary
+        elif is_mimi_style:
+            fg_color = ic.get("mimi_color", "#4C9FFD").upper()
+            badge_color = ic.get("mimi_badge", "#F16E9A").upper()
         elif icon_style == "1sett":
             fg_color = seed
             badge_color = seed
@@ -1205,15 +1231,16 @@ def resolve_settings_dashboard_icons(
             fg_color = secondary
             badge_color = seed
 
-        frame_bg = "transparent" if settframe else ("#1F" + fg_color.lstrip("#"))
-        frame_border = "transparent" if settframe else ("#4D" + fg_color.lstrip("#"))
+        frame_bg = "transparent" if settframe else (("#29" if is_mimi_style else "#1F") + fg_color.lstrip("#"))
+        frame_border = "transparent" if settframe else (("#66" + badge_color.lstrip("#")) if is_mimi_style else ("#4D" + fg_color.lstrip("#")))
         argb_hex = "0xff" + fg_color.lstrip("#").lower()
         fab_icon_args.append(f"com.android.settings:color/{token_name} 0x1c {argb_hex}")
+        mimi_png_uri = mimi_drawables.get(ic["mimi_png_key"]) if (is_mimi_style and ic.get("mimi_png_key")) else None
 
-        is_duotone = icon_style in ("alt_1sett", "alt_2sett")
+        is_duotone = icon_style in ("alt_1sett", "alt_2sett", "mimi_sett")
         vector_xml = (
             '<?xml version="1.0" encoding="utf-8"?>\n'
-            f'<!-- Rebuilt from project.vivid.ui.plugin.niferpitou ({active_folder}/{ic["res_name"]}.png) for One UI 9.0 (precedence > SemWT_Settings) -->\n'
+            f'<!-- {"Ported from MIMI (project.vivid.ui.plugin.miui v1.3)" if is_mimi_style else "Rebuilt from project.vivid.ui.plugin.niferpitou"} ({active_folder}/{ic["res_name"]}.png) for One UI 9.0 (precedence > SemWT_Settings) -->\n'
             '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'
             f'    android:width="{icon_dp}dp"\n'
             f'    android:height="{icon_dp}dp"\n'
@@ -1259,6 +1286,8 @@ def resolve_settings_dashboard_icons(
             "frame_border": frame_border,
             "frameless": settframe,
             "size_dp": icon_dp,
+            "is_mimi_style": is_mimi_style,
+            "mimi_png_uri": mimi_png_uri,
             "source_asset": f"assets/anaconda_tints/once/base/lxx1/{active_folder}/{ic['res_name']}.png",
             "oneui9_drawable": f"com.android.settings:drawable/{ic['res_name']}",
             "oneui9_color_token": f"com.android.settings:color/{token_name}",

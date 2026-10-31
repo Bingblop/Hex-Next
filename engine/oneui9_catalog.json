@@ -147,6 +147,34 @@
       "pure_black": false,
       "tile_shape": "squircle"
     },
+    "mimi_miui11": {
+      "id": "mimi_miui11",
+      "name": "MIMI (Miui 11)",
+      "short_name": "MIMI",
+      "plugin_pkg": "project.vivid.ui.plugin.miui",
+      "author": "Rohit_S_Shetty \u2022 One UI 9.0 Rebuild",
+      "version_name": "1.3",
+      "version_code": 5,
+      "hex_config": 1,
+      "seed": "#4C9FFD",
+      "secondary": "#F16E9A",
+      "secondary_accent": "#6EBAF1",
+      "welcome_accent": "#B7AEBD",
+      "bg": "#000000",
+      "surface": "#121212",
+      "card": "#1A1A1A",
+      "nav_color": "#181818",
+      "qs_inactive": "#181818",
+      "style": "VIBRANT",
+      "pure_black": true,
+      "tile_shape": "circle",
+      "overlay_count": 66,
+      "anaconda_count": 51,
+      "crocodile_count": 15,
+      "icon_theme_count": 30,
+      "logo_data_uri": "data:image/png;base64,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",
+      "description": "Official MIMI (#Hex Miui 11 Plugin v1.3 by Rohit_S_Shetty) ported to One UI 9.0: 51 anaconda_* system overlays, 15 crocodile_* UI component overlays, split rectangular Dialer call buttons (tint_always), and 30 IconTheme.HexIcons drawables."
+    },
     "ayos_dark": {
       "id": "ayos_dark",
       "name": "AyOS Dark Retina",
@@ -273,6 +301,13 @@
       "asset_folder": "settingsicon-alt_2sett",
       "frameless_folder": "settingsicon-alt_2sett_frameless",
       "desc": "Secondary accent foreground glyph with primary seed container & badge highlight."
+    },
+    {
+      "id": "mimi_sett",
+      "label": "MIMI (Miui 11 Dashboard Icons)",
+      "asset_folder": "mimi-anaconda_28_crocodile_19",
+      "frameless_folder": "mimi-anaconda_28_frameless",
+      "desc": "Ported from MIMI (#Hex Miui 11 Plugin v1.3: anaconda_28 + crocodile_19 + sec_st_ic_*): MIUI 11 Sky Blue (#4C9FFD), Coral Rose (#F16E9A), Ice Cyan (#6EBAF1) & Soft Lavender (#B7AEBD) squircle dashboard icons."
     }
   ],
   "SETTINGS_DASHBOARD_ICONS": [
@@ -282,6 +317,9 @@
       "title": "Connections",
       "subtitle": "Wi-Fi, Bluetooth, NFC, UWB",
       "og_color": "#38BDF8",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#6EBAF1",
+      "mimi_png_key": "sec_st_ic_connections",
       "svg_path": "M12 20h.01M8.5 16.5a5 5 0 017 0M5 13a10 10 0 0114 0M2 9.5a15 15 0 0120 0"
     },
     {
@@ -290,6 +328,8 @@
       "title": "Connected devices",
       "subtitle": "Quick Share, Galaxy Wear, DeX",
       "og_color": "#34D399",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
     },
     {
@@ -298,6 +338,8 @@
       "title": "Modes and Routines",
       "subtitle": "Sleep, Driving, Work automation",
       "og_color": "#A78BFA",
+      "mimi_color": "#B7AEBD",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
     },
     {
@@ -306,6 +348,8 @@
       "title": "Notifications",
       "subtitle": "App notifications, Brief pop-up",
       "og_color": "#FB7185",
+      "mimi_color": "#F16E9A",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3A6 6 0 006 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
     },
     {
@@ -314,6 +358,9 @@
       "title": "Sounds and vibration",
       "subtitle": "Sound mode, Ringtone, Dolby Atmos",
       "og_color": "#818CF8",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#F16E9A",
+      "mimi_png_key": "sec_st_ic_sounds",
       "svg_path": "M15.5 8.5a5 5 0 010 7m2.8-9.8a9 9 0 010 12.6M6 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h2l4-4v14l-4-4z"
     },
     {
@@ -322,6 +369,8 @@
       "title": "Display",
       "subtitle": "Dark mode, Motion smoothness, Font",
       "og_color": "#FBBF24",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M12 3v1m0 16v1m9-9h-1M4 12H3m15.4 6.4l-.7-.7M6.3 6.3l-.7-.7m12.8 0l-.7.7M6.3 17.7l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"
     },
     {
@@ -330,6 +379,8 @@
       "title": "Wallpaper and style",
       "subtitle": "Wallpapers, Color palette (SemWT_*)",
       "og_color": "#F472B6",
+      "mimi_color": "#F16E9A",
+      "mimi_badge": "#6EBAF1",
       "svg_path": "M4 16l4.6-4.6a2 2 0 012.8 0L16 16m-2-2l1.6-1.6a2 2 0 012.8 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
     },
     {
@@ -338,6 +389,8 @@
       "title": "Themes",
       "subtitle": "HexNext From-Scratch RROs (> SemWT_*)",
       "og_color": "#C084FC",
+      "mimi_color": "#B7AEBD",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.3M11 7.3l1.7-1.7a2 2 0 012.8 0l2.8 2.8a2 2 0 010 2.8l-8.5 8.5"
     },
     {
@@ -346,6 +399,8 @@
       "title": "Home screen",
       "subtitle": "Layout, Grid 5x6, App icon badges",
       "og_color": "#60A5FA",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#6EBAF1",
       "svg_path": "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
     },
     {
@@ -354,6 +409,8 @@
       "title": "Lock screen and AOD",
       "subtitle": "Screen lock type, Always On Display",
       "og_color": "#2DD4BF",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
     },
     {
@@ -362,6 +419,8 @@
       "title": "Security and privacy",
       "subtitle": "Biometrics, Auto Blocker, Knox Matrix",
       "og_color": "#4ADE80",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#B7AEBD",
       "svg_path": "M9 12l2 2 4-4m5.6-4.4A12 12 0 0012 3a12 12 0 00-8.6 4.6A12 12 0 0012 21a12 12 0 008.6-13.4z"
     },
     {
@@ -370,6 +429,8 @@
       "title": "Location",
       "subtitle": "Location permissions, Wi-Fi scanning",
       "og_color": "#38BDF8",
+      "mimi_color": "#F16E9A",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M17.7 16.7L13.4 21a2 2 0 01-2.8 0l-4.2-4.3a8 8 0 1111.3 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"
     },
     {
@@ -378,6 +439,8 @@
       "title": "Safety and emergency",
       "subtitle": "Medical info, Emergency SOS, Alerts",
       "og_color": "#F87171",
+      "mimi_color": "#F16E9A",
+      "mimi_badge": "#6EBAF1",
       "svg_path": "M12 9v2m0 4h.01m-6.9 4h13.8c1.5 0 2.5-1.7 1.7-3L13.7 4c-.8-1.3-2.7-1.3-3.5 0L3.3 16c-.8 1.3.2 3 1.8 3z"
     },
     {
@@ -386,6 +449,8 @@
       "title": "Accounts and backup",
       "subtitle": "Manage accounts, Samsung Cloud, Smart Switch",
       "og_color": "#60A5FA",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
     },
     {
@@ -394,6 +459,8 @@
       "title": "Google",
       "subtitle": "Google Play services & parental controls",
       "og_color": "#93C5FD",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M21 12a9 9 0 11-3.2-6.9M21 12h-9"
     },
     {
@@ -402,6 +469,8 @@
       "title": "Advanced features",
       "subtitle": "Labs, S Pen, Multi window, Motions",
       "og_color": "#FBBF24",
+      "mimi_color": "#B7AEBD",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.3 6.9L21 12l-5.7 2.1L13 21l-2.3-6.9L5 12l5.7-2.1L13 3z"
     },
     {
@@ -410,6 +479,8 @@
       "title": "Digital Wellbeing",
       "subtitle": "Screen time, App timers, Driving monitor",
       "og_color": "#34D399",
+      "mimi_color": "#F16E9A",
+      "mimi_badge": "#6EBAF1",
       "svg_path": "M4.3 6.3a4.5 4.5 0 016.4 0L12 7.6l1.3-1.3a4.5 4.5 0 116.4 6.4L12 20.4l-7.7-7.7a4.5 4.5 0 010-6.4z"
     },
     {
@@ -418,6 +489,8 @@
       "title": "Device care",
       "subtitle": "Storage, Memory, App protection",
       "og_color": "#2DD4BF",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
     },
     {
@@ -426,6 +499,8 @@
       "title": "Apps",
       "subtitle": "Default apps, App management",
       "og_color": "#818CF8",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
     },
     {
@@ -434,6 +509,8 @@
       "title": "General management",
       "subtitle": "Language, Date and time, Samsung Keyboard",
       "og_color": "#94A3B8",
+      "mimi_color": "#B7AEBD",
+      "mimi_badge": "#6EBAF1",
       "svg_path": "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
     },
     {
@@ -442,6 +519,8 @@
       "title": "Accessibility",
       "subtitle": "TalkBack, Vision & Hearing enhancements",
       "og_color": "#4ADE80",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14v7m-4-5l4-2 4 2"
     },
     {
@@ -450,6 +529,8 @@
       "title": "Software update",
       "subtitle": "Download and install, One UI 9.0",
       "og_color": "#38BDF8",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#6EBAF1",
       "svg_path": "M4 4v5h.6m15.4 2A8 8 0 004.6 9m0 0H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"
     },
     {
@@ -458,6 +539,8 @@
       "title": "Tips and user guide",
       "subtitle": "Remote support, One UI 9.0 changelog",
       "og_color": "#FBBF24",
+      "mimi_color": "#F16E9A",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M8.2 9c.5-1.2 1.8-2 3.3-2 2 0 3.5 1.3 3.5 3 0 1.4-1 2.2-2.2 2.7-.7.3-1.3.8-1.3 1.6V15m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
     },
     {
@@ -466,6 +549,8 @@
       "title": "Cover screen",
       "subtitle": "Flex Window widgets & quick settings",
       "og_color": "#A78BFA",
+      "mimi_color": "#B7AEBD",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4m6-18h4a2 2 0 012 2v14a2 2 0 01-2 2h-4m-6-18v18m6-18v18"
     },
     {
@@ -474,6 +559,8 @@
       "title": "Battery",
       "subtitle": "Battery protection, Charging settings",
       "og_color": "#4ADE80",
+      "mimi_color": "#6EBAF1",
+      "mimi_badge": "#4C9FFD",
       "svg_path": "M13 10V3L4 14h7v7l9-11h-7z"
     },
     {
@@ -482,14 +569,23 @@
       "title": "About phone",
       "subtitle": "SM-S938U \u2022 One UI 9.0 \u2022 Android 16",
       "og_color": "#94A3B8",
+      "mimi_color": "#4C9FFD",
+      "mimi_badge": "#F16E9A",
       "svg_path": "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
     }
   ],
   "NIFERPITOU_EXTRA_PREFERENCES": {
-    "plugin_title": "terpsichora_ - Day/Night",
-    "plugin_package": "project.vivid.ui.plugin.niferpitou",
-    "plugin_author": "@envy4",
+    "plugin_title": "terpsichora_ - Day/Night + MIMI (Miui 11)",
+    "plugin_package": "project.vivid.ui.plugin.niferpitou + project.vivid.ui.plugin.miui",
+    "plugin_author": "@envy4 & Rohit_S_Shetty",
     "settings_icon_styles": [
+      {
+        "id": "mimi_sett",
+        "label": "MIMI (Miui 11 Dashboard Icons)",
+        "asset_folder": "mimi-anaconda_28_crocodile_19",
+        "frameless_folder": "mimi-anaconda_28_frameless",
+        "desc": "Ported from MIMI (#Hex Miui 11 Plugin v1.3: anaconda_28 + crocodile_19 + sec_st_ic_*): MIUI 11 Sky Blue (#4C9FFD), Coral Rose (#F16E9A), Ice Cyan (#6EBAF1) & Soft Lavender (#B7AEBD) squircle dashboard icons."
+      },
       {
         "id": "1sett",
         "label": "Primary Color Tint (1sett)",
@@ -529,8 +625,39 @@
     "categories": [
       {
         "id": "settings_tweaks",
-        "title": "Settings Icons & Dashboard Tweaks (anaconda_tints/settingsicon-*)",
+        "title": "Settings Icons & Dashboard Tweaks (MIMI + anaconda_tints/settingsicon-*)",
         "options": [
+          {
+            "key": "settings_icon_style",
+            "type": "select",
+            "title": "Settings Dashboard Icon Pack",
+            "choices": [
+              {
+                "value": "mimi_sett",
+                "label": "MIMI (Miui 11 Dashboard Icons — mimi_sett)"
+              },
+              {
+                "value": "1sett",
+                "label": "Primary Color Tint (1sett)"
+              },
+              {
+                "value": "2sett",
+                "label": "Secondary Accent Tint (2sett)"
+              },
+              {
+                "value": "3sett",
+                "label": "OG Multi-Tone Colors (3sett)"
+              },
+              {
+                "value": "alt_1sett",
+                "label": "Duotone Primary + Accent (alt_1sett)"
+              },
+              {
+                "value": "alt_2sett",
+                "label": "Duotone Accent + Primary (alt_2sett)"
+              }
+            ]
+          },
           {
             "key": "settframe",
             "type": "switch",
@@ -925,7 +1052,8 @@
           "role": "accent",
           "desc": "Samsung checkbox/radio active"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_0 + crocodile_5 (bodh_on/off) + crocodile_6 (check/radio) + crocodile_7 (floating_popup_background_light.xml)"
     },
     {
       "id": "systemui",
@@ -1010,7 +1138,8 @@
           "role": "text",
           "desc": "Status bar clock & indicator tint"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_13 + anaconda_14 + crocodile_8 (statusbar) + crocodile_9 (nav_back/home/rec) + crocodile_30 (volume) + qs_circle"
     },
     {
       "id": "settings",
@@ -1083,7 +1212,8 @@
           "role": "settings_email",
           "desc": "Samsung Account email subtitle visibility tint (hidemail)"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_28 + crocodile_19 + sec_st_ic_connections + sec_st_ic_sounds (One UI 9.0 26-Icon Vector Adapter)"
     },
     {
       "id": "dialer",
@@ -1131,7 +1261,8 @@
           "role": "secondary",
           "desc": "Keypad / Recents / Contacts tab"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_9 + assets/tint_always (call_dial_call_btn_bg_rectangle_left/right.png) + ic_phone"
     },
     {
       "id": "incallui",
@@ -1166,7 +1297,8 @@
           "role": "card",
           "desc": "In-call control sheet surface"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_6 (553 KB Fullscreen MIUI 11 Call Card Overlay)"
     },
     {
       "id": "contacts",
@@ -1207,7 +1339,8 @@
           "role": "surface",
           "desc": "Alphabetical section divider"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_10 + anaconda_11 + ic_contact"
     },
     {
       "id": "messaging",
@@ -1260,7 +1393,8 @@
           "role": "accent",
           "desc": "Send button & unread badge"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_17 (215 KB) + crocodile_21 (MIUI 11 Chat Bubbles) + ic_message"
     },
     {
       "id": "honeyboard",
@@ -1307,7 +1441,8 @@
           "role": "text",
           "desc": "Key character legend color"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_22 (90 KB) + anaconda_46 + crocodile_25 (MIUI 11 Keycaps)"
     },
     {
       "id": "myfiles",
@@ -1348,7 +1483,8 @@
           "role": "accent",
           "desc": "Selected file check & folder icon"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_12 + anaconda_2 (DocumentsUI) + crocodile_22"
     },
     {
       "id": "gallery3d",
@@ -1383,7 +1519,8 @@
           "role": "accent",
           "desc": "Active tab & selection badge"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_21 + crocodile_20 (MIUI 11 Floating Bottom Bar)"
     },
     {
       "id": "clockpackage",
@@ -1418,7 +1555,8 @@
           "role": "accent",
           "desc": "Start/Lap & active alarm switch"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_15 + crocodile_15 (MIUI 11 Clock Cards)"
     },
     {
       "id": "popupcalculator",
@@ -1459,7 +1597,8 @@
           "role": "secondary",
           "desc": "Operator symbol text color"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_16 (MIUI 11 Calculator Pad)"
     },
     {
       "id": "calendar",
@@ -1494,7 +1633,8 @@
           "role": "accent",
           "desc": "Today highlight & FAB"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_18 + anaconda_25 (130 KB MIUI 11 Month/Agenda Views)"
     },
     {
       "id": "lool",
@@ -1529,7 +1669,8 @@
           "role": "accent",
           "desc": "Optimize button & gauge ring"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_27 + crocodile_18 (MIUI 11 Device Care Ring)"
     },
     {
       "id": "launcher",
@@ -1564,7 +1705,8 @@
           "role": "accent",
           "desc": "Active home screen dot"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_29 (356 KB) + ic_phone/message/contact/settings/camera/ic_icon_bg"
     },
     {
       "id": "aodservice",
@@ -1593,7 +1735,8 @@
           "role": "secondary",
           "desc": "AOD notification badge tint"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_31 + anaconda_32 (Biometrics Prompt)"
     },
     {
       "id": "smartcapture",
@@ -1622,7 +1765,8 @@
           "role": "accent",
           "desc": "Scroll capture / Crop action"
         }
-      ]
+      ],
+      "mimi_bundle": "MIMI anaconda_33 (99 KB) + crocodile_26 (MIUI 11 Screenshot Toolbar)"
     },
     {
       "id": "routines",
@@ -1657,7 +1801,1099 @@
           "role": "accent",
           "desc": "Running routine indicator"
         }
+      ],
+      "mimi_bundle": "MIMI anaconda_35 (135 KB Modes & Routines)"
+    },
+    {
+      "id": "telephonyui",
+      "anaconda_asset": "assets/anaconda/anaconda_5 + anaconda_7",
+      "mimi_bundle": "MIMI anaconda_5 (33.5 KB TelephonyUI) + anaconda_7 (Telecom Server)",
+      "system_rro_package": "com.hexnext.oneui9.rro.telephonyui",
+      "semwt_target": "com.samsung.android.app.telephonyui:SemWT_com.samsung.android.app.telephonyui",
+      "fabricated_name": "HexNextOneUi9TelephonyUI",
+      "target_package": "com.samsung.android.app.telephonyui",
+      "label": "Samsung TelephonyUI & Telecom (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_5 & anaconda_7) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "call_settings_card_bg_dark (refactored One UI 8)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "telephony_main_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Call settings & SIM manager bg"
+        },
+        {
+          "name": "telephony_card_bg_color",
+          "type": "0x1c",
+          "role": "card",
+          "desc": "Call forwarding / VoLTE card"
+        },
+        {
+          "name": "telephony_accent_color",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "Active SIM toggle & VolTE badge"
+        }
+      ]
+    },
+    {
+      "id": "voicenote",
+      "anaconda_asset": "assets/anaconda/anaconda_20",
+      "mimi_bundle": "MIMI anaconda_20 (32.4 KB Voice Recorder)",
+      "system_rro_package": "com.hexnext.oneui9.rro.voicenote",
+      "semwt_target": "com.sec.android.app.voicenote:SemWT_com.sec.android.app.voicenote",
+      "fabricated_name": "HexNextOneUi9VoiceNote",
+      "target_package": "com.sec.android.app.voicenote",
+      "label": "Samsung Voice Recorder (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_20) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "wave_bar_Recorded_color (refactored One UI 9)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "voicenote_main_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Recorder main background"
+        },
+        {
+          "name": "voicenote_waveform_active_color",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "Live audio waveform highlight"
+        },
+        {
+          "name": "voicenote_record_btn_color",
+          "type": "0x1c",
+          "role": "secondary",
+          "desc": "MIUI 11 coral record action button"
+        }
+      ]
+    },
+    {
+      "id": "weather",
+      "anaconda_asset": "assets/anaconda/anaconda_24 + crocodile_24",
+      "mimi_bundle": "MIMI anaconda_24 + crocodile_24 (MIUI 11 Weather & Widget)",
+      "system_rro_package": "com.hexnext.oneui9.rro.weather",
+      "semwt_target": "com.sec.android.daemonapp:SemWT_com.sec.android.daemonapp",
+      "fabricated_name": "HexNextOneUi9Weather",
+      "target_package": "com.sec.android.daemonapp",
+      "label": "Samsung Weather & Widgets (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_24 & crocodile_24) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "weather_detail_card_bg (refactored One UI 8)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "weather_main_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Weather forecast backdrop"
+        },
+        {
+          "name": "weather_card_container_bg",
+          "type": "0x1c",
+          "role": "card",
+          "desc": "Hourly / AQI card container"
+        },
+        {
+          "name": "weather_accent_tint",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "UV / Precipitation graph tint"
+        }
+      ]
+    },
+    {
+      "id": "scloud_pass",
+      "anaconda_asset": "assets/anaconda/anaconda_26 + anaconda_49 + anaconda_50 + anaconda_51",
+      "mimi_bundle": "MIMI anaconda_26 (131 KB SCloud) + anaconda_49/50/51 (Samsung Pass & Autofill)",
+      "system_rro_package": "com.hexnext.oneui9.rro.samsungpass",
+      "semwt_target": "com.samsung.android.samsungpass:SemWT_SamsungPass, com.samsung.android.scloud:SemWT_SCloud",
+      "fabricated_name": "HexNextOneUi9SamsungPass",
+      "target_package": "com.samsung.android.samsungpass",
+      "label": "Samsung Cloud & Samsung Pass (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_26, 49, 50, 51) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "pass_autofill_dialog_bg (refactored One UI 7)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "pass_main_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Vault & Cloud sync background"
+        },
+        {
+          "name": "pass_card_bg_color",
+          "type": "0x1c",
+          "role": "card",
+          "desc": "Credential & Autofill sheet card"
+        },
+        {
+          "name": "pass_verified_accent_color",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "Biometric prompt & verify badge"
+        }
+      ]
+    },
+    {
+      "id": "soundalive",
+      "anaconda_asset": "assets/anaconda/anaconda_43",
+      "mimi_bundle": "MIMI anaconda_43 (27.3 KB SoundAlive & Dolby Equalizer)",
+      "system_rro_package": "com.hexnext.oneui9.rro.soundalive",
+      "semwt_target": "com.sec.android.app.soundalive:SemWT_com.sec.android.app.soundalive",
+      "fabricated_name": "HexNextOneUi9SoundAlive",
+      "target_package": "com.sec.android.app.soundalive",
+      "label": "SoundAlive & Dolby Atmos EQ (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_43) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "eq_knob_active_color (refactored One UI 8)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "soundalive_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Sound quality & effects bg"
+        },
+        {
+          "name": "soundalive_eq_band_active",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "Equalizer band slider fill"
+        },
+        {
+          "name": "soundalive_dolby_chip_color",
+          "type": "0x1c",
+          "role": "secondary",
+          "desc": "Dolby Atmos mode chip"
+        }
+      ]
+    },
+    {
+      "id": "reminder",
+      "anaconda_asset": "assets/anaconda/anaconda_48",
+      "mimi_bundle": "MIMI anaconda_48 (74.5 KB Samsung Reminder)",
+      "system_rro_package": "com.hexnext.oneui9.rro.reminder",
+      "semwt_target": "com.samsung.android.app.reminder:SemWT_com.samsung.android.app.reminder",
+      "fabricated_name": "HexNextOneUi9Reminder",
+      "target_package": "com.samsung.android.app.reminder",
+      "label": "Samsung Reminder (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_48) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "reminder_item_card_bg (refactored One UI 8)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "reminder_main_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Reminder list background"
+        },
+        {
+          "name": "reminder_card_bg_color",
+          "type": "0x1c",
+          "role": "card",
+          "desc": "Checklist card surface"
+        },
+        {
+          "name": "reminder_fab_accent_color",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "Add reminder FAB & checkbox"
+        }
+      ]
+    },
+    {
+      "id": "vending",
+      "anaconda_asset": "assets/anaconda/anaconda_55 + anaconda_57",
+      "mimi_bundle": "MIMI anaconda_55 (27.8 KB Play Store) + anaconda_57 (18 KB Play Services)",
+      "system_rro_package": "com.hexnext.oneui9.rro.vending",
+      "semwt_target": "com.android.vending:SemWT_Vending, com.google.android.gms:SemWT_Gms",
+      "fabricated_name": "HexNextOneUi9PlayStore",
+      "target_package": "com.android.vending",
+      "label": "Google Play Store & GMS (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_55 & anaconda_57) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "play_header_background_dark (refactored Android 16)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "play_main_bg_color",
+          "type": "0x1c",
+          "role": "bg",
+          "desc": "Play Store AMOLED background"
+        },
+        {
+          "name": "play_search_bar_bg_color",
+          "type": "0x1c",
+          "role": "card",
+          "desc": "Top search pill container"
+        },
+        {
+          "name": "play_install_btn_accent",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "Install / Update primary button"
+        }
+      ]
+    },
+    {
+      "id": "gametools",
+      "anaconda_asset": "assets/anaconda/anaconda_58 + anaconda_59",
+      "mimi_bundle": "MIMI anaconda_58 (30.4 KB Game Booster) + anaconda_59 (Gaming Hub)",
+      "system_rro_package": "com.hexnext.oneui9.rro.gametools",
+      "semwt_target": "com.samsung.android.game.gametools:SemWT_GameTools",
+      "fabricated_name": "HexNextOneUi9GameTools",
+      "target_package": "com.samsung.android.game.gametools",
+      "label": "Samsung Game Booster & Hub (MIMI)",
+      "category": "MIMI Skin Overlays",
+      "selected": true,
+      "notes": "Ported from MIMI (project.vivid.ui.plugin.miui anaconda_58 & anaconda_59) for One UI 9.0 at priority=10000 (> SemWT_*).",
+      "legacy_broken_resources": [
+        "game_booster_panel_bg (refactored One UI 9)"
+      ],
+      "oneui9_resources": [
+        {
+          "name": "gametools_floating_panel_bg",
+          "type": "0x1c",
+          "role": "card",
+          "desc": "In-game HUD overlay sheet"
+        },
+        {
+          "name": "gametools_perf_gauge_color",
+          "type": "0x1c",
+          "role": "accent",
+          "desc": "FPS / Temp telemetry ring"
+        },
+        {
+          "name": "gametools_priority_mode_tint",
+          "type": "0x1c",
+          "role": "secondary",
+          "desc": "Priority mode active toggle"
+        }
       ]
     }
-  ]
+  ],
+  "MIMI_SKIN_MANIFEST": {
+    "plugin_id": "mimi_miui11",
+    "plugin_name": "MIMI (Miui 11)",
+    "app_name": "#Hex Miui 11 Plugin",
+    "package_name": "project.vivid.ui.plugin.miui",
+    "author": "Rohit_S_Shetty",
+    "version_name": "1.3",
+    "version_code": 5,
+    "oneui9_compatibility": "Rebuilt from scratch for One UI 9.0 (Android 16 / SDK 36) at priority=10000 (> SemWT_*)",
+    "colors": {
+      "hex_primary": "#4C9FFD",
+      "hex_accent": "#F16E9A",
+      "hex_secondary_accent": "#6EBAF1",
+      "hex_welcome_accent": "#B7AEBD",
+      "hex_background": "#000000",
+      "hex_card_bg": "#121212",
+      "card_color": "#1A1A1A",
+      "nav_color": "#181818"
+    },
+    "bools": {
+      "has_adaptive_switch_component": false,
+      "has_lvl": true,
+      "has_no_frame": false,
+      "has_tintable_targets": false
+    },
+    "floating_popup_background_light_xml": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!-- Ported from project.vivid.ui.plugin.miui res/drawable/floating_popup_background_light.xml for One UI 9.0 -->\n<shape xmlns:android=\"http://schemas.android.com/apk/res/android\" android:shape=\"rectangle\">\n    <solid android:color=\"#FF1A1A1A\" />\n    <corners android:radius=\"17.0dip\" />\n    <stroke android:width=\"1.5dip\" android:color=\"#FF4C9FFD\" />\n</shape>",
+    "tint_always_overlays": [
+      {
+        "path": "assets/tint_always/once/base/xx1/drawable-sw360dp-xxhdpi-v24/call_dial_call_btn_bg_rectangle_left.png",
+        "target_package": "com.samsung.android.dialer",
+        "res_name": "call_dial_call_btn_bg_rectangle_left",
+        "dimensions": "303x200",
+        "bytes": 2400
+      },
+      {
+        "path": "assets/tint_always/once/base/xx1/drawable-sw360dp-xxhdpi-v24/call_dial_call_btn_bg_rectangle_right.png",
+        "target_package": "com.samsung.android.dialer",
+        "res_name": "call_dial_call_btn_bg_rectangle_right",
+        "dimensions": "303x200",
+        "bytes": 2348
+      },
+      {
+        "path": "assets/tint_always/once/base/xx1/drawable-sw411dp-xxhdpi-v24/call_dial_call_btn_bg_rectangle_left.png",
+        "target_package": "com.samsung.android.dialer",
+        "res_name": "call_dial_call_btn_bg_rectangle_left",
+        "dimensions": "303x175",
+        "bytes": 2325
+      },
+      {
+        "path": "assets/tint_always/once/base/xx1/drawable-sw411dp-xxhdpi-v24/call_dial_call_btn_bg_rectangle_right.png",
+        "target_package": "com.samsung.android.dialer",
+        "res_name": "call_dial_call_btn_bg_rectangle_right",
+        "dimensions": "303x175",
+        "bytes": 2109
+      }
+    ],
+    "drawables": {
+      "qlogo": "data:image/png;base64,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",
+      "qs_circle": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAMAAAAL34HQAAAAsVBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+3mHKcAAAAOnRSTlMADDRYgJ+rv9vf5yRol7sYXDCP1xx402AQ7+O3k3BEQCDPh1AsCMf3VHzrPDinBPOzr3TD+0iLgygUrpW/9QAABUBJREFUeNrNXGljokwMHvEAoVpRrLZeXYF6UKG27LbL//9hr6+ZAQVcuYZJPvnBgYdJJtckIaQcNaRmq92RZaWrBoHaVWS50241pQYRRtpDr3/Ckk5qv/eg1Q7pcdDuBnep2x481odJH46CzDQa6nVgMsZPQU56Ght8MTUm/aAQ9Sf8DsG09Zx84ctsvpgsV/rraUeMV321nCzmsxS5e25NawL1a21advqfbctcv9UA7HG4uXqH0mvefcl021OuFm2G1R5Me3cFStllVkna7grZZmdXh2p5+eh9z8m3+n2+v1QYy6pUwuHiqbJZ4HNdU754xKEKdeGOveiJH6uij5GO0VO8T7f0Vn2FT/M7pfS1fvAjNVZS9H9HYnEsbXm1j8iSl5Ewdx1ZXbMKMTVfwq1vueUZ6K8rsh2NP35ZRlqhM/VlVadsrFD5q4VE1fHK73eqZLTYhnlO/tVbrwrpTNfOjA3+Nu/SCfukGQf/8nHGcC3yLVywdWM+PtKYffV3IVRbwom2BXBNmEwuCTcKT9Qi75fsHcKRJDUfR9h3qD98A4Mf6i75mey/VROq04GkcZ2XQa8adG/33FGd9ou+S72rhNyv4hq4gLNDOdO/Z0eoz+AvSS3k0NPVuuNf8dZXN079v7fBoF7fmNRG4/vixQRrVmfyZ3ZXvMZZD0aV9Jd6rJ83WejVKu4xsfduxWmHTKeCm3gdbnhn1EN264ZFaHYqlUs2mCjfqh0V0SDDMUoL2HcAeU0E0De8e5diNwFxV0jqmnJqk1QBQwBsEiFErcswkSKDzToSQQSZk008ldcCeddEwdL8NOU0hbxohwijDuRXpymbFejiYOkpurwBm/VBBBJkmZ4byQhsJRLWCjBMEtpfJkIJ8qv9C9dBqM4KHVVAYcRM+N4WC8vexzxjuPPqEcHUg/u02Nl0RMNyrrUUmEOFCCflyjCObnkVdRP4ViPq0sDeaeJhaYAE3JsBFh4yLg7Ov9s4zmF0Ftvn33CD28QAqwke8gVDpxhgTSMxf4B7Z4KCfp3BPIT8XOOAtQ7lvI/BTDMyQy8CEoUWDlgW5GZOjilImY0Dlg1oGkSC2g+ChCCrJFFVMcMCa0aVKMQ8cyyw5jT+aee7eOFNC2p+Ool4QyhNaBgt3854iaAljcFk8RFiMlqUqYujY4GlU+cP3JpXLLBeqWujxmJGwWRQ6wPanqAhigcpLKRMRCrySBUEUnWK1PggNdVIHRukbiBSp1mKwn4M1KUhBtKADGn4ijXYR5oagUTSGw5Yb2EiCWnajZ7JLQZY2wtthTSlizQBjvS6AOnlCtarKHpx9y4a1XusvOAJh881v77mZJfCrlhUbvxSGMcVuhm/QkdacMDKMySRqKRkeQYtZjmKhHVMFrMgLf1hhVIHcbAOaYVSSMvKsBbhIS1ZxFrgibQcFmvxMNJSa6yF6VjL+JE2PWBtEUHaUIO1/Shq1qqpftHZZDv9YWtbLZ7qT9bWtrARUK2hEdBQsx991pyncFcTYdtkJs6w5rwR5/0yRvmaDllLrsrVtWetnDRvlIEWAf+WzrCB+TO3/8Oz3ZuNehkW8Mv4N8cP861bhKME/nKwzmyUQB4OXst98FK5gDlstIc/yL945XFiZMjAYiMB9HCoR7/CqFYLR2WpBe1bNAJl813RxZ79vSk/y+ZiYIzyu5IoVQkqGWBS7XidYzXjdQjWYURYRzcRpIOuzvE2xrFgBOsQNYJ05Nz5JRgH9KUDQzDO8H9COfwR1AXCUZlUXyMcLEoPJsIxrEwl4RtaGx0CPiN+/wMUxVk0bGB+tgAAAABJRU5ErkJggg==",
+      "qs_wifi": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIoAAACKCAMAAABCWSJWAAABF1BMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////jvJXZAAAAXHRSTlMADDBEYGyAGFCLt+sEQJPXOJcIaNN450zfv6Mcq9ubZFTvw3AkgyggPPvzfPcsr48QWM8e8LP2G/TjVfyaFDR2UgKfhwMBp8snMsH+GeJ0ew0rax35Bmms+K4FGn5gQ6cAAAObSURBVHja7Zlpe/FAGIWDiC2hovaWoqohSrRKF7Ra1VZ13+v//463XCQzJJZXMvrhub+JmeSYnHnmzKAoAAAAAAAAAAAAAAAAAACARTCZLbSV+cVKW8ymVamw2R1OVw/D5XTYbYRlsJzb09PA4+ZYYkLWvK7eVFzeNRI6eN96bw7WfbzRNvUHenMS8BtpY97q6i2Ay2rYyARVrBoKR7z9yeyNhEMqFg4aIiS6MfaczVjcjP1s3hyPbY412ojqr2QrgT0imdpWb7edSmINE1t62zWGOTK9M63xThrzdkxX+2bQCbwZn+lGPo6+qPWMfkp2kZcToueqpSyNuDixq5tNBPmm2dzc85PPZeVugk6GSSk/z7nQUGecSs+UHkpy8u1E36J9faLcOafnmHjyi/fOe/QbF598qz3VOcnng3S/2tLBvKqLTHvyDXzLKbHLji1MflmUYiXF0T2hFJOKk60K8vf2ZZTsH2gOLy+VhclFRyhLvOYrPthfZlAONZQU05phIZAuamg5XGZYKlVVJaZ0dlo4yKZNqlqqlaWq2+AezNjFo1lJ5WispDGDq0vWueMTUTjFrtTK88Smcg3rdCqIJ8fLzuZ64+wc/cyNmcSVbF4wzEUzORbwAhza6/ysUV++xl22NFaBX1Nc0UgyitJXmIUwg7Uu9d7/uJFHlSbDAh8vIQ3cBu6HWCRTtjVia7CNpEmWgJKEVfMprDVhvBav/Ijw1PAcDcsNvcYoUdICM6spo2c2mOR6lD1EaXZjSW58bYCUm2FByXLztOaG8zpwY4RpbzsDJZb5mlsGWjq3hhj3rqsWmNkMJ93fS1yGVQvn3TtjfBsNVbMP+BItReSZm4hI+IL8kK2GokYVlscnLN7aYiK+7ogx7Pgr//RI5uypyIiTC7LIFMmfCuZD6ukglCetxK6Z47J2skpS02JTiqSSZ9QeyabD0UyixnkmJqT18qps1OzDGWyyK5uv15cWISlvjdEOKIktAtzovElovBGSwr93hs/8wEos+zG83HnnSb2gyqccXJACa5JjymelRcwtyqa+LddXW1uvjfp/H3UMTwh3PKuZzOihWMDc/2wO6H3YNT+cXG77WQr/RJo6Mg7IGNWpFaC4QxDGnUMaW2l89SnZqBWhVJLJKkMaFvs3ZIOlVghbUJQUVqrkF/9IiZ9aOfQg8ydo6g9Q++p2v2rUn+D75+ebAgAAAAAAAAAAAAAAAAAAAADD+AcLVPcyCbQ5/QAAAABJRU5ErkJggg==",
+      "qs_bt": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIoAAACKCAMAAABCWSJWAAABNVBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////9vAW14AAAAZnRSTlMAI3iz1diqQgO//NMo82CfDNsw92ivEN80+6vWtxQSB4/jRGRQ64AEGBzDPOdIh++Lu8sgVJtlp6MIcJmTOujxHrQslyQCMX0K+hZMXFnP7UBsfIPXCw5h/nuwBc5YYnHJCbHH+fUeDhghAAADDUlEQVR42u2aWVvaQBSGT4O2IBoICIhWWQokUWzUattQuoPdLd2s3ff8/5/QEALJkBFy4SwX570SzRNfMpkz3ywACIIgCIIgCIIgCIIgCCIVl5TEwuLlK0kJTFJLjstSelm4ijNmRZVGxXEyWWlUHC0njYqTX5VGxXEKRWlUnNKaNCpOWRGssr4RyFzd5PGPc6qiqDmKylalGrjU6sxFrml+p1UjKu5PjWbQSC2dqchmIfjeCSOqAuZ2cEHKZGiy0w6/nM3dqAro18vRCxg8kzbZUSwzqgJQD121x6qRCtOdNkFTAWM/uOLgBps3NlI/HJWmAqAEjWQdslDRxv00c1QbD350FdipBbo3GdQT/9a33ByQve1/yNFVoBg0prV14Sqq/0y8RGKXQi1EUQHoTBrpzoWrKH44Gn3qjj4p56rA3Xv+7++zUjmKq/Lg4fixJBk1UMn2Kpk2r4EeTUwcndVrm3Fd9MdzXtteJujPG31mnbnU7WqzO7NRLYfGh2NxJa7Yyodj1JOnDGpcIk7htxUrfMkzJiZgNOcOh/oqMWSWM88ZjYe7xBe2XkRCwkuNcF3vsQssZqiNEuZUdDp+dUKI7DOenc0IlK8Jke2BwJgd5qQhyTxIU3WQQqX9RpRIsUr28Le2IJFsi+jg+Xei5u52h6xoXUOQiK6WyNLaEyQCjffk6xrq4B8O6xxFBgfTXXjyp9OPC2dcSpzHWipa1sZP5NNG/oxH4fdYLlAKrK/S/8xnOIyExWFFUwmVL1+5hIRRWMwTywkdeyrFfeMRnbywuEKU1lZRTKCE5HeytFYNQTEb4IdFvAcmAIiZfID9M7xQ3KOsxXGakgH8StPDIveJqlsyfvv3/jOg5RV+0/dh4v87vHW6QY9O/BY1XCp7i/8oYZH7Uo/XRJXT/rmBkt8C2Nxsy3FZMK4Kh8XSmCpclpDjqHBaWI+hwm27Ya4Kx02YmSq8t6ZmqPDfsIsxfRe+jSnh5q40W97yHASQ53iENIdGxB+lkeiAkUTHrhAEQRAEQRAEQRAEQRCEzn9Pb3FfRvfy1gAAAABJRU5ErkJggg==",
+      "qs_sound": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIoAAACKCAMAAABCWSJWAAABMlBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8t10FaAAAAZXRSTlMAMFxgQATX51ggx48QPDQIUPOA79tw+0xU34vPRBThdIMVAShsk6scLBjDlwyn07uzywL099DmJ/H80R8+7OgOEQsDMnOWiT135P75Hk8aNhPl/ZGg2t521cj4Xqgmya3CQutoSM6MxRkAAAK0SURBVHja7ZprUxMxFIa30Au1tGWR0tYFwVbBXhSoVQFveAG1qGi9g3fN//8LUrqb7IbN0nHmnK0z7/MNTmbydDc5OUnWsgAAAAAAAAAAAAAAAOAfSUxMJlPjIDKZFsdkpmIXyZ4TLrlgYDpfKLKazNhCMhsInBdirsBoUpoXPsoqUDkJVPmeywURwNFMhFjgMskJDd1EzMRl4qnkvQFkL3KbXJwLqEgTscRjsixNli9l/SrKJMc0d7z+5kuWVfOp1LlNLkuTyuBPpVLPeJErPCZyigxNlIoyWeFZlZKaiVRZ5Ta5amsmnkojzWyiXsKEFVSRJk0yk4WWY4vTqLShBZptIpGyI0LxTVYek1QrXERcswwq16lM1gwm6ymDSrpB9HZMz2Qj8NM5TMoGE61DFahSmViGEbsW7LBzwwtk6mSz2O2hO5v1/behlyHFm267W7fJspk7Urr5s/Lv5qDZ1vYdusTqhNTyYXTubty7v916QJjj3RybPbNhbbqx87BGudxo5XOcQAUqUIFKjCq1FGmyHT3xP3r8ZHfvKaXKqMuh9ex5j/hFjlokJPfJx5QqnV5EtltnGN6yoOy+VMXJq4OD18FmbxhUZJndf+tNkJ137+3NDx877JNebj4+uSVa+3N/MEIPj9hVvC1Z/8twC9Zuut3uf2VPhcONau/bYtBEiO8xZOWy0z/8kdW2rb2w7TtD/k/8HA6U1IrPJORQg29FUib98KMePhVpsmU4AGMzkcfXmSPTsSC3iZ0wH5YymwzWRuMRMgNLAZOIg3VyVM9evWC8bmAzqZx+Y/olDClTISYRV1OEtH+FmURc2NGR97oqaQHjNSYZBYNJxOUuFcW0wSTiyptsZa4ej5PfoSHjhwBkA/dPZdUUG5vPI04e2rh8NAIAAAAAAAAAAAAAAPhv+Auoyt219A9dygAAAABJRU5ErkJggg==",
+      "qs_rotation": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIoAAACKCAMAAABCWSJWAAABhlBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+X02G5AAAAgXRSTlMADhwTAglDkNr8+7UoJVM9CFHH+P732QZA5/b986M8JLjwvK8Yk0X6gO80Y9tNGutIdgNMcIEXw3gEm6sQvzINqjDPRGS7LGh8INdQtx8b01R1uaWNeRUUoNj00WyPTyYjzkkBGdBHDBY4RtJ+YNwKqKcdnvmui3oPSs0iTvGOprqT6iyHAAAFd0lEQVR42u2ai1cTORSHYy0oI9Vapi/aWpECLVYptgqFVvvQCrVb3V1EpbiuVnFlZX2B7tud/3wLk8wkM0nrOXOnu+eY3+EcOsk8vpkk997cBCEpKSkpKSkpKSkpKSkpKSmpr0zHPMf/BxTekdETJ8eUU+PWct/pM/6hkpwNTGg9qcFQmK2IRCdj8cS5oYEkz2tEU16mJnxBL55ODgUkNaNoptjWmJ3DxcpMynUQfzqj0Zpnai+alJm0y31mPKuxusRUX16gqrLjbpLk4hYSbZGpvxKg6+J590gKipVEu8qeca2wRFUqyy6BFFfoN1b1/2n7+FqlTku40mFKZfMJ5es3KiIUhKrUmQEXRlLRvH+t3jvGn+gm9+R6zWSB/y5m66wUD49v6Qf5gY2ZAO+xRlcs6IYOd5mG6ILbRhdfAx7FimWAruuHzZLwkrphY+6AWjZiT6LkK6QGf/1kk+BXAa09sbFUe7SOCnJ4dH3THgnbX4D4iGgJDCVN+gnVSVN3NS2ITdi9b7/7fuP+pr2NSLOmwXwxebsCUzwfeaD/ePhoazIWnOrYTcg2vjAIZV1myCjmV1dUtWd6e3/NlNAErABFSvgz14p8EtO02lmK2NYpMF56Gj+oPoiEx1LHNdMQJOeI3xlMwmMh/gIi3k3ge1W/gITDUoWz/0U8fFb7kyhCFhwzZIqOUSL4Ecm+JNOrIRFLEpdHHKM81m+01JfkhyftH5+KWHBc99gxSpZn3Swkz7q9w+ciFuzUs44dobB9KBIc7tf4LB5c6tS0LGPzJiaJ5Yypxws+C0Z0GnO3BP6MQ4JQm8+yppe1HKJEeZNAimRshy5ud3gsDRwqOAzz8Z1fCkiUHbbCY7B0fjLDHVzkLGp5hUMmEcmu9QLPzyTKem3GUthKvnKEsscbiAbJ3K79Ct8vmp562XhjlOHIcg8CpcwnmeVc0X6r+wDl3XurS3SGsm33ZR/wFFXb55Eg34FeH2ytWz3qNkRU+5HKfYUwyhw3fuk+29cbaOvTr0bhR4gI14ZS+rSlo8z91uVdMKqTaGqImv2AoNgaaL0V1B914OPOwyZw66kf7CHPNmy3ff8O98q3bR7JPunSFU4kBzKCmkbBm42g3kBZTgAzyych3n0PwsRlzHToazJn7dg+i5GftJCgOISJK9lyopuGaX9hYdkVkbwEMfzEHVK5i1TTYLnMkCgCEjQP4g5JkEDnSEyWGsWyMyYiIRbBaZDAC50oludfQAIVOpGA0sNneYpZcjExSRIooOSH2SbL74chUrcfCViYLZh8UCx/tJ/8qfUhgZt8CKZkJsujykFfErgpmWiiarIofUkAJ6rC6bvJ0pcEcPouTmpYWbgkoEkNcaqHZeGTgKZ60LgwAUaz8EmMBBjQYqI4t3fIcpgSVNVK/0tnoJKlQU0UhqU6fwVjk1uhh/rhg8g86npt1k3LgC3FGClke2S9ef/vz/8s3sMOq8d8l8ok58FTyKgUJW9n9yPhEc86DkRyFgPUIFFWFnBNqEpu2kwOtkDkszTIC8RBl1bvkIGyUBefhMcTnorlCb6SQ6BaM8z8bdEpDcYDm6uvBQSshGXBzq68Xn3ryJ5Q63vQJMgfYJcx7bppPppaxiwXwVFQilpZL1fFQ75y4zq9DFxCLsifoDzOalKEotKbBVaKyB0t0xsBlgrX2Nqrtl0CSgG5pjyzPSJwhalctJLEc8hFMZtGFpgpGbpkIXF30wi7lUa5yJsEDmsrDaI3GFlycX66lwxhg9FRDI/jugvs0rJ3yiA5P5xtV0fxbiIem4xaphPhkJ56mQicRcOU/8xpn9fap08pYydPjI540X+v455jSEpKSkpKSkpKSkpKSkpKSuor078dfQeoE2UNZAAAAABJRU5ErkJggg==",
+      "qs_airplane": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIoAAACKCAMAAABCWSJWAAABF1BMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////jvJXZAAAAXHRSTlMABC9bXTEgaLPzGJv7VBDvePjbCOevSFhwl7/PHDDfQFyji4BsYJ/HKAP2bQyrTAfDMvkSj3SNAQKnPMvXNP0kP05QLWS1/KT3gorYuCt8/pi7LLcU9USHmtPj1A7BzLkAAAQ9SURBVHja7VpZW9pAFIUuChgWCSAtBEQQta6tsUpRUVREW2kF27rk//+OBma7M0D1+xwSHu55MXNIuIeZuTPnTgwEEAgEAoFAIBAIBAKBQCA8RPDN23fvg/7rmJkNhR0X4dDsjK9CInOGw2HMRfxTEg07EsJR35QYjgIjOi1K/NISizsjEI/5ICXBw88nk/O8kfBeiZmisdMZ021l0rSZMj2XskBDZxmRpcSC51I+kMAfBfORMB88l5Ib6gPaTznP84cOR15QeUp5nUMWCVuAXIFwlsdSikNThU+WosdSFknYEuRKhFv0WMosCbsEuSXCzXospUzClp/jUApKqYyXUvFYyjIJW4VclXDL/mzMo9YVr7fmKVptqZQVyK34I2V1/Ha46lVVGluDJsGAnxnQJKzFJly7Zgqfcusw7ob4bAOqW899KmQmKCS/OQi2BUYDFMozYMy2Bpeb+UmNTZbWpYVtt7UzNEfpTN5xL7ep0HB2IqNk5Xit89ltpsd527R7+ZnfmtPv6YJlUZZ+2XUJm1zviVv2CGO7l7tfROlaDk6sSxzn674cmAKI2/8KbtfbMRVQqYf3DpThoIBDdrAHzjsMjRtkFvzGGs2Kb6RZF3fVCfONZlsNPJTV7GP7SGaU1E2J21JKemeS4jlNfjcSF1MQ1OaU45MySAlQ4YupHtdzNlZi33d4BFY7+5iQDcY0SPvYBuva0SF7tqTl9IL9tCXRJVaV/94Txp3wvquKlDGXGKnjrOPIUX1iMQRm5CljTwEZKqrO0znS52I3WbtZl068zhh/JtH1JuM39Tleyceb50n57O1in923fyF/kjw3ddcBoCSNJVJquDVx45oqM5WI6S1fF5l1jNjKmaQYhDGD58TtCLOZOop6ah1bl205TGikh5WmtIv2ZUujzUyNOJ6FCavunNURR8twVX4FakPf27b/a8/ydnvokZoWKVfqDyyz0zbz+vsPvillfny/ZutYrKx25ZUWKTctKWkqPF7HjfeTb831n67KDldZkdKpdaNnP+wAGxRl21/k17w8CUg/zP9iG18wCuxWR9fBKLNBtzxpumJuNqTdsD+juzydbpnd0naAOrCKRo0nTTEN+r4i7zUDa8clWzVDsZ2vrX8MN2m4G2juSBOyR9ieRO7w1a/hppOhsR6yy3d8aA6V3Pg9mMbmb4U+5MN0V9bXKbJ9GVrx/vTpP0NrmgcvYzpq0L999q/KdiavRORT7578feizD+T6vqc9Z57Pp5IV6Ip0ZqncDVglzTnzsnx65K6I+qPHSeTMi/KJlqaPweCjVLZOLGfGg1aITrPpSJWhH6DHKE9PI07mPEZCTuCEj1LkN/C+vHlXKxN/3jMo2wDwJDnTVykBi9vYthXwGexfR4xowHdEB9a3NQVKiJbpUOJqOT6eEiXuBtgIIBAIBAKBQCAQCAQCgUAgEIj/4x/h6VRbIYVUmgAAAABJRU5ErkJggg==",
+      "qs_flashlight": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIoAAACKCAMAAABCWSJWAAAAxlBMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////DTx3aAAAAQXRSTlMADI/jBMdMeFDPFJ/rMK/nQLOsSvcX+eiM+xgu8ymX/Whgh3y7OCgQv4MkPKfvVJN0q8P+rQ+KcPwbcsoI11ybHJByJDsAAAKfSURBVHja7ZppW7JAFIYRKRANs8wyiaDcytL23XT+/596F87QVcwoEDP14bm/NRtPs51lNAwAAAAAAAAAAAAA5VTMKhNQNSu6lVgbTMKGpVnKJpOyqVmKLZdia5biyKU4uvdKTaakpnuvGG69IRLSqLu4XQBYdXRKbfYNtrwmy0TT21IqZLvFctDaVrc0OywnO4qWabfNctPeVaFkr8MK0NlTIGWfFWK/fCUHrCAHyialax5maX5odlVNS48G9o+y9jjyqUuvZClBPOxxjnF7x3GfQI0vGxSQb6uZlTBPn1DNrNTjYaM8faK4T71kKSfxsKd5+pzGfU5KlkL/YV9oJKNIaPj6BWYyAwM6mcNUzWj8r3w8SlUMqcug7LiHgvWWbEOnNyc5FNXS46IzJplucqWakiVlZ6Vf/Of8up18qeC25kvxhF+25+Xbwwsa+nKYRcrwkoovVPhwPDBtTtZLmXAPuKHEj5vyj/rTdVKmfHXYVI1HOUt8kKvVUq6ShjNViYzr5BOBJZdiBUmza2UJDuvmI7CwZFKsjwDlRmGqpeLxr9ze3VMZ7eYG/Xl/d8vbeEqTlVayXzoPn202t78PSWAwU51+euQ+69MzHfL/qbAaHdrnJ+4DP2pICPKD+sJnyrFth8/ACz/wWpKDA7KMr6LKV7KBA0MLbxSEiuoomH3TlWIRG8B1VZACKZACKZACKZCiBnLkBNGWSy6cNilz6SsuvfnOtUkhv3+crhmTr69NSihLcPBERqhNiktuY/f9c/k7baK2xrfmBY91+k6S+Bo5fV660KfEWPqrHhj8pUYpyaYQEhlaMeVKTMP4JVq0K/m7RsL94kfGD7BcpN4124ul8TO4oTfniQXWnXshfrsCAAAAAAAAAAAAAADIwx/F3XUoGek06wAAAABJRU5ErkJggg==",
+      "switch_on": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIEAAABhCAMAAADGOjLgAAABXFBMVEUAAAD///////////////////////////////////////////////////////////////////////////9wwoZwwoZwwoZwwob///////9wwoZwwoZwwob///////9wwoZwwob///////////9wwoZwwob///////////////////////////9wwoZwwob///////////////////9wwoZwwob///9wwoZwwob///////97uH9wwoZwwob///////+Lq3ZxwIVwwob///90voNwwoZwwob///////////////////////////9wwob///////////////9wwoZwwob///9wwob///////9wwob///////////////////////////////////////////////////9wwoZwwoZwwoZwwoZwwob///////////////////////////9wwobJDeYyAAAAc3RSTlMAFCk7S1tkbnJoNQIbPmJqBCRFaWGHSwg0a/XvdCtt31wgXUjPQBBVXkcwGQ23HB5wVDIO5zgH94MLZYOvDGA2FoXHHRmf+yJGWmdzgJAsTgVYghjDQAQtfHhsPY6LUS9KdTg/JoV5TBCN6G1jCReJUkxZz6wX8AAABOZJREFUaN7tWu1fE0cQPu4wnCY0OWw1FFJKai8hSTWColxfoqY2kBCBWBpKoAgI9kXF9v7/36/kZvfuVpLb2c0iX+75Bje389zO285sNC1GjBgxYghjTDfGryUSEyYf128o155MTX5mCiCtVn3GmrppCoK8+vkXt26Prj87bYqDvPyl687MjsYhmUtI6De/Iq+7fcx9PQKB+bwpReCbMAPXvfOtpH67wKxbXDBKVrkisoJL8d1dGQL3Qg5Qvb+4JLGEz8B98FD87VLV11/Ql+V2MWDgPhL1huSUrz8/L+1HbhiPhV5d8V3AySXlPfn7mTCFH34UIPATtX8tM1I0P3n6KEThGZpCku7AzfrIGe3n57+EdgH7FvWBopj/N1bXmq319nqrubbaCP79Yk7YF0qEwMYmXvumvtVph9HZ0unrL38NKKAi4h4Jw22ByDFY9YSEQZz4t+dBUCLygk0S0QaeQHenPRg7XSLxu+8MD/jZkXhhEW0Ce7c9HLs2oRAkaG4xIlGAdkKr045Ch+SzwBCcMpWEalhFh2Fvz1e27/T0lK3ZKb3n7Pv/3auBL/jueCd6wRxsQQ1L4A9fk9MN2235ILDNK4iIOVQ8ZOBA4mAzYY9qaVkXnumH9CF8zwvqjXNRp6YsbEEO6wPEBPtHAy16TB/Ps64wG7EFEIl5ZDGyO6y3XcDrEyLg+fVLWiNmhm+CBVuALcfE1Kf28CbjlASl99djuglvOAWhgE1E5APtqD6H7IKXmv6kxfqvoaEIfYGOTMU7YSMPLVfgCzueYWeBwN//DJNOQS5AHskM+LojjlgNxAzUmpMeg/vIaghu2OIKQlB2UFkeesNFHAMdvs3iCuZAEGPbMYgEZEXYgkyIDpktzFdBUURGQifwcQ6yYAaMa3kMFpBHMggEjHWXIRwafMlxjwHOabVVtBE0Le3JrvIFr3kMSjgGa96qPYH6tUb+unHdrBYPBgpCXbRwDJpoB6dh06Q70s85byMYlHEMWt6qKZRsiskczIyDBQypkO35ureqjauhnuw6n0HEo4uANCMjrIqB9B5UoPiMzkDaD8qelsRAwWmRUaB0LFgRDCbPKaSxvZp0PoCuND/6nFM6J0LuHx+dAakLmNPMClMXFsQaEm5tPEBIHjG1MS+SeRHng1102JDzgW2K5D3MGYkfDV1GcFGVI/rnxENed5M8Zc6JBZEjAO6sfMwRO2bOyu+qIuUP1y/svY42VrhfoCdBR1MDYuCTsQiZ92dt5jwJRphSxMDvG4dTeN9pMyFDGtOGKga0dz4ZtqJ+Fu6dzw1X9AhMZ1Qx0ObJgGAven5wVmcnNFlNHWp0THJ4cejRPaUPaReWcaAuZhQy0F4Fc7tsuEasHLX8J8cfTWh0TSlqoalZ2p+lpYMJ25nfh9ar6vIh4wuceaI/F1xqwhbUVTPQliJnqn4fvEnu7T5olwD+XPkc/wKBZuUyGPBm631sA4GJsnZJiLpf6D8mO6A6Dj4+uA2+Y+m7Cr27NbSrQb1pCt9ZqEQmS+9O/9u8Cv3JnGNK3Fupg1X0726vwgfe6cHt/YT+ydXbi4Xg7txslj+h6krZKhkL7G8nPqjKhNtpqd9k5NUVI5kfxZgJlR4goX86q/REJKremWpk1DrZhJD1jUvw/w0MhWoikR+vWRUtRowYMWII438qT8sfZVv06QAAAABJRU5ErkJggg==",
+      "switch_off": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIEAAABhCAMAAADGOjLgAAABUFBMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////Vbk3Vbk3Vbk3////Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3////Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3Vbk3////Vbk3Vbk3Vbk3////////////Vbk3Vbk3Vbk3Vbk3Vbk0YwuvjAAAAb3RSTlMADSQ2S11kcHJuThk7BCJFZTRrKR1qQFJHMGdVMhAJXgUrAlkORlpzgJBMWIItfGwgiY49G4s/OAsHSnl1hRcUJi8+Y2g1W2JUbeh0aY3vEEyDCPcYn9/7LFxRz8MEQLd4HOc4Hq8Mx2BIbfVLh2GnxKDIAAAE2UlEQVRo3u1a6UPaSBQHlBhL5ApYuZZjUUTQWsCDqrW6vbWHt9be1267B///t7V5b5JJJclMMilf8r6FOd6PN++eCYUCCiiggALipnBkbDwqSROyM03eEM8+pkRlDpoUy30qnkjKnCSUfyot85NAAKrkgr+cFsY/E3XDX85Oi9L+m6Z9ozNKLhIL/0Lzi+UN7hOFYumX2786qfMvqL+NwAEpOv9yZBQOsHKD8E9WayMB8Ds5/9TUaGIAkUA+M6IgRHQgWjf9HJ+dyzfmm/ON/Nxs3F8rQAALFepc1Fa7SVO7pVZ88wNohpRjqylm9ghC8UdJw+iIFoyfFpeaw2lp0Q8E6Iqjuozrt5rWdKsuHEAGrUDfOdNu2lF7WTQCiIYTuhkWb+vMOtmu2iuFSj21m+3ov66M+WIHKfK9qnNqrK1T8/op42zuCM2IICFJEk9YJFw2rutcdZMMipRCCkRQJTqAR9BZHWp3a3gWHXG6MAU5YRn51VEJb6sW8+NbqI7Ckoc4iICEYzzq9l3LBdsbaJSiECQgISGOCCVw12bFNkpBlGuCugBlXgNP2FFtl9wDXVgS46Bj4AswJVPg3606LEJ7VQRGZTyECqjhhtOfq4FRtivi/GERfRPrAeNEVURUBEtAy2qBJ2RYBybTEoAgAkERv+AQ1hjW7cAxCEAwpiGYQdcAhrDOsK6/os0VkLiNawhQqWe1XbNsRqzNnRWliDn4mNN27TIt7Gpz5xjZTGeviuvdoUMS7ZLzHAoO1pBnRJC1ru8BQQw+GtquPaY9e8xm84NsehzQpMLyfF7blS3mlbS5894RmIbAzTBuyjWZFYFvMgjbdNtMCHzTAwh/0tCxP34oAvEAvtlCxAbBTnlCvv8g5LM/yGkIHjpP9M0nQgowzpAyQlzos/Q7uOLCDO37bQliY4ph5iJXbCzTmaAttZiT4CRPflAHi9tmVvBm1Vm5uXKkogbgEVM3C45h03FigytPfKwh2GVTWraicI0rV+5D8LH0dE+eDjTao+sFex1fXuGqF6A237ec/QwADJ6/oGqmLTutKbX5aqaChiBhOf4SEQwO6LpxwxpCibNuXDYXptfp8DkiODqma+ete1Ybtvlq5xokgmmbRu0eEcIJfciW/QMyzNr7rv7UoRkmhFNEcHYOCTxpk2xeN/dIgwx2GQFMQWUs2faqL4gQTrVzCN0x+nY7dIyoLCb1kVd8BYns4OQuCYTXb2AV1TVL6r205IrRYWOVQCgDviDqYLhvB2ZV0LXNqp/IfP9R3wcRODad3ukQ3qPF2fZUmTtIlbJs6tBY04ePBMHZe5F9ZbyzSDNA/nRkHMQbtGPvvfVpvLT5zDJZt4crdTwmMvR2v6DfW+XY5h8YEE7PqcTN9R1LHXXAJiD8RF8MCGcnx56L8sw+ubhkPravfxoQBkcHL7w1asfIq4m/1tlXfaWkcBWs99zzr1X1xwuFda6VBzSEgWsAy8btfYK36Xlx5BlBXy0Yd+c5/vWfPnpCUC8+pl7NpD+7+Qsf3rlCEI5FcspM2fR2oeC2/f/20ozg23dXbzKiXm5ALk5pBK4ASB5v7w/3rnLHv009Dr5HMQJu7w//+fc/lwj2ExHBrweyPOwf7fbE30s/uM/yJEySHo4r6nYooIACCiggbvofwFJHf6/Q2QUAAAAASUVORK5CYII=",
+      "switch_on_tint": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIEAAABhCAMAAADGOjLgAAAAb1BMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8v0wLRAAAAJHRSTlMAYYdLCPXvdN9cz0C3HOc494OvDBaFxxmf+ywYwwR4TBCN6G1Qx05yAAAAxklEQVRo3u3XWRKCMBBF0agIARXBEUVw6v2vUS0rhAVYvp97VnArNB1wDgCAP5lMZ4m2YG6WZtIG+/C5usCsWKgLzJYrdYGVa3WBVbm6wKxWFNTpOGGzFSTs9tUo4aBIcMfmNDoFzTievXgWnGsvMUG0H7smvpSiveD6YRhK1Xbs44JWXRHxQaiuqW4Yx0J1CK0Xvw/vvRCm0SfyUchkzyHcEansEOpwCFdVwS1c1nfZd2P2DXg8+ZUCAAAAAAAAAAAAAPzKC5C1IXolYKSPAAAAAElFTkSuQmCC",
+      "switch_off_tint": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIEAAABhCAMAAADGOjLgAAAAb1BMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8v0wLRAAAAJHRSTlMAbeh0je8QTIMI9xif3/ssXM/DBEC3eBznOK8ZDMeFFvVLh2HcDbzkAAAAyElEQVRo3u3XaxKCIBhGYcosJbXMTO1+Yf9rjCmJFtD0/jnPCs7Ah4gxAAAAAAAAAAAAAAD8yGTqXhJZwewd4NK5qmAxFrhMVZCnY4FdqhKSsAiFbBHKsaBaqRLWYRFK2T7UIWHTiAq2Tj4K7SdhJyro+lBQqRIGGzeiEZ8HP46iE5HFhFL0XdjHhKo4KAqOp5jg7PmiSPhaBX9ZZ+JZ8DQnwqoLzNCrC0zXqgv8NVWrC/w0lOoCkyf+3/GqfUTkt/uDpxQA4F+eNfkhPNoelnEAAAAASUVORK5CYII=",
+      "check": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAilBMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////2N2iNAAAALXRSTlMADDw0CFzr3zBwRI9U+xwEo3yri6/DEBjX80wsz+8o5zhAZJ/HuxR36Pd0UCCA4LQ2AAAA9ElEQVRo3u3WyQ6CQBBFUcABFBFHEAdwnuv/f09NpEQTd/Wii3d2bm4TqW7acYiIiIiI6H+4Xq2O7DeaIn6A67fkwa9j+yJtUD989qUD7kddRD7ulX3pQ/oD7Q8h4z/SfgvSH2P7ifajBqKfTrRvMaBx4CVf+tnUoD+biyyqf0Tua9+zeP75x6vMi7K/sOg7wcewLLVf5CYvdPU+jl5m3HeSrLrCSn9NzM6fdWVLdSLtp/aHvshG+9vUcl+9ViiNXcyHq7Rzrc+G9xUGMe7ji+pXVwgh/fu0PndACLsC7Q9HkdMZektsX668KxMREREREdGv3AAE3jcb857BvAAAAABJRU5ErkJggg==",
+      "check_on": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAABHVBMVEUAAACFmJuFmJuFmJuFmJuFmJuEmJqFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJtwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoaFmJtwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoZwwoaFmJtwwoZwwoZwwoZwwoZwwoaFmJtwwoZwwoaFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJuFmJtwwoboBudqAAAAXXRSTlMABCBAWHRZGGSz6yR8w5/7EIP3m7vv17+jiyjbj6swxzzzXOMMPDQIXOvfMAxwRI9U+xwEo3yri6/DEBjX80wsz+8o5zhAZJ/HuxwUd+j3dMtQIKcsTIffFEgI5zQRSmRKAAAC+UlEQVRo3u1Ya3vSMBROC8hFhgwHXWHjMkEnsAGi043NbcxNxRsKgm4m//9nOJ6m6b1pQvtpeb9Bk/dNTs45yTkACAgICAgIPDRIciyeSDyKhjyZSmeghgjYH2c3oIHwF597AmF0AvnNAoQRCqQyEEYoID2FMEqB/JaFuVhStlU1Fx5/uWRir+zEpJCPt2wy/241fOfPG+uv1aPIC8T+jb1IcgPxn2dU6zRbz1+w+z8xT5I2dP8lQu0O6wHoB1zr0oYeoBXajHvY1O2TDMaP0CFbfsP5p0G1fw/zoz6TQA5vYC8w/+AVU/7H+blGGTd8rfOjN0wbyOINUOJreET437IdMb6/dinu/47wHzBeYXgD/ifcPObl14Os4jvohPAP9lmjOK0J7PiNGZ0S/j5zmsBRHDMdZ6d14sF/9p49j+L7y7hfzi8QujQbYtwm/C32PCprAiVj/Re2oxxf6fyXHPwgpgko5I+OzVk+EP6rMc9NENcEtskf11Z3bJ2txw8SmoBqeOSZWeGa/Do18o+qzUnwCYAbU0j1B4R/BPgEsIlyLkkfoY+E/9PImX7jfIdsUdBx3DR/Vxyhw+KmbgqfLfwAP3FklkDLAB+Fo6H1a1GbIzGlirq3gp2/7romWrJTgZdCz8avO1F6zXR9gyOg55hR0WakAgpMvC6cL1+/IfT9h2NCFU+YBI3lqeeV2Tz8+cv570wbPw370rdvIBtYYA6DPVusUQbnETy8VvgNnbmFGsyBn473rzQcZAWZJWUv8KqWf2gju3ohtGB7vuNlQYUS/VJaL0HznAXIlu/Ers4fOMicJVSp7GN/UiiyV8+SQurvv57+UySF1i1Hk2VJyljF1ZmqZAnwLgk4MG8YhfjMIVGdGV8b//gq2fnSq5VQVyumT3ec/PdW2nBrhiilouXvWhJww7WdY0PuFqwDl4aUdVcpsCacLTUTCos8WB/2pqDJOjIIB9a2JsY0OwchwtSYXb1P0qkJCB9aazkekyUgICAgICDw0PAfrbefjaa0jfcAAAAASUVORK5CYII=",
+      "radio_on": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAnFBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+TINBkAAAAM3RSTlMABCBAWHRZGGSz6yR8w5/7EIP3m7vv17+jiyjbj6swxzzzXOMM5wiXhzTPSKccyyxM3xRVrv57AAACoElEQVRo3u1YaZOjIBBFTdYjMaNZj0kyY5Jdcx9Olv//33a2REDBiYJUbdXwvqUD/aTpfjQAoKGhoaGh8d1gmNZoPP6hxrntuB4socD7ZOpDguE/fvYCoTqCIJxDqJDA8SBUSGD8hFAlQRDVPMdJ+rpYzIbzv0wo76s3yxh4e5dU+N+z4ZM/IN+/3qjQBRz/7S8l2oDz53emxL+Dw2Mr8R9UG7zO1YhnWMVHzfcDG+nPVk38AZihBdTzJwujHYS7KJSmnSB9XtPGTUrqLpUsjCnyQ7nZH+qKd9jLEKDz653KKr+pqX4gscXIBwn13mdV29/LFtmKWA6cYwEehAnc0sEb2V/IhfBOoyq2sCHlE6SiOorOL3y+ZLAFgvVglrMTRjcYhGIEVjMAURtBJEYwKme/YsOujWAnRjAuZy+wAbYCD1mUv8f/BwEK0ex5iLym/I7ENtlvI/CblWKJpemxjeCIh6AWx+xTaGT9pzaCEx4Slwajl1QQqTnz/Z+bYuX1EzuSRhc+waWZRK6wXF95/q/k/1VpcToS3BgtyzlBOpOOqVLDW9davjNHps0wnG1mgXeZQz9vROlKdXzVAqadCQrIaVsu1CLOF/qf6jwqZBuv09H/zGDPP55q5g/Y1JYOxdyjdZygIpubfSS7UofHn2cj84TRjU7te1wd7E+q33CrK2jPRgxfQKIvJ+aV/85Fxl6hkuUX8ccXxf63ZwM3Q/GlbcxHjC9aAn2k/SAdFjeZMtKP7YQuQsWWKlyGIqNKe3sSay+KR9tTwmaxorsXQf+fUfJ5jyFpEtfMMhdd7nNOAzOpuw7vQaq+KgdIgn1SozA/BkAezUdBKjomGAb1Z02E+7QAA4J6mP3Xn7jODQyP8ml5ZJkG0NDQ0NDQ+G74C2ZlEm87pamPAAAAAElFTkSuQmCC",
+      "nav_back": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAsVBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+3mHKcAAAAO3RSTlMAkMnWz5zE1DAMWrOpJBTMQ9XLQDO0KNJLaZO+YaplB6YJLIjIIp1oOVFXDX/CA06xEdNHWK61uEKUzsYwOR8AAAEaSURBVGje7ZftTsJAEEUrA/IpZRG2gLJoUUCUypcivP+Due7ivw6YjjUxuefvTe7ZdqZtGgQAAAAAAAAA8G+4KBAVSzkKLstkDTkKvvqJchQQBBBAAIGjUs1XUKs3rtiw6fpDSX9LKdW+5tKOE3QF/bptBSrqMXHfCQbZ+5s3ynHL5EMnMJn7R3e+v36fnsd+xjqzYOz7Hx6ZfCIcwdT3RzMmfyLZHWr5fjVn8jh0/YVn0QIp9cLlC9kFfC9QKUnPX/35aZkIFyj9Bmg/X/sU699foFXHDI/1tN5knfBxwHSa9VbwHv6BoLgJBAKrOHP+Ny14y50rt/tvEkF/8B6drt+Zlew79rE/cN1hd2Bi/BoBAAAAAADwt3wCBR8UetgoYKQAAAAASUVORK5CYII=",
+      "nav_home": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAtFBMVEUAAACNjamNjamNjan///////////////////+Njan///////////////////////+Njan///////+Njan///////////////////+Njan///////+NjamNjan///////////+NjamNjamNjan///////////////////////////////////////////////////////////////////////////////////////////+Njamml2voAAAAO3RSTlMADI/fIl6OmVe/CmKy19S/QAPGYB6vQM3LREd2BMdpKQYQl+ekNtBYMyWQOcoUtZRlqygsnlENw04RucTIGoUAAAIASURBVGje7ZbdUsIwEIWLUhBoikVKkX9U2qoVQouA8v7vJdMkMM5kS80y481+d82m5yS7SWYtiyAIgiAIgiCuRuXm9qDh9qZirlm1a/U79dE4ADTUjLt6za6WV2+2HMaY25af9weQezml7R5/cFrNUvKe3WECOfAAGzzIKfKHju1d1u/6jJkaMOZ3L+n3gtPkvhx6hA0e5ZT+6aegV6w/cM/6Qzk2GkP645GcMjw7uIPC9Z/0/cl0pkbnT886+eenuZoxm05OmXUL9tBV+XlZ/P1kL15UlsA6eHIVYWR2eaJQ7h46S7ZcQWx6PWOZARu4X+L8h7H5AxCLPXT0N64l7CPMsxUJjZY26Ij64h5GUWlHF3oV5gucwUKovIIZ8rFvuw/m6C2PTLAGk1zmDSzBO9bgHSxCkkc+sAYfuUyiifx6ohGAOmTw/wbBNU9RoIks80iMNYhzmaUmsrrmTV5pIjyPrLEG61yGayKpqE6G08+ESmqBRdjgDDZgCVSO2CdG/5OBGbKsrXjuAkSSMnHWk61VtIVdaqqf7oo2cOyLHNm37M3097JrccAeO1Wd3cZgE+lGdXZpmd53zeOv8uJfMV+X636jc3dtiHuhrxqEOP1wcDGVPkbfL1E8jyem8gn3ypWMf5vIf/M/HIuMr5ZBee1gueKZRRAEQRAEQRAYfgAH3m8fLt5HMAAAAABJRU5ErkJggg==",
+      "nav_home_over": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAKlBMVEUAAAD///////////////////////////////////////////////////+Gu8ovAAAADXRSTlMADI/fv0BgRATHEJfnASxRYwAAAFhJREFUaN7t07kRgDAMRUFjGzCH+2+XAkCZEmZ2C/gv0KgUAABIs9Q2P7S6JAX6DPSc/XWG1pTAFge2fwT2OLCnBMYR7R8j58rndX/N39fphQEAAAAA4O0BHEQKaRznHIQAAAAASUVORK5CYII=",
+      "nav_recent": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAhFBMVEUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8g2+bRAAAALHRSTlMAndDXypHVxdYRtJCCxIDNFCi1M5RpCqRlq9O2LM+VQp5RDcMDsk5H1FivuQNQbuUAAAEKSURBVGje7dXZDoIwFEVR9CIWRWsdq6LiPP3//4kFNc6kzY0xOfuBpJB0pQWr5yGEEEIIIYTQzyuVifwKI5DOT0GVEaBzATdAjPt1B3Ds1x3AsV/PAP0zIEwAfg+EfEDNAPWQDYjEY0TpJWg07QFpgFY2UK8BIXx7oG2AzrslpM+E24+va4BePuoPnoFzDl+WNhMML8N+9AoYje0BlU0R325EtUdgMp15ri8h4ftLy/aI5mzAwjeAjLmXsFRcwGqdCXLDJSiZf+0J1yK2u1ygoe6EHML+KnzK5djblosB9seeOhQRXI69lfap0D7Zv4hQH7/P73LspcW625af5nc79hBCCCGEEEIFOgECCBCyk2QQgQAAAABJRU5ErkJggg==",
+      "ic_phone": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAMAAABlApw1AAAA1VBMVEUAAAAylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloylloyllqpMPJdAAAARnRSTlMABCAQHEBkg5+/x/ffr4toNDB4++tQ59NIPLcMGJfXbMMos5N0YFRMcNuAq/OjFM8kRAjLWI8sXO+7OIeU45v2hp6gqkMHXFEUkwAAAxVJREFUeNrtnFl32jAQhYXZbDA7wUkoSUtilkBJIEkL3dNF//8n9aTtsWyIFfulZ27O/R5tPdyLbTEzkkYpQgghhBBCCCGEEEIIIYQQQggh0ig4RVDlpXKl6rpeTWtd932v0Wy1ccR3ul5PH9J3jwoI6t2BTiU4li7/pKHtnA4lyy97+llqr8TKH450Fs6kzkudQGdjJFP/eV1npSzx9Wno7HgC9b/WeXgDoL8XjC8uw0m5XVCOczKdjeaxm1fSAp7Fnnp/ND2c7qfL6P5Ytv55+HTEcBmNGMgy8DYhf1lJC3iGZtBKkv4wof/6Jn3kWTRqLUj/zTLxJ7WxDDWvWijoA7iNTz131rGuRAPNuP6JgjOwzqFfooFC/O/pOf0SDcRnoHuFZyD+AK43gAZiD6D+TuEZiD+AcwVoIMwZ4oszEORMssbR8Pci9Dt5cyxPWFLZypvl+sJSsnHOBzDsyQqnN8ucr7QJO7bSwqBMxbbCLhq/ExaH3maR/8Ho100RBkwi8DF1nmqvw+6n4JFEvX0qwsDWOgeVZosgrVY3F7FMUDSCDvVMrIWulogH0DY/6P6t1cJal/u8EWHgzqxZ7N3p9K36e0IWy7qRoou9d8u3F0ZlvEBKfYkUzZI3Tu2/f1dKNumlTIprq/6BnJJWWmhp+4D7V4KWl2qRrEQyueqliP+6qx5tlCDMp+rEL0/jore1nXv/7eHh+w/35y8ljBQDVbNIUHGUZEwkUXw67+0q2ZgXJeXbPsY0YCotbUwDJk0rYRpIuUwD/8uAqRX10Q34NEADNEADNEADNMBQgtEoExqmlC82qYcvq8AXtuBLi/DFXfjyOvwCB/wSE/wiH/wyK/xCN/xWA/jNHvjbbeA3PMFvOYPf9Ae/7RJ/4yv81mP4zd/42+/hD0DAH0HBPwQEfwwL/yAc/FFE/MOg+Mdx4Q9E4x9Jx28KgN+WAb4xBn5rEvzmMPjteRR8gySF36IKv0mYgm/T9gh4o7w/nwJ2q8K/HqCbRf4Dul1nPEyCbZhKCCGEEEIIIYQQQgghhBBCCCEvjt8HnDH4Aq0pVgAAAABJRU5ErkJggg==",
+      "ic_message": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAMAAABlApw1AAAA51BMVEUAAAAlkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8AdroAdroAdroAdroAdroAdroAdroAdroAdroAdroAdroAdroAdrolkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8lkc8AdrrM+ag8AAAAS3RSTlMABESTt8/jNJvrKK+P+wwY1+eHPBynEO9URJvb89cQnzzjQIOz6wb+ew0BSMX59ViE8/1+cIBs8ZbDf0B6bU/2+loS0PJuMLHs90En0oY7AAAC5UlEQVR42u2bZ3cSURCGLy0hBAgt9ISEYtTYiGLvXZf//3sERLa460Gyc2H0eb4OO/d9l9v2nBljAAAAAAAAAAAAAAAAAAAAAAAAAAB2mEQylc7sOTGxl0mnkgmL8vezB07sHGT3LcnPHTpCHOZsTJ58wRGjkBefSMW0I0q6KKv/qOQIUzoSff/i+mcOBP+DRNqxQFpuHeQdK+TF9s+CHQMFqd3Ut/+XK9VaXIlr1UrZdx4Inb/eMY7r8SavH3uzy5zJWXeARjP+9M2Gmz8rsgV57j9NiQGannuRxEaU9MwfmTnqmUVJgfQpd/3WZQzU3ZWcEkjvHmIVqX264h5mAtkzq+xVKQPV1RAZgezu91dNykDN/UYTyO6uMLnLlugYGMAABjCAAQxgAAMY+AcNtNqdbvek3Qp55I+hk263EwxtwcBpb7qkdxp4YIOQfQNn59MV52e+328Ssm7g1KNkpsX7NjcKWTfQm/romWuGbBtoTQP01wn1g6HW1gy0g1IG64QGwVB7awY6QSnDdULDYKizNQPdoJTROqFRMNTFwH87hdQvYvXbqPqDTP9VQv1lTv91er4mB8PRaDjohzzy1yE+KTGAAQxgAAMYwMCujqG+VkJ9tYr6eiH1FVvqa+bUVy2qrxvVX7m7Vu30jY32fzu101HV6xeNm7eWv7h9eefuDlevR/YP3Lu//MGD8dUu9w9Ed3A8/Bl/tOsdHJE9NJNF9PHO99BEdjEtDDRjafCQ7WKK6iObxKZfuo8sopNvZuAyDv0WOvlMaC/lxFTHWnopF2dysJt1EoN+e92si4k07yd+shr86fX0W+8nXjJZKfDpf1Y0SpiEvk49+sMNlOpGtQHpc0jagCr9IQbKOaPagDL9vxloKNMfNDCuGtUG9Ok3z30XyRfq9JuXXv1NffrNqyvd+s3rN7/0v32nUb95/6FwsdD/8ZPRyecvX+cOvn03AAAAAAAAAAAAAAAAAAAAsBY/APLanlYbVrdFAAAAAElFTkSuQmCC",
+      "ic_contact": "data:image/png;base64,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",
+      "ic_settings": "data:image/png;base64,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",
+      "ic_camera": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAMAAABlApw1AAAAwFBMVEUAAADoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHULoHUKbASebASebASebASebASebASebASebASebASebASebASebASfoHUKbASebASebASebASebASebASfoHULoHUKbASebASebASebASebASebASebASebASfoHUKbASePMgmgAAAAPnRSTlMABESTt8/jNJvrKK+P+wwY1+eHPBynEO9UeMPHfFhgq7McZKO/2/MEbMMIXGDLyzznVPtYZL98TBTvuyQMKK0+jp0AAAMoSURBVHja7ZtrV+IwEIYLFEQFq4DcZJGWi6AusK4CItv+/3+1Hhab9MblnEx3svs+H5ueJG8zmUnSiWEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACoy2ZyZL7gKKeTNXDaTUvfPiucuCefFsxS6f3HpEnJ5QW08pbJLSrlEakhXpkuOeUXXf+vaTYFri+z7p9L/TwVEY5Ax3ZQwaeZByU2NEon/LKcnoEzhTQP+/6ZSramsvFat3ATiAUH8leu/ratvoH4rt6A+JhdF5Y0mjZdoNkQbReUuSFr/qOq/1WoX3MJdx/f7TWldpNoRZSX7UVTlt68P3uh+PZKsKKtYQE7MXzX2X7+XLL63G4S6mMk5xQJEEKuoqfA+4Dd7u6cVEcwUC8j7NVfV2E/I8++sqOo/yCsWIPZfSvy/1QgJaPwxoprYoykWIJpSUl0rEnxbJO2QCWhHBLT1EhA9ESjwE2A7/cFwNBoO+o6dXF2oXjYCHsYTT2IyftRrBJ6GXojhs1z+PSLgjpMAe+rFMJUMqRMR0GEkYDb3YpnPDsYBFgJ+vHgJvPz0X+qGBLwabATMEvv/qUCMQS/Q/zeDjQB77u1h7s8DS1bwZvERMPX2MhVvdv39wCtZwDy94ifvAM97dmQMBDwE/P9gsVytlotBIB48prlkObnisdTVd/9jP79Lj8esBUjrh4kUt2z5OWcBtvT9Aws4WxoDm7EAJ3aybq1IlDiMBfTF/A0Xrf2iPmMBwt8skgdnwFiAcKLLcNGHcKSMBYz8Xq7CRRu/aAQBMKF/dxJr70a1D2TaLyW0X8zpv5wObmjWzq/N5sNZa7ShOWlLyVLACZt6pgKOPVZhK+DYgy2+Ao47WuQs4JjDXd4CjjheZy7g8A8O9gIO/WLiL8DY/5NPCwG82oGAv92O4mSPJOiSPVSn2yRAl26jPOEpHrqEJ+UpZ7EQppwRJP3FQJj0R5F2GYEy7VL7xFf9U4+1T/7WP/1e+wsQ+l9B0f4SkP7XsPS/CKf/VURD+8ug25is93XcrSHpfSEaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4H/kN/b/KGA1cf4aAAAAAElFTkSuQmCC",
+      "sec_st_ic_connections": "data:image/png;base64,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",
+      "sec_st_ic_sounds": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAMAAAC4A3VPAAACl1BMVEUAAACag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ahN6ahN6ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ahN6ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ahN6ag92ahN6ag92ag92ag92ag92ag92ahN6ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ahN7otDG/AAAA3HRSTlMAFS84PzobAgtPotjs+vCwZyMtk9+5DDK49/1VO8v7vRSv/uMDaPzq1e/kDiAcCgFAvik9ElK02c15Ftr4ix+P6OtrKMiSIhrz0CwNfnsEidc+X+3eHuFuB/EFCag39tTORZnW+TRI5kpOPKBTULXRbSXuWwZ09CGHpzDpZqbclGKMEA/Bq5Vx9UG6vGEXlycTLkNEVuWpv3pygibMswitpMWjxk2uslG722S3noSIc89pZVdLEW/TpZzDNpYdwEyxcBmb0hiY4n1dWStCqsQqOVQzmlzdR8ckgOcxF0phjgAABMxJREFUaN7tmP9fU1UYxw+JjJKN0EVtItrtRk4aV2WDwomghoPBtEQHm8xCTCyywIUYX6bDL8PEzAQ1a37ri1YqGZSZFWaWFX3Pvt4/pvOcAdvd3Ut5He/uT+fzw+7zOjt3751znvOc5zkIMTExMTExMTExMTExMU1ESXdMSp6colEPmHrnXVPStLr0uzPUIk6dpheJdPdkqkO89z6DOCrjdFWIWTOyxXHNVIM4634uQhQfUIHIP5gDKO6h2SZ4zon6SpP7sDlPeaIwl5C4efPz02OQFmtB4SOPFimOnLwAQLb0FIQWSpHFi0qMorF0sdLjXLIUFtL4WBmKRS6bZieLW14hKEq0pJOFLMgQYpGOSlPYn7KrFB2mczkZyYrHSaCLRjqfWDnmw9WrlEROXw2/aXfVoBikMLd2fNtwLuftuKe7xhOlqfNIwFmThGKQfF2Y6F0Ln0/exsxanqpf1yDGavZ6FIPknw7P6obGjVp4NlIP8Zln7aJcpU0oFlm8gMSjwuc0jqVgbKL1WevzcYCi7QWnDNm8AayWzT7kfhGs1i2Ux8VaLh6yLXJajSN9W43YSnsJz0x+OzR2UBHdnVoZTpvW5Z+F5EhUBytu3OZDqGwmNHbSBbYueNe0fX6gO6KAJGpXeseQmh3QeWc3Qrm7yPHC0yB3t+BXg1W+m3Tp2WPPCb5MzL0AKumF92ByWptpkPvg1fJXbtZFs//VA6+FfzxgA2Yy9tSDfdgwUG2TfviNQxOOIyRIHMbds8DPG45QIyeeZbwO3fvxMhyFZc3ergKyCbq/gWNv0pvgvJ0qIOuIo4YQyjwGkX2TCkgzCfgeHAyOg3VCBWQRiRUYiU6CcUoFZK9KSIHnx86MDOgexEhnJ1g7EoT0VDS+lT8ac3ug+xTssblvg/u8kyDku6cLz5TvCofT90jkwPty2fvYyPkgQcizOCZytZUk0vuhe70boYoTEArOJSjgLQxnCefhBB0A80M84mRIfxoWU4V1OAIHjt4aKeouhFAKOc7XY2f6CDIEwyAN0gUZlPfskLQ018RBijZX98fw1ONyRDgPJ5C9jKpQ/gT+eO3FvdYoNVkrNHKkaPOvgIcfz7DlU5J4Ud0h8JXBOJmP6dJnghwpkmkNDuKlXDIDzMt06VbRGmO8dOvU51IkN15Rf4HzOqGR5KFfUiaV5ovxkMbhkATZsmg0Lctx4S9qSFt7Km3u7LhiisNsqJIg+76qJ0mImAbJR+4ZMK/Sl3t887mv5QXCnGRpUnltK+nTb8ZNB8mqHlCu8MoogOXlhs3SPDawE49TD1vRTeqDAY+CxV7PADC9bUPS1DnvG9O31yHWXiAJ9ne8gkjN930kYe3wSLP1UIcVPOaHami5dE3Rwj10hPhK1wgvuytAKPVHmAPDZp+y1xOOfeAgXPmIIEde0UHDcLHSlzCBn8juLPlZhvxlHfyb9l95pZFoSynZKqt/G9wjQWb+DneJ3Enlr5qQ8Ef4mrJVb5cgawbhNvHGn4m4xAtc9kYFhhuRinTjX3bd9cTcQ//tXxlBXo2qgrPa/hlK0GVl7+F/x4p67X/R29biSNgFaffI6TCzercTqSR+f8chvaGvapUHqSdnyJOX50ZMTExMTExMTExMTExMt9L/x6O2FIWfCrAAAAAASUVORK5CYII=",
+      "dial_btn_left": "data:image/png;base64,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",
+      "dial_btn_right": "data:image/png;base64,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"
+    },
+    "anaconda_overlays": [
+      {
+        "asset": "assets/anaconda/anaconda_0",
+        "id": "anaconda_0",
+        "bytes": 8176,
+        "target_package": "android",
+        "label": "Android Framework & MIUI 11 Dialogs/Controls",
+        "semwt_override": "android:SemWT_android, android:SemWT_MonetPalette",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.common",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_2",
+        "id": "anaconda_2",
+        "bytes": 29200,
+        "target_package": "com.android.documentsui",
+        "label": "Android DocumentsUI / File Picker",
+        "semwt_override": "com.android.documentsui:SemWT_DocumentsUI",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.documentsui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_3",
+        "id": "anaconda_3",
+        "bytes": 5904,
+        "target_package": "com.android.bluetooth",
+        "label": "Bluetooth Share & Pairing UI",
+        "semwt_override": "com.android.bluetooth:SemWT_Bluetooth",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.bluetooth",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_4",
+        "id": "anaconda_4",
+        "bytes": 31792,
+        "target_package": "com.android.mms.service",
+        "label": "MMS & Carrier Messaging Service",
+        "semwt_override": "com.android.mms.service:SemWT_MmsService",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.mmsservice",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_5",
+        "id": "anaconda_5",
+        "bytes": 33536,
+        "target_package": "com.samsung.android.app.telephonyui",
+        "label": "Samsung TelephonyUI & Call Settings",
+        "semwt_override": "com.samsung.android.app.telephonyui:SemWT_com.samsung.android.app.telephonyui",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.telephonyui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_6",
+        "id": "anaconda_6",
+        "bytes": 553104,
+        "target_package": "com.samsung.android.incallui",
+        "label": "Samsung InCallUI Fullscreen MIUI 11 Call Card",
+        "semwt_override": "com.samsung.android.incallui:SemWT_com.samsung.android.incallui",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.incallui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_7",
+        "id": "anaconda_7",
+        "bytes": 5424,
+        "target_package": "com.android.server.telecom",
+        "label": "Android Telecom Call Management",
+        "semwt_override": "com.android.server.telecom:SemWT_Telecom",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.telecom",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_9",
+        "id": "anaconda_9",
+        "bytes": 37776,
+        "target_package": "com.samsung.android.dialer",
+        "label": "Samsung Phone & MIUI 11 Split Rectangular Call Bar",
+        "semwt_override": "com.samsung.android.dialer:SemWT_com.samsung.android.dialer",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.dialer",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_10",
+        "id": "anaconda_10",
+        "bytes": 37776,
+        "target_package": "com.samsung.android.app.contacts",
+        "label": "Samsung Contacts & MIUI 11 Profile Cards",
+        "semwt_override": "com.samsung.android.app.contacts:SemWT_com.samsung.android.app.contacts",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.contacts",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_11",
+        "id": "anaconda_11",
+        "bytes": 37312,
+        "target_package": "com.samsung.android.MtpApplication",
+        "label": "Samsung MTP & USB File Transfer UI",
+        "semwt_override": "com.samsung.android.MtpApplication:SemWT_MtpApplication",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.mtp",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_12",
+        "id": "anaconda_12",
+        "bytes": 32752,
+        "target_package": "com.sec.android.app.myfiles",
+        "label": "Samsung My Files & Storage Analyzer",
+        "semwt_override": "com.sec.android.app.myfiles:SemWT_com.sec.android.app.myfiles",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.myfiles",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_13",
+        "id": "anaconda_13",
+        "bytes": 107024,
+        "target_package": "com.android.systemui",
+        "label": "SystemUI, MIUI 11 Circular QS & Statusbar",
+        "semwt_override": "com.android.systemui:SemWT_com.android.systemui",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.systemui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_14",
+        "id": "anaconda_14",
+        "bytes": 16,
+        "target_package": "com.android.systemui",
+        "label": "SystemUI MIUI 11 3-Button Navigation Bar",
+        "semwt_override": "com.android.systemui:SemWT_NavigationBar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.navbar",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_15",
+        "id": "anaconda_15",
+        "bytes": 27440,
+        "target_package": "com.sec.android.app.clockpackage",
+        "label": "Samsung Clock, Alarms & Stopwatch",
+        "semwt_override": "com.sec.android.app.clockpackage:SemWT_com.sec.android.app.clockpackage",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.clockpackage",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_16",
+        "id": "anaconda_16",
+        "bytes": 27632,
+        "target_package": "com.sec.android.app.popupcalculator",
+        "label": "Samsung Calculator MIUI 11 Keypad",
+        "semwt_override": "com.sec.android.app.popupcalculator:SemWT_com.sec.android.app.popupcalculator",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.popupcalculator",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_17",
+        "id": "anaconda_17",
+        "bytes": 215840,
+        "target_package": "com.samsung.android.messaging",
+        "label": "Samsung Messages & MIUI 11 Chat Bubbles",
+        "semwt_override": "com.samsung.android.messaging:SemWT_com.samsung.android.messaging",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.messaging",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_18",
+        "id": "anaconda_18",
+        "bytes": 1872,
+        "target_package": "com.samsung.android.calendar",
+        "label": "Samsung Calendar Floating Action & Header",
+        "semwt_override": "com.samsung.android.calendar:SemWT_com.samsung.android.calendar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.calendar",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_19",
+        "id": "anaconda_19",
+        "bytes": 16,
+        "target_package": "com.samsung.android.app.notes",
+        "label": "Samsung Notes Dark Canvas",
+        "semwt_override": "com.samsung.android.app.notes:SemWT_Notes",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.notes",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_20",
+        "id": "anaconda_20",
+        "bytes": 32400,
+        "target_package": "com.sec.android.app.voicenote",
+        "label": "Samsung Voice Recorder",
+        "semwt_override": "com.sec.android.app.voicenote:SemWT_VoiceNote",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.voicenote",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_21",
+        "id": "anaconda_21",
+        "bytes": 27904,
+        "target_package": "com.sec.android.gallery3d",
+        "label": "Samsung Gallery & Album Grid",
+        "semwt_override": "com.sec.android.gallery3d:SemWT_com.sec.android.gallery3d",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.gallery3d",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_22",
+        "id": "anaconda_22",
+        "bytes": 90288,
+        "target_package": "com.samsung.android.honeyboard",
+        "label": "Samsung HoneyBoard Keyboard MIUI 11 Keycaps",
+        "semwt_override": "com.samsung.android.honeyboard:SemWT_com.samsung.android.honeyboard",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.honeyboard",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_23",
+        "id": "anaconda_23",
+        "bytes": 1696,
+        "target_package": "com.samsung.android.email.provider",
+        "label": "Samsung Email Composer & Inbox",
+        "semwt_override": "com.samsung.android.email.provider:SemWT_Email",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.email",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_24",
+        "id": "anaconda_24",
+        "bytes": 3296,
+        "target_package": "com.sec.android.daemonapp",
+        "label": "Samsung Weather App & Widgets",
+        "semwt_override": "com.sec.android.daemonapp:SemWT_Weather",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.weather",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_25",
+        "id": "anaconda_25",
+        "bytes": 130608,
+        "target_package": "com.samsung.android.calendar",
+        "label": "Samsung Calendar Month & Agenda Views",
+        "semwt_override": "com.samsung.android.calendar:SemWT_com.samsung.android.calendar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.calendar",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_26",
+        "id": "anaconda_26",
+        "bytes": 131280,
+        "target_package": "com.samsung.android.scloud",
+        "label": "Samsung Cloud Backup & Sync",
+        "semwt_override": "com.samsung.android.scloud:SemWT_SCloud",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.scloud",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_27",
+        "id": "anaconda_27",
+        "bytes": 27904,
+        "target_package": "com.samsung.android.lool",
+        "label": "Samsung Device Care & Battery Score",
+        "semwt_override": "com.samsung.android.lool:SemWT_com.samsung.android.lool",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.lool",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_28",
+        "id": "anaconda_28",
+        "bytes": 58144,
+        "target_package": "com.android.settings",
+        "label": "One UI 9.0 SecSettings & MIUI 11 Dashboard Icons",
+        "semwt_override": "com.android.settings:SemWT_com.android.settings",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.settings",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_29",
+        "id": "anaconda_29",
+        "bytes": 356624,
+        "target_package": "com.sec.android.app.launcher",
+        "label": "One UI Home Launcher & MIUI 11 App Icons",
+        "semwt_override": "com.sec.android.app.launcher:SemWT_com.sec.android.app.launcher",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.home",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_30",
+        "id": "anaconda_30",
+        "bytes": 74448,
+        "target_package": "com.samsung.android.themecenter",
+        "label": "Galaxy Themes & ThemeCenter",
+        "semwt_override": "com.samsung.android.themecenter:SemWT_ThemeCenter",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.themecenter",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_31",
+        "id": "anaconda_31",
+        "bytes": 30832,
+        "target_package": "com.samsung.android.app.aodservice",
+        "label": "Always On Display & Lockscreen Clock",
+        "semwt_override": "com.samsung.android.app.aodservice:SemWT_com.samsung.android.app.aodservice",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.aodservice",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_32",
+        "id": "anaconda_32",
+        "bytes": 27984,
+        "target_package": "com.samsung.android.biometrics.app.setting",
+        "label": "Biometrics & Fingerprint Scanner Prompt",
+        "semwt_override": "com.samsung.android.biometrics.app.setting:SemWT_Biometrics",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.biometrics",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_33",
+        "id": "anaconda_33",
+        "bytes": 99632,
+        "target_package": "com.samsung.android.app.smartcapture",
+        "label": "Samsung Smart Capture & Screenshot Toolbar",
+        "semwt_override": "com.samsung.android.app.smartcapture:SemWT_com.samsung.android.app.smartcapture",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.smartcapture",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_35",
+        "id": "anaconda_35",
+        "bytes": 135408,
+        "target_package": "com.samsung.android.app.routines",
+        "label": "Modes & Routines Automation",
+        "semwt_override": "com.samsung.android.app.routines:SemWT_com.samsung.android.app.routines",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.routines",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_36",
+        "id": "anaconda_36",
+        "bytes": 16,
+        "target_package": "com.samsung.android.forest",
+        "label": "Digital Wellbeing & Parental Controls",
+        "semwt_override": "com.samsung.android.forest:SemWT_Forest",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.wellbeing",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_39",
+        "id": "anaconda_39",
+        "bytes": 16,
+        "target_package": "com.samsung.android.app.cocktailbarservice",
+        "label": "One UI 9.0 Edge Panels Handle & Tray",
+        "semwt_override": "com.samsung.android.app.cocktailbarservice:SemWT_CocktailBar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.edgepanels",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_42",
+        "id": "anaconda_42",
+        "bytes": 16,
+        "target_package": "com.samsung.android.app.galaxyfinder",
+        "label": "Samsung Finder Global Search",
+        "semwt_override": "com.samsung.android.app.galaxyfinder:SemWT_GalaxyFinder",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.finder",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_43",
+        "id": "anaconda_43",
+        "bytes": 27360,
+        "target_package": "com.sec.android.app.soundalive",
+        "label": "SoundAlive & Dolby Atmos Equalizer",
+        "semwt_override": "com.sec.android.app.soundalive:SemWT_SoundAlive",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.soundalive",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_44",
+        "id": "anaconda_44",
+        "bytes": 28848,
+        "target_package": "com.samsung.android.galaxycontinuity",
+        "label": "Samsung Flow / Link to Windows",
+        "semwt_override": "com.samsung.android.galaxycontinuity:SemWT_GalaxyContinuity",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.continuity",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_45",
+        "id": "anaconda_45",
+        "bytes": 28272,
+        "target_package": "com.samsung.android.mdx.quickboard",
+        "label": "Media & Devices QuickBoard Panel",
+        "semwt_override": "com.samsung.android.mdx.quickboard:SemWT_QuickBoard",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.quickboard",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_46",
+        "id": "anaconda_46",
+        "bytes": 108288,
+        "target_package": "com.sec.android.inputmethod",
+        "label": "Samsung InputMethod Sub-Resources",
+        "semwt_override": "com.sec.android.inputmethod:SemWT_InputMethod",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.inputmethod",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_47",
+        "id": "anaconda_47",
+        "bytes": 27984,
+        "target_package": "com.samsung.android.app.dressroom",
+        "label": "Wallpaper & Style Dressroom",
+        "semwt_override": "com.samsung.android.app.dressroom:SemWT_DressRoom",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.dressroom",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_48",
+        "id": "anaconda_48",
+        "bytes": 74576,
+        "target_package": "com.samsung.android.app.reminder",
+        "label": "Samsung Reminder Cards & Widgets",
+        "semwt_override": "com.samsung.android.app.reminder:SemWT_Reminder",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.reminder",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_49",
+        "id": "anaconda_49",
+        "bytes": 30912,
+        "target_package": "com.samsung.android.authfw",
+        "label": "Samsung Pass Authentication Framework",
+        "semwt_override": "com.samsung.android.authfw:SemWT_AuthFw",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.authfw",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_50",
+        "id": "anaconda_50",
+        "bytes": 31104,
+        "target_package": "com.samsung.android.samsungpass",
+        "label": "Samsung Pass Vault & Biometric Sheet",
+        "semwt_override": "com.samsung.android.samsungpass:SemWT_SamsungPass",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.samsungpass",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_51",
+        "id": "anaconda_51",
+        "bytes": 27360,
+        "target_package": "com.samsung.android.samsungpassautofill",
+        "label": "Samsung Pass Autofill Popup",
+        "semwt_override": "com.samsung.android.samsungpassautofill:SemWT_PassAutofill",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.passautofill",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_53",
+        "id": "anaconda_53",
+        "bytes": 16,
+        "target_package": "com.samsung.android.visionintelligence",
+        "label": "Bixby Vision Overlay",
+        "semwt_override": "com.samsung.android.visionintelligence:SemWT_Vision",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.vision",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_55",
+        "id": "anaconda_55",
+        "bytes": 27808,
+        "target_package": "com.android.vending",
+        "label": "Google Play Store MIUI 11 Dark Theme",
+        "semwt_override": "com.android.vending:SemWT_Vending",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.vending",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_57",
+        "id": "anaconda_57",
+        "bytes": 18032,
+        "target_package": "com.google.android.gms",
+        "label": "Google Play Services Dialogs & Sheets",
+        "semwt_override": "com.google.android.gms:SemWT_Gms",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.gms",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_58",
+        "id": "anaconda_58",
+        "bytes": 30480,
+        "target_package": "com.samsung.android.game.gametools",
+        "label": "Samsung Game Booster & Overlay Bar",
+        "semwt_override": "com.samsung.android.game.gametools:SemWT_GameTools",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.gametools",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_59",
+        "id": "anaconda_59",
+        "bytes": 16,
+        "target_package": "com.samsung.android.game.gamehome",
+        "label": "Samsung Gaming Hub",
+        "semwt_override": "com.samsung.android.game.gamehome:SemWT_GameHome",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.gamehome",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      },
+      {
+        "asset": "assets/anaconda/anaconda_61",
+        "id": "anaconda_61",
+        "bytes": 4400,
+        "target_package": "com.android.packageinstaller",
+        "label": "Android Package Installer Dialogs",
+        "semwt_override": "com.android.packageinstaller:SemWT_PackageInstaller",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.packageinstaller",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (priority=10000 > SemWT_*)"
+      }
+    ],
+    "crocodile_overlays": [
+      {
+        "asset": "assets/anaconda/crocodile_5",
+        "id": "crocodile_5",
+        "bytes": 1088,
+        "target_package": "android",
+        "label": "MIUI 11 Pill Switches (bodh_on / bodh_off + tint)",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.common",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_6",
+        "id": "crocodile_6",
+        "bytes": 1104,
+        "target_package": "android",
+        "label": "MIUI 11 Rounded Checkboxes & Radios (sem_btn_check / radio)",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.common",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_7",
+        "id": "crocodile_7",
+        "bytes": 1296,
+        "target_package": "android",
+        "label": "MIUI 11 Floating Popup Background (radius=17dp, stroke=1.5dp)",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.common",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_8",
+        "id": "crocodile_8",
+        "bytes": 2048,
+        "target_package": "com.android.systemui",
+        "label": "MIUI 11 Statusbar Wi-Fi, Signal & Battery Indicators",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.systemui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_9",
+        "id": "crocodile_9",
+        "bytes": 2448,
+        "target_package": "com.android.systemui",
+        "label": "MIUI 11 Navigation Bar Glyphs (ic_sysbar_back/home/recent)",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.systemui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_15",
+        "id": "crocodile_15",
+        "bytes": 1968,
+        "target_package": "com.sec.android.app.clockpackage",
+        "label": "MIUI 11 Clock Card & Tab Bar Styling",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.clockpackage",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_18",
+        "id": "crocodile_18",
+        "bytes": 2560,
+        "target_package": "com.samsung.android.lool",
+        "label": "MIUI 11 Device Care Score Ring & Card",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.lool",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_19",
+        "id": "crocodile_19",
+        "bytes": 16400,
+        "target_package": "com.android.settings",
+        "label": "MIUI 11 SecSettings Squircle Icon Containers & Search Bar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.settings",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_20",
+        "id": "crocodile_20",
+        "bytes": 1216,
+        "target_package": "com.sec.android.gallery3d",
+        "label": "MIUI 11 Gallery Floating Bottom Tab Pill",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.gallery3d",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_21",
+        "id": "crocodile_21",
+        "bytes": 2576,
+        "target_package": "com.samsung.android.messaging",
+        "label": "MIUI 11 Rounded Chat Bubbles & Input Bar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.messaging",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_22",
+        "id": "crocodile_22",
+        "bytes": 4176,
+        "target_package": "com.sec.android.app.myfiles",
+        "label": "MIUI 11 My Files Storage Ring & Category Chips",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.myfiles",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_24",
+        "id": "crocodile_24",
+        "bytes": 1024,
+        "target_package": "com.sec.android.daemonapp",
+        "label": "MIUI 11 Weather Card Gradient & Transparency",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.mimi.weather",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_25",
+        "id": "crocodile_25",
+        "bytes": 2608,
+        "target_package": "com.samsung.android.honeyboard",
+        "label": "MIUI 11 HoneyBoard Keycap Outlines & Key Popups",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.honeyboard",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_26",
+        "id": "crocodile_26",
+        "bytes": 2912,
+        "target_package": "com.samsung.android.app.smartcapture",
+        "label": "MIUI 11 Smart Capture Floating Pill Toolbar",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.smartcapture",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      },
+      {
+        "asset": "assets/anaconda/crocodile_30",
+        "id": "crocodile_30",
+        "bytes": 1568,
+        "target_package": "com.android.systemui",
+        "label": "MIUI 11 Vertical Volume Panel Slider",
+        "oneui9_rro_package": "com.hexnext.oneui9.rro.systemui",
+        "priority": 10000,
+        "status": "One UI 9.0 Compatible (Merged into From-Scratch RRO)"
+      }
+    ],
+    "total_overlays": 66
+  }
 }

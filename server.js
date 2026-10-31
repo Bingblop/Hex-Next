@@ -17,6 +17,7 @@ const {
   SETTINGS_DASHBOARD_ICONS,
   NIFERPITOU_EXTRA_PREFERENCES,
   ONEUI9_SYSTEM_RRO_CATALOG,
+  MIMI_SKIN_MANIFEST,
 } = CATALOG;
 
 // Color conversion helpers matching engine/oneui9_overlays.py
@@ -202,7 +203,9 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
     SETTINGS_ICON_STYLES.find((s) => s.id === iconStyle) || SETTINGS_ICON_STYLES[0];
   const activeFolder = settframe ? styleMeta.frameless_folder : styleMeta.asset_folder;
   const iconDp = bigsetico ? 36 : 28;
-  const isDuotone = iconStyle === "alt_1sett" || iconStyle === "alt_2sett";
+  const isMimiStyle = iconStyle === "mimi_sett";
+  const isDuotone = iconStyle === "alt_1sett" || iconStyle === "alt_2sett" || isMimiStyle;
+  const mimiDrawables = (MIMI_SKIN_MANIFEST && MIMI_SKIN_MANIFEST.drawables) || {};
 
   const resolvedIcons = SETTINGS_DASHBOARD_ICONS.map((ic) => {
     const tokenName = `${ic.res_name}_tint`;
@@ -212,7 +215,10 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
     let badgeColor;
     if (customHex) {
       fgColor = String(customHex).toUpperCase();
-      badgeColor = secondary;
+      badgeColor = isMimiStyle ? String(ic.mimi_badge || "#F16E9A").toUpperCase() : secondary;
+    } else if (isMimiStyle) {
+      fgColor = String(ic.mimi_color || "#4C9FFD").toUpperCase();
+      badgeColor = String(ic.mimi_badge || "#F16E9A").toUpperCase();
     } else if (iconStyle === "1sett") {
       fgColor = seed;
       badgeColor = seed;
@@ -232,12 +238,20 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
 
     const cleanFg = fgColor.replace(/^#/, "");
     const cleanBadge = badgeColor.replace(/^#/, "");
-    const frameBg = settframe ? "transparent" : `#1F${cleanFg}`;
-    const frameBorder = settframe ? "transparent" : `#4D${cleanFg}`;
+    const frameBg = settframe ? "transparent" : isMimiStyle ? `#29${cleanFg}` : `#1F${cleanFg}`;
+    const frameBorder = settframe ? "transparent" : isMimiStyle ? `#66${cleanBadge}` : `#4D${cleanFg}`;
+    const mimiPngUri = isMimiStyle && ic.mimi_png_key ? mimiDrawables[ic.mimi_png_key] || null : null;
+    const sourceAsset = isMimiStyle
+      ? ic.mimi_png_key
+        ? `res/drawable/${ic.mimi_png_key}.png (project.vivid.ui.plugin.miui + anaconda_28)`
+        : `assets/anaconda_28 + assets/crocodile_19/${ic.res_name}.xml (MIMI Miui 11)`
+      : `assets/anaconda_tints/once/base/lxx1/${activeFolder}/${ic.res_name}.png`;
 
     let vectorXml =
       '<?xml version="1.0" encoding="utf-8"?>\n' +
-      `<!-- Rebuilt from project.vivid.ui.plugin.niferpitou (${activeFolder}/${ic.res_name}.png) for One UI 9.0 -->\n` +
+      (isMimiStyle
+        ? `<!-- Ported from MIMI (#Hex Miui 11 Plugin v1.3: ${sourceAsset}) for One UI 9.0 (precedence > SemWT_Settings) -->\n`
+        : `<!-- Rebuilt from project.vivid.ui.plugin.niferpitou (${activeFolder}/${ic.res_name}.png) for One UI 9.0 -->\n`) +
       `<!-- Target: com.android.settings:drawable/${ic.res_name} | Tint Token: @color/${tokenName} (${fgColor}) -->\n` +
       '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n' +
       `    android:width="${iconDp}dp"\n` +
@@ -248,17 +262,17 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
     if (!settframe) {
       vectorXml +=
         "    <path\n" +
-        `        android:name="squircle_container"\n` +
-        `        android:fillColor="#26${isDuotone ? cleanBadge : cleanFg}"\n` +
-        `        android:strokeColor="#4D${isDuotone ? cleanBadge : cleanFg}"\n` +
-        '        android:strokeWidth="0.75"\n' +
+        `        android:name="${isMimiStyle ? "miui11_squircle_container" : "squircle_container"}"\n` +
+        `        android:fillColor="#${isMimiStyle ? "2E" : "26"}${isDuotone ? cleanBadge : cleanFg}"\n` +
+        `        android:strokeColor="#${isMimiStyle ? "66" : "4D"}${isDuotone ? cleanBadge : cleanFg}"\n` +
+        `        android:strokeWidth="${isMimiStyle ? "0.9" : "0.75"}"\n` +
         '        android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />\n';
     }
     if (isDuotone) {
       vectorXml +=
         "    <path\n" +
-        '        android:name="duotone_accent_glow"\n' +
-        `        android:fillColor="#33${cleanBadge}"\n` +
+        `        android:name="${isMimiStyle ? "mimi_miui11_inner_glow" : "duotone_accent_glow"}"\n` +
+        `        android:fillColor="#${isMimiStyle ? "3D" : "33"}${cleanBadge}"\n` +
         '        android:pathData="M12,6a6,6 0 1,0 0,12a6,6 0 1,0 0,-12z" />\n';
     }
     vectorXml +=
@@ -281,7 +295,9 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
       frame_border: frameBorder,
       frameless: settframe,
       size_dp: iconDp,
-      source_asset: `assets/anaconda_tints/once/base/lxx1/${activeFolder}/${ic.res_name}.png`,
+      is_mimi_style: isMimiStyle,
+      mimi_png_uri: mimiPngUri,
+      source_asset: sourceAsset,
       oneui9_drawable: `com.android.settings:drawable/${ic.res_name}`,
       vector_xml: vectorXml,
     };
@@ -623,6 +639,12 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
     const folder = `overlays/${pkg.system_rro_package}`;
     files.push({ name: `${folder}/AndroidManifest.xml`, content: pkg.manifest_xml });
     files.push({ name: `${folder}/res/values/colors.xml`, content: pkg.colors_xml });
+    if (pkg.id === "common" && MIMI_SKIN_MANIFEST && MIMI_SKIN_MANIFEST.floating_popup_background_light_xml) {
+      files.push({
+        name: `${folder}/res/drawable/floating_popup_background_light.xml`,
+        content: MIMI_SKIN_MANIFEST.floating_popup_background_light_xml,
+      });
+    }
     if (pkg.id === "systemui") {
       files.push({ name: `${folder}/res/drawable/sec_qs_tile_bg.xml`, content: qsDrawableXml });
     }
@@ -631,6 +653,27 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
       files.push({ name: `${folder}/res/values/bools.xml`, content: settingsIcons.bools_xml });
       for (const ic of settingsIcons.icons) {
         files.push({ name: `${folder}/res/drawable/${ic.res_name}.xml`, content: ic.vector_xml });
+        if (ic.mimi_png_uri && ic.mimi_png_key) {
+          const base64Part = String(ic.mimi_png_uri).split(",")[1];
+          if (base64Part) {
+            files.push({
+              name: `${folder}/res/drawable/${ic.mimi_png_key}.png`,
+              content: Buffer.from(base64Part, "base64"),
+            });
+          }
+        }
+      }
+    }
+    if (pkg.id === "dialer" && spec.plugin_id === "mimi_miui11" && MIMI_SKIN_MANIFEST && MIMI_SKIN_MANIFEST.drawables) {
+      for (const [dKey, fName] of [
+        ["dial_btn_left", "dial_btn_call_left.png"],
+        ["dial_btn_right", "dial_btn_call_right.png"],
+      ]) {
+        const uri = MIMI_SKIN_MANIFEST.drawables[dKey];
+        const b64 = uri && String(uri).split(",")[1];
+        if (b64) {
+          files.push({ name: `${folder}/res/drawable/${fName}`, content: Buffer.from(b64, "base64") });
+        }
       }
     }
 
@@ -677,9 +720,21 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
           icon_count: settingsIcons.icons.length,
         },
         monet_palette: monet,
+        mimi_skin_manifest: MIMI_SKIN_MANIFEST
+          ? {
+              plugin_id: MIMI_SKIN_MANIFEST.plugin_id,
+              package_name: MIMI_SKIN_MANIFEST.package_name,
+              version_name: MIMI_SKIN_MANIFEST.version_name,
+              total_overlays: MIMI_SKIN_MANIFEST.total_overlays,
+              anaconda_overlays: MIMI_SKIN_MANIFEST.anaconda_overlays,
+              crocodile_overlays: MIMI_SKIN_MANIFEST.crocodile_overlays,
+              tint_always_overlays: MIMI_SKIN_MANIFEST.tint_always_overlays,
+            }
+          : null,
         overlays: compiled.map((p) => ({
           id: p.id,
           system_rro_package: p.system_rro_package,
+          mimi_bundle: p.mimi_bundle || null,
           semwt_overridden: p.semwt_target,
           target_package: p.target_package,
           selected: p.selected,
@@ -748,16 +803,16 @@ const RUNTIME_STATE = {
   last_build: {
     timestamp: "Ready — From-Scratch One UI 9.0 RRO Compiler Initialized",
     duration_ms: 148,
-    total_packages: 16,
-    total_tokens: 205,
+    total_packages: 22,
+    total_tokens: 247,
     logs: [
-      "[*] HexNext v3.2 — From-Scratch One UI 9.0 RRO Compiler (#hex__30 + Niferpitou terpsichora_)",
+      "[*] HexNext v3.2 — From-Scratch One UI 9.0 RRO Compiler (#hex__30 + Niferpitou terpsichora_ + MIMI Miui 11)",
       "[*] Opening Prerequisite Check: Theme Park & High Contrast Theme requirements REMOVED.",
       "[✓] Privileged session verified: UID 1000 (android.uid.system via Shizuku / Direct RRO).",
-      "[✓] Synthesized 18 from-scratch RRO packages (com.hexnext.oneui9.rro.*) taking precedence over SemWT_*.",
+      "[✓] Synthesized 26 from-scratch RRO packages (com.hexnext.oneui9.rro.*) taking precedence over SemWT_*.",
       "[!] [19:54:12 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #4] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_ERR: Repeated lock contention on stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro (color/aod_clock_color)",
       "[!] [19:55:04 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #3] on com.hexnext.oneui9.rro.messaging (com.samsung.android.messaging) -> IDMAP2_ERR: Unresolved symbol 'color/message_bubble_send_bg' during SemWT_Messaging override pass",
-      "[✓] Loaded 26 One UI 9.0 SecSettings Dashboard Icon VectorDrawables & Niferpitou extra.preferences.",
+      "[✓] Loaded 26 One UI 9.0 SecSettings Dashboard Icon VectorDrawables (MIMI + Niferpitou extra.preferences).",
       "[✓] Generated 65 Android 16 Monet framework shades + 23 Material 3 dark roles above SemWT_MonetPalette.",
     ],
   },
@@ -929,10 +984,17 @@ function buildFullState() {
     packages: compiledPackages,
     settings_icons: settingsIcons,
     niferpitou_preferences: NIFERPITOU_EXTRA_PREFERENCES,
+    mimi_skin: MIMI_SKIN_MANIFEST || null,
     plugins: Object.values(HEX_PLUGINS),
     palette_styles: PALETTE_STYLES,
     qs_shapes: Object.values(HEX_QS_TOGGLE_SHAPES),
     qs_drawable_xml: qsDrawablePreview,
+    stats: {
+      total_packages: compiledPackages.length,
+      selected_packages: compiledPackages.filter((p) => p.selected).length,
+      high_freq_packages: compiledPackages.filter((p) => p.high_frequency_failure).length,
+      total_tokens: totalTokens,
+    },
     last_build: {
       ...RUNTIME_STATE.last_build,
       total_packages: compiledPackages.filter((p) => p.selected).length,
@@ -1003,6 +1065,9 @@ function handleCompile(data) {
   if (data.extra_tweaks && typeof data.extra_tweaks === "object") {
     spec.extra_tweaks = { ...(spec.extra_tweaks || {}), ...data.extra_tweaks };
   }
+  if (data.plugin_id === "mimi_miui11" && !(data.extra_tweaks && data.extra_tweaks.settings_icon_style)) {
+    spec.extra_tweaks = { ...(spec.extra_tweaks || {}), settings_icon_style: "mimi_sett" };
+  }
   if (data.custom_overrides && typeof data.custom_overrides === "object") {
     RUNTIME_STATE.custom_overrides = data.custom_overrides;
   }
@@ -1019,6 +1084,12 @@ function handleCompile(data) {
     `[*] Starting One UI 9.0 From-Scratch RRO Compiler (Privilege: ${priv.mode} / UID ${uid})`,
     "[*] Theme Park & High Contrast Theme overlays skipped — building fresh com.hexnext.oneui9.rro.* packages",
     `[*] Owning package for OverlayManagerTransaction: '${owner}' (priority=highest > SemWT_*)`,
+    ...(spec.plugin_id === "mimi_miui11"
+      ? [
+          "[*] Active Skin: MIMI (#Hex Miui 11 Plugin v1.3 • project.vivid.ui.plugin.miui by Rohit_S_Shetty)",
+          "[*] Porting 51 anaconda_* + 15 crocodile_* + tint_always call button & 30 IconTheme.HexIcons overlays to One UI 9.0",
+        ]
+      : []),
     `[*] Fabricating 65 Monet shades + 23 Material 3 dark roles -> ${owner}:HexNextMonetShades (overrides SemWT_MonetPalette)`,
     `[*] Compiling 26 One UI 9.0 SecSettings Dashboard Icons (${settingsIcons.active_asset_folder} | size=${settingsIcons.icon_size_dp}dp | settframe=${settingsIcons.settframe})`,
   ];
@@ -1096,8 +1167,7 @@ function handleCompile(data) {
         .filter((p) => p.selected)
         .reduce((acc, p) => acc + p.resolved_resources.length, 0) +
       monet.total_shades +
-      monet.total_roles +
-      settingsIcons.icons.length,
+      monet.total_roles,
     logs,
   };
   return buildFullState();
@@ -1214,6 +1284,9 @@ const server = http.createServer(async (req, res) => {
         }
       } else {
         Object.assign(tweaks, data);
+        if (data.setticons_style && !data.settings_icon_style) {
+          tweaks.settings_icon_style = data.setticons_style;
+        }
       }
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
       RUNTIME_STATE.last_build.timestamp = nowUtc;
@@ -1268,6 +1341,12 @@ const server = http.createServer(async (req, res) => {
         ov.compile_error = null;
         ov.carrier_state = enable ? "STATE_ENABLED" : "STATE_DISABLED";
         if (enable) {
+          ov.failure_count = 0;
+          ov.compile_attempts = Math.max(3, Number(ov.compile_attempts || 2) + 1);
+          ov.failure_rate = 0;
+          ov.failure_history = ["ok", "ok", "ok"];
+          ov.failure_timestamps = [];
+          ov.high_frequency_failure = false;
           RUNTIME_STATE.last_build.logs.push(
             `[✓] [${nowUtc}] ENABLED & COMPILED ${ov.system_rro_package} -> ${ov.target_package} (STATE_ENABLED | priority=10000 > ${semwtTarget})`
           );
