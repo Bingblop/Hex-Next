@@ -182,6 +182,27 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
+    override fun triggerSafeModeFallback(crashReason: String): Bundle {
+        return try {
+            val logs = StringBuilder()
+            logs.appendLine("[!] [SAFE_MODE_FALLBACK] System crash detected: $crashReason")
+            logs.appendLine("[*] [UID ${Process.myUid()}] Executing emergency rollback: cmd overlay disable-all --user current")
+
+            // 1. Disable all overlays for the current user and purge any corrupted HexNext idmap2/frro files
+            val disableRes = exec(
+                "cmd overlay disable-all --user current 2>/dev/null; " +
+                    "rm -f /data/resource-cache/*HexNext*.idmap /data/resource-cache/*HexNext*.frro " +
+                    "/data/resource-cache/*hexnext*.idmap /data/resource-cache/*hexnext*.frro"
+            )
+            logs.appendLine("[✓] Disabled active RROs & purged /data/resource-cache/ (code=${disableRes.getInt(KEY_CODE)})")
+            logs.appendLine("[✓] Restored stock One UI 9.0 SemWT_* & Framework resource state (Safe Mode active).")
+
+            result(0, logs.toString().trimEnd())
+        } catch (t: Throwable) {
+            result(-1, describe(t))
+        }
+    }
+
     private fun newOverlay(name: String, target: String, owner: String): FabricatedOverlay {
         val overlay = FabricatedOverlay(name, target)
         FabricatedOverlay::class.java

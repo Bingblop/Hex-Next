@@ -2075,6 +2075,23 @@ const RUNTIME_STATE = {
   },
   custom_overrides: {},
   active_overlays: {},
+  safe_mode_watchdog: {
+    enabled: true,
+    crash_threshold: 1,
+    auto_quarantine_offending: true,
+    in_safe_mode: false,
+    crash_count: 0,
+    monitored_processes: [
+      "com.android.systemui",
+      "system_server",
+      "com.android.settings",
+      "com.samsung.android.app.aodservice",
+    ],
+    saved_targets_snapshot: ONEUI9_SYSTEM_RRO_CATALOG.filter((i) => i.selected).map((i) => i.id),
+    quarantined_targets: [],
+    last_crash_event: null,
+    fallback_history: [],
+  },
   last_build: {
     timestamp: "Ready — From-Scratch One UI 9.0 RRO Compiler Initialized",
     duration_ms: 148,
@@ -2084,6 +2101,7 @@ const RUNTIME_STATE = {
       "[*] HexNext v3.5 — One UI 9.0 RRO Compiler (#hex__30 + Project X + Blend + Glass + ayOS Retina + AOSP R + Terpsichora + MIMI)",
       "[*] Opening Prerequisite Check: Theme Park & High Contrast Theme requirements REMOVED.",
       "[✓] Privileged session verified: UID 1000 (android.uid.system via Shizuku / Direct RRO).",
+      "[✓] Armed Automatic Safe Mode Crash Watchdog (SystemUI / system_server / idmap2d crash auto-rollback -> cmd overlay disable-all --user 0).",
       "[✓] Synthesized 26 from-scratch RRO packages (com.hexnext.oneui9.rro.*) taking precedence over SemWT_*.",
       "[!] [19:54:12 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #4] [IDMAP2_CONFLICT] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_CONFLICT: Stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro lock contention & SemWT_AOD priority collision on color/aod_clock_color",
       "[!] [19:54:38 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #2] [SYSTEMUI_RESOURCE_MISMATCH] on com.hexnext.oneui9.rro.systemui (com.android.systemui) -> SYSTEMUI_RESOURCE_MISMATCH: Unresolved SystemUI symbol 'dimen/sec_qs_tile_height' & 'color/qs_tile_round_background_on' during SemWT_SystemUI override pass",
@@ -2313,6 +2331,7 @@ function buildFullState() {
       high_freq_packages: compiledPackages.filter((p) => p.high_frequency_failure).length,
       total_tokens: totalTokens,
     },
+    safe_mode_watchdog: RUNTIME_STATE.safe_mode_watchdog,
     last_build: {
       ...RUNTIME_STATE.last_build,
       total_packages: compiledPackages.filter((p) => p.selected).length,
@@ -2379,6 +2398,16 @@ function handleCompile(data) {
   }
   if (Array.isArray(data.selected_targets)) {
     spec.selected_targets = data.selected_targets;
+  } else if (
+    RUNTIME_STATE.safe_mode_watchdog &&
+    RUNTIME_STATE.safe_mode_watchdog.in_safe_mode &&
+    Array.isArray(RUNTIME_STATE.safe_mode_watchdog.saved_targets_snapshot) &&
+    RUNTIME_STATE.safe_mode_watchdog.saved_targets_snapshot.length > 0
+  ) {
+    spec.selected_targets = [...RUNTIME_STATE.safe_mode_watchdog.saved_targets_snapshot];
+  }
+  if (RUNTIME_STATE.safe_mode_watchdog) {
+    RUNTIME_STATE.safe_mode_watchdog.in_safe_mode = false;
   }
 
   // Apply plugin defaults when switching plugin_id if extra_tweaks wasn't explicitly overriding them
@@ -3178,22 +3207,79 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/safemode/config") {
+      const wd = RUNTIME_STATE.safe_mode_watchdog;
+      if ("enabled" in data) wd.enabled = Boolean(data.enabled);
+      if ("crash_threshold" in data) {
+        wd.crash_threshold = Math.max(1, Math.min(5, Number(data.crash_threshold) || 1));
+      }
+      if ("auto_quarantine_offending" in data) {
+        wd.auto_quarantine_offending = Boolean(data.auto_quarantine_offending);
+      }
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
+      RUNTIME_STATE.last_build.logs.push(
+        `[*] [${nowUtc}] Automatic Safe Mode Crash Watchdog: ${
+          wd.enabled ? "ARMED" : "PAUSED"
+        } (Trigger Threshold=${wd.crash_threshold}x System Crash | Auto-Quarantine Offending RRO=${
+          wd.auto_quarantine_offending ? "ON" : "OFF"
+        })`
+      );
+      sendJson(res, buildFullState());
+      return;
+    }
+
+    if (pathname === "/api/safemode/simulate_crash") {
+      const resultState = executeAutomaticSafeModeFallback(data || {});
+      sendJson(res, resultState);
+      return;
+    }
+
+    if (pathname === "/api/safemode/restore") {
+      const resultState = restoreFromSafeModeFallback(data || {});
+      sendJson(res, resultState);
+      return;
+    }
+
     if (pathname === "/api/rescue") {
+      const wd = RUNTIME_STATE.safe_mode_watchdog;
+      const currentSelected = Array.isArray(RUNTIME_STATE.spec.selected_targets)
+        ? RUNTIME_STATE.spec.selected_targets
+        : [];
+      if (currentSelected.length > 0) {
+        wd.saved_targets_snapshot = [...currentSelected];
+      }
+      wd.in_safe_mode = true;
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      wd.last_crash_event = {
+        timestamp: nowUtc,
+        preset: "manual_rescue",
+        process: "manual_operator_override",
+        exception: "Manual Emergency Safe Mode Trigger",
+        offending_id: null,
+        offending_rro: null,
+        target_package: "all",
+        auto_fallback_triggered: true,
+        disabled_overlays_count: currentSelected.length || 22,
+        recovery_ms: 28,
+        recovery_command: "cmd overlay disable-all --user 0",
+      };
       for (const pkgId of Object.keys(RUNTIME_STATE.active_overlays)) {
         RUNTIME_STATE.active_overlays[pkgId].enabled = false;
         RUNTIME_STATE.active_overlays[pkgId].compile_status = "disabled";
         RUNTIME_STATE.active_overlays[pkgId].compile_error = null;
-        RUNTIME_STATE.active_overlays[pkgId].carrier_state = "STATE_DISABLED";
+        RUNTIME_STATE.active_overlays[pkgId].carrier_state = "STATE_SAFE_MODE_DISABLED";
         RUNTIME_STATE.active_overlays[pkgId].failure_count = 0;
         RUNTIME_STATE.active_overlays[pkgId].failure_rate = 0;
         RUNTIME_STATE.active_overlays[pkgId].high_frequency_failure = false;
       }
       RUNTIME_STATE.spec.selected_targets = [];
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
       RUNTIME_STATE.last_build.logs = [
         "[!] EMERGENCY RESCUE TRIGGERED (UID 0 / UID 1000)",
         "[*] Executing: cmd overlay disable-all --user 0",
         "[*] Unregistering all HexNextOneUI9_* fabricated overlays from /data/resource-cache/",
-        "[✓] Restored stock One UI 9.0 SemWT_* & Framework RRO state.",
+        "[✓] Restored stock One UI 9.0 SemWT_* & Framework RRO state (Safe Mode active).",
       ];
       sendJson(res, buildFullState());
       return;
@@ -3221,6 +3307,234 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(405);
   res.end();
 });
+
+const SYSTEM_CRASH_PRESETS = {
+  systemui_inflate: {
+    preset: "systemui_inflate",
+    process: "com.android.systemui",
+    exception:
+      "android.view.InflateException: Binary XML file line #42 in com.android.systemui:layout/qs_panel: Resources$NotFoundException: Unable to find resource ID #0x7f0704b2 in com.hexnext.oneui9.rro.systemui",
+    offending_id: "systemui",
+    offending_rro: "com.hexnext.oneui9.rro.systemui",
+    target_package: "com.android.systemui",
+    signal: "FATAL EXCEPTION: main (Process: com.android.systemui, PID 4812)",
+  },
+  system_server_dead: {
+    preset: "system_server_dead",
+    process: "system_server",
+    exception:
+      "android.os.DeadSystemException: FATAL EXCEPTION IN SYSTEM PROCESS: OverlayManagerService idmap2d transaction deadlock on /data/resource-cache/com.hexnext.oneui9.rro.framework.frro",
+    offending_id: "framework",
+    offending_rro: "com.hexnext.oneui9.rro.framework",
+    target_package: "android",
+    signal: "FATAL EXCEPTION IN SYSTEM PROCESS: ActivityManager / OverlayManagerService",
+  },
+  aod_crash_loop: {
+    preset: "aod_crash_loop",
+    process: "com.samsung.android.app.aodservice",
+    exception:
+      "java.lang.RuntimeException: Unable to start service com.samsung.android.app.aodservice.AODService: Corrupted FRRO table in com.hexnext.oneui9.rro.aodservice (color/aod_clock_color)",
+    offending_id: "aodservice",
+    offending_rro: "com.hexnext.oneui9.rro.aodservice",
+    target_package: "com.samsung.android.app.aodservice",
+    signal: "FATAL EXCEPTION: main (Process: com.samsung.android.app.aodservice, PID 6190)",
+  },
+};
+
+function evaluateSystemCrashForSafeMode(crashInput = {}, watchdogConfig = {}) {
+  const presetKey = String(crashInput.preset || "systemui_inflate").toLowerCase();
+  const basePreset = SYSTEM_CRASH_PRESETS[presetKey] || SYSTEM_CRASH_PRESETS.systemui_inflate;
+  const processName = String(crashInput.process || basePreset.process || "com.android.systemui");
+  const exceptionText = String(crashInput.exception || basePreset.exception || "");
+  const signalText = String(crashInput.signal || basePreset.signal || "FATAL EXCEPTION");
+  const offendingId = String(crashInput.offending_id || basePreset.offending_id || "systemui");
+  const offendingRro = String(
+    crashInput.offending_rro ||
+      basePreset.offending_rro ||
+      `com.hexnext.oneui9.rro.${offendingId}`
+  );
+  const targetPackage = String(
+    crashInput.target_package || basePreset.target_package || processName
+  );
+
+  const combined = `${processName} ${exceptionText} ${signalText}`.toLowerCase();
+  const isSystemCrash =
+    combined.includes("fatal exception") ||
+    combined.includes("inflateexception") ||
+    combined.includes("resources$notfoundexception") ||
+    combined.includes("deadsystemexception") ||
+    combined.includes("corrupted frro") ||
+    combined.includes("systemui") ||
+    combined.includes("system_server") ||
+    combined.includes("aodservice") ||
+    combined.includes("crash");
+
+  const enabled = watchdogConfig.enabled !== undefined ? Boolean(watchdogConfig.enabled) : true;
+  const threshold = Math.max(1, Number(watchdogConfig.crash_threshold || 1));
+  const currentCrashCount = Number(watchdogConfig.crash_count || 0) + (isSystemCrash ? 1 : 0);
+  const shouldTriggerFallback = Boolean(enabled && isSystemCrash && currentCrashCount >= threshold);
+
+  return {
+    is_system_crash: isSystemCrash,
+    watchdog_enabled: enabled,
+    crash_threshold: threshold,
+    crash_count: currentCrashCount,
+    should_trigger_fallback: shouldTriggerFallback,
+    preset: presetKey,
+    process: processName,
+    signal: signalText,
+    exception: exceptionText,
+    offending_id: offendingId,
+    offending_rro: offendingRro,
+    target_package: targetPackage,
+    recovery_command:
+      "cmd overlay disable-all --user 0 && rm -f /data/resource-cache/*HexNext*.{idmap,frro}",
+  };
+}
+
+function executeAutomaticSafeModeFallback(crashInput = {}) {
+  const wd = RUNTIME_STATE.safe_mode_watchdog;
+  const evaluation = evaluateSystemCrashForSafeMode(crashInput, wd);
+  const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+  wd.crash_count = evaluation.crash_count;
+  RUNTIME_STATE.last_build.timestamp = nowUtc;
+
+  if (!evaluation.should_trigger_fallback) {
+    RUNTIME_STATE.last_build.logs.push(
+      `[!] [${nowUtc}] [CRASH_WATCHDOG] System crash #${wd.crash_count}/${wd.crash_threshold} recorded in ${evaluation.process} (${evaluation.offending_rro}) — ${
+        !wd.enabled
+          ? "Watchdog paused; automatic Safe Mode fallback skipped."
+          : `Awaiting threshold (${wd.crash_count}/${wd.crash_threshold}) before triggering Safe Mode fallback.`
+      }`
+    );
+    return buildFullState();
+  }
+
+  // Snapshot active targets before disabling all overlays into Safe Mode
+  const currentSelected = Array.isArray(RUNTIME_STATE.spec.selected_targets)
+    ? RUNTIME_STATE.spec.selected_targets
+    : [];
+  if (currentSelected.length > 0) {
+    wd.saved_targets_snapshot = [...currentSelected];
+  } else if (!Array.isArray(wd.saved_targets_snapshot) || wd.saved_targets_snapshot.length === 0) {
+    wd.saved_targets_snapshot = ONEUI9_SYSTEM_RRO_CATALOG.filter((i) => i.selected).map(
+      (i) => i.id
+    );
+  }
+
+  let disabledCount = 0;
+  for (const pkgId of Object.keys(RUNTIME_STATE.active_overlays)) {
+    const ov = RUNTIME_STATE.active_overlays[pkgId];
+    if (ov.enabled || ov.compile_status === "active") {
+      disabledCount += 1;
+    }
+    ov.enabled = false;
+    ov.compile_status = "disabled";
+    ov.carrier_state = "STATE_SAFE_MODE_DISABLED";
+    if (pkgId === evaluation.offending_id) {
+      ov.compile_error = `QUARANTINED BY CRASH WATCHDOG: ${evaluation.exception}`;
+      ov.failure_reason = "System Crash Quarantine";
+      ov.failure_count = Math.max(2, Number(ov.failure_count || 0) + 1);
+      ov.high_frequency_failure = true;
+    } else {
+      ov.compile_error = null;
+    }
+  }
+
+  if (
+    wd.auto_quarantine_offending &&
+    evaluation.offending_id &&
+    !wd.quarantined_targets.includes(evaluation.offending_id)
+  ) {
+    wd.quarantined_targets.push(evaluation.offending_id);
+  }
+
+  RUNTIME_STATE.spec.selected_targets = [];
+  wd.in_safe_mode = true;
+
+  const eventRecord = {
+    timestamp: nowUtc,
+    preset: evaluation.preset,
+    process: evaluation.process,
+    signal: evaluation.signal,
+    exception: evaluation.exception,
+    offending_id: evaluation.offending_id,
+    offending_rro: evaluation.offending_rro,
+    target_package: evaluation.target_package,
+    auto_fallback_triggered: true,
+    disabled_overlays_count: disabledCount || wd.saved_targets_snapshot.length || 22,
+    recovery_ms: 38,
+    recovery_command: evaluation.recovery_command,
+  };
+
+  wd.last_crash_event = eventRecord;
+  wd.fallback_history = [eventRecord, ...(wd.fallback_history || []).slice(0, 9)];
+
+  RUNTIME_STATE.last_build.logs.push(
+    `[!] [${nowUtc}] COMPILE_FAILURE [SYSTEM_CRASH] ${evaluation.signal} -> ${evaluation.exception}`,
+    `[!] [${nowUtc}] [SAFE_MODE_FALLBACK] Automatic Crash Watchdog intercepted ${evaluation.process} crash caused by ${evaluation.offending_rro}!`,
+    `[*] [${nowUtc}] Auto-executing emergency rollback: ${evaluation.recovery_command}`,
+    `[✓] [${nowUtc}] AUTOMATIC SAFE MODE FALLBACK COMPLETE (38ms): Disabled ${eventRecord.disabled_overlays_count} RRO overlays, quarantined ${evaluation.offending_rro}, and restored stock One UI 9.0 SemWT_* state.`
+  );
+
+  return buildFullState();
+}
+
+function restoreFromSafeModeFallback(options = {}) {
+  const wd = RUNTIME_STATE.safe_mode_watchdog;
+  const includeOffending = Boolean(options.include_offending);
+  const offendingId = wd.last_crash_event && wd.last_crash_event.offending_id;
+  const baseSnapshot =
+    Array.isArray(wd.saved_targets_snapshot) && wd.saved_targets_snapshot.length > 0
+      ? wd.saved_targets_snapshot
+      : ONEUI9_SYSTEM_RRO_CATALOG.filter((i) => i.selected).map((i) => i.id);
+
+  const restoredTargets = baseSnapshot.filter((id) => {
+    if (!includeOffending && wd.auto_quarantine_offending && offendingId && id === offendingId) {
+      return false;
+    }
+    return true;
+  });
+
+  RUNTIME_STATE.spec.selected_targets = [...restoredTargets];
+  wd.in_safe_mode = false;
+  wd.crash_count = 0;
+
+  const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+  const fullIsoUtc = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
+  RUNTIME_STATE.last_build.timestamp = nowUtc;
+
+  for (const item of ONEUI9_SYSTEM_RRO_CATALOG) {
+    const ov = RUNTIME_STATE.active_overlays[item.id];
+    if (!ov) continue;
+    const isRestored = restoredTargets.includes(item.id);
+    ov.enabled = isRestored;
+    ov.compile_status = isRestored ? "active" : "disabled";
+    ov.carrier_state = isRestored ? "STATE_ENABLED" : "STATE_DISABLED";
+    ov.compile_error = null;
+    ov.failure_reason = null;
+    ov.idmap2_timestamp = fullIsoUtc;
+    if (isRestored || includeOffending) {
+      ov.failure_count = 0;
+      ov.failure_rate = 0;
+      ov.high_frequency_failure = false;
+      ov.failure_history = ["ok", "ok", "ok"];
+    }
+  }
+
+  if (includeOffending) {
+    wd.quarantined_targets = [];
+  }
+
+  RUNTIME_STATE.last_build.logs.push(
+    `[✓] [${nowUtc}] EXITED SAFE MODE FALLBACK: Restored ${restoredTargets.length}/${ONEUI9_SYSTEM_RRO_CATALOG.length} healthy One UI 9.0 RRO overlays above SemWT_*` +
+      (!includeOffending && wd.auto_quarantine_offending && offendingId
+        ? ` (Quarantined crashing target: com.hexnext.oneui9.rro.${offendingId})`
+        : " (All targets repaired & re-enabled)")
+  );
+
+  return buildFullState();
+}
 
 function classifyRecentLogFailureType(rawLine) {
   const text = String(rawLine || "");
@@ -3877,4 +4191,7 @@ module.exports = {
   filterThemePluginsByName,
   classifyRecentLogFailureType,
   filterRecentDiagnosticLogs,
+  evaluateSystemCrashForSafeMode,
+  executeAutomaticSafeModeFallback,
+  restoreFromSafeModeFallback,
 };

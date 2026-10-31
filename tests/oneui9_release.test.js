@@ -443,6 +443,59 @@ test('Recent Logs widget classifies and isolates IDMAP2 Conflicts, SystemUI Reso
   assert.ok(Array.isArray(RUNTIME_STATE.last_build.logs));
 });
 
+test('Automatic Safe Mode Fallback on System Crash intercepts SystemUI/system_server crashes, disables RROs, quarantines offending package, and restores healthy targets', () => {
+  const {
+    evaluateSystemCrashForSafeMode,
+    executeAutomaticSafeModeFallback,
+    restoreFromSafeModeFallback,
+    RUNTIME_STATE,
+  } = require('../server.js');
+
+  // 1. Pure crash evaluation test
+  const evalCrash = evaluateSystemCrashForSafeMode(
+    { preset: 'systemui_inflate' },
+    { enabled: true, crash_threshold: 1, crash_count: 0 }
+  );
+  assert.equal(evalCrash.is_system_crash, true);
+  assert.equal(evalCrash.should_trigger_fallback, true);
+  assert.equal(evalCrash.offending_id, 'systemui');
+  assert.equal(evalCrash.offending_rro, 'com.hexnext.oneui9.rro.systemui');
+
+  // 2. Threshold > 1 waits until threshold is reached
+  const evalBelowThreshold = evaluateSystemCrashForSafeMode(
+    { preset: 'system_server_dead' },
+    { enabled: true, crash_threshold: 2, crash_count: 0 }
+  );
+  assert.equal(evalBelowThreshold.should_trigger_fallback, false);
+  assert.equal(evalBelowThreshold.crash_count, 1);
+
+  // 3. Execute automatic safe mode fallback on SystemUI crash
+  RUNTIME_STATE.safe_mode_watchdog.enabled = true;
+  RUNTIME_STATE.safe_mode_watchdog.crash_threshold = 1;
+  RUNTIME_STATE.safe_mode_watchdog.auto_quarantine_offending = true;
+
+  const fallbackState = executeAutomaticSafeModeFallback({ preset: 'systemui_inflate' });
+  assert.equal(fallbackState.safe_mode_watchdog.in_safe_mode, true);
+  assert.equal(fallbackState.spec.selected_targets.length, 0);
+  assert.equal(fallbackState.stats.selected_packages, 0);
+  assert.ok(fallbackState.safe_mode_watchdog.quarantined_targets.includes('systemui'));
+  assert.equal(fallbackState.safe_mode_watchdog.last_crash_event.offending_id, 'systemui');
+  assert.ok(
+    fallbackState.last_build.logs.some(line => line.includes('AUTOMATIC SAFE MODE FALLBACK COMPLETE'))
+  );
+
+  // 4. Restore from Safe Mode (quarantining offending SystemUI RRO first, then full restore)
+  const restoredSafe = restoreFromSafeModeFallback({ include_offending: false });
+  assert.equal(restoredSafe.safe_mode_watchdog.in_safe_mode, false);
+  assert.ok(restoredSafe.spec.selected_targets.length > 0);
+  assert.ok(!restoredSafe.spec.selected_targets.includes('systemui'));
+
+  const restoredAll = restoreFromSafeModeFallback({ include_offending: true });
+  assert.equal(restoredAll.safe_mode_watchdog.in_safe_mode, false);
+  assert.ok(restoredAll.spec.selected_targets.includes('systemui'));
+});
+
+
 
 
 

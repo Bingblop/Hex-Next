@@ -21,5 +21,9 @@ interface IThemeService {
     // Sequentially clears stale idmap2/frro caches in /data/resource-cache/ and rebuilds
     // the specified overlays at highest priority (> SemWT_*) under Shizuku UID 0 / root.
     Bundle repairAndRecompileBatch(in String[] overlayNames, in String[] targetPackages) = 5;
+
+    // Automatic Safe Mode Fallback on System Crash: immediately disables all active overlays,
+    // purges corrupted /data/resource-cache/*.{idmap,frro} entries, and restores stock SemWT_*.
+    Bundle triggerSafeModeFallback(String crashReason) = 6;
 }
 

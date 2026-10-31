@@ -281,15 +281,48 @@
                     <span id="strip-owner-pkg" class="font-mono text-amber-300">android</span>
                 </div>
             </div>
-            <div class="flex items-center gap-4 font-mono text-[11px] text-slate-400 tabular-nums">
+            <div class="flex flex-wrap items-center gap-3 sm:gap-4 font-mono text-[11px] text-slate-400 tabular-nums">
                 <span>Active Targets: <strong id="strip-active-count" class="text-white">22/26</strong></span>
                 <span>One UI 9.0 Tokens: <strong id="strip-token-count" class="text-cyan-400">247</strong></span>
+                <button type="button" id="strip-safemode-watchdog-pill" onclick="switchTab('matrix'); document.getElementById('matrix-safemode-watchdog-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });" class="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/25 transition-colors" title="Automatic Safe Mode Fallback on System Crash is ARMED — click to configure or test">
+                    <span id="strip-safemode-watchdog-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="strip-safemode-watchdog-label">Auto Safe-Mode: ARMED</span>
+                </button>
                 <button onclick="triggerRescueModal()" class="text-rose-400 hover:text-rose-300 underline decoration-rose-500/40 cursor-pointer">
                     Disable All RROs (Safe Mode)
                 </button>
             </div>
         </div>
     </section>
+
+    <!-- Global Automatic Safe Mode Fallback Alert Banner (Shown when System Crash triggers Safe Mode) -->
+    <div id="safe-mode-fallback-banner" class="hidden bg-gradient-to-r from-rose-950/90 via-[#1A0D18] to-[#0D111A] border-b border-rose-500/60 px-4 lg:px-6 py-3 shadow-lg shadow-rose-950/30">
+        <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-start sm:items-center gap-3 min-w-0">
+                <div class="w-8 h-8 rounded-lg bg-rose-500/25 border border-rose-400/70 flex items-center justify-center text-rose-300 shrink-0">
+                    <svg class="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-rose-500 text-slate-950 font-mono text-[10px] font-bold uppercase tracking-wider">AUTOMATIC SAFE MODE FALLBACK ACTIVE</span>
+                        <span id="safemode-banner-process" class="font-mono text-xs text-rose-200 font-semibold">Process: com.android.systemui</span>
+                        <span id="safemode-banner-rro" class="font-mono text-[11px] px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-200">Quarantined: com.hexnext.oneui9.rro.systemui</span>
+                    </div>
+                    <p id="safemode-banner-desc" class="text-xs text-slate-300 font-mono mt-0.5 truncate">
+                        Executed <code class="text-rose-300">cmd overlay disable-all --user 0</code> in 38ms &amp; restored stock One UI 9.0 <code class="text-cyan-300">SemWT_*</code> overlays to prevent a SystemUI crash loop.
+                    </p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <button type="button" id="btn-banner-restore-safe" onclick="restoreFromSafeMode(false)" class="px-3 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-sm">
+                    Restore Healthy RROs (Skip Crashing Target)
+                </button>
+                <button type="button" id="btn-banner-restore-all" onclick="restoreFromSafeMode(true)" class="px-3 py-1.5 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-cyan-500/40 text-cyan-200 font-mono text-xs cursor-pointer">
+                    Repair All &amp; Restore 26/26
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Main Workspace -->
     <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 lg:px-6 py-6">
@@ -1486,6 +1519,71 @@
                     </div>
 
                     <input type="text" id="matrix-search" oninput="renderMatrix()" placeholder="Search RRO, SemWT_*, or token..." class="bg-[#131926] border border-[#263248] rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 w-60">
+                </div>
+            </div>
+
+            <!-- Automatic Safe Mode Fallback on System Crash Watchdog Card -->
+            <div id="matrix-safemode-watchdog-card" class="bg-[#0D111A] border border-emerald-500/40 rounded-xl p-4 space-y-3 transition-all shadow-lg shadow-emerald-950/10">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="flex items-center gap-2">
+                            <span id="safemode-watchdog-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <h3 class="font-display font-bold text-xs uppercase tracking-wider text-white flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                <span>Automatic Safe Mode Fallback on System Crash</span>
+                            </h3>
+                        </div>
+                        <span id="safemode-watchdog-state-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-500/40 font-semibold">
+                            WATCHDOG ARMED • UID 1000 / UID 0
+                        </span>
+                        <span id="safemode-watchdog-targets-badge" class="font-mono text-[10px] px-2 py-0.5 rounded bg-[#131926] text-slate-300 border border-[#263248]">
+                            Monitors: SystemUI • system_server • SecSettings • AODService
+                        </span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Enable/Disable Auto-Fallback Watchdog -->
+                        <label class="inline-flex items-center gap-2 bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-200 cursor-pointer select-none">
+                            <input type="checkbox" id="toggle-auto-safemode-watchdog" checked onchange="updateSafeModeWatchdogConfig({ enabled: this.checked })" class="w-3.5 h-3.5 accent-emerald-400 cursor-pointer">
+                            <span>Auto-Fallback on Crash</span>
+                        </label>
+
+                        <!-- Crash Threshold Selector -->
+                        <label class="flex items-center gap-1.5 bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-300">
+                            <span class="text-slate-400">Trigger:</span>
+                            <select id="select-safemode-threshold" onchange="updateSafeModeWatchdogConfig({ crash_threshold: parseInt(this.value, 10) })" class="bg-transparent text-cyan-300 font-semibold focus:outline-none cursor-pointer">
+                                <option value="1" selected class="bg-[#0D111A] text-white">1st System Crash (Immediate)</option>
+                                <option value="2" class="bg-[#0D111A] text-white">&ge; 2 Consecutive Crashes</option>
+                                <option value="3" class="bg-[#0D111A] text-white">&ge; 3 Crash Loop</option>
+                            </select>
+                        </label>
+
+                        <!-- Auto-Quarantine Offending RRO -->
+                        <label class="inline-flex items-center gap-2 bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-200 cursor-pointer select-none" title="Automatically quarantine the offending RRO package when restoring from Safe Mode">
+                            <input type="checkbox" id="toggle-safemode-quarantine" checked onchange="updateSafeModeWatchdogConfig({ auto_quarantine_offending: this.checked })" class="w-3.5 h-3.5 accent-cyan-400 cursor-pointer">
+                            <span>Quarantine Crashing RRO</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-[#1E2738]/80 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
+                    <div id="safemode-watchdog-status-detail" class="text-[11px] text-slate-300">
+                        Automatically intercepts <code class="text-rose-300">FATAL EXCEPTION</code> in <code class="text-cyan-300">com.android.systemui</code> / <code class="text-cyan-300">system_server</code>, runs <code class="text-amber-300">cmd overlay disable-all --user 0</code>, purges corrupted <code class="text-amber-300">.frro</code> caches, and restores stock <code class="text-cyan-300">SemWT_*</code> overlays.
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="select-crash-preset" class="bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1 text-[11px] font-mono text-rose-200 focus:outline-none">
+                            <option value="systemui_inflate">Crash: SystemUI InflateException (qs_panel)</option>
+                            <option value="system_server_dead">Crash: system_server DeadSystemException (.frro)</option>
+                            <option value="aod_crash_loop">Crash: AODService Lockscreen Crash Loop</option>
+                        </select>
+                        <button type="button" id="btn-simulate-system-crash" onclick="simulateSystemCrashFallback()" class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 font-mono font-semibold text-[11px] cursor-pointer transition-colors">
+                            Simulate System Crash (Test Auto-Fallback)
+                        </button>
+                        <button type="button" id="btn-restore-from-safemode" onclick="restoreFromSafeMode(false)" class="hidden px-3 py-1 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-mono font-bold text-[11px] cursor-pointer shadow-sm">
+                            Exit Safe Mode &amp; Restore Healthy RROs
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -2861,6 +2959,165 @@
             APP_STATE = await res.json();
             closeRescueModal();
             renderAll();
+            showToast('Emergency Safe Mode active — all 26 RRO overlays disabled', 'amber');
+        }
+
+        async function updateSafeModeWatchdogConfig(patch) {
+            const res = await fetch('/api/safemode/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(patch || {})
+            });
+            APP_STATE = await res.json();
+            renderAll();
+            const wd = APP_STATE.safe_mode_watchdog || {};
+            showToast(
+                `Auto Safe-Mode Watchdog: ${wd.enabled ? 'ARMED' : 'PAUSED'} (Threshold=${wd.crash_threshold || 1}x Crash)`,
+                wd.enabled ? 'emerald' : 'amber'
+            );
+        }
+
+        async function simulateSystemCrashFallback(customPreset) {
+            const presetSel = document.getElementById('select-crash-preset');
+            const preset = customPreset || (presetSel ? presetSel.value : 'systemui_inflate');
+            const res = await fetch('/api/safemode/simulate_crash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preset })
+            });
+            APP_STATE = await res.json();
+            renderAll();
+            const wd = APP_STATE.safe_mode_watchdog || {};
+            if (wd.in_safe_mode) {
+                const ev = wd.last_crash_event || {};
+                showToast(
+                    `AUTOMATIC SAFE MODE FALLBACK: Intercepted ${ev.process || 'SystemUI'} crash & disabled all RROs in ${ev.recovery_ms || 38}ms!`,
+                    'amber'
+                );
+            } else {
+                showToast(
+                    `Recorded system crash (${wd.crash_count || 1}/${wd.crash_threshold || 1}) — awaiting threshold`,
+                    'cyan'
+                );
+            }
+        }
+
+        async function restoreFromSafeMode(includeOffending = false) {
+            const res = await fetch('/api/safemode/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ include_offending: !!includeOffending })
+            });
+            APP_STATE = await res.json();
+            renderAll();
+            const enabledCount = (APP_STATE.packages || []).filter(p => p.compile_status === 'active' && p.selected).length;
+            showToast(
+                includeOffending
+                    ? `Exited Safe Mode — repaired & restored ${enabledCount} One UI 9.0 RRO overlays`
+                    : `Exited Safe Mode — restored ${enabledCount} healthy RROs (crashing target quarantined)`,
+                'emerald'
+            );
+        }
+
+        function renderSafeModeWatchdog() {
+            if (!APP_STATE) return;
+            const wd = APP_STATE.safe_mode_watchdog || {
+                enabled: true,
+                crash_threshold: 1,
+                auto_quarantine_offending: true,
+                in_safe_mode: false,
+                crash_count: 0,
+                last_crash_event: null
+            };
+            const inSafeMode = !!wd.in_safe_mode;
+            const lastEvent = wd.last_crash_event || {};
+
+            // 1. Update Top Architecture Strip Pill
+            const stripPill = document.getElementById('strip-safemode-watchdog-pill');
+            const stripDot = document.getElementById('strip-safemode-watchdog-dot');
+            const stripLbl = document.getElementById('strip-safemode-watchdog-label');
+            if (stripPill && stripDot && stripLbl) {
+                if (inSafeMode) {
+                    stripPill.className = 'px-2 py-0.5 rounded bg-rose-500/25 border border-rose-400/70 text-rose-200 flex items-center gap-1.5 cursor-pointer font-bold animate-pulse';
+                    stripDot.className = 'w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping';
+                    stripLbl.textContent = 'SAFE MODE FALLBACK ACTIVE';
+                } else if (wd.enabled) {
+                    stripPill.className = 'px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/25 transition-colors';
+                    stripDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+                    stripLbl.textContent = `Auto Safe-Mode: ARMED (${wd.crash_threshold || 1}x)`;
+                } else {
+                    stripPill.className = 'px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 flex items-center gap-1.5 cursor-pointer';
+                    stripDot.className = 'w-1.5 h-1.5 rounded-full bg-slate-500';
+                    stripLbl.textContent = 'Auto Safe-Mode: PAUSED';
+                }
+            }
+
+            // 2. Update Global Safe Mode Fallback Banner
+            const bannerEl = document.getElementById('safe-mode-fallback-banner');
+            if (bannerEl) {
+                if (inSafeMode) {
+                    bannerEl.classList.remove('hidden');
+                    const procEl = document.getElementById('safemode-banner-process');
+                    const rroEl = document.getElementById('safemode-banner-rro');
+                    const descEl = document.getElementById('safemode-banner-desc');
+                    if (procEl) procEl.textContent = `Process: ${lastEvent.process || 'com.android.systemui'}`;
+                    if (rroEl) {
+                        if (lastEvent.offending_rro) {
+                            rroEl.classList.remove('hidden');
+                            rroEl.textContent = `Quarantined: ${lastEvent.offending_rro}`;
+                        } else {
+                            rroEl.classList.add('hidden');
+                        }
+                    }
+                    if (descEl) {
+                        descEl.textContent = `${lastEvent.exception || 'Fatal System Exception'} — Auto-disabled ${lastEvent.disabled_overlays_count || 22} RROs via "${lastEvent.recovery_command || 'cmd overlay disable-all --user 0'}" in ${lastEvent.recovery_ms || 38}ms.`;
+                    }
+                } else {
+                    bannerEl.classList.add('hidden');
+                }
+            }
+
+            // 3. Update RRO Matrix Safe Mode Watchdog Card
+            const cardEl = document.getElementById('matrix-safemode-watchdog-card');
+            const dotEl = document.getElementById('safemode-watchdog-dot');
+            const stateBadge = document.getElementById('safemode-watchdog-state-badge');
+            const detailEl = document.getElementById('safemode-watchdog-status-detail');
+            const restoreBtn = document.getElementById('btn-restore-from-safemode');
+            const chkEnabled = document.getElementById('toggle-auto-safemode-watchdog');
+            const selThreshold = document.getElementById('select-safemode-threshold');
+            const chkQuarantine = document.getElementById('toggle-safemode-quarantine');
+
+            if (chkEnabled) chkEnabled.checked = !!wd.enabled;
+            if (selThreshold) selThreshold.value = String(wd.crash_threshold || 1);
+            if (chkQuarantine) chkQuarantine.checked = !!wd.auto_quarantine_offending;
+
+            if (cardEl && dotEl && stateBadge) {
+                if (inSafeMode) {
+                    cardEl.className = 'bg-gradient-to-r from-rose-950/60 via-[#150E18] to-[#0D111A] border border-rose-500/70 rounded-xl p-4 space-y-3 transition-all shadow-lg shadow-rose-950/25';
+                    dotEl.className = 'w-2.5 h-2.5 rounded-full bg-rose-400 animate-ping';
+                    stateBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-rose-500/25 text-rose-200 border border-rose-400/60 font-bold';
+                    stateBadge.textContent = `SAFE MODE FALLBACK ACTIVE • ${lastEvent.disabled_overlays_count || 22} RROs ROLLED BACK`;
+                    if (detailEl) {
+                        detailEl.innerHTML = `<strong class="text-rose-300">Crash Intercepted (${lastEvent.timestamp || 'LIVE'}):</strong> <span class="text-slate-200">${lastEvent.process || 'com.android.systemui'}</span> → <span class="text-amber-200">${lastEvent.offending_rro || 'all RROs'}</span>. Stock One UI 9.0 <code class="text-cyan-300">SemWT_*</code> state restored.`;
+                    }
+                    if (restoreBtn) restoreBtn.classList.remove('hidden');
+                } else if (wd.enabled) {
+                    cardEl.className = 'bg-[#0D111A] border border-emerald-500/40 rounded-xl p-4 space-y-3 transition-all shadow-lg shadow-emerald-950/10';
+                    dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+                    stateBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-500/40 font-semibold';
+                    stateBadge.textContent = `WATCHDOG ARMED • TRIGGER AT ${wd.crash_threshold || 1}x CRASH`;
+                    if (detailEl) {
+                        detailEl.innerHTML = `Automatically intercepts <code class="text-rose-300">FATAL EXCEPTION</code> in <code class="text-cyan-300">com.android.systemui</code> / <code class="text-cyan-300">system_server</code>, runs <code class="text-amber-300">cmd overlay disable-all --user 0</code>, purges corrupted <code class="text-amber-300">.frro</code> caches, and restores stock <code class="text-cyan-300">SemWT_*</code> overlays.`;
+                    }
+                    if (restoreBtn) restoreBtn.classList.add('hidden');
+                } else {
+                    cardEl.className = 'bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3 transition-all';
+                    dotEl.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+                    stateBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-semibold';
+                    stateBadge.textContent = 'WATCHDOG PAUSED (MANUAL SAFE MODE ONLY)';
+                    if (restoreBtn) restoreBtn.classList.add('hidden');
+                }
+            }
         }
 
         function getOverlayStatusMeta(pkg) {
@@ -3069,6 +3326,7 @@
                 `<option value="${st.id}" ${st.id === spec.style ? 'selected' : ''}>${st.label}</option>`
             ).join('');
 
+            renderSafeModeWatchdog();
             renderPlugins();
             renderQsShapes();
             renderDriveApkGallery();
