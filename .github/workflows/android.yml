@@ -65,6 +65,18 @@ jobs:
     name: "CI Check 2: Android SDK Tools Check & Gradle Build (64-bit & 32-bit • EN Only)"
     needs: verify-oneui9-features
     runs-on: ubuntu-latest
+    env:
+      HEXNEXT_KEYSTORE_PATH: ${{ secrets.HEXNEXT_KEYSTORE_PATH || 'app/debug.keystore' }}
+      KEYSTORE_PATH: ${{ secrets.KEYSTORE_PATH || secrets.HEXNEXT_KEYSTORE_PATH || 'app/debug.keystore' }}
+      ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PATH || secrets.HEXNEXT_KEYSTORE_PATH || 'app/debug.keystore' }}
+      HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 || '' }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 || secrets.HEXNEXT_KEYSTORE_BASE64 || '' }}
+      HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD || secrets.STORE_PASSWORD || 'android' }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || secrets.HEXNEXT_STORE_PASSWORD || 'android' }}
+      HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS || secrets.KEY_ALIAS || 'androiddebugkey' }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS || secrets.HEXNEXT_KEY_ALIAS || 'androiddebugkey' }}
+      HEXNEXT_KEY_PASSWORD: ${{ secrets.HEXNEXT_KEY_PASSWORD || secrets.KEY_PASSWORD || 'android' }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.HEXNEXT_KEY_PASSWORD || 'android' }}
     defaults:
       run:
         working-directory: android
@@ -133,12 +145,34 @@ jobs:
             echo "[✓] Verified Android platform-tools: $SDK_ROOT/platform-tools/adb"
           fi
 
+      - name: Resolve & Verify CI Keystore from Environment Variables
+        run: |
+          echo "[*] Verifying keystore resolution from environment variables..."
+          KS_PATH="${HEXNEXT_KEYSTORE_PATH:-${KEYSTORE_PATH:-app/debug.keystore}}"
+          if [ -n "${HEXNEXT_KEYSTORE_BASE64:-}" ]; then
+            echo "[*] Decoding HEXNEXT_KEYSTORE_BASE64 to $KS_PATH..."
+            mkdir -p "$(dirname "$KS_PATH")"
+            echo "$HEXNEXT_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > "$KS_PATH"
+          elif [ ! -f "$KS_PATH" ]; then
+            echo "[*] Generating deterministic fallback keystore at $KS_PATH..."
+            mkdir -p "$(dirname "$KS_PATH")"
+            keytool -genkeypair -v \
+              -keystore "$KS_PATH" \
+              -storepass "${HEXNEXT_STORE_PASSWORD:-android}" \
+              -alias "${HEXNEXT_KEY_ALIAS:-androiddebugkey}" \
+              -keypass "${HEXNEXT_KEY_PASSWORD:-android}" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          keytool -list -keystore "$KS_PATH" -storepass "${HEXNEXT_STORE_PASSWORD:-android}" -alias "${HEXNEXT_KEY_ALIAS:-androiddebugkey}" >/dev/null
+          echo "[✓] Verified CI keystore file ($KS_PATH) & alias (${HEXNEXT_KEY_ALIAS:-androiddebugkey}) for automatic Gradle release signing"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & English-Only Gradle Configuration
+      - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & Keystore Gradle Configuration
         run: |
-          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI & SDK 36 compliance..."
+          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI, SDK 36 & env-based keystore signing..."
           grep -q 'compileSdk = 36' app/build.gradle.kts
           grep -q 'targetSdk = 36' app/build.gradle.kts
           grep -q 'minSdk = 34' app/build.gradle.kts
@@ -147,10 +181,14 @@ jobs:
           grep -q 'abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'isUniversalApk = true' app/build.gradle.kts
+          grep -q 'resolveKeystoreFile' app/build.gradle.kts
+          grep -q 'HEXNEXT_KEYSTORE_PATH' app/build.gradle.kts
+          grep -q 'KEYSTORE_PATH' app/build.gradle.kts
+          grep -q 'HEXNEXT_KEYSTORE_BASE64' app/build.gradle.kts
           grep -q 'enableV1Signing = true' app/build.gradle.kts
           grep -q 'enableV2Signing = true' app/build.gradle.kts
           grep -q 'enableV3Signing = true' app/build.gradle.kts
-          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK & V1/V2/V3 Signing in build.gradle.kts"
+          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK & Env Keystore V1/V2/V3 Signing in build.gradle.kts"
 
       - name: Run Android Unit Tests
         run: ./gradlew --no-daemon testDebugUnitTest

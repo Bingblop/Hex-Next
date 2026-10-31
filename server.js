@@ -1558,6 +1558,8 @@ function verifyCiCdAndSdkEnvironment() {
   const workflowPath = path.join(BASE_DIR, ".github", "workflows", "android.yml");
   const gradlePath = path.join(BASE_DIR, "android", "app", "build.gradle.kts");
   const buildScriptPath = path.join(BASE_DIR, "bin", "build-and-sign-release-apk.sh");
+  const debugKeystorePath = path.join(BASE_DIR, "android", "app", "debug.keystore");
+  const releaseKeystorePath = path.join(BASE_DIR, "bin", "release.keystore");
 
   const workflowContent = fs.existsSync(workflowPath)
     ? fs.readFileSync(workflowPath, "utf8")
@@ -1571,12 +1573,34 @@ function verifyCiCdAndSdkEnvironment() {
   const abis32 = ["armeabi-v7a", "x86"];
   const allAbis = [...abis64, ...abis32];
   const requiredSdkTools = ["sdkmanager", "aapt2", "apksigner", "zipalign", "keytool"];
+  const keystoreEnvVars = [
+    "HEXNEXT_KEYSTORE_PATH",
+    "KEYSTORE_PATH",
+    "ANDROID_KEYSTORE_PATH",
+    "HEXNEXT_KEYSTORE_BASE64",
+    "KEYSTORE_BASE64",
+    "HEXNEXT_STORE_PASSWORD",
+    "STORE_PASSWORD",
+    "HEXNEXT_KEY_ALIAS",
+    "KEY_ALIAS",
+    "HEXNEXT_KEY_PASSWORD",
+    "KEY_PASSWORD",
+  ];
 
   const gradleHas64Bit = abis64.every((abi) => gradleContent.includes(`"${abi}"`));
   const gradleHas32Bit = abis32.every((abi) => gradleContent.includes(`"${abi}"`));
   const gradleHasUniversal = gradleContent.includes("isUniversalApk = true");
   const gradleHasSdk36 =
     gradleContent.includes("compileSdk = 36") && gradleContent.includes("targetSdk = 36");
+  const gradleResolvesKeystoreFromEnv =
+    gradleContent.includes("resolveKeystoreFile") &&
+    gradleContent.includes("resolveSigningCredential") &&
+    keystoreEnvVars.every((envKey) => gradleContent.includes(envKey));
+  const keystoreFilesExist =
+    fs.existsSync(debugKeystorePath) &&
+    fs.statSync(debugKeystorePath).size > 500 &&
+    fs.existsSync(releaseKeystorePath) &&
+    fs.statSync(releaseKeystorePath).size > 500;
 
   const ciVerifies64Bit = abis64.every((abi) => workflowContent.includes(abi));
   const ciVerifies32Bit = abis32.every((abi) => workflowContent.includes(abi));
@@ -1585,6 +1609,9 @@ function verifyCiCdAndSdkEnvironment() {
   const ciHasAndroidSdkSetup =
     workflowContent.includes("android-actions/setup-android") &&
     workflowContent.includes("platforms;android-");
+  const ciPassesKeystoreEnv = keystoreEnvVars.every((envKey) =>
+    workflowContent.includes(envKey)
+  );
   const ciVerifiesReleaseArtifacts =
     workflowContent.includes("Verify 64-bit & 32-bit Architecture Artifacts Before Release Publish") &&
     workflowContent.includes("softprops/action-gh-release");
@@ -1599,21 +1626,27 @@ function verifyCiCdAndSdkEnvironment() {
     gradleHas32Bit &&
     gradleHasUniversal &&
     gradleHasSdk36 &&
+    gradleResolvesKeystoreFromEnv &&
+    keystoreFilesExist &&
     ciVerifies64Bit &&
     ciVerifies32Bit &&
     ciVerifiesUniversal &&
     ciVerifiesSdkTools &&
     ciHasAndroidSdkSetup &&
+    ciPassesKeystoreEnv &&
     ciVerifiesReleaseArtifacts &&
     scriptVerifiesSdkAndGradle;
 
   return {
     all_passed: allChecksPassed,
     gradle_64_32_bit_aligned: gradleHas64Bit && gradleHas32Bit && gradleHasUniversal,
+    gradle_keystore_env_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
     ci_64_32_bit_pipeline_verified: ciVerifies64Bit && ciVerifies32Bit && ciVerifiesUniversal,
+    ci_keystore_env_passed: ciPassesKeystoreEnv,
     sdk_tools_check_present: ciVerifiesSdkTools && ciHasAndroidSdkSetup,
     release_pipeline_verified: ciVerifiesReleaseArtifacts,
     required_sdk_tools: requiredSdkTools,
+    keystore_env_vars: keystoreEnvVars,
     abis_64_bit: abis64,
     abis_32_bit: abis32,
     all_abis: allAbis,

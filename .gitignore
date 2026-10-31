@@ -16,6 +16,7 @@ daemon.pid
 daemon.log
 *.jar
 
-# Native Android app: keep the Gradle wrapper and the shared debug signing key.
+# Native Android app: keep the Gradle wrapper and the shared debug/release signing keys.
 !android/gradle/wrapper/gradle-wrapper.jar
 !android/app/debug.keystore
+!bin/release.keystore

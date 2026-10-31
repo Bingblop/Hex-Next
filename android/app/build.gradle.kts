@@ -1,7 +1,82 @@
+import java.io.File
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// Helper to resolve signing credentials from environment variables or Gradle properties
+fun Project.resolveSigningCredential(vararg keys: String, defaultValue: String): String {
+    for (key in keys) {
+        val envVal = System.getenv(key)?.trim()
+        if (!envVal.isNullOrEmpty()) return envVal
+        val propVal = findProperty(key)?.toString()?.trim()
+        if (!propVal.isNullOrEmpty()) return propVal
+    }
+    return defaultValue
+}
+
+// Helper to locate or materialize the keystore file from CI environment variables
+fun Project.resolveKeystoreFile(defaultFallbackName: String = "debug.keystore"): File {
+    val rawPath = resolveSigningCredential(
+        "HEXNEXT_KEYSTORE_PATH",
+        "KEYSTORE_PATH",
+        "ANDROID_KEYSTORE_PATH",
+        "RELEASE_STORE_FILE",
+        defaultValue = ""
+    )
+
+    val base64Keystore = resolveSigningCredential(
+        "HEXNEXT_KEYSTORE_BASE64",
+        "KEYSTORE_BASE64",
+        "ANDROID_KEYSTORE_BASE64",
+        defaultValue = ""
+    )
+
+    // 1. If a Base64-encoded keystore secret is provided in CI, materialize it to disk
+    if (base64Keystore.isNotEmpty()) {
+        val targetFile = if (rawPath.isNotEmpty()) {
+            val candidate = File(rawPath)
+            if (candidate.isAbsolute) candidate else project.file(rawPath)
+        } else {
+            layout.buildDirectory.file("keystore/ci-release.keystore").get().asFile
+        }
+        if (!targetFile.exists() || targetFile.length() == 0L) {
+            targetFile.parentFile?.mkdirs()
+            val cleanB64 = base64Keystore.replace("\\s".toRegex(), "")
+            targetFile.writeBytes(Base64.getDecoder().decode(cleanB64))
+        }
+        return targetFile
+    }
+
+    // 2. If a file path is provided via environment variables or Gradle properties, search candidate roots
+    if (rawPath.isNotEmpty()) {
+        val directFile = File(rawPath)
+        val candidates = listOfNotNull(
+            directFile.takeIf { it.isAbsolute },
+            project.file(rawPath),                                  // relative to android/app/
+            rootProject.file(rawPath),                              // relative to android/
+            rootProject.projectDir.parentFile?.resolve(rawPath),    // relative to repo root
+            directFile
+        )
+        val existing = candidates.firstOrNull { it.exists() && it.isFile }
+        if (existing != null) {
+            return existing
+        }
+        return if (directFile.isAbsolute) directFile else project.file(rawPath)
+    }
+
+    // 3. Fallback to committed project/repo keystores so local & PR CI builds sign automatically
+    val fallbackCandidates = listOfNotNull(
+        project.file(defaultFallbackName),
+        project.file("release.keystore"),
+        rootProject.file(defaultFallbackName),
+        rootProject.projectDir.parentFile?.resolve("bin/release.keystore"),
+        rootProject.projectDir.parentFile?.resolve("android/app/$defaultFallbackName")
+    )
+    return fallbackCandidates.firstOrNull { it.exists() && it.isFile } ?: project.file(defaultFallbackName)
 }
 
 android {
@@ -36,26 +111,41 @@ android {
     }
 
     signingConfigs {
-        // Committed keystore keeps CI and local release builds signed and installable over each other.
+        val resolvedKeystore = project.resolveKeystoreFile("debug.keystore")
+        val resolvedStorePassword = project.resolveSigningCredential(
+            "HEXNEXT_STORE_PASSWORD",
+            "KEYSTORE_PASSWORD",
+            "STORE_PASSWORD",
+            "ANDROID_STORE_PASSWORD",
+            defaultValue = "android"
+        )
+        val resolvedKeyAlias = project.resolveSigningCredential(
+            "HEXNEXT_KEY_ALIAS",
+            "KEY_ALIAS",
+            "ANDROID_KEY_ALIAS",
+            defaultValue = "androiddebugkey"
+        )
+        val resolvedKeyPassword = project.resolveSigningCredential(
+            "HEXNEXT_KEY_PASSWORD",
+            "KEY_PASSWORD",
+            "ANDROID_KEY_PASSWORD",
+            defaultValue = resolvedStorePassword
+        )
+
         getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = System.getenv("HEXNEXT_STORE_PASSWORD") ?: "android"
-            keyAlias = System.getenv("HEXNEXT_KEY_ALIAS") ?: "androiddebugkey"
-            keyPassword = System.getenv("HEXNEXT_KEY_PASSWORD") ?: "android"
+            storeFile = resolvedKeystore
+            storePassword = resolvedStorePassword
+            keyAlias = resolvedKeyAlias
+            keyPassword = resolvedKeyPassword
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
         }
         create("release") {
-            val customKeystore = System.getenv("HEXNEXT_KEYSTORE_PATH")
-            storeFile = if (!customKeystore.isNullOrBlank() && file(customKeystore).exists()) {
-                file(customKeystore)
-            } else {
-                file("debug.keystore")
-            }
-            storePassword = System.getenv("HEXNEXT_STORE_PASSWORD") ?: "android"
-            keyAlias = System.getenv("HEXNEXT_KEY_ALIAS") ?: "androiddebugkey"
-            keyPassword = System.getenv("HEXNEXT_KEY_PASSWORD") ?: "android"
+            storeFile = resolvedKeystore
+            storePassword = resolvedStorePassword
+            keyAlias = resolvedKeyAlias
+            keyPassword = resolvedKeyPassword
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
