@@ -329,49 +329,80 @@
                         <span id="plugin-preset-count-badge" class="font-mono text-[11px] text-cyan-300 tabular-nums font-bold shrink-0 whitespace-nowrap">13 Skins</span>
                     </div>
 
-                    <!-- Drive APK Collection Visual Quick-Launch Strip -->
+                    <!-- Theme Plugins Search Bar -->
                     <div class="space-y-1.5">
+                        <div class="relative flex items-center">
+                            <label for="plugin-search-input" class="sr-only">Search Theme Plugins by name</label>
+                            <svg class="w-3.5 h-3.5 text-cyan-400 absolute left-3 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input
+                                type="text"
+                                id="plugin-search-input"
+                                aria-label="Search Theme Plugins by name"
+                                placeholder="Filter theme plugins by name (e.g. Project X, Glass, MIMI)..."
+                                oninput="setPluginSearchQuery(this.value)"
+                                onkeydown="if (event.key === 'Escape') { event.preventDefault(); clearPluginSearch(); }"
+                                class="w-full bg-[#131926] border border-[#263248] focus:border-cyan-400 rounded-lg pl-8 pr-14 py-1.5 text-xs text-white placeholder-slate-400 font-sans focus:outline-none transition-colors"
+                            >
+                            <button
+                                type="button"
+                                id="plugin-search-clear"
+                                onclick="clearPluginSearch()"
+                                aria-label="Clear theme plugin search"
+                                title="Clear search (Esc)"
+                                class="hidden absolute right-2 px-1.5 py-0.5 rounded bg-[#1E293B] hover:bg-slate-700 text-[10px] font-mono text-cyan-300 hover:text-white cursor-pointer transition-colors"
+                            >Clear</button>
+                        </div>
+                        <div id="plugin-search-status" class="hidden flex items-center justify-between text-[10px] font-mono text-cyan-300 px-0.5">
+                            <span id="plugin-search-status-text">Filtering plugins...</span>
+                            <button type="button" onclick="clearPluginSearch()" class="text-slate-400 hover:text-white underline cursor-pointer">Show all 13</button>
+                        </div>
+                    </div>
+
+                    <!-- Drive APK Collection Visual Quick-Launch Strip -->
+                    <div id="drive-apk-quick-strip" class="space-y-1.5">
                         <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
                             <span>Google Drive APK Collection (One-Click Apply):</span>
                             <span class="text-emerald-400">One UI 9.0 Ported ✓</span>
                         </div>
                         <div class="grid grid-cols-3 gap-1.5">
-                            <button onclick="applyPluginPreset('project_x')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-cyan-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                            <button data-plugin-quick-card="project_x" data-plugin-quick-name="Project X PX-06" onclick="applyPluginPreset('project_x')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-cyan-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
                                 <img src="/assets/apk_previews/project_x_logo.png" alt="Project X" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
                                 <div class="min-w-0">
                                     <div class="text-[10px] font-bold text-cyan-300 truncate">Project X</div>
                                     <div class="text-[8px] font-mono text-slate-400 truncate">PX-06 .PNG</div>
                                 </div>
                             </button>
-                            <button onclick="applyPluginPreset('blend_dn')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-purple-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                            <button data-plugin-quick-card="blend_dn" data-plugin-quick-name="Blend Day/Night v5.0" onclick="applyPluginPreset('blend_dn')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-purple-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
                                 <img src="/assets/apk_previews/blend_dn_logo.png" alt="Blend" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
                                 <div class="min-w-0">
                                     <div class="text-[10px] font-bold text-purple-300 truncate">Blend D/N</div>
                                     <div class="text-[8px] font-mono text-slate-400 truncate">v5.0 .PNG</div>
                                 </div>
                             </button>
-                            <button onclick="applyPluginPreset('glass_dn')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-sky-400/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                            <button data-plugin-quick-card="glass_dn" data-plugin-quick-name="Glass Day/Night Frosted v5.0" onclick="applyPluginPreset('glass_dn')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-sky-400/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
                                 <img src="/assets/apk_previews/glass_dn_logo.png" alt="Glass" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
                                 <div class="min-w-0">
                                     <div class="text-[10px] font-bold text-sky-300 truncate">Glass D/N</div>
                                     <div class="text-[8px] font-mono text-slate-400 truncate">Frosted .PNG</div>
                                 </div>
                             </button>
-                            <button onclick="applyPluginPreset('ayos_dark')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-blue-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                            <button data-plugin-quick-card="ayos_dark" data-plugin-quick-name="ayOS Retina Dark v16" onclick="applyPluginPreset('ayos_dark')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-blue-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
                                 <img src="/assets/apk_previews/ayos_retina_logo.png" alt="ayOS" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
                                 <div class="min-w-0">
                                     <div class="text-[10px] font-bold text-blue-300 truncate">ayOS Retina</div>
                                     <div class="text-[8px] font-mono text-slate-400 truncate">v16 .PNG</div>
                                 </div>
                             </button>
-                            <button onclick="applyPluginPreset('aosp_r')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-emerald-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                            <button data-plugin-quick-card="aosp_r" data-plugin-quick-name="AOSP R Pixel v8" onclick="applyPluginPreset('aosp_r')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-emerald-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
                                 <img src="/assets/apk_previews/aosp_r_logo.png" alt="AOSP R" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
                                 <div class="min-w-0">
                                     <div class="text-[10px] font-bold text-emerald-300 truncate">AOSP R</div>
                                     <div class="text-[8px] font-mono text-slate-400 truncate">Pixel v8 .PNG</div>
                                 </div>
                             </button>
-                            <button onclick="applyPluginPreset('mimi_miui11')" id="btn-apply-mimi-skin" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-[#4C9FFD]/50 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                            <button data-plugin-quick-card="mimi_miui11" data-plugin-quick-name="MIMI Miui 11 v1.3" onclick="applyPluginPreset('mimi_miui11')" id="btn-apply-mimi-skin" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-[#4C9FFD]/50 flex items-center gap-1.5 text-left cursor-pointer transition-all">
                                 <img id="mimi-banner-logo" src="" alt="MIMI" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10 hidden">
                                 <div class="min-w-0">
                                     <div class="text-[10px] font-bold text-[#6EBAF1] truncate">MIMI Miui11</div>
@@ -379,30 +410,6 @@
                                 </div>
                             </button>
                         </div>
-                    </div>
-
-                    <!-- Theme Plugins Search Bar -->
-                    <div class="relative flex items-center">
-                        <label for="plugin-search-input" class="sr-only">Search Theme Plugins by name</label>
-                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                        <input
-                            type="text"
-                            id="plugin-search-input"
-                            aria-label="Search Theme Plugins by name"
-                            placeholder="Search theme plugins by name (e.g. Project X, Glass, MIMI)..."
-                            oninput="setPluginSearchQuery(this.value)"
-                            class="w-full bg-[#131926] border border-[#1E2738] focus:border-cyan-400 rounded-lg pl-8 pr-14 py-1.5 text-xs text-white placeholder-slate-500 font-sans focus:outline-none transition-colors"
-                        >
-                        <button
-                            type="button"
-                            id="plugin-search-clear"
-                            onclick="clearPluginSearch()"
-                            aria-label="Clear theme plugin search"
-                            title="Clear search"
-                            class="hidden absolute right-2 px-1.5 py-0.5 rounded bg-[#1E293B] hover:bg-slate-700 text-[10px] font-mono text-slate-300 hover:text-white cursor-pointer transition-colors"
-                        >Clear</button>
                     </div>
 
                     <div id="plugin-list" class="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1"></div>
@@ -3253,9 +3260,13 @@
             const countBadge = document.getElementById('plugin-preset-count-badge');
             const clearBtn = document.getElementById('plugin-search-clear');
             const searchInput = document.getElementById('plugin-search-input');
+            const statusRow = document.getElementById('plugin-search-status');
+            const statusText = document.getElementById('plugin-search-status-text');
+            const quickStrip = document.getElementById('drive-apk-quick-strip');
             const allPlugins = (APP_STATE && Array.isArray(APP_STATE.plugins)) ? APP_STATE.plugins : [];
             const trimmedQuery = String(PLUGIN_SEARCH_QUERY || '').trim();
             const filteredPlugins = filterThemePluginsByName(allPlugins, trimmedQuery);
+            const matchedIds = new Set(filteredPlugins.map(p => p.id));
 
             if (searchInput && document.activeElement !== searchInput && searchInput.value !== PLUGIN_SEARCH_QUERY) {
                 searchInput.value = PLUGIN_SEARCH_QUERY;
@@ -3263,6 +3274,25 @@
             if (clearBtn) {
                 if (trimmedQuery.length > 0) clearBtn.classList.remove('hidden');
                 else clearBtn.classList.add('hidden');
+            }
+            if (statusRow && statusText) {
+                if (trimmedQuery.length > 0) {
+                    statusRow.classList.remove('hidden');
+                    statusText.textContent = `Showing ${filteredPlugins.length} of ${allPlugins.length} plugins matching "${trimmedQuery}"`;
+                } else {
+                    statusRow.classList.add('hidden');
+                }
+            }
+            if (quickStrip) {
+                const quickCards = quickStrip.querySelectorAll('[data-plugin-quick-card]');
+                let visibleQuickCount = 0;
+                quickCards.forEach(card => {
+                    const pid = card.getAttribute('data-plugin-quick-card');
+                    const show = trimmedQuery.length === 0 || matchedIds.has(pid);
+                    card.classList.toggle('hidden', !show);
+                    if (show) visibleQuickCount++;
+                });
+                quickStrip.classList.toggle('hidden', trimmedQuery.length > 0 && visibleQuickCount === 0);
             }
             if (countBadge) {
                 countBadge.textContent = trimmedQuery.length > 0
