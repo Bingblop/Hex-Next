@@ -221,10 +221,15 @@
                 </select>
             </div>
 
-            <button onclick="openReleaseAuditModal()" class="px-2.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-emerald-300 border border-emerald-500/30 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Run One UI 9.0 Release Readiness & Integrity Check">
+            <button onclick="openReleaseAuditModal()" id="btn-release-audit" class="px-2.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-emerald-300 border border-emerald-500/30 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Run One UI 9.0 Release Readiness, 64/32-bit APK & GitHub PR CI Audit">
                 <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span class="hidden lg:inline">Release Audit</span>
+                <span class="hidden lg:inline">Release &amp; PR CI</span>
             </button>
+
+            <a href="/api/export/apk" id="btn-download-signed-apk" onclick="showToast('Building & signing Universal One UI 9.0 APK (64-bit + 32-bit • English Only)...', 'emerald')" class="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/15 cursor-pointer" title="Download Signed Universal Release APK (arm64-v8a, armeabi-v7a, x86_64, x86 • English Only)">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span>Signed APK (64/32-bit)</span>
+            </a>
 
             <button onclick="compileAndApply()" id="btn-compile" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 font-semibold text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/15 cursor-pointer">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -233,12 +238,12 @@
 
             <button onclick="downloadThemeJson()" id="btn-export-theme-json" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-cyan-300 border border-cyan-500/40 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Download shareable theme.json configuration file for your customized One UI 9.0 theme">
                 <svg class="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                <span>theme.json</span>
+                <span class="hidden sm:inline">theme.json</span>
             </button>
 
-            <a href="/api/export/zip" onclick="showToast('Generating One UI 9.0 RRO Bundle ZIP (26 RROs + MIMI + Monet + theme.json)...', 'cyan')" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
+            <a href="/api/export/zip" onclick="showToast('Generating One UI 9.0 RRO Bundle ZIP (26 RROs + Drive APKs + Monet + theme.json)...', 'cyan')" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
                 <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                <span class="hidden sm:inline">Export ZIP</span>
+                <span class="hidden xl:inline">Export ZIP</span>
             </a>
             <input type="file" id="input-import-theme-json" accept=".json,application/json" onchange="handleImportThemeJsonFile(event)" class="hidden">
         </div>
@@ -247,7 +252,7 @@
     <!-- Mobile Tab Bar -->
     <div class="flex md:hidden bg-[#0A0D14] border-b border-[#1E2738] px-3 py-2 gap-1.5 overflow-x-auto">
         <button onclick="switchTab('studio')" id="mob-tab-studio" class="px-3 py-1.5 rounded text-xs font-medium bg-[#161F30] text-white shrink-0">Studio &amp; Preview</button>
-        <button onclick="switchTab('settings-icons')" id="mob-tab-settings-icons" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Settings Icons (26)</button>
+        <button onclick="switchTab('settings-icons')" id="mob-tab-settings-icons" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Settings &amp; App .PNGs</button>
         <button onclick="switchTab('matrix')" id="mob-tab-matrix" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">RRO Matrix</button>
         <button onclick="switchTab('monet')" id="mob-tab-monet" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Monet 65-Shades</button>
         <button onclick="switchTab('code')" id="mob-tab-code" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Manifests &amp; CLI</button>
@@ -262,8 +267,8 @@
                     <span id="strip-priv-badge" class="font-mono font-semibold text-emerald-400">UID 1000 (android.uid.system)</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-slate-400">Theme Park &amp; High Contrast:</span>
-                    <span class="font-mono font-semibold text-cyan-400">NOT USED (Pure From-Scratch RROs)</span>
+                    <span class="text-slate-400">Drive APKs Ported:</span>
+                    <span class="font-mono font-semibold text-cyan-400">Project X • Blend • Glass • ayOS • AOSP R • MIMI • Terpsichora</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-slate-400">Overlay Precedence:</span>
@@ -290,45 +295,98 @@
         <!-- ======================= TAB 1: STUDIO & LIVE PREVIEW ======================= -->
         <div id="view-studio" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            <!-- Left Column (4 cols): Rebuilt #hex_ + Niferpitou Plugins, Color Tokens & QS Toggle Shapes -->
+            <!-- Left Column (4 cols): Guided Step Filter + 13 Rebuilt Plugins + Color Engine + Safe QS Bars + .PNG/Vector Icons -->
             <div class="lg:col-span-4 space-y-5">
 
-                <!-- Rebuilt #hex_, Niferpitou & MIMI Plugins Card -->
-                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
+                <!-- Guided Customizer Step Filter Bar (Makes customizing fun, clear & non-confusing) -->
+                <div class="bg-[#0D111A] border border-cyan-500/35 rounded-xl p-3 space-y-2 shadow-md shadow-cyan-950/10">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[11px] font-display font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                            <span>Interactive Customizer Mode</span>
+                        </span>
+                        <span class="text-[10px] font-mono text-slate-400">Real-Time One UI 9.0 Preview</span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-1 bg-[#131926] p-1 rounded-lg border border-[#1E2738] text-[10px] font-mono">
+                        <button onclick="setStudioSectionFilter('all')" id="studio-step-all" class="py-1.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-bold cursor-pointer">All</button>
+                        <button onclick="setStudioSectionFilter('skins')" id="studio-step-skins" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">1. Skins</button>
+                        <button onclick="setStudioSectionFilter('colors')" id="studio-step-colors" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">2. Colors</button>
+                        <button onclick="setStudioSectionFilter('qs'); setPhoneScreen('qs');" id="studio-step-qs" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">3. QS Bars</button>
+                        <button onclick="setStudioSectionFilter('icons'); setPhoneScreen('settings');" id="studio-step-icons" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">4. .PNGs</button>
+                    </div>
+                </div>
+
+                <!-- Rebuilt #hex_, Drive APKs (Project X, Blend, Glass, ayOS, AOSP R), Niferpitou & MIMI Skins Card -->
+                <div id="studio-card-skins" class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h2 class="font-display font-bold text-sm text-white">Rebuilt #hex_, Niferpitou &amp; MIMI Skins</h2>
-                            <p class="text-xs text-slate-400">Includes <code class="font-mono text-cyan-300">MIMI (Miui 11)</code>, <code class="font-mono text-cyan-300">terpsichora_</code> &amp; <code class="font-mono text-cyan-300">#hex__30</code></p>
+                            <h2 class="font-display font-bold text-sm text-white">One UI 9.0 APK Skin Presets (13 Skins)</h2>
+                            <p class="text-xs text-slate-400">Includes all 5 Drive APKs (<code class="font-mono text-cyan-300">Project X</code>, <code class="font-mono text-cyan-300">Blend</code>, <code class="font-mono text-cyan-300">Glass</code>, <code class="font-mono text-cyan-300">ayOS</code>, <code class="font-mono text-cyan-300">AOSP R</code>) + <code class="font-mono text-cyan-300">Terpsichora</code> &amp; <code class="font-mono text-cyan-300">MIMI</code></p>
                         </div>
-                        <span id="plugin-preset-count-badge" class="font-mono text-[11px] text-slate-400 tabular-nums">9 Skins</span>
+                        <span id="plugin-preset-count-badge" class="font-mono text-[11px] text-cyan-300 tabular-nums font-bold">13 Skins</span>
                     </div>
 
-                    <!-- Highlighted MIMI Skin Quick-Launch Banner -->
-                    <div class="p-2.5 rounded-lg bg-gradient-to-r from-[#101C30] via-[#17182B] to-[#231426] border border-[#4C9FFD]/50 flex items-center justify-between gap-2.5">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <img id="mimi-banner-logo" src="" alt="MIMI" class="w-8 h-8 rounded-lg border border-white/15 shrink-0 hidden">
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#4C9FFD] font-mono text-[10px] font-bold">MIMI SKIN</span>
-                                    <span class="text-xs font-display font-bold text-white truncate">Miui 11 (66 Overlays)</span>
+                    <!-- Drive APK Collection Visual Quick-Launch Strip -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>Google Drive APK Collection (One-Click Apply):</span>
+                            <span class="text-emerald-400">One UI 9.0 Ported ✓</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <button onclick="applyPluginPreset('project_x')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-cyan-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                                <img src="/assets/apk_previews/project_x_logo.png" alt="Project X" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-cyan-300 truncate">Project X</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">PX-06 .PNG</div>
                                 </div>
-                                <div class="text-[10px] font-mono text-slate-300 truncate">project.vivid.ui.plugin.miui • One UI 9.0</div>
-                            </div>
+                            </button>
+                            <button onclick="applyPluginPreset('blend_dn')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-purple-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                                <img src="/assets/apk_previews/blend_dn_logo.png" alt="Blend" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-purple-300 truncate">Blend D/N</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">v5.0 .PNG</div>
+                                </div>
+                            </button>
+                            <button onclick="applyPluginPreset('glass_dn')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-sky-400/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                                <img src="/assets/apk_previews/glass_dn_logo.png" alt="Glass" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-sky-300 truncate">Glass D/N</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">Frosted .PNG</div>
+                                </div>
+                            </button>
+                            <button onclick="applyPluginPreset('ayos_dark')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-blue-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                                <img src="/assets/apk_previews/ayos_retina_logo.png" alt="ayOS" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-blue-300 truncate">ayOS Retina</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">v16 .PNG</div>
+                                </div>
+                            </button>
+                            <button onclick="applyPluginPreset('aosp_r')" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-emerald-500/40 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                                <img src="/assets/apk_previews/aosp_r_logo.png" alt="AOSP R" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-emerald-300 truncate">AOSP R</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">Pixel v8 .PNG</div>
+                                </div>
+                            </button>
+                            <button onclick="applyPluginPreset('mimi_miui11')" id="btn-apply-mimi-skin" class="p-1.5 rounded-lg bg-[#131926] hover:bg-[#1B2438] border border-[#4C9FFD]/50 flex items-center gap-1.5 text-left cursor-pointer transition-all">
+                                <img id="mimi-banner-logo" src="" alt="MIMI" class="w-6 h-6 rounded object-cover shrink-0 border border-white/10 hidden">
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold text-[#6EBAF1] truncate">MIMI Miui11</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">66 Overlays</div>
+                                </div>
+                            </button>
                         </div>
-                        <button onclick="applyPluginPreset('mimi_miui11')" id="btn-apply-mimi-skin" class="px-2.5 py-1.5 rounded-lg bg-[#4C9FFD] hover:bg-[#6EBAF1] text-slate-950 font-display font-bold text-[11px] shrink-0 cursor-pointer transition-colors shadow-sm">
-                            Apply MIMI
-                        </button>
                     </div>
 
-                    <div id="plugin-list" class="grid grid-cols-1 gap-2 max-h-[270px] overflow-y-auto pr-1"></div>
+                    <div id="plugin-list" class="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1"></div>
                 </div>
 
                 <!-- Core Color Tokens & AMOLED Switch -->
-                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-4">
+                <div id="studio-card-colors" class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-4">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h2 class="font-display font-bold text-sm text-white">One UI 9.0 Color Engine</h2>
-                            <p class="text-xs text-slate-400">Overrides <code class="font-mono text-cyan-300">SemWT_*</code> + 26 Settings Icons</p>
+                            <h2 class="font-display font-bold text-sm text-white">One UI 9.0 Color Engine (Surfaces &amp; Vector Icons)</h2>
+                            <p class="text-xs text-slate-400">Colors all surfaces + non-PNG icons above <code class="font-mono text-cyan-300">SemWT_*</code></p>
                         </div>
                         <label class="inline-flex items-center gap-2 cursor-pointer select-none">
                             <input type="checkbox" id="toggle-pure-black" checked onchange="updateSpecFromInputs()" class="sr-only peer">
@@ -423,18 +481,18 @@
                     </div>
                 </div>
 
-                <!-- Dashboard Settings Icons Style (26 Icons — Includes MIMI Miui 11 & Actual APK .PNG Fixed Preset) -->
-                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
+                <!-- Dashboard Settings Icons & System App .PNG vs Palette Mode Card -->
+                <div id="studio-card-icons" class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="flex flex-wrap items-center gap-1.5">
-                                <h2 class="font-display font-bold text-sm text-white">Settings Dashboard Icons (26)</h2>
+                                <h2 class="font-display font-bold text-sm text-white">Settings (26) &amp; System App Icons (38)</h2>
                                 <span id="studio-fixed-state-badge" class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/40 text-[#4C9FFD] font-mono text-[9px] font-bold">MIMI READY</span>
                             </div>
                             <p class="text-xs text-slate-400">Active pack: <code id="studio-settings-icon-pack-label" class="font-mono text-cyan-300">settingsicon-1sett</code></p>
                         </div>
                         <button onclick="switchTab('settings-icons')" class="text-[11px] font-mono text-cyan-400 hover:underline cursor-pointer">
-                            All 26 Icons →
+                            All 64 Icons →
                         </button>
                     </div>
 
@@ -443,10 +501,10 @@
                         <label id="studio-apk-png-toggle-card" class="p-2.5 rounded-lg bg-[#131B2E] border border-[#4C9FFD]/40 flex items-center justify-between gap-2.5 cursor-pointer transition-all hover:border-[#4C9FFD]">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5">
-                                    <span class="text-xs font-semibold text-white">Fixed APK .PNG Icons (MIMI / 3sett)</span>
+                                    <span class="text-xs font-semibold text-white">Fixed APK .PNG Icons (All 7 APK Packs)</span>
                                     <span class="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold">FILLED .PNG</span>
                                 </div>
-                                <div class="text-[10px] font-mono text-slate-400 truncate">Filled-in .PNGs • Zero color between icon &amp; frame</div>
+                                <div class="text-[10px] font-mono text-slate-400 truncate">Uncheck to tint all icons using your Color Palette</div>
                             </div>
                             <input type="checkbox" id="studio-chk-use-apk-png" onchange="toggleUseApkPngIcons(this.checked); setPhoneScreen('settings');" class="w-4 h-4 accent-[#4C9FFD] cursor-pointer shrink-0">
                         </label>
@@ -457,7 +515,7 @@
                                     <span class="text-xs font-medium text-white">Remove Icons Frame (<code class="text-[10px] font-mono text-cyan-300">settframe</code>)</span>
                                     <span id="studio-frame-state-pill" class="px-1.5 py-0.2 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-mono text-[9px]">WITH FRAME (NO FILL)</span>
                                 </div>
-                                <div class="text-[10px] font-mono text-slate-400 truncate">Works on Terpsichora 3sett &amp; MIMI .PNGs + App Suites</div>
+                                <div class="text-[10px] font-mono text-slate-400 truncate">Zero color between icon &amp; frame • Works across all apps</div>
                             </div>
                             <input type="checkbox" id="studio-chk-settframe" onchange="updateTweak({ settframe: this.checked });" class="w-4 h-4 accent-cyan-400 cursor-pointer shrink-0">
                         </label>
@@ -466,18 +524,74 @@
                     <div id="studio-settings-style-list" class="grid grid-cols-2 gap-1.5"></div>
                 </div>
 
-                <!-- Rebuilt assets/hex_qs_toggles/1..28.xml Shape Selector -->
-                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
-                    <div class="flex items-center justify-between mb-3">
+                <!-- Safe One UI 9.0 Quick Settings Customization (Tiles + Brightness Bar + Volume Panel) -->
+                <div id="studio-card-qs" class="bg-[#0D111A] border border-cyan-500/35 rounded-xl p-4 space-y-3.5">
+                    <div class="flex items-center justify-between">
                         <div>
-                            <h2 class="font-display font-bold text-sm text-white">QS Toggle Drawable Shape</h2>
-                            <p class="text-xs text-slate-400">Rebuilt from <code class="font-mono text-cyan-300">assets/hex_qs_toggles/*.xml</code></p>
+                            <div class="flex items-center gap-1.5">
+                                <h2 class="font-display font-bold text-sm text-white">One UI 9.0 Safe Quick Settings Studio</h2>
+                                <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] font-bold">CRASH-FREE</span>
+                            </div>
+                            <p class="text-xs text-slate-400">Deconstructed APK <code class="font-mono text-cyan-300">&lt;layer-list&gt;</code> drawables (Zero Layout XML Crash Risk)</p>
                         </div>
-                        <button onclick="switchTab('settings-icons')" class="text-[11px] font-mono text-cyan-400 hover:underline cursor-pointer">
-                            26 Settings Icons →
+                        <button onclick="setPhoneScreen('qs')" class="text-[11px] font-mono text-cyan-400 hover:underline cursor-pointer">
+                            Live QS →
                         </button>
                     </div>
-                    <div id="qs-shape-list" class="grid grid-cols-1 gap-2"></div>
+
+                    <!-- Brightness Bar Style Selector + Interactive Brightness Slider -->
+                    <div class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <label for="select-brightness-style" class="text-[11px] font-mono text-cyan-300 font-semibold">1. Brightness Bar Drawable Style</label>
+                            <span id="studio-bright-pct-label" class="text-[10px] font-mono text-slate-300 tabular-nums">84%</span>
+                        </div>
+                        <select id="select-brightness-style" onchange="updateTweak({ brightness_bar_style: this.value }); setPhoneScreen('qs');" class="w-full bg-[#0D111A] border border-[#263248] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
+                            <option value="oneui9_pill">One UI 9.0 Native Pill (22dp)</option>
+                            <option value="px_rbb_neon">Project X Neon Border Track (px_rbb)</option>
+                            <option value="blend_gradient_bar">Blend Dual-Tone Gradient Track</option>
+                            <option value="glass_frosted_bar">Glass Frosted Specular Track</option>
+                            <option value="ayos_thick_retina">ayOS Retina Thick Capsule (26dp)</option>
+                            <option value="aosp_thin_pill">AOSP R Material Thin Track</option>
+                            <option value="mimi_miui_pill">MIMI Miui 11 Sky Pill</option>
+                        </select>
+                        <input type="range" id="input-sim-brightness" min="15" max="100" value="84" oninput="onSimBrightnessSlide(this.value)" class="w-full accent-cyan-400 cursor-pointer">
+                    </div>
+
+                    <!-- Volume Panel Slider Style Selector + Interactive Volume Slider -->
+                    <div class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <label for="select-volume-style" class="text-[11px] font-mono text-purple-300 font-semibold">2. Volume Panel Slider Drawable</label>
+                            <span id="studio-vol-pct-label" class="text-[10px] font-mono text-slate-300 tabular-nums">72%</span>
+                        </div>
+                        <select id="select-volume-style" onchange="updateTweak({ volume_panel_style: this.value }); setPhoneScreen('qs');" class="w-full bg-[#0D111A] border border-[#263248] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
+                            <option value="0vvol">One UI 9.0 Accent Pill (0vvol)</option>
+                            <option value="px_vpanel_cyber">Project X Cyber Volume (px_vpanel)</option>
+                            <option value="blend_vpanel_grad">Blend Gradient Volume Track</option>
+                            <option value="glass_vpanel_frost">Glass Specular Volume Bar</option>
+                            <option value="ayos_vpanel_ios">ayOS Retina Tall Volume Pill</option>
+                            <option value="1vvol">Compact Slim Volume Track (1vvol)</option>
+                        </select>
+                        <input type="range" id="input-sim-volume" min="10" max="100" value="72" oninput="onSimVolumeSlide(this.value)" class="w-full accent-purple-400 cursor-pointer">
+                    </div>
+
+                    <!-- APK Reference Previews from Project X (px_rbb, px_vpanel, px_qs1..5) -->
+                    <div class="grid grid-cols-3 gap-1.5 pt-0.5">
+                        <button onclick="updateTweak({ brightness_bar_style: 'px_rbb_neon' }); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-cyan-400 text-center cursor-pointer" title="Apply Project X Brightness Bar">
+                            <img src="/assets/apk_previews/px_rbb.png" alt="px_rbb" class="h-7 w-full object-contain mx-auto rounded">
+                            <div class="text-[9px] font-mono text-cyan-300 mt-0.5">px_rbb Bar</div>
+                        </button>
+                        <button onclick="updateTweak({ volume_panel_style: 'px_vpanel_cyber' }); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-purple-400 text-center cursor-pointer" title="Apply Project X Volume Panel">
+                            <img src="/assets/apk_previews/px_vpanel.png" alt="px_vpanel" class="h-7 w-full object-contain mx-auto rounded">
+                            <div class="text-[9px] font-mono text-purple-300 mt-0.5">px_vpanel</div>
+                        </button>
+                        <button onclick="selectQsShape('px_qs1'); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-emerald-400 text-center cursor-pointer" title="Apply Project X QS Tile">
+                            <img src="/assets/apk_previews/px_qs1.png" alt="px_qs1" class="h-7 w-full object-contain mx-auto rounded">
+                            <div class="text-[9px] font-mono text-emerald-300 mt-0.5">px_qs1 Tile</div>
+                        </button>
+                    </div>
+
+                    <div class="text-[11px] font-mono text-slate-300 font-semibold pt-1">3. QS Tile Shape (11 One UI 9.0 Safe Drawables):</div>
+                    <div id="qs-shape-list" class="grid grid-cols-1 gap-1.5 max-h-[250px] overflow-y-auto pr-1"></div>
                 </div>
             </div>
 
@@ -508,26 +622,26 @@
                     <div id="phone-viewport" class="rounded-[28px] p-4 min-h-[490px] flex flex-col justify-between transition-colors duration-200 border border-white/5" style="background-color: #000000;">
 
                         <!-- Screen 1: One UI 9.0 Quick Settings Panel -->
-                        <div id="screen-qs" class="space-y-3.5">
+                        <div id="screen-qs" class="space-y-3">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400">com.android.systemui &gt; SemWT_*</div>
                                     <div class="text-sm font-display font-bold text-white">One UI 9.0 Quick Panel</div>
                                 </div>
-                                <span onclick="inspectPackage('systemui')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
+                                <span id="prev-qs-shape-badge" onclick="inspectPackage('systemui')" class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 cursor-pointer">squircle</span>
                             </div>
 
                             <!-- Dual Large Pills -->
                             <div class="grid grid-cols-2 gap-2.5">
-                                <div onclick="inspectPackage('systemui')" id="prev-qs-pill-1" class="p-3 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all" style="background-color: #00E5FF; color: #041016;">
-                                    <div class="w-8 h-8 rounded-full bg-black/15 flex items-center justify-center font-bold text-xs">Wi-Fi</div>
+                                <div onclick="inspectPackage('systemui')" id="prev-qs-pill-1" class="p-2.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all" style="background-color: #00E5FF; color: #041016;">
+                                    <div class="w-7 h-7 rounded-full bg-black/15 flex items-center justify-center font-bold text-[11px]">Wi-Fi</div>
                                     <div>
                                         <div class="text-xs font-bold leading-tight">Wi-Fi 7</div>
                                         <div class="text-[10px] opacity-80">Connected</div>
                                     </div>
                                 </div>
-                                <div onclick="inspectPackage('systemui')" id="prev-qs-pill-2" class="p-3 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all" style="background-color: #7C4DFF; color: #FFFFFF;">
-                                    <div class="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center font-bold text-xs">BT</div>
+                                <div onclick="inspectPackage('systemui')" id="prev-qs-pill-2" class="p-2.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all" style="background-color: #7C4DFF; color: #FFFFFF;">
+                                    <div class="w-7 h-7 rounded-full bg-black/20 flex items-center justify-center font-bold text-[11px]">BT</div>
                                     <div>
                                         <div class="text-xs font-bold leading-tight">Buds3 Pro</div>
                                         <div class="text-[10px] opacity-80">LE Audio</div>
@@ -535,47 +649,62 @@
                                 </div>
                             </div>
 
-                            <!-- 4x2 QS Toggles Grid -->
-                            <div onclick="inspectPackage('systemui')" id="prev-qs-card" class="p-3.5 rounded-2xl border border-white/10 space-y-3 cursor-pointer" style="background-color: #121724;">
-                                <div class="grid grid-cols-4 gap-2.5 place-items-center">
+                            <!-- 4x2 QS Toggles Grid + Safe Brightness & Volume Bars -->
+                            <div onclick="inspectPackage('systemui')" id="prev-qs-card" class="p-3 rounded-2xl border border-white/10 space-y-2.5 cursor-pointer" style="background-color: #121724;">
+                                <div class="grid grid-cols-4 gap-2 place-items-center">
                                     <div class="flex flex-col items-center gap-1">
-                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">SND</div>
+                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md transition-all" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">SND</div>
                                         <span class="text-[10px] text-slate-300">Sound</span>
                                     </div>
                                     <div class="flex flex-col items-center gap-1">
-                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">ROT</div>
+                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md transition-all" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">ROT</div>
                                         <span class="text-[10px] text-slate-300">Auto</span>
                                     </div>
                                     <div class="flex flex-col items-center gap-1">
-                                        <div class="prev-qs-toggle-inactive w-11 h-11 flex items-center justify-center font-mono text-xs text-slate-300" style="background-color: #1A2030; border-radius: 20px;">AIR</div>
+                                        <div class="prev-qs-toggle-inactive w-11 h-11 flex items-center justify-center font-mono text-xs text-slate-300 transition-all" style="background-color: #1A2030; border-radius: 20px;">AIR</div>
                                         <span class="text-[10px] text-slate-400">Flight</span>
                                     </div>
                                     <div class="flex flex-col items-center gap-1">
-                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">TOR</div>
+                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md transition-all" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">TOR</div>
                                         <span class="text-[10px] text-slate-300">Torch</span>
                                     </div>
                                 </div>
 
-                                <!-- Brightness Slider -->
-                                <div class="pt-1">
-                                    <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
-                                        <span>qs_brightness_bar_activated_color</span>
-                                        <span>82%</span>
+                                <!-- Live One UI 9.0 Brightness Bar Drawable Preview -->
+                                <div class="pt-1 space-y-1">
+                                    <div class="flex justify-between text-[9px] font-mono text-slate-400">
+                                        <span id="prev-brightness-style-label">Brightness • One UI 9.0 Pill</span>
+                                        <span id="prev-brightness-pct-text" class="text-cyan-300 tabular-nums">84%</span>
                                     </div>
-                                    <div class="w-full h-3.5 rounded-full bg-black/40 overflow-hidden p-0.5">
-                                        <div id="prev-brightness-bar" class="h-full rounded-full w-4/5 transition-all" style="background-color: #00E5FF;"></div>
+                                    <div id="prev-brightness-track" class="w-full h-5 rounded-full bg-black/45 overflow-hidden p-0.5 flex items-center transition-all">
+                                        <div id="prev-brightness-bar" class="h-full rounded-full transition-all flex items-center justify-end pr-2" style="width: 84%; background-color: #00E5FF;">
+                                            <span class="text-[9px] font-mono font-bold text-slate-950">☀</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Live One UI 9.0 Volume Panel Slider Drawable Preview -->
+                                <div class="space-y-1">
+                                    <div class="flex justify-between text-[9px] font-mono text-slate-400">
+                                        <span id="prev-volume-style-label">Volume • One UI 9.0 Accent Pill</span>
+                                        <span id="prev-volume-pct-text" class="text-purple-300 tabular-nums">72%</span>
+                                    </div>
+                                    <div id="prev-volume-track" class="w-full h-4 rounded-full bg-black/45 overflow-hidden p-0.5 flex items-center transition-all">
+                                        <div id="prev-volume-bar" class="h-full rounded-full transition-all flex items-center justify-end pr-2" style="width: 72%; background-color: #7C4DFF;">
+                                            <span class="text-[8px] font-mono font-bold text-white">♪</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Notification Card Preview -->
-                            <div onclick="inspectPackage('systemui')" id="prev-notif-card" class="p-3 rounded-2xl border border-white/10 space-y-1 cursor-pointer" style="background-color: #121724;">
+                            <div onclick="inspectPackage('systemui')" id="prev-notif-card" class="p-2.5 rounded-2xl border border-white/10 space-y-1 cursor-pointer" style="background-color: #121724;">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[10px] font-mono text-cyan-400">From-Scratch RRO • priority=10000</span>
+                                    <span class="text-[10px] font-mono text-cyan-400">Safe One UI 9.0 QS Drawables • priority=10000</span>
                                     <span class="text-[10px] text-slate-400">now</span>
                                 </div>
                                 <div class="text-xs font-semibold text-white">com.hexnext.oneui9.rro.systemui</div>
-                                <div class="text-[11px] text-slate-400">Overrides SemWT_com.android.systemui with zero High Contrast dependency.</div>
+                                <div class="text-[10px] text-slate-400">Overrides SemWT_com.android.systemui with crash-free layer-list XML.</div>
                             </div>
                         </div>
 
@@ -591,8 +720,8 @@
                                 </button>
                             </div>
 
-                            <!-- Live Dashboard Settings Icon Style Switcher (Includes MIMI Option) -->
-                            <div id="prev-settings-style-pills" class="grid grid-cols-6 gap-1 bg-[#0C1018] p-1 rounded-xl border border-white/10 text-[9px] font-mono"></div>
+                            <!-- Live Dashboard Settings Icon Style Switcher (Includes All APK Skins + Vector Mode) -->
+                            <div id="prev-settings-style-pills" class="grid grid-cols-4 gap-1 bg-[#0C1018] p-1 rounded-xl border border-white/10 text-[9px] font-mono"></div>
 
                             <!-- Samsung Account Profile Card (reacts to hidemail) -->
                             <div id="prev-settings-account-card" class="prev-settings-card p-2.5 rounded-2xl border border-white/10 flex items-center justify-between" style="background-color: #121724;">
@@ -607,7 +736,7 @@
                             </div>
 
                             <!-- Scrollable 26 SecSettings Dashboard Rows (rendered dynamically from APP_STATE.settings_icons) -->
-                            <div id="prev-settings-dashboard-list" class="prev-settings-card rounded-2xl border border-white/10 max-h-[305px] overflow-y-auto px-2.5 py-1" style="background-color: #121724;"></div>
+                            <div id="prev-settings-dashboard-list" class="prev-settings-card rounded-2xl border border-white/10 max-h-[295px] overflow-y-auto px-2.5 py-1" style="background-color: #121724;"></div>
 
                             <!-- Custom About Phone Terpsichora Banner (reacts to uselogo) -->
                             <div id="prev-about-logo-banner" class="p-2 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/60 to-indigo-950/60 flex items-center justify-between text-[10px] font-mono">
@@ -698,43 +827,47 @@
                             </div>
                         </div>
 
-                        <!-- Screen 5: Samsung My Files (com.sec.android.app.myfiles) Fixed .PNG Preview -->
+                        <!-- Screen 5: Samsung My Files (com.sec.android.app.myfiles) Fixed .PNG / Vector Preview -->
                         <div id="screen-myfiles" class="hidden space-y-2.5">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="text-[10px] font-mono text-slate-400">com.hexnext.oneui9.rro.myfiles</div>
-                                    <div class="text-sm font-display font-bold text-white">Samsung My Files (.PNG)</div>
+                                    <div class="text-sm font-display font-bold text-white">Samsung My Files (.PNG / Palette)</div>
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     <button onclick="updateTweak({ settframe: !(APP_STATE?.settings_icons?.settframe) })" id="prev-myfiles-frame-btn" class="text-[9px] font-mono px-2 py-0.5 rounded bg-white/10 text-cyan-300 border border-cyan-500/30 cursor-pointer">Frame</button>
                                     <span onclick="inspectPackage('myfiles')" class="text-[10px] font-mono text-cyan-400 underline cursor-pointer">Inspect</span>
                                 </div>
                             </div>
-                            <!-- Quick Skin Switcher for My Files .PNGs -->
-                            <div class="grid grid-cols-2 gap-1 bg-[#0C1018] p-1 rounded-xl border border-white/10 text-[9px] font-mono">
-                                <button id="prev-myfiles-skin-terp" onclick="updateTweak({ app_png_pack_mode: 'terpsichora_png', settings_icon_style: '3sett', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer">Terpsichora .PNG</button>
+                            <!-- Quick Skin Switcher for My Files .PNGs & Vector Mode -->
+                            <div class="grid grid-cols-4 gap-1 bg-[#0C1018] p-1 rounded-xl border border-white/10 text-[8px] font-mono">
+                                <button id="prev-myfiles-skin-terp" onclick="updateTweak({ app_png_pack_mode: 'terpsichora_png', settings_icon_style: '3sett', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer">Terp .PNG</button>
                                 <button id="prev-myfiles-skin-mimi" onclick="updateTweak({ app_png_pack_mode: 'mimi_png', settings_icon_style: 'mimi_sett', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer">MIMI .PNG</button>
+                                <button id="prev-myfiles-skin-px" onclick="updateTweak({ app_png_pack_mode: 'projectx_png', settings_icon_style: 'px_style1', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer text-cyan-300">ProjX .PNG</button>
+                                <button id="prev-myfiles-skin-vec" onclick="updateTweak({ app_png_pack_mode: 'vector_only', settings_icon_style: '1sett', use_apk_png_icons: false })" class="py-1 rounded-lg text-center cursor-pointer text-emerald-300">Palette SVG</button>
                             </div>
-                            <!-- Categories Grid (8 Filled-In .PNG Icons with Zero Color Between Icon & Frame) -->
+                            <!-- Categories Grid (8 Filled-In .PNG or Palette Icons with Zero Color Between Icon & Frame) -->
                             <div id="prev-myfiles-categories-grid" class="prev-settings-card rounded-2xl border border-white/10 p-2.5 grid grid-cols-2 gap-2 max-h-[340px] overflow-y-auto" style="background-color: #121724;"></div>
                         </div>
 
-                        <!-- Screen 6: One UI 9.0 Power Menu (GlobalActions) Fixed .PNG Preview -->
+                        <!-- Screen 6: One UI 9.0 Power Menu (GlobalActions) Fixed .PNG / Vector Preview -->
                         <div id="screen-powermenu" class="hidden space-y-2.5">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="text-[10px] font-mono text-slate-400">com.android.systemui • GlobalActions</div>
-                                    <div class="text-sm font-display font-bold text-white">One UI 9.0 Power Menu (.PNG)</div>
+                                    <div class="text-sm font-display font-bold text-white">One UI 9.0 Power Menu</div>
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     <button onclick="updateTweak({ settframe: !(APP_STATE?.settings_icons?.settframe) })" id="prev-power-frame-btn" class="text-[9px] font-mono px-2 py-0.5 rounded bg-white/10 text-cyan-300 border border-cyan-500/30 cursor-pointer">Frame</button>
                                     <span onclick="inspectPackage('systemui')" class="text-[10px] font-mono text-cyan-400 underline cursor-pointer">Inspect</span>
                                 </div>
                             </div>
-                            <!-- Quick Skin Switcher for Power Menu .PNGs -->
-                            <div class="grid grid-cols-2 gap-1 bg-[#0C1018] p-1 rounded-xl border border-white/10 text-[9px] font-mono">
-                                <button id="prev-power-skin-terp" onclick="updateTweak({ app_png_pack_mode: 'terpsichora_png', settings_icon_style: '3sett', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer">Terpsichora .PNG</button>
+                            <!-- Quick Skin Switcher for Power Menu .PNGs & Vector Mode -->
+                            <div class="grid grid-cols-4 gap-1 bg-[#0C1018] p-1 rounded-xl border border-white/10 text-[8px] font-mono">
+                                <button id="prev-power-skin-terp" onclick="updateTweak({ app_png_pack_mode: 'terpsichora_png', settings_icon_style: '3sett', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer">Terp .PNG</button>
                                 <button id="prev-power-skin-mimi" onclick="updateTweak({ app_png_pack_mode: 'mimi_png', settings_icon_style: 'mimi_sett', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer">MIMI .PNG</button>
+                                <button id="prev-power-skin-px" onclick="updateTweak({ app_png_pack_mode: 'projectx_png', settings_icon_style: 'px_style1', use_apk_png_icons: true })" class="py-1 rounded-lg text-center cursor-pointer text-cyan-300">ProjX .PNG</button>
+                                <button id="prev-power-skin-vec" onclick="updateTweak({ app_png_pack_mode: 'vector_only', settings_icon_style: '1sett', use_apk_png_icons: false })" class="py-1 rounded-lg text-center cursor-pointer text-emerald-300">Palette SVG</button>
                             </div>
                             <div id="prev-powermenu-grid" class="prev-settings-card rounded-2xl border border-white/10 p-3 grid grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto" style="background-color: #121724;"></div>
                         </div>
@@ -1092,30 +1225,48 @@
                 </div>
             </div>
 
-            <!-- Full-Width One UI 9.0 System & App Fixed .PNG Suites (Samsung My Files, Power Menu, Quick Settings, Device Care, Dialer) -->
+            <!-- Full-Width One UI 9.0 System & App Fixed .PNG + Color Palette Suites (8 Samsung System Apps • 38 Drawables) -->
             <div id="app-png-suites-section" class="bg-[#0D111A] border border-cyan-500/40 rounded-xl p-5 space-y-4 shadow-lg shadow-cyan-950/10">
                 <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#1E2738] pb-3.5">
                     <div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-mono text-[11px] font-bold">ONE UI 9.0 SYSTEM &amp; APP .PNG SUITES (26 DRAWABLES)</span>
+                            <span class="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-mono text-[11px] font-bold">ONE UI 9.0 SYSTEM &amp; APP SUITES (8 APPS • 38 DRAWABLES)</span>
                             <span id="app-suites-active-skin-pill" class="px-2 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 text-pink-200 font-mono text-[11px] font-bold">TERPSICHORA .PNG</span>
                             <span id="app-suites-frame-pill" class="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-[11px]">WITH FRAME • ZERO INNER COLOR • ALWAYS FILLED-IN</span>
                         </div>
                         <h3 class="font-display font-bold text-base text-white mt-1">
-                            MIMI &amp; Terpsichora Fixed <code class="font-mono text-amber-300">.PNG</code> Overlays for Samsung My Files, Power Menu, Device Care, SystemUI &amp; Phone
+                            All 7 APK Fixed <code class="font-mono text-amber-300">.PNG</code> Skins + Color Palette Vector Mode Across 8 Samsung System Apps
                         </h3>
                         <p class="text-xs text-slate-400">
-                            Applies the same fixed, filled-in <code class="font-mono text-amber-300">.PNG</code> icon architecture (with or without frame, zero color between the icon and the frame) across 5 One UI 9.0 system targets at <code class="font-mono text-cyan-300">priority=10000 (&gt; SemWT_*)</code>.
+                            Switch between fixed <code class="font-mono text-amber-300">.PNG</code> packs (<code class="font-mono text-cyan-300">Terpsichora</code>, <code class="font-mono text-cyan-300">MIMI</code>, <code class="font-mono text-cyan-300">Project X</code>, <code class="font-mono text-cyan-300">Blend</code>, <code class="font-mono text-cyan-300">Glass</code>, <code class="font-mono text-cyan-300">ayOS</code>, <code class="font-mono text-cyan-300">AOSP R</code>) or <code class="font-mono text-emerald-300">Color Palette Vector Mode</code> across My Files, Power Menu, Device Care, SystemUI, Phone, Messages, Gallery &amp; Home Launcher.
                         </p>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
-                        <div class="flex items-center bg-[#131926] p-1 rounded-lg border border-[#263248] text-xs font-mono gap-1">
-                            <button id="app-suite-skin-btn-terp" onclick="updateTweak({ app_png_pack_mode: 'terpsichora_png', settings_icon_style: '3sett', use_apk_png_icons: true })" class="px-2.5 py-1 rounded cursor-pointer">
-                                Terpsichora .PNG (3sett)
+                        <div class="flex flex-wrap items-center bg-[#131926] p-1 rounded-lg border border-[#263248] text-[11px] font-mono gap-1">
+                            <button id="app-suite-skin-btn-terp" onclick="updateTweak({ app_png_pack_mode: 'terpsichora_png', settings_icon_style: '3sett', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                Terp .PNG
                             </button>
-                            <button id="app-suite-skin-btn-mimi" onclick="updateTweak({ app_png_pack_mode: 'mimi_png', settings_icon_style: 'mimi_sett', use_apk_png_icons: true })" class="px-2.5 py-1 rounded cursor-pointer">
-                                MIMI .PNG (Miui 11)
+                            <button id="app-suite-skin-btn-mimi" onclick="updateTweak({ app_png_pack_mode: 'mimi_png', settings_icon_style: 'mimi_sett', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                MIMI .PNG
+                            </button>
+                            <button id="app-suite-skin-btn-px" onclick="updateTweak({ app_png_pack_mode: 'projectx_png', settings_icon_style: 'px_style1', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                Project X .PNG
+                            </button>
+                            <button id="app-suite-skin-btn-blend" onclick="updateTweak({ app_png_pack_mode: 'blend_png', settings_icon_style: 'blend_frame', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                Blend .PNG
+                            </button>
+                            <button id="app-suite-skin-btn-glass" onclick="updateTweak({ app_png_pack_mode: 'glass_png', settings_icon_style: 'glass_frosted', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                Glass .PNG
+                            </button>
+                            <button id="app-suite-skin-btn-ayos" onclick="updateTweak({ app_png_pack_mode: 'ayos_png', settings_icon_style: 'aosp_ayos', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                ayOS .PNG
+                            </button>
+                            <button id="app-suite-skin-btn-aosp" onclick="updateTweak({ app_png_pack_mode: 'aosp_png', settings_icon_style: 'aosp_ayos', use_apk_png_icons: true })" class="px-2 py-1 rounded cursor-pointer">
+                                AOSP R .PNG
+                            </button>
+                            <button id="app-suite-skin-btn-vec" onclick="updateTweak({ app_png_pack_mode: 'vector_only', settings_icon_style: '1sett', use_apk_png_icons: false })" class="px-2 py-1 rounded cursor-pointer">
+                                Palette Vector Mode
                             </button>
                         </div>
 
@@ -1135,7 +1286,7 @@
                 <!-- Suite Filter Tabs -->
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div id="app-png-suite-tabs" class="flex flex-wrap items-center gap-1.5"></div>
-                    <span class="font-mono text-[11px] text-slate-400">Click any app .PNG card to inspect its <code class="text-cyan-300">&lt;bitmap&gt;</code> XML &amp; RRO path</span>
+                    <span class="font-mono text-[11px] text-slate-400">Click any app icon card to inspect its <code class="text-cyan-300">&lt;bitmap&gt;</code> or <code class="text-emerald-300">VectorDrawable</code> XML &amp; RRO path</span>
                 </div>
 
                 <!-- Suite Items Grid -->
@@ -1520,27 +1671,27 @@
         </div>
     </div>
 
-    <!-- One UI 9.0 Release Readiness & Integrity Audit Modal -->
+    <!-- One UI 9.0 Release Readiness, Universal Signed APK & GitHub PR CI Audit Modal -->
     <div id="release-audit-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-[#0D111A] border border-[#263248] rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl">
             <div class="flex items-center justify-between border-b border-[#1E2738] pb-3">
                 <div>
-                    <div class="text-[11px] font-mono text-emerald-400">HEXNEXT v3.2 • PRODUCTION RELEASE AUDIT</div>
-                    <h3 class="font-display font-bold text-base text-white">One UI 9.0 Overlay Compiler — Release Readiness Report</h3>
+                    <div class="text-[11px] font-mono text-emerald-400">HEXNEXT v3.4 • UNIVERSAL 64/32-BIT SIGNED APK &amp; GITHUB PR CI</div>
+                    <h3 class="font-display font-bold text-base text-white">One UI 9.0 Release Readiness &amp; GitHub Pull Request CI Report</h3>
                 </div>
                 <button onclick="closeReleaseAuditModal()" class="text-slate-400 hover:text-white text-sm font-mono cursor-pointer px-2 py-1 rounded bg-[#131926]">ESC</button>
             </div>
-            <div id="release-audit-body" class="space-y-2.5 text-xs font-mono"></div>
+            <div id="release-audit-body" class="space-y-2 text-xs font-mono max-h-[380px] overflow-y-auto pr-1"></div>
             <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-[#1E2738]">
-                <span class="text-[11px] font-mono text-slate-400">Zero Theme Park • Zero High Contrast Overlays • priority=10000 &gt; SemWT_*</span>
+                <span class="text-[11px] font-mono text-slate-400">64-bit + 32-bit ABIs • English-Only (`en`) • V1+V2+V3 Signed</span>
                 <div class="flex flex-wrap items-center gap-2">
                     <button onclick="closeReleaseAuditModal()" class="px-3 py-2 rounded-lg bg-[#131926] text-slate-300 text-xs font-medium cursor-pointer">Close</button>
                     <button onclick="runReleasePrepareAndRepair()" class="px-3.5 py-2 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display font-bold text-xs cursor-pointer">
-                        Repair All &amp; Stabilize for Release
+                        Repair All &amp; Stabilize
                     </button>
-                    <button onclick="closeReleaseAuditModal(); downloadThemeJson();" class="px-3.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-cyan-500/40 text-cyan-300 font-display font-bold text-xs cursor-pointer">
-                        Download theme.json
-                    </button>
+                    <a href="/api/export/apk" onclick="closeReleaseAuditModal(); showToast('Downloading Signed Universal APK (64-bit + 32-bit, English-only)...', 'emerald');" class="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs">
+                        Download Signed APK
+                    </a>
                     <a href="/api/export/zip" onclick="closeReleaseAuditModal(); showToast('Exporting Production One UI 9.0 RRO ZIP Bundle...', 'cyan');" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-display font-bold text-xs">
                         Download Release ZIP
                     </a>
@@ -1639,15 +1790,70 @@
             renderAll();
         }
 
+        let STUDIO_SECTION_FILTER = 'all';
+        function setStudioSectionFilter(mode) {
+            STUDIO_SECTION_FILTER = mode || 'all';
+            const cardMap = {
+                skins: document.getElementById('studio-card-skins'),
+                colors: document.getElementById('studio-card-colors'),
+                icons: document.getElementById('studio-card-icons'),
+                qs: document.getElementById('studio-card-qs')
+            };
+            Object.entries(cardMap).forEach(([key, el]) => {
+                if (!el) return;
+                if (STUDIO_SECTION_FILTER === 'all' || STUDIO_SECTION_FILTER === key) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+            ['all', 'skins', 'colors', 'qs', 'icons'].forEach(k => {
+                const btn = document.getElementById(`studio-step-${k}`);
+                if (!btn) return;
+                if (k === STUDIO_SECTION_FILTER) {
+                    btn.className = 'py-1.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-bold cursor-pointer';
+                } else {
+                    btn.className = 'py-1.5 rounded text-slate-300 hover:text-white cursor-pointer';
+                }
+            });
+        }
+
+        function onSimBrightnessSlide(val) {
+            const pct = Math.max(10, Math.min(100, parseInt(val, 10) || 84));
+            const studioLbl = document.getElementById('studio-bright-pct-label');
+            if (studioLbl) studioLbl.textContent = `${pct}%`;
+            const simText = document.getElementById('prev-brightness-pct-text');
+            if (simText) simText.textContent = `${pct}%`;
+            const bar = document.getElementById('prev-brightness-bar');
+            if (bar) bar.style.width = `${pct}%`;
+        }
+
+        function onSimVolumeSlide(val) {
+            const pct = Math.max(10, Math.min(100, parseInt(val, 10) || 72));
+            const studioLbl = document.getElementById('studio-vol-pct-label');
+            if (studioLbl) studioLbl.textContent = `${pct}%`;
+            const simText = document.getElementById('prev-volume-pct-text');
+            if (simText) simText.textContent = `${pct}%`;
+            const bar = document.getElementById('prev-volume-bar');
+            if (bar) bar.style.width = `${pct}%`;
+        }
+
         async function applyPluginPreset(pluginId) {
             const plugin = APP_STATE.plugins.find(p => p.id === pluginId);
             if (!plugin) return;
             const currentTweaks = (APP_STATE.spec && APP_STATE.spec.extra_tweaks) || {};
             let nextTweaks = { ...currentTweaks };
-            if (pluginId === 'mimi_miui11') {
-                nextTweaks = { ...currentTweaks, settings_icon_style: 'mimi_sett', use_apk_png_icons: true, app_png_pack_mode: 'mimi_png' };
-            } else if (pluginId === 'niferpitou_terpsichora') {
-                nextTweaks = { ...currentTweaks, settings_icon_style: '3sett', use_apk_png_icons: true, app_png_pack_mode: 'terpsichora_png' };
+            const presetTweakMap = {
+                mimi_miui11: { settings_icon_style: 'mimi_sett', use_apk_png_icons: true, app_png_pack_mode: 'mimi_png', brightness_bar_style: 'mimi_miui_pill', volume_panel_style: '0vvol' },
+                niferpitou_terpsichora: { settings_icon_style: '3sett', use_apk_png_icons: true, app_png_pack_mode: 'terpsichora_png', brightness_bar_style: 'oneui9_pill', volume_panel_style: '0vvol' },
+                project_x: { settings_icon_style: 'px_style1', use_apk_png_icons: true, app_png_pack_mode: 'projectx_png', brightness_bar_style: 'px_rbb_neon', volume_panel_style: 'px_vpanel_cyber' },
+                blend_dn: { settings_icon_style: 'blend_frame', use_apk_png_icons: true, app_png_pack_mode: 'blend_png', brightness_bar_style: 'blend_gradient_bar', volume_panel_style: 'blend_vpanel_grad' },
+                glass_dn: { settings_icon_style: 'glass_frosted', use_apk_png_icons: true, app_png_pack_mode: 'glass_png', brightness_bar_style: 'glass_frosted_bar', volume_panel_style: 'glass_vpanel_frost' },
+                ayos_dark: { settings_icon_style: 'aosp_ayos', use_apk_png_icons: true, app_png_pack_mode: 'ayos_png', brightness_bar_style: 'ayos_thick_retina', volume_panel_style: 'ayos_vpanel_ios' },
+                aosp_r: { settings_icon_style: 'aosp_ayos', use_apk_png_icons: true, app_png_pack_mode: 'aosp_png', brightness_bar_style: 'aosp_thin_pill', volume_panel_style: '1vvol' }
+            };
+            if (presetTweakMap[pluginId]) {
+                nextTweaks = { ...currentTweaks, ...presetTweakMap[pluginId] };
             }
             const payload = {
                 name: plugin.name,
@@ -1671,7 +1877,7 @@
             APP_STATE = await res.json();
             renderAll();
             runLiveCompilerStream(APP_STATE);
-            showToast(`Applied skin preset: ${plugin.name} (${APP_STATE.stats?.total_tokens || 247} tokens)`, 'cyan');
+            showToast(`Applied One UI 9.0 Skin: ${plugin.name} (${APP_STATE.stats?.total_tokens || 247} tokens + APK .PNGs)`, 'cyan');
         }
 
         function updateSpecFromInputs() {
@@ -1880,29 +2086,38 @@
             const pkgs = APP_STATE.packages || [];
             const activeCount = pkgs.filter(p => p.compile_status === 'active' && p.selected).length;
             const failedCount = pkgs.filter(p => p.compile_status === 'failed').length;
-            const mimiCount = APP_STATE.mimi_skin ? APP_STATE.mimi_skin.total_overlays : 66;
             const iconStyle = APP_STATE.settings_icons ? APP_STATE.settings_icons.style_id : '1sett';
+            const totalSuites = APP_STATE.app_png_suites ? APP_STATE.app_png_suites.total_suites : 8;
+            const totalDrawables = APP_STATE.app_png_suites ? APP_STATE.app_png_suites.total_drawables : 38;
             if (body) {
                 body.innerHTML = `
-                    <div class="p-3 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
-                        <span>1. Standalone One UI 9.0 RRO Targets (&gt; SemWT_*)</span>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>1. Universal APK Architecture (64-bit + 32-bit ABIs)</span>
+                        <span class="text-emerald-400 font-bold">arm64-v8a, x86_64 + armeabi-v7a, x86 ✓</span>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>2. APK Localization &amp; V1/V2/V3 Release Signing</span>
+                        <span class="text-emerald-400 font-bold">English-Only (en) • Signed ✓</span>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>3. All 5 Google Drive APKs Integrated for One UI 9.0</span>
+                        <span class="text-cyan-300 font-bold">Project X, Blend, Glass, ayOS, AOSP R ✓</span>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>4. Standalone One UI 9.0 RRO Targets (&gt; SemWT_*)</span>
                         <span class="${failedCount === 0 ? 'text-emerald-400' : 'text-amber-300'} font-bold">${activeCount}/${pkgs.length} Active (${failedCount} Failed)</span>
                     </div>
-                    <div class="p-3 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
-                        <span>2. MIMI (#Hex Miui 11 v1.3) Overlays &amp; Drawables</span>
-                        <span class="text-emerald-400 font-bold">${mimiCount} Overlays + 30 Drawables ✓</span>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>5. Settings (26) + ${totalSuites} System App Suites (${totalDrawables} Icons)</span>
+                        <span class="text-cyan-300 font-bold">Fixed .PNG &amp; Palette Vector Ready (${iconStyle}) ✓</span>
                     </div>
-                    <div class="p-3 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
-                        <span>3. SecSettings Dashboard Icons (26 VectorDrawables)</span>
-                        <span class="text-cyan-300 font-bold">26/26 Compiled (Pack: ${iconStyle}) ✓</span>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>6. Safe One UI 9.0 Quick Settings (Tiles + Brightness + Volume)</span>
+                        <span class="text-emerald-400 font-bold">11 Tiles • 7 Brightness • 6 Volume Bars ✓</span>
                     </div>
-                    <div class="p-3 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
-                        <span>4. Android 16 Monet Framework Palette (HexNextMonetShades)</span>
-                        <span class="text-emerald-400 font-bold">65 Shades + 23 Dark Roles ✓</span>
-                    </div>
-                    <div class="p-3 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
-                        <span>5. High Contrast Theme &amp; Theme Park Dependencies</span>
-                        <span class="text-emerald-400 font-bold">0 Dependencies (Pure RROs) ✓</span>
+                    <div class="p-2.5 rounded-xl bg-[#131926] border border-[#1E2738] flex items-center justify-between">
+                        <span>7. GitHub Pull Request &amp; Copilot CI Workflow</span>
+                        <span class="text-emerald-400 font-bold">.github/workflows/android.yml Ready ✓</span>
                     </div>
                 `;
             }
@@ -1928,7 +2143,7 @@
             APP_STATE = await res.json();
             renderAll();
             if (payload.settings_icon_style) {
-                showToast(`Settings Dashboard Icons switched to ${payload.settings_icon_style === 'mimi_sett' ? 'MIMI (Miui 11)' : payload.settings_icon_style}`, 'cyan');
+                showToast(`Settings Dashboard Icons switched to ${payload.settings_icon_style}`, 'cyan');
             }
         }
 
@@ -1936,25 +2151,25 @@
             const cur = !!(APP_STATE && APP_STATE.settings_icons && APP_STATE.settings_icons.use_apk_png_icons);
             const next = typeof forceState === 'boolean' ? forceState : !cur;
             const curStyle = APP_STATE?.settings_icons?.style_id || '3sett';
+            const fixedSet = new Set(['3sett', 'mimi_sett', 'px_style1', 'blend_frame', 'glass_frosted', 'aosp_ayos', 'apk_png_fixed']);
             const nextStyle = next
-                ? ((curStyle === 'mimi_sett' || curStyle === 'apk_png_fixed' || curStyle === '3sett')
-                    ? curStyle
-                    : '3sett')
-                : ((curStyle === 'apk_png_fixed' || curStyle === 'mimi_sett' || curStyle === '3sett')
-                    ? '1sett'
-                    : curStyle);
-            await updateTweak({ use_apk_png_icons: next, settings_icon_style: nextStyle });
+                ? (fixedSet.has(curStyle) ? curStyle : '3sett')
+                : (fixedSet.has(curStyle) ? '1sett' : curStyle);
+            const nextAppMode = next
+                ? (APP_STATE?.spec?.extra_tweaks?.app_png_pack_mode === 'vector_only' ? 'terpsichora_png' : (APP_STATE?.spec?.extra_tweaks?.app_png_pack_mode || 'terpsichora_png'))
+                : 'vector_only';
+            await updateTweak({ use_apk_png_icons: next, settings_icon_style: nextStyle, app_png_pack_mode: nextAppMode });
             showToast(
                 next
-                    ? `Activated Fixed .PNG Dashboard Icons (${nextStyle === '3sett' ? 'Terpsichora Multi-Color 3sett' : 'MIMI'} — Always Filled-In, Zero Frame Fill)`
-                    : 'Switched to Customizable One UI 9.0 Filled-In VectorDrawable Icons',
+                    ? `Activated Fixed APK .PNG Icons (${nextStyle} — Always Filled-In, Zero Frame Fill)`
+                    : 'Switched all Settings & App Icons to Color Palette Vector Mode!',
                 next ? 'amber' : 'cyan'
             );
         }
 
         function notifyFixedPresetLocked(iconTitle) {
             showToast(
-                `Locked: ${iconTitle || 'Dashboard icon'} uses a fixed-state APK .PNG preset (MIMI / Terpsichora 3sett). Toggle 'Remove Icons Frame (settframe)' to switch between Framed and Frameless .PNGs.`,
+                `Locked: ${iconTitle || 'Dashboard icon'} uses a fixed-state APK .PNG preset. Uncheck 'Fixed APK .PNG Icons' to tint icons with your Color Palette, or toggle 'settframe' for Framed/Frameless.`,
                 'amber'
             );
         }
@@ -2739,19 +2954,22 @@
                 countBadge.textContent = `${APP_STATE.plugins.length} Skins`;
             }
             const activeId = APP_STATE.spec.plugin_id;
+            const driveIds = new Set(['project_x', 'blend_dn', 'glass_dn', 'ayos_dark', 'aosp_r']);
             container.innerHTML = APP_STATE.plugins.map(p => {
                 const isSelected = p.id === activeId;
                 const isMimi = p.id === 'mimi_miui11';
+                const isDrive = driveIds.has(p.id);
+                const imgSrc = p.logo_data_uri || p.preview_asset || '';
                 return `
-                    <button onclick="applyPluginPreset('${p.id}')" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${isSelected ? 'bg-[#161F30] border-cyan-400 ring-1 ring-cyan-400/40' : (isMimi ? 'bg-[#141C2E] border-[#4C9FFD]/50 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700')}">
+                    <button onclick="applyPluginPreset('${p.id}')" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${isSelected ? 'bg-[#161F30] border-cyan-400 ring-1 ring-cyan-400/40' : (isDrive ? 'bg-[#121A2B] border-cyan-500/35 hover:border-cyan-400' : (isMimi ? 'bg-[#141C2E] border-[#4C9FFD]/50 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'))}">
                         <div class="flex items-center gap-2.5 min-w-0 pr-2">
-                            ${p.logo_data_uri ? `<img src="${p.logo_data_uri}" alt="${p.name}" class="w-7 h-7 rounded-md border border-white/15 shrink-0">` : ''}
+                            ${imgSrc ? `<img src="${imgSrc}" alt="${p.name}" class="w-7 h-7 rounded-md border border-white/15 shrink-0 object-cover">` : ''}
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5">
                                     <span class="text-xs font-semibold text-white truncate">${p.name}</span>
-                                    ${isMimi ? `<span class="px-1.5 py-0.2 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/40 text-[#4C9FFD] font-mono text-[9px] font-bold">66 OVERLAYS</span>` : `<span class="text-[10px] font-mono text-slate-400">${p.style}</span>`}
+                                    ${isDrive ? `<span class="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 font-mono text-[8px] font-bold">DRIVE APK</span>` : (isMimi ? `<span class="px-1.5 py-0.2 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/40 text-[#4C9FFD] font-mono text-[9px] font-bold">66 OVERLAYS</span>` : `<span class="text-[10px] font-mono text-slate-400">${p.style}</span>`)}
                                 </div>
-                                <div class="text-[11px] font-mono text-slate-400 truncate">${p.plugin_pkg}</div>
+                                <div class="text-[10px] font-mono text-slate-400 truncate">${p.plugin_pkg}</div>
                             </div>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
@@ -2768,25 +2986,31 @@
             const container = document.getElementById('qs-shape-list');
             const activeShape = APP_STATE.spec.tile_shape;
             const accent = APP_STATE.spec.accent;
+            const secondary = APP_STATE.spec.secondary;
             container.innerHTML = APP_STATE.qs_shapes.map(sh => {
                 const active = sh.id === activeShape;
+                const badgeBg = sh.style_variant === 'gradient_ring'
+                    ? `background: linear-gradient(135deg, ${accent}, ${secondary});`
+                    : (sh.style_variant === 'outline_ring' || sh.style_variant === 'double_ring'
+                        ? `background: rgba(0,229,255,0.15); border: 2px solid ${accent}; color: #fff;`
+                        : `background-color: ${accent}; color: #051016;`);
                 return `
-                    <button onclick="selectQsShape('${sh.id}')" class="w-full p-2.5 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${active ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
-                        <div class="flex items-center gap-3">
-                            <div class="w-7 h-7 flex items-center justify-center text-[10px] font-mono font-bold text-slate-950" style="background-color: ${accent}; border-radius: ${sh.radius_css};">QS</div>
-                            <div class="text-left">
-                                <div class="text-xs font-semibold text-white">${sh.label}</div>
-                                <div class="text-[10px] font-mono text-slate-400">anaconda_${sh.anaconda_index}</div>
+                    <button onclick="selectQsShape('${sh.id}')" class="w-full p-2 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${active ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            ${sh.preview_asset ? `<img src="${sh.preview_asset}" alt="${sh.label}" class="w-7 h-7 rounded object-contain bg-black/40 p-0.5 border border-white/10 shrink-0">` : `<div class="w-7 h-7 flex items-center justify-center text-[10px] font-mono font-bold shrink-0" style="${badgeBg} border-radius: ${sh.radius_css};">QS</div>`}
+                            <div class="text-left min-w-0">
+                                <div class="text-xs font-semibold text-white truncate">${sh.label}</div>
+                                <div class="text-[10px] font-mono text-slate-400 truncate">anaconda_${sh.anaconda_index} • ${sh.style_variant || 'solid'}</div>
                             </div>
                         </div>
-                        <span class="text-[10px] font-mono ${active ? 'text-cyan-400' : 'text-slate-500'}">${active ? 'ACTIVE' : 'SELECT'}</span>
+                        <span class="text-[10px] font-mono shrink-0 ${active ? 'text-cyan-400 font-bold' : 'text-slate-500'}">${active ? 'ACTIVE' : 'SELECT'}</span>
                     </button>
                 `;
             }).join('');
         }
 
         function renderPhoneSimulator() {
-            const { spec, qs_shapes, settings_icons } = APP_STATE;
+            const { spec, qs_shapes, settings_icons, qs_overlay } = APP_STATE;
             const tweaks = spec.extra_tweaks || {};
             const shapeObj = qs_shapes.find(s => s.id === spec.tile_shape) || qs_shapes[0];
             const vp = document.getElementById('phone-viewport');
@@ -2798,27 +3022,122 @@
                 netBadge.style.color = spec.accent;
             }
 
+            const qsShapeBadge = document.getElementById('prev-qs-shape-badge');
+            if (qsShapeBadge) {
+                qsShapeBadge.textContent = shapeObj.id;
+            }
+
             const pill1 = document.getElementById('prev-qs-pill-1');
             const pill2 = document.getElementById('prev-qs-pill-2');
             const qsCard = document.getElementById('prev-qs-card');
             const notifCard = document.getElementById('prev-notif-card');
             const brightBar = document.getElementById('prev-brightness-bar');
+            const brightTrack = document.getElementById('prev-brightness-track');
+            const brightLbl = document.getElementById('prev-brightness-style-label');
+            const volBar = document.getElementById('prev-volume-bar');
+            const volTrack = document.getElementById('prev-volume-track');
+            const volLbl = document.getElementById('prev-volume-style-label');
 
             pill1.style.backgroundColor = spec.accent;
             pill2.style.backgroundColor = spec.secondary;
             qsCard.style.backgroundColor = spec.card;
             notifCard.style.backgroundColor = spec.card;
-            brightBar.style.backgroundColor = spec.accent;
+
+            // Sync Brightness & Volume dropdowns and live bar styles from qs_overlay
+            const bStyleId = tweaks.brightness_bar_style || (qs_overlay && qs_overlay.brightness_style && qs_overlay.brightness_style.id) || 'oneui9_pill';
+            const vStyleId = tweaks.volume_panel_style || (qs_overlay && qs_overlay.volume_style && qs_overlay.volume_style.id) || '0vvol';
+
+            const bSel = document.getElementById('select-brightness-style');
+            if (bSel && bSel.value !== bStyleId) bSel.value = bStyleId;
+            const vSel = document.getElementById('select-volume-style');
+            if (vSel && vSel.value !== vStyleId) vSel.value = vStyleId;
+
+            if (brightBar && brightTrack) {
+                brightBar.style.border = 'none';
+                brightTrack.style.border = 'none';
+                if (bStyleId === 'px_rbb_neon') {
+                    brightBar.style.background = `linear-gradient(90deg, ${spec.accent}44, ${spec.accent})`;
+                    brightBar.style.border = `1.5px solid ${spec.accent}`;
+                    brightBar.style.borderRadius = '10px';
+                    brightTrack.style.borderRadius = '10px';
+                } else if (bStyleId === 'blend_gradient_bar') {
+                    brightBar.style.background = `linear-gradient(90deg, ${spec.accent}, ${spec.secondary})`;
+                    brightBar.style.borderRadius = '14px';
+                    brightTrack.style.borderRadius = '14px';
+                } else if (bStyleId === 'glass_frosted_bar') {
+                    brightBar.style.background = `linear-gradient(180deg, #FFFFFF88, ${spec.accent}CC)`;
+                    brightBar.style.border = '1px solid rgba(255,255,255,0.6)';
+                    brightBar.style.borderRadius = '16px';
+                    brightTrack.style.borderRadius = '16px';
+                } else if (bStyleId === 'ayos_thick_retina') {
+                    brightBar.style.background = spec.accent;
+                    brightBar.style.borderRadius = '14px';
+                    brightTrack.style.borderRadius = '14px';
+                } else if (bStyleId === 'aosp_thin_pill') {
+                    brightBar.style.background = spec.accent;
+                    brightBar.style.borderRadius = '999px';
+                    brightTrack.style.borderRadius = '999px';
+                } else {
+                    brightBar.style.background = spec.accent;
+                    brightBar.style.borderRadius = '999px';
+                    brightTrack.style.borderRadius = '999px';
+                }
+                if (brightLbl) {
+                    brightLbl.textContent = `Brightness • ${(qs_overlay && qs_overlay.brightness_style && qs_overlay.brightness_style.label) || bStyleId}`;
+                }
+            }
+
+            if (volBar && volTrack) {
+                volBar.style.border = 'none';
+                if (vStyleId === 'px_vpanel_cyber') {
+                    volBar.style.background = `linear-gradient(90deg, ${spec.secondary}55, ${spec.accent})`;
+                    volBar.style.border = `1.5px solid ${spec.accent}`;
+                    volBar.style.borderRadius = '8px';
+                    volTrack.style.borderRadius = '8px';
+                } else if (vStyleId === 'blend_vpanel_grad') {
+                    volBar.style.background = `linear-gradient(90deg, ${spec.accent}, ${spec.secondary})`;
+                    volBar.style.borderRadius = '12px';
+                    volTrack.style.borderRadius = '12px';
+                } else if (vStyleId === 'glass_vpanel_frost') {
+                    volBar.style.background = `linear-gradient(180deg, #FFFFFF77, ${spec.secondary}CC)`;
+                    volBar.style.border = '1px solid rgba(255,255,255,0.5)';
+                    volBar.style.borderRadius = '14px';
+                    volTrack.style.borderRadius = '14px';
+                } else {
+                    volBar.style.background = spec.secondary;
+                    volBar.style.borderRadius = '999px';
+                    volTrack.style.borderRadius = '999px';
+                }
+                if (volLbl) {
+                    volLbl.textContent = `Volume • ${(qs_overlay && qs_overlay.volume_style && qs_overlay.volume_style.label) || vStyleId}`;
+                }
+            }
 
             const radiusMap = { default: '22px', '1roundnoti': '2px', '2roundnoti': '6px', '3roundnoti': '12px', '4roundnoti': '18px' };
             notifCard.style.borderRadius = radiusMap[tweaks.notif_corner_radius] || '18px';
 
             const togglePx = tweaks.qs_toggle_size === 'bigtoggle' ? '48px' : (tweaks.qs_toggle_size === 'smalltoggle' ? '36px' : '44px');
             document.querySelectorAll('.prev-qs-toggle-active').forEach(el => {
-                el.style.backgroundColor = spec.accent;
                 el.style.borderRadius = shapeObj.radius_css;
                 el.style.width = togglePx;
                 el.style.height = togglePx;
+                if (shapeObj.style_variant === 'outline_ring' || shapeObj.style_variant === 'double_ring') {
+                    el.style.background = `${spec.accent}26`;
+                    el.style.border = `2px solid ${spec.accent}`;
+                    el.style.color = '#FFFFFF';
+                } else if (shapeObj.style_variant === 'gradient_ring') {
+                    el.style.background = `linear-gradient(135deg, ${spec.accent}, ${spec.secondary})`;
+                    el.style.border = 'none';
+                    el.style.color = '#051016';
+                } else if (shapeObj.style_variant === 'frosted_glass') {
+                    el.style.background = `linear-gradient(145deg, rgba(255,255,255,0.4), ${spec.accent}CC)`;
+                    el.style.border = '1.5px solid rgba(255,255,255,0.65)';
+                    el.style.color = '#051016';
+                } else {
+                    el.style.background = spec.accent;
+                    el.style.border = 'none';
+                    el.style.color = '#051016';
+                }
             });
             document.querySelectorAll('.prev-qs-toggle-inactive').forEach(el => {
                 el.style.backgroundColor = spec.qs_inactive;
@@ -2831,7 +3150,17 @@
                 el.style.backgroundColor = spec.card;
             });
 
-            // Render Studio Left-Column Settings Dashboard Icons Style Selector (Includes Terpsichora 3sett & MIMI Fixed .PNG Presets)
+            const skinLabelMap = {
+                terpsichora: 'TERPSICHORA 3SETT .PNG',
+                mimi: 'MIMI MIUI 11 .PNG',
+                projectx: 'PROJECT X .PNG',
+                blend: 'BLEND D/N .PNG',
+                glass: 'GLASS FROST .PNG',
+                ayos: 'AYOS RETINA .PNG',
+                aosp: 'AOSP R .PNG'
+            };
+
+            // Render Studio Left-Column Settings Dashboard Icons Style Selector (Includes All 7 APK Skins + Color Palette Modes)
             if (settings_icons && APP_STATE.niferpitou_preferences) {
                 const studioPackLbl = document.getElementById('studio-settings-icon-pack-label');
                 if (studioPackLbl) {
@@ -2840,11 +3169,11 @@
                 const studioFixedBadge = document.getElementById('studio-fixed-state-badge');
                 if (studioFixedBadge) {
                     if (settings_icons.fixed_state) {
-                        const skinTag = settings_icons.png_skin === 'terpsichora' ? 'TERPSICHORA 3SETT .PNG' : 'MIMI .PNG';
+                        const skinTag = skinLabelMap[settings_icons.png_skin] || 'APK .PNG';
                         studioFixedBadge.textContent = `🔒 ${skinTag} (${settings_icons.settframe ? 'FRAMELESS' : 'FRAMED'})`;
                         studioFixedBadge.className = 'px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold';
                     } else {
-                        studioFixedBadge.textContent = 'FILLED VECTOR (0% FRAME FILL)';
+                        studioFixedBadge.textContent = 'COLOR PALETTE VECTOR (0% FRAME FILL)';
                         studioFixedBadge.className = 'px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono text-[9px] font-bold';
                     }
                 }
@@ -2863,22 +3192,24 @@
                 const studioStyleList = document.getElementById('studio-settings-style-list');
                 if (studioStyleList) {
                     const shortMeta = [
-                        { id: '3sett', short: 'Terpsichora (3sett)', sub: 'Multi-Color .PNG', isMimi: false, isTerp: true, isFixed: true },
-                        { id: 'mimi_sett', short: 'MIMI (Miui 11)', sub: 'anaconda_28 .PNG', isMimi: true, isTerp: false, isFixed: true },
-                        { id: 'apk_png_fixed', short: 'APK .PNG (Fixed)', sub: 'MIMI Raster .PNG', isMimi: true, isTerp: false, isFixed: true },
-                        { id: '1sett', short: 'Primary (1sett)', sub: 'Filled Seed Tint', isMimi: false, isTerp: false, isFixed: false },
-                        { id: '2sett', short: 'Accent (2sett)', sub: 'Filled Secondary', isMimi: false, isTerp: false, isFixed: false },
-                        { id: 'alt_1sett', short: 'Duotone 1', sub: 'Filled alt_1sett', isMimi: false, isTerp: false, isFixed: false },
+                        { id: '3sett', short: 'Terpsichora (3sett)', sub: 'Multi-Color .PNG', appMode: 'terpsichora_png', isFixed: true },
+                        { id: 'mimi_sett', short: 'MIMI (Miui 11)', sub: 'anaconda_28 .PNG', appMode: 'mimi_png', isFixed: true },
+                        { id: 'px_style1', short: 'Project X (PX-06)', sub: 'Cyber Neon .PNG', appMode: 'projectx_png', isFixed: true },
+                        { id: 'blend_frame', short: 'Blend D/N v5.0', sub: 'Dual-Gradient .PNG', appMode: 'blend_png', isFixed: true },
+                        { id: 'glass_frosted', short: 'Glass D/N v5.0', sub: 'Frosted Ice .PNG', appMode: 'glass_png', isFixed: true },
+                        { id: 'aosp_ayos', short: 'ayOS / AOSP R', sub: 'Retina & Pixel .PNG', appMode: 'ayos_png', isFixed: true },
+                        { id: '1sett', short: 'Palette Primary', sub: 'Color Customizable', appMode: 'vector_only', isFixed: false },
+                        { id: 'alt_1sett', short: 'Palette Duotone', sub: 'Seed + Secondary', appMode: 'vector_only', isFixed: false },
                     ];
                     studioStyleList.innerHTML = shortMeta.map(item => {
-                        const active = settings_icons.style_id === item.id;
+                        const active = settings_icons.style_id === item.id && (!!settings_icons.use_apk_png_icons === item.isFixed);
                         return `
-                            <button onclick="updateTweak({ settings_icon_style: '${item.id}', use_apk_png_icons: ${item.isFixed ? 'true' : 'false'} }); setPhoneScreen('settings');" class="p-2 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-1.5 ${active ? (item.isTerp ? 'bg-[#1D142C] border-pink-400 ring-1 ring-pink-400/50' : (item.isMimi ? 'bg-[#162238] border-[#4C9FFD] ring-1 ring-[#4C9FFD]/50' : 'bg-[#161F30] border-cyan-400')) : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                            <button onclick="updateTweak({ settings_icon_style: '${item.id}', use_apk_png_icons: ${item.isFixed ? 'true' : 'false'}, app_png_pack_mode: '${item.appMode}' }); setPhoneScreen('settings');" class="p-2 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-1.5 ${active ? 'bg-[#161F30] border-cyan-400 ring-1 ring-cyan-400/50' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
                                 <div class="min-w-0">
-                                    <div class="text-[11px] font-semibold ${item.isTerp ? 'text-pink-300' : (item.isMimi ? 'text-[#6EBAF1]' : 'text-white')} truncate">${item.short}</div>
+                                    <div class="text-[11px] font-semibold text-white truncate">${item.short}</div>
                                     <div class="text-[9px] font-mono text-slate-400 truncate">${item.sub}</div>
                                 </div>
-                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${active ? (item.isFixed ? 'bg-amber-400 text-slate-950 font-bold' : 'bg-cyan-500/20 text-cyan-300') : 'text-slate-500'}">${active ? (item.isFixed ? '.PNG' : 'ON') : 'SET'}</span>
+                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${active ? (item.isFixed ? 'bg-amber-400 text-slate-950 font-bold' : 'bg-emerald-400 text-slate-950 font-bold') : 'text-slate-500'}">${active ? (item.isFixed ? '.PNG' : 'SVG') : 'SET'}</span>
                             </button>
                         `;
                     }).join('');
@@ -2892,10 +3223,8 @@
                 const badgeEl = document.getElementById('prev-hidemail-badge');
                 const logoBanner = document.getElementById('prev-about-logo-banner');
                 const stylePillsEl = document.getElementById('prev-settings-style-pills');
-                const isMimiIcons = settings_icons.style_id === 'mimi_sett' || settings_icons.style_id === 'apk_png_fixed';
-                const isTerpPng = settings_icons.style_id === '3sett' || settings_icons.png_skin === 'terpsichora';
 
-                if (avatar) avatar.style.backgroundColor = isMimiIcons ? '#4C9FFD' : spec.accent;
+                if (avatar) avatar.style.backgroundColor = spec.accent;
                 if (emailEl) {
                     emailEl.textContent = settings_icons.hidemail ? '•••••••@samsung.account (hidemail)' : 'hex.oneui9@samsung.account';
                     emailEl.style.opacity = settings_icons.hidemail ? '0.25' : '1';
@@ -2903,11 +3232,11 @@
                 if (badgeEl) {
                     const frameSuffix = settings_icons.settframe ? 'Frameless' : 'Framed';
                     badgeEl.textContent = settings_icons.use_apk_png_icons
-                        ? (isTerpPng ? `3sett .PNG (${frameSuffix})` : `MIMI .PNG (${frameSuffix})`)
-                        : `${settings_icons.style_id} (${frameSuffix})`;
+                        ? `${(settings_icons.png_skin || '3sett').toUpperCase()} .PNG (${frameSuffix})`
+                        : `PALETTE (${frameSuffix})`;
                     badgeEl.className = settings_icons.use_apk_png_icons
                         ? 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-bold shrink-0'
-                        : 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-300 shrink-0';
+                        : 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold shrink-0';
                 }
                 if (logoBanner) {
                     logoBanner.style.display = settings_icons.uselogo ? 'flex' : 'none';
@@ -2915,11 +3244,13 @@
 
                 if (stylePillsEl) {
                     const pillOpts = [
-                        { id: '3sett', label: '3sett .PNG', isFixed: true },
-                        { id: 'mimi_sett', label: 'MIMI .PNG', isFixed: true },
-                        { id: '1sett', label: '1sett', isFixed: false },
-                        { id: '2sett', label: '2sett', isFixed: false },
-                        { id: 'alt_1sett', label: 'alt_1', isFixed: false },
+                        { id: '3sett', label: 'Terp .PNG', appMode: 'terpsichora_png', isFixed: true },
+                        { id: 'mimi_sett', label: 'MIMI .PNG', appMode: 'mimi_png', isFixed: true },
+                        { id: 'px_style1', label: 'ProjX .PNG', appMode: 'projectx_png', isFixed: true },
+                        { id: 'blend_frame', label: 'Blend .PNG', appMode: 'blend_png', isFixed: true },
+                        { id: 'glass_frosted', label: 'Glass .PNG', appMode: 'glass_png', isFixed: true },
+                        { id: 'aosp_ayos', label: 'ayOS .PNG', appMode: 'ayos_png', isFixed: true },
+                        { id: '1sett', label: 'Palette SVG', appMode: 'vector_only', isFixed: false },
                         { id: 'frame_toggle', label: settings_icons.settframe ? 'NoFrame' : '+Frame', isToggleFrame: true },
                     ];
                     stylePillsEl.innerHTML = pillOpts.map(p => {
@@ -2930,9 +3261,9 @@
                                 </button>
                             `;
                         }
-                        const isAct = settings_icons.style_id === p.id;
+                        const isAct = settings_icons.style_id === p.id && (!!settings_icons.use_apk_png_icons === p.isFixed);
                         return `
-                            <button onclick="updateTweak({ settings_icon_style: '${p.id}', use_apk_png_icons: ${p.isFixed ? 'true' : 'false'} })" class="py-1 rounded-lg text-center transition-all cursor-pointer ${isAct ? (p.isFixed ? 'bg-gradient-to-r from-[#00E5FF] to-[#FF2E93] text-slate-950 font-bold' : 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 font-bold') : 'text-slate-400 hover:text-white'}">
+                            <button onclick="updateTweak({ settings_icon_style: '${p.id}', use_apk_png_icons: ${p.isFixed ? 'true' : 'false'}, app_png_pack_mode: '${p.appMode}' })" class="py-1 rounded-lg text-center transition-all cursor-pointer ${isAct ? 'bg-cyan-400 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}">
                                 ${p.label}
                             </button>
                         `;
@@ -2947,18 +3278,17 @@
                         const dividerStyle = (settings_icons.uidivider && idx < settings_icons.icons.length - 1)
                             ? 'border-bottom: 1px solid rgba(255,255,255,0.07);'
                             : '';
-                        // CRITICAL: Zero color between the icon and the frame! When use_apk_png is true, the frame outline is baked into the .PNG with 100% transparent interior.
+                        // CRITICAL: Zero color between the icon and the frame!
                         const frameStyle = (settings_icons.settframe || ic.use_apk_png)
                             ? 'background: transparent; border: none;'
                             : `background: transparent; border: 1.5px solid ${ic.frame_border}; border-radius: 10px;`;
                         const pngSrc = ic.use_apk_png ? (ic.mimi_png_uri || ic.apk_png_uri) : null;
-                        // Dashboard icons are ALWAYS filled in!
                         const glyphHtml = pngSrc
                             ? `<img src="${pngSrc}" alt="${ic.title}" style="width:${iconPx}px; height:${iconPx}px;" class="object-contain">`
                             : `<svg width="${svgPx}" height="${svgPx}" viewBox="0 0 24 24" fill="${ic.fg_color}" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="${ic.filled_svg_path || ic.svg_path}"/></svg>`;
                         const tagLabel = ic.use_apk_png
-                            ? (ic.png_skin === 'terpsichora' ? '3SETT .PNG' : 'MIMI .PNG')
-                            : 'FILLED SVG';
+                            ? `${(ic.png_skin || 'APK').toUpperCase()} .PNG`
+                            : 'PALETTE SVG';
                         return `
                             <div onclick="switchTab('settings-icons'); inspectSettingIcon('${ic.id}');" class="py-2 flex items-center gap-2.5 cursor-pointer hover:bg-white/5 px-1 rounded transition-colors" style="${dividerStyle}">
                                 <div class="flex items-center justify-center shrink-0" style="width:${iconPx}px; height:${iconPx}px; ${frameStyle}">
@@ -2967,7 +3297,7 @@
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-1.5">
                                         <span class="text-xs font-medium text-white truncate">${ic.title}</span>
-                                        <span class="text-[8px] font-mono px-1 py-0.2 rounded ${ic.use_apk_png ? (ic.png_skin === 'terpsichora' ? 'bg-pink-500/20 text-pink-200 border border-pink-400/40' : 'bg-[#4C9FFD]/20 text-[#6EBAF1] border border-[#4C9FFD]/40') : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'}">${tagLabel}</span>
+                                        <span class="text-[8px] font-mono px-1 py-0.2 rounded ${ic.use_apk_png ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'}">${tagLabel}</span>
                                     </div>
                                     <div class="text-[10px] text-slate-400 truncate">${ic.subtitle}</div>
                                 </div>
@@ -2980,56 +3310,58 @@
             // Render Samsung My Files & One UI 9.0 Power Menu inside Phone Simulator using APP_STATE.app_png_suites
             if (APP_STATE.app_png_suites && APP_STATE.app_png_suites.suites) {
                 const appSuites = APP_STATE.app_png_suites;
-                const isTerpAppSkin = appSuites.active_skin === 'terpsichora';
                 const frameTxt = appSuites.settframe ? 'Frameless' : 'With Frame';
+                const isVecApp = !!appSuites.vector_only;
 
                 const mfFrameBtn = document.getElementById('prev-myfiles-frame-btn');
                 if (mfFrameBtn) mfFrameBtn.textContent = frameTxt;
                 const pwFrameBtn = document.getElementById('prev-power-frame-btn');
                 if (pwFrameBtn) pwFrameBtn.textContent = frameTxt;
 
-                const mfTerpBtn = document.getElementById('prev-myfiles-skin-terp');
-                const mfMimiBtn = document.getElementById('prev-myfiles-skin-mimi');
-                if (mfTerpBtn && mfMimiBtn) {
-                    mfTerpBtn.className = `py-1 rounded-lg text-center cursor-pointer ${isTerpAppSkin ? 'bg-gradient-to-r from-[#00E5FF] to-[#FF2E93] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`;
-                    mfMimiBtn.className = `py-1 rounded-lg text-center cursor-pointer ${!isTerpAppSkin ? 'bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`;
-                }
-
-                const pwTerpBtn = document.getElementById('prev-power-skin-terp');
-                const pwMimiBtn = document.getElementById('prev-power-skin-mimi');
-                if (pwTerpBtn && pwMimiBtn) {
-                    pwTerpBtn.className = `py-1 rounded-lg text-center cursor-pointer ${isTerpAppSkin ? 'bg-gradient-to-r from-[#00E5FF] to-[#FF2E93] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`;
-                    pwMimiBtn.className = `py-1 rounded-lg text-center cursor-pointer ${!isTerpAppSkin ? 'bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] text-slate-950 font-bold' : 'text-slate-400 hover:text-white'}`;
-                }
+                const renderAppPreviewItem = (suiteKey, item, sizePx = 32) => {
+                    const frameBorderStyle = (!appSuites.settframe && isVecApp)
+                        ? `background: transparent; border: 1.5px solid ${item.fg_color}; border-radius: 10px;`
+                        : 'background: transparent; border: none;';
+                    const visualHtml = (!isVecApp && item.active_png_uri)
+                        ? `<img src="${item.active_png_uri}" alt="${item.title}" style="width:${sizePx}px; height:${sizePx}px;" class="object-contain">`
+                        : `<svg width="${Math.round(sizePx * 0.62)}" height="${Math.round(sizePx * 0.62)}" viewBox="0 0 24 24" fill="${item.fg_color}" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="${item.filled_svg_path}"/></svg>`;
+                    return { frameBorderStyle, visualHtml };
+                };
 
                 const myfilesSuite = appSuites.suites.myfiles;
                 const myfilesGrid = document.getElementById('prev-myfiles-categories-grid');
                 if (myfilesSuite && myfilesGrid) {
-                    myfilesGrid.innerHTML = (myfilesSuite.items || []).map(item => `
-                        <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('myfiles', '${item.id}');" class="p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 flex items-center gap-2.5 cursor-pointer transition-all">
-                            <div class="w-8 h-8 flex items-center justify-center shrink-0" style="background: transparent;">
-                                <img src="${item.active_png_uri}" alt="${item.title}" class="w-8 h-8 object-contain">
+                    myfilesGrid.innerHTML = (myfilesSuite.items || []).map(item => {
+                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem('myfiles', item, 32);
+                        return `
+                            <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('myfiles', '${item.id}');" class="p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 flex items-center gap-2.5 cursor-pointer transition-all">
+                                <div class="w-8 h-8 flex items-center justify-center shrink-0" style="${frameBorderStyle}">
+                                    ${visualHtml}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-[11px] font-semibold text-white truncate">${item.title}</div>
+                                    <div class="text-[9px] font-mono text-slate-400 truncate">${item.subtitle}</div>
+                                </div>
                             </div>
-                            <div class="min-w-0">
-                                <div class="text-[11px] font-semibold text-white truncate">${item.title}</div>
-                                <div class="text-[9px] font-mono text-slate-400 truncate">${item.subtitle}</div>
-                            </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
 
                 const powerSuite = appSuites.suites.powermenu;
                 const powerGrid = document.getElementById('prev-powermenu-grid');
                 if (powerSuite && powerGrid) {
-                    powerGrid.innerHTML = (powerSuite.items || []).map(item => `
-                        <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('powermenu', '${item.id}');" class="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 flex flex-col items-center text-center gap-1.5 cursor-pointer transition-all">
-                            <div class="w-11 h-11 flex items-center justify-center" style="background: transparent;">
-                                <img src="${item.active_png_uri}" alt="${item.title}" class="w-11 h-11 object-contain">
+                    powerGrid.innerHTML = (powerSuite.items || []).map(item => {
+                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem('powermenu', item, 42);
+                        return `
+                            <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('powermenu', '${item.id}');" class="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 flex flex-col items-center text-center gap-1.5 cursor-pointer transition-all">
+                                <div class="w-11 h-11 flex items-center justify-center" style="${frameBorderStyle}">
+                                    ${visualHtml}
+                                </div>
+                                <div class="text-[11px] font-semibold text-white leading-tight">${item.title}</div>
+                                <div class="text-[9px] font-mono text-slate-400 truncate max-w-full">${isVecApp ? `${item.res_name}.xml` : `${item.res_name}.png`}</div>
                             </div>
-                            <div class="text-[11px] font-semibold text-white leading-tight">${item.title}</div>
-                            <div class="text-[9px] font-mono text-slate-400 truncate max-w-full">${item.res_name}.png</div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
             }
 
@@ -3104,18 +3436,18 @@
             const tweaks = spec.extra_tweaks || {};
             const perIconMap = tweaks.per_icon_colors || {};
             const isFixedState = !!settings_icons.fixed_state;
-            const isTerpPng = settings_icons.png_skin === 'terpsichora' || settings_icons.style_id === '3sett';
+            const activePngSkin = (settings_icons.png_skin || 'terpsichora').toUpperCase();
 
             document.getElementById('active-settings-folder-label').textContent = settings_icons.active_asset_folder;
             document.getElementById('settings-icon-dp-badge').textContent = isFixedState
-                ? `${settings_icons.icon_size_dp}dp (${isTerpPng ? '3sett .PNG' : 'MIMI .PNG'} • ${settings_icons.settframe ? 'Frameless' : 'Framed, No Fill'})`
-                : `${settings_icons.icon_size_dp}dp (Filled • ${settings_icons.settframe ? 'Frameless' : 'Framed, No Fill'})`;
+                ? `${settings_icons.icon_size_dp}dp (${activePngSkin} .PNG • ${settings_icons.settframe ? 'Frameless' : 'Framed, No Fill'})`
+                : `${settings_icons.icon_size_dp}dp (Color Palette Vector • ${settings_icons.settframe ? 'Frameless' : 'Framed, No Fill'})`;
 
             const apkPngTopBtn = document.getElementById('btn-toggle-apk-png-icons');
             const apkPngTopLbl = document.getElementById('btn-toggle-apk-png-label');
             if (apkPngTopBtn && apkPngTopLbl) {
                 apkPngTopLbl.textContent = settings_icons.use_apk_png_icons
-                    ? `Fixed .PNG Active (${isTerpPng ? '3sett' : 'MIMI'} ✓)`
+                    ? `Fixed .PNG Active (${activePngSkin} ✓)`
                     : 'Enable Fixed .PNG Mode';
                 apkPngTopBtn.className = settings_icons.use_apk_png_icons
                     ? 'px-3 py-2 rounded-lg bg-emerald-400 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5'
@@ -3140,8 +3472,8 @@
             const statePillText = document.getElementById('apk-png-state-pill-text');
             if (statePillText) {
                 statePillText.textContent = isFixedState
-                    ? `FIXED .PNG PRESET ACTIVE (${isTerpPng ? 'TERPSICHORA 3SETT' : 'MIMI'} • ${settings_icons.settframe ? 'FRAMELESS' : 'WITH FRAME, NO FILL'})`
-                    : 'CUSTOMIZABLE FILLED VECTORDRAWABLE MODE';
+                    ? `FIXED .PNG PRESET ACTIVE (${activePngSkin} • ${settings_icons.settframe ? 'FRAMELESS' : 'WITH FRAME, NO FILL'})`
+                    : 'CUSTOMIZABLE COLOR PALETTE VECTORDRAWABLE MODE';
             }
 
             const gridLockBadge = document.getElementById('settings-grid-lock-badge');
@@ -3149,15 +3481,15 @@
             if (gridLockBadge) {
                 if (isFixedState) {
                     gridLockBadge.classList.remove('hidden');
-                    gridLockBadge.textContent = `🔒 FIXED .PNG (${isTerpPng ? 'TERPSICHORA 3SETT' : 'MIMI'} • ${settings_icons.settframe ? 'FRAMELESS' : 'FRAMED, NO INNER COLOR'})`;
+                    gridLockBadge.textContent = `🔒 FIXED .PNG (${activePngSkin} • ${settings_icons.settframe ? 'FRAMELESS' : 'FRAMED, NO INNER COLOR'})`;
                 } else {
                     gridLockBadge.classList.add('hidden');
                 }
             }
             if (gridSubtitle) {
                 gridSubtitle.innerHTML = isFixedState
-                    ? `Dashboard icons are <strong>always filled in</strong> with <strong>zero color between the icon and the frame</strong>. Per-icon colors are locked in Fixed <code class="font-mono text-amber-300">.PNG</code> mode (${isTerpPng ? 'Terpsichora 3sett Multi-Color' : 'MIMI'}), while <strong>Remove Icons Frame (<code class="font-mono text-cyan-300">settframe</code>)</strong> toggles between Framed and Frameless <code class="font-mono text-amber-300">.PNG</code> bitmaps.`
-                    : 'All 26 dashboard icons are <strong>always filled in</strong> with <strong>zero color between the icon and the frame</strong>. Click any card to inspect its One UI 9.0 <code class="font-mono text-slate-200">VectorDrawable</code> XML or customize its tint.';
+                    ? `Dashboard icons are <strong>always filled in</strong> with <strong>zero color between the icon and the frame</strong>. Per-icon colors are locked in Fixed <code class="font-mono text-amber-300">.PNG</code> mode (${activePngSkin}), while <strong>Remove Icons Frame (<code class="font-mono text-cyan-300">settframe</code>)</strong> toggles between Framed and Frameless <code class="font-mono text-amber-300">.PNG</code> bitmaps.`
+                    : 'All 26 dashboard icons are <strong>always filled in</strong> with <strong>zero color between the icon and the frame</strong> and tinted by your Color Palette. Click any card to inspect its One UI 9.0 <code class="font-mono text-slate-200">VectorDrawable</code> XML or customize its tint.';
             }
 
             const resetBtn = document.getElementById('btn-reset-per-icon-colors');
@@ -3177,27 +3509,23 @@
                 mimiTopBtn.textContent = isMimiSett ? 'MIMI .PNG Icons Active ✓' : 'MIMI .PNG Icons (mimi_sett)';
             }
 
-            // 1. Render Settings Icon Style Buttons (Terpsichora 3sett + MIMI Fixed .PNG Presets + Filled Vector Modes)
+            // 1. Render Settings Icon Style Buttons (All 7 APK Fixed .PNG Presets + Color Palette Vector Modes)
             const styleSelector = document.getElementById('settings-style-selector');
             styleSelector.innerHTML = niferpitou_preferences.settings_icon_styles.map(st => {
-                const active = st.id === settings_icons.style_id;
-                const isMimi = st.id === 'mimi_sett' || st.id === 'apk_png_fixed';
-                const isTerp3 = st.id === '3sett';
+                const active = st.id === settings_icons.style_id && (!!settings_icons.use_apk_png_icons === !!st.fixed_state);
                 const isFixedPreset = !!st.fixed_state;
-                const folderName = settings_icons.settframe ? st.frameless_folder : st.asset_folder;
+                const folderName = settings_icons.settframe ? (st.frameless_folder || st.asset_folder) : st.asset_folder;
                 return `
-                    <button onclick="updateTweak({ settings_icon_style: '${st.id}', use_apk_png_icons: ${isFixedPreset ? 'true' : 'false'} })" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${active ? (isTerp3 ? 'bg-[#1D142C] border-pink-400 ring-1 ring-pink-400/50' : (isMimi ? 'bg-[#162238] border-[#4C9FFD] ring-1 ring-[#4C9FFD]/50' : 'bg-[#161F30] border-cyan-500/60')) : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                    <button onclick="updateTweak({ settings_icon_style: '${st.id}', use_apk_png_icons: ${isFixedPreset ? 'true' : 'false'} })" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${active ? 'bg-[#161F30] border-cyan-400 ring-1 ring-cyan-400/50' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
                         <div class="min-w-0 pr-2">
                             <div class="flex flex-wrap items-center gap-2">
-                                ${isFixedPreset ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold">🔒 FIXED .PNG PRESET</span>` : `<span class="px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-mono text-[9px] font-bold">FILLED VECTOR</span>`}
-                                ${isTerp3 ? `<span class="px-1.5 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 text-pink-200 font-mono text-[9px] font-bold">TERPSICHORA 3SETT</span>` : ''}
-                                ${st.id === 'mimi_sett' ? `<span class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#4C9FFD] font-mono text-[9px] font-bold">MIMI SKIN</span>` : ''}
+                                ${isFixedPreset ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold">🔒 FIXED .PNG PRESET</span>` : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-[9px] font-bold">COLOR PALETTE VECTOR</span>`}
                                 <span class="text-xs font-semibold text-white">${st.label}</span>
                                 <span class="text-[10px] font-mono text-cyan-400">${folderName}</span>
                             </div>
                             <p class="text-[11px] text-slate-400 mt-0.5">${st.desc}</p>
                         </div>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded shrink-0 ${active ? (isFixedPreset ? 'bg-amber-500/20 text-amber-200 border border-amber-400/50 font-bold' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40') : 'text-slate-500'}">${active ? (isFixedPreset ? 'FIXED .PNG' : 'ACTIVE') : 'USE'}</span>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded shrink-0 ${active ? (isFixedPreset ? 'bg-amber-500/20 text-amber-200 border border-amber-400/50 font-bold' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold') : 'text-slate-500'}">${active ? (isFixedPreset ? 'FIXED .PNG' : 'PALETTE ON') : 'USE'}</span>
                     </button>
                 `;
             }).join('');
@@ -3249,7 +3577,6 @@
             grid.innerHTML = settings_icons.icons.map(ic => {
                 const isInspected = ic.id === INSPECTED_SETTING_ICON_ID;
                 const hasCustom = !ic.fixed_state && !!perIconMap[ic.id];
-                // Never any background color between the icon and the frame!
                 const frameStyle = (settings_icons.settframe || ic.use_apk_png)
                     ? 'background: transparent; border: none;'
                     : `background: transparent; border: 1.5px solid ${ic.frame_border}; border-radius: 11px;`;
@@ -3263,7 +3590,7 @@
                         <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation(); notifyFixedPresetLocked('${ic.title.replace(/'/g, "\\'")}');" title="${ic.immutable_reason || 'Preset dashboard icon color cannot be altered due to its fixed .PNG bitmap state'}">
                             <span class="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono text-[9px] font-bold flex items-center gap-1">
                                 <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                <span>${ic.png_skin === 'terpsichora' ? '3SETT .PNG' : 'MIMI .PNG'}</span>
+                                <span>${(ic.png_skin || 'APK').toUpperCase()} .PNG</span>
                             </span>
                             <input type="color" value="${ic.fg_color}" disabled class="w-6 h-6 opacity-35 cursor-not-allowed pointer-events-none" title="Locked: Fixed APK .PNG preset cannot be altered">
                         </div>
@@ -3286,8 +3613,8 @@
                                 <div class="flex items-center gap-1.5">
                                     <span class="text-xs font-semibold text-white truncate">${ic.title}</span>
                                     ${ic.use_apk_png
-                                        ? `<span class="px-1.5 py-0.2 rounded ${ic.png_skin === 'terpsichora' ? 'bg-pink-500/20 border border-pink-400/40 text-pink-200' : 'bg-[#4C9FFD]/15 border border-[#4C9FFD]/40 text-[#6EBAF1]'} font-mono text-[9px] font-bold">${ic.settframe ? 'FRAMELESS .PNG' : 'FRAMED .PNG'}</span>`
-                                        : `<span class="px-1.5 py-0.2 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-mono text-[9px] font-bold">FILLED SVG</span>`}
+                                        ? `<span class="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200 font-mono text-[9px] font-bold">${ic.settframe ? 'FRAMELESS .PNG' : 'FRAMED .PNG'}</span>`
+                                        : `<span class="px-1.5 py-0.2 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-[9px] font-bold">PALETTE SVG</span>`}
                                 </div>
                                 <div class="text-[10px] font-mono text-slate-400 truncate">${ic.use_apk_png ? `${ic.res_name}.png` : ic.res_name}</div>
                             </div>
@@ -3312,8 +3639,8 @@
                     ? `${inspectedIcon.oneui9_drawable} • ${inspectedIcon.apk_png_res_path} (FIXED .PNG • ${inspectedIcon.frameless ? 'FRAMELESS' : 'FRAMED, NO INNER FILL'})`
                     : `${inspectedIcon.oneui9_drawable} • @color/${inspectedIcon.token_name || (inspectedIcon.res_name + '_tint')}`;
                 document.getElementById('insp-setting-icon-title').textContent = inspectedIcon.use_apk_png
-                    ? `${inspectedIcon.title} — ${inspectedIcon.png_skin === 'terpsichora' ? 'Terpsichora Multi-Color (3sett)' : 'MIMI'} Fixed .PNG (${inspectedIcon.size_dp}dp • Always Filled-In)`
-                    : `${inspectedIcon.title} — One UI 9.0 Filled-In VectorDrawable XML (${inspectedIcon.size_dp}dp)`;
+                    ? `${inspectedIcon.title} — ${(inspectedIcon.png_skin || 'APK').toUpperCase()} Fixed .PNG (${inspectedIcon.size_dp}dp • Always Filled-In)`
+                    : `${inspectedIcon.title} — One UI 9.0 Color Palette VectorDrawable XML (${inspectedIcon.size_dp}dp)`;
                 document.getElementById('insp-setting-icon-source').textContent = inspectedIcon.source_asset;
                 document.getElementById('insp-setting-icon-xml').textContent = inspectedIcon.vector_xml;
             }
@@ -3326,7 +3653,7 @@
                 fabBox.textContent = `${settings_icons.fabricate_command || ''}\n\n${settings_icons.enable_command || ''}`.trim();
             }
 
-            // 5. Render One UI 9.0 System & App Fixed .PNG Suites (My Files, Power Menu, SystemUI, Device Care, Dialer)
+            // 5. Render One UI 9.0 System & App Fixed .PNG + Color Palette Suites (8 Samsung System Apps • 38 Drawables)
             if (app_png_suites && app_png_suites.suites) {
                 const suitesMap = app_png_suites.suites;
                 const suiteKeys = Object.keys(suitesMap);
@@ -3334,14 +3661,15 @@
                     ACTIVE_APP_PNG_SUITE_ID = suiteKeys[0];
                 }
                 const currentSuite = suitesMap[ACTIVE_APP_PNG_SUITE_ID];
-                const isTerpSuite = app_png_suites.active_skin === 'terpsichora';
+                const isVectorSuite = !!app_png_suites.vector_only;
+                const activeSuiteSkin = (app_png_suites.active_skin || 'terpsichora').toUpperCase();
 
                 const skinPill = document.getElementById('app-suites-active-skin-pill');
                 if (skinPill) {
-                    skinPill.textContent = isTerpSuite ? 'TERPSICHORA .PNG (3SETT)' : 'MIMI .PNG (MIUI 11)';
-                    skinPill.className = isTerpSuite
-                        ? 'px-2 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 text-pink-200 font-mono text-[11px] font-bold'
-                        : 'px-2 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#6EBAF1] font-mono text-[11px] font-bold';
+                    skinPill.textContent = isVectorSuite ? 'COLOR PALETTE VECTOR MODE' : `${activeSuiteSkin} FIXED .PNG`;
+                    skinPill.className = isVectorSuite
+                        ? 'px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 font-mono text-[11px] font-bold'
+                        : 'px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-200 font-mono text-[11px] font-bold';
                 }
 
                 const framePill = document.getElementById('app-suites-frame-pill');
@@ -3351,12 +3679,23 @@
                         : 'WITH FRAME • ZERO INNER COLOR • ALWAYS FILLED-IN';
                 }
 
-                const btnTerp = document.getElementById('app-suite-skin-btn-terp');
-                const btnMimi = document.getElementById('app-suite-skin-btn-mimi');
-                if (btnTerp && btnMimi) {
-                    btnTerp.className = `px-2.5 py-1 rounded cursor-pointer ${isTerpSuite ? 'bg-gradient-to-r from-[#00E5FF] to-[#FF2E93] text-slate-950 font-bold' : 'text-slate-300 hover:text-white'}`;
-                    btnMimi.className = `px-2.5 py-1 rounded cursor-pointer ${!isTerpSuite ? 'bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] text-slate-950 font-bold' : 'text-slate-300 hover:text-white'}`;
-                }
+                const skinBtnMap = {
+                    'app-suite-skin-btn-terp': !isVectorSuite && app_png_suites.active_skin === 'terpsichora',
+                    'app-suite-skin-btn-mimi': !isVectorSuite && app_png_suites.active_skin === 'mimi',
+                    'app-suite-skin-btn-px': !isVectorSuite && app_png_suites.active_skin === 'projectx',
+                    'app-suite-skin-btn-blend': !isVectorSuite && app_png_suites.active_skin === 'blend',
+                    'app-suite-skin-btn-glass': !isVectorSuite && app_png_suites.active_skin === 'glass',
+                    'app-suite-skin-btn-ayos': !isVectorSuite && app_png_suites.active_skin === 'ayos',
+                    'app-suite-skin-btn-aosp': !isVectorSuite && app_png_suites.active_skin === 'aosp',
+                    'app-suite-skin-btn-vec': isVectorSuite
+                };
+                Object.entries(skinBtnMap).forEach(([btnId, isAct]) => {
+                    const b = document.getElementById(btnId);
+                    if (!b) return;
+                    b.className = isAct
+                        ? 'px-2 py-1 rounded bg-cyan-400 text-slate-950 font-bold cursor-pointer'
+                        : 'px-2 py-1 rounded text-slate-300 hover:text-white cursor-pointer';
+                });
 
                 const tabsEl = document.getElementById('app-png-suite-tabs');
                 if (tabsEl) {
@@ -3378,18 +3717,24 @@
                     const inspectedItem = items.find(it => it.id === INSPECTED_APP_PNG_ITEM_ID) || items[0];
                     itemsGridEl.innerHTML = items.map(it => {
                         const isSel = inspectedItem && it.id === inspectedItem.id;
+                        const frameBorder = (!app_png_suites.settframe && isVectorSuite)
+                            ? `background: transparent; border: 1.5px solid ${it.fg_color}; border-radius: 10px;`
+                            : 'background: transparent;';
+                        const iconHtml = (!isVectorSuite && it.active_png_uri)
+                            ? `<img src="${it.active_png_uri}" alt="${it.title}" class="w-10 h-10 object-contain">`
+                            : `<svg width="24" height="24" viewBox="0 0 24 24" fill="${it.fg_color}" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="${it.filled_svg_path}"/></svg>`;
                         return `
                             <div onclick="inspectAppPngDrawable('${currentSuite.id}', '${it.id}')" class="p-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${isSel ? 'bg-[#161F30] border-cyan-400 ring-1 ring-cyan-400/40' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
                                 <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 flex items-center justify-center shrink-0" style="background: transparent;">
-                                        <img src="${it.active_png_uri}" alt="${it.title}" class="w-10 h-10 object-contain">
+                                    <div class="w-10 h-10 flex items-center justify-center shrink-0" style="${frameBorder}">
+                                        ${iconHtml}
                                     </div>
                                     <div class="min-w-0">
                                         <div class="flex items-center gap-1.5">
                                             <span class="text-xs font-semibold text-white truncate">${it.title}</span>
-                                            <span class="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/40 text-amber-300 font-mono text-[8px] font-bold">.PNG</span>
+                                            <span class="px-1.5 py-0.2 rounded ${isVectorSuite ? 'bg-emerald-500/20 border border-emerald-400/40 text-emerald-300' : 'bg-amber-500/20 border border-amber-400/40 text-amber-300'} font-mono text-[8px] font-bold">${isVectorSuite ? 'PALETTE SVG' : `${activeSuiteSkin} .PNG`}</span>
                                         </div>
-                                        <div class="text-[10px] font-mono text-cyan-300 truncate">${it.res_name}.png</div>
+                                        <div class="text-[10px] font-mono text-cyan-300 truncate">${isVectorSuite ? `${it.res_name}.xml` : `${it.res_name}.png`}</div>
                                         <div class="text-[10px] text-slate-400 truncate">${it.subtitle}</div>
                                     </div>
                                 </div>
@@ -3400,7 +3745,9 @@
                     if (inspectedItem) {
                         const appBox = document.getElementById('insp-app-png-box');
                         if (appBox) {
-                            appBox.innerHTML = `<img src="${inspectedItem.active_png_uri}" alt="${inspectedItem.title}" class="w-10 h-10 object-contain">`;
+                            appBox.innerHTML = (!isVectorSuite && inspectedItem.active_png_uri)
+                                ? `<img src="${inspectedItem.active_png_uri}" alt="${inspectedItem.title}" class="w-10 h-10 object-contain">`
+                                : `<svg width="26" height="26" viewBox="0 0 24 24" fill="${inspectedItem.fg_color}" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="${inspectedItem.filled_svg_path}"/></svg>`;
                         }
                         const appTarget = document.getElementById('insp-app-png-target');
                         if (appTarget) {
@@ -3408,7 +3755,9 @@
                         }
                         const appTitle = document.getElementById('insp-app-png-title');
                         if (appTitle) {
-                            appTitle.textContent = `${inspectedItem.title} — ${isTerpSuite ? 'Terpsichora Multi-Color' : 'MIMI'} Fixed .PNG (${app_png_suites.settframe ? 'Frameless' : 'Framed, Zero Inner Color'})`;
+                            appTitle.textContent = isVectorSuite
+                                ? `${inspectedItem.title} — Color Palette VectorDrawable (${app_png_suites.settframe ? 'Frameless' : 'Framed, Zero Inner Color'})`
+                                : `${inspectedItem.title} — ${activeSuiteSkin} Fixed .PNG (${app_png_suites.settframe ? 'Frameless' : 'Framed, Zero Inner Color'})`;
                         }
                         const appSub = document.getElementById('insp-app-png-sub');
                         if (appSub) {

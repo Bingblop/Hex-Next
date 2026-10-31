@@ -10,6 +10,8 @@ apps/**/build/
 *.idsig
 *.apk
 .hex_temp/
+.cache_apks/
+dist/
 daemon.pid
 daemon.log
 *.jar

@@ -6,25 +6,59 @@ plugins {
 
 android {
     namespace = "com.hexnext.themer"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hexnext.themer"
-        // Public FabricatedOverlay / OverlayManagerTransaction APIs arrived in Android 14.
-        // One UI 7 (Android 15) and later are the real targets.
+        // Public FabricatedOverlay / OverlayManagerTransaction APIs for One UI 7/8/9.0 (Android 14–16 / SDK 36).
         minSdk = 34
-        targetSdk = 35
-        versionCode = 200
-        versionName = "2.0.0"
+        targetSdk = 36
+        versionCode = 210
+        versionName = "2.1.0-OneUI9-Universal-EN"
+
+        // English-only release configuration
+        resourceConfigurations += listOf("en")
+
+        // Support both 64-bit (arm64-v8a, x86_64) and 32-bit (armeabi-v7a, x86) architectures
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            // Always generate a single Universal APK supporting both 64-bit and 32-bit devices
+            isUniversalApk = true
+        }
     }
 
     signingConfigs {
-        // A committed debug key keeps CI builds installable over each other.
+        // Committed keystore keeps CI and local release builds signed and installable over each other.
         getByName("debug") {
             storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            storePassword = System.getenv("HEXNEXT_STORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("HEXNEXT_KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword = System.getenv("HEXNEXT_KEY_PASSWORD") ?: "android"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+        }
+        create("release") {
+            val customKeystore = System.getenv("HEXNEXT_KEYSTORE_PATH")
+            storeFile = if (!customKeystore.isNullOrBlank() && file(customKeystore).exists()) {
+                file(customKeystore)
+            } else {
+                file("debug.keystore")
+            }
+            storePassword = System.getenv("HEXNEXT_STORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("HEXNEXT_KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword = System.getenv("HEXNEXT_KEY_PASSWORD") ?: "android"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
@@ -34,7 +68,7 @@ android {
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

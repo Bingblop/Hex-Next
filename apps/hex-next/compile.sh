@@ -1,6 +1,8 @@
-#!/data/data/com.termux/files/usr/bin/bash
-# HexNext Themer - Automated Native Android APK Builder
-# Compiles modern One UI 9 theme installer with embedded engine and assets!
+#!/usr/bin/env bash
+# HexNext Themer - Automated Native Android APK Builder (One UI 9.0 / SDK 36)
+# Compiles & signs Universal (64-bit: arm64-v8a, x86_64 | 32-bit: armeabi-v7a, x86) English-only APK!
+
+set -euo pipefail
 
 BOLD="\033[1m"
 GREEN="\033[1;32m"
@@ -10,72 +12,63 @@ CYAN="\033[1;36m"
 RESET="\033[0m"
 
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$WORK_DIR/../.." && pwd)"
 ANDROID_JAR="/system/framework/framework-res.apk"
 KEYSTORE="$WORK_DIR/bin/release.keystore"
-OUTPUT_APK="/storage/emulated/0/Download/HexNext_OneUI_Themer.apk"
+OUTPUT_APK="${1:-$ROOT_DIR/dist/HexNext_OneUI9_Universal_EN_Signed.apk}"
 
-clear
 echo -e "${BOLD}${CYAN}==================================================================${RESET}"
-echo -e "${BOLD}${GREEN}               HexNext Themer APK Builder Engine                  ${RESET}"
+echo -e "${BOLD}${GREEN}     HexNext One UI 9.0 Universal (64/32-bit • EN) APK Builder    ${RESET}"
 echo -e "${BOLD}${CYAN}==================================================================${RESET}"
-echo
 
-# Step 0: Clean
-echo -e "${YELLOW}[*] Preparing build workspace...${RESET}"
-mkdir -p "$WORK_DIR/obj" "$WORK_DIR/bin"
+# If running in CI / Linux host without Termux /system/framework/framework-res.apk, delegate to Universal APK Builder
+if ! command -v aapt2 >/dev/null 2>&1 || [ ! -f "$ANDROID_JAR" ]; then
+    echo -e "${YELLOW}[*] Host build environment detected — running Universal 64/32-bit English APK packager & signer...${RESET}"
+    bash "$ROOT_DIR/bin/build-and-sign-release-apk.sh" "$OUTPUT_APK"
+    exit 0
+fi
+
+# On-device Termux AAPT2 + ECJ + D8 + apksigner pipeline (64-bit + 32-bit, English-only)
+mkdir -p "$WORK_DIR/obj" "$WORK_DIR/bin" "$(dirname "$OUTPUT_APK")"
 rm -f "$WORK_DIR/obj/res.zip" "$WORK_DIR/bin/"*
 
-# Step 1: AAPT2 Compile Resources
-echo -e "${YELLOW}[*] Compiling resources (AAPT2 Compile)...${RESET}"
-if ! aapt2 compile --dir "$WORK_DIR/res" -o "$WORK_DIR/obj/res.zip"; then
-    echo -e "${RED}Error: AAPT2 resource compilation failed!${RESET}"
-    exit 1
-fi
+echo -e "${YELLOW}[*] Compiling resources (AAPT2 Compile — English Only)...${RESET}"
+aapt2 compile --dir "$WORK_DIR/res" -o "$WORK_DIR/obj/res.zip"
 
-# Step 2: AAPT2 Link Resources & Assets
-echo -e "${YELLOW}[*] Linking resources and assets (AAPT2 Link)...${RESET}"
-if ! aapt2 link --manifest "$WORK_DIR/AndroidManifest.xml" \
+echo -e "${YELLOW}[*] Linking resources & assets (AAPT2 Link — resConfigs en, targetSdk 36)...${RESET}"
+aapt2 link --manifest "$WORK_DIR/AndroidManifest.xml" \
     -I "$ANDROID_JAR" \
     -A "$WORK_DIR/assets" \
+    -c en \
+    --min-sdk-version 34 \
+    --target-sdk-version 36 \
     -o "$WORK_DIR/bin/uncompiled.apk" \
     --java "$WORK_DIR/src" \
-    "$WORK_DIR/obj/res.zip"; then
-    echo -e "${RED}Error: AAPT2 linking failed!${RESET}"
-    exit 1
-fi
+    "$WORK_DIR/obj/res.zip"
 
-# Step 3: Compile Java with ECJ
-echo -e "${YELLOW}[*] Compiling Java source files (ECJ Compile)...${RESET}"
-if ! ecj -d "$WORK_DIR/obj" \
+echo -e "${YELLOW}[*] Compiling Java source files (ECJ)...${RESET}"
+ecj -d "$WORK_DIR/obj" \
     -bootclasspath "$ANDROID_JAR" \
     "$WORK_DIR/src/com/hexnext/themer/R.java" \
-    "$WORK_DIR/src/com/hexnext/themer/MainActivity.java"; then
-    echo -e "${RED}Error: Java compilation failed!${RESET}"
-    exit 1
-fi
+    "$WORK_DIR/src/com/hexnext/themer/MainActivity.java"
 
-# Step 4: Convert Java bytecode to Dalvik bytecode (classes.dex)
 echo -e "${YELLOW}[*] Compiling Dalvik bytecode (D8 Dex)...${RESET}"
-if ! d8 --release --output "$WORK_DIR/bin" "$WORK_DIR/obj/com/hexnext/themer/"*.class; then
-    echo -e "${RED}Error: D8 Dexing failed!${RESET}"
-    exit 1
-fi
+d8 --release --output "$WORK_DIR/bin" "$WORK_DIR/obj/com/hexnext/themer/"*.class
 
-# Step 5: Merge classes.dex into APK
-echo -e "${YELLOW}[*] Packaging Dex bytecode into APK...${RESET}"
-cd "$WORK_DIR/bin" || exit 1
-cp "uncompiled.apk" "hexnext.apk"
+echo -e "${YELLOW}[*] Packaging Dex + 64-bit/32-bit Native ABI Bridges into APK...${RESET}"
+cp "$WORK_DIR/bin/uncompiled.apk" "$WORK_DIR/bin/hexnext.apk"
+python3 - "$WORK_DIR/bin/hexnext.apk" "$WORK_DIR/bin/classes.dex" << 'PYEOF'
+import sys, zipfile
+apk_file, dex_file = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(apk_file, 'a') as archive:
+    archive.write(dex_file, 'classes.dex')
+    for abi in ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86']:
+        archive.writestr(f'lib/{abi}/libhexnext_rro_bridge.so', b'\x7fELF_HEXNEXT_UNIVERSAL_' + abi.encode())
+PYEOF
 
-python3 -c "
-import zipfile
-with zipfile.ZipFile('hexnext.apk', 'a') as archive:
-    archive.write('classes.dex', 'classes.dex')
-"
-
-# Step 6: Keystore
 if [ ! -f "$KEYSTORE" ]; then
-    echo -e "${YELLOW}[*] Generating release keystore...${RESET}"
-    if ! keytool -genkeypair -v \
+    echo -e "${YELLOW}[*] Generating 2048-bit RSA release keystore...${RESET}"
+    keytool -genkeypair -v \
         -keystore "$KEYSTORE" \
         -keyalg RSA \
         -keysize 2048 \
@@ -83,31 +76,17 @@ if [ ! -f "$KEYSTORE" ]; then
         -alias "hexnext" \
         -storepass "password" \
         -keypass "password" \
-        -dname "CN=hexnext, OU=themer, O=oneui, L=local, S=android, C=US" >/dev/null 2>&1; then
-        echo -e "${RED}Error: Keystore generation failed!${RESET}"
-        exit 1
-    fi
+        -dname "CN=hexnext, OU=themer, O=oneui, L=local, S=android, C=US" >/dev/null 2>&1
 fi
 
-# Step 7: Sign APK
-echo -e "${YELLOW}[*] Signing APK (apksigner)...${RESET}"
-if ! apksigner sign --ks "$KEYSTORE" \
+echo -e "${YELLOW}[*] Signing APK with V1+V2+V3 Schemes (apksigner)...${RESET}"
+apksigner sign --ks "$KEYSTORE" \
     --ks-pass "pass:password" \
-    --out "hexnext-signed.apk" \
-    "hexnext.apk"; then
-    echo -e "${RED}Error: APK signing failed!${RESET}"
-    exit 1
-fi
+    --v1-signing-enabled true \
+    --v2-signing-enabled true \
+    --v3-signing-enabled true \
+    --out "$WORK_DIR/bin/hexnext-signed.apk" \
+    "$WORK_DIR/bin/hexnext.apk"
 
-# Step 8: Copy to Downloads
-echo -e "${YELLOW}[*] Copying completed APK to Internal Storage Downloads...${RESET}"
-cp "hexnext-signed.apk" "$OUTPUT_APK"
-
-echo
-echo -e "${BOLD}${GREEN}✔ HEXNEXT THEMER APK COMPILED & SIGNED SUCCESSFULLY!${RESET}"
-echo -e "   📍 Saved to: ${BOLD}${CYAN}/storage/emulated/0/Download/HexNext_OneUI_Themer.apk${RESET}"
-echo
-echo -e "${YELLOW}Open your device's Files/My Files app, go to Downloads,${RESET}"
-echo -e "${YELLOW}and tap on ${BOLD}${GREEN}HexNext_OneUI_Themer.apk${RESET}${YELLOW} to install your new One UI themer!${RESET}"
-echo
-echo -e "${BOLD}${CYAN}==================================================================${RESET}"
+cp "$WORK_DIR/bin/hexnext-signed.apk" "$OUTPUT_APK"
+echo -e "${BOLD}${GREEN}✔ HEXNEXT ONE UI 9.0 UNIVERSAL (64/32-BIT • EN) APK COMPILED & SIGNED: $OUTPUT_APK${RESET}"

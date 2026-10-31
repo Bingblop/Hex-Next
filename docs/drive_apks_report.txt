@@ -1,0 +1,695 @@
+*****************************************************************
+APK: Hex_AOSP_R_Plugin_8.apk | Total files: 190
+  Package strings: ['project.vivid.hex.UI.PLUGIN', 'project.vivid.ui.plugin.aospq', 'project.vivid.ui.plugin.core.PluginBootstrap']
+  [assets/default.hex] (2640 bytes):
+     eyJoYmF0dCI6ImZhbHNlIiwibm90ZXVpIjoidHJ1ZSIsIm5hdnNpIjoiNDgiLCJIQVNfVElOVEFCTEVfVEFSR0VUUyI6ImZhbHNlIiwiSEVYX0NPTU1PTl9DT05UUk9MIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYW9zcHEiLCJIRVhfQ09NTU9OX0tFWUJPQVJEIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYW9zcHEiLCJseGc5IjoiIzAwMDAwMCIsIkhFWF9DT01NT05fUVMiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5hb3NwcSIsInJvdW5kX2tleSI6InRydWUiLCJoZXgiOiJwcm9qZWN0LnZpdmlkLmhleC5ib2RoaSIsIkhFWF9DT01NT05fQk9YIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYW9zcHEiLCJIRVhfQ09NTU9OX1NUQVRVU0JBUiI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmFvc3BxIiwicXNfY3VzdG9tX3RvZ2dsZXMiOiJmYWxzZSIsInRpbnRfaWNvbnMiOiJmYWxzZSIsInhnOSI6IiMwMDAwMDAiLCJ4eDEiOiIjODliNGY5Iiwibm9mcmFtZXMiOiJmYWxzZSIsImx4ejAiOiIjRkZGRkZGRkYiLCJ4eDAiOiIjMTAxMjEyIiwieHgzIjoiI2VlZWVlZSIsInh4MiI6IiM0ZWI3YWQiLCJxc19jdXN0b21fZ3JhZGllbnQiOiJmYWxzZSIsIkhFWF9DT01NT05fU0VUVElOR1NJQ09OIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYW9zcHEiLCJ4eDUiOiIjODliNGY4IiwiNGdpY29uIjoidHJ1ZSIsInFzX3R3ZWFrc19ub19sYWJlbCI6ImZhbHNlIiwieHg0IjoiIzdlN2U3ZSIsIlJFUVVJUkVTX0RFRkFVTFRfT05MWV9NT0RFIjoidHJ1ZSIsInh4NyI6IiMxMDEwMTAiLCJ4eDYiOiIjMWYyNDI4IiwiaGV4X3Byb19taXgiOiJmYWxzZSIsInh4OSI6IiM4OWI0ZjgiLCJ4eDgiOiIjZmZmZmZmIiwibm90aWZfZGl2aWRlciI6InRydWUiLCJxc190d2Vha3MiOiJ0cnVlIiwicXNfb2ZmX3RyYW5zIjoiMjU1IiwicXNfdHdlYWtzX3RpbGVzIjoiNyIsImRlZmF1bHRfZGF5X25pZ2h0X2ljb25zIjoiZmFsc2UiLCJIRVhfQ09NTU9OX0lDT05TIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYW9zcHEiLCJIRVhfQ09NTU9OX0JBQ0tHUk9VTkQiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5hb3NwcSIsInFzX3R3ZWFrc19jb2x1bW5zIjoiNSIsInh5MCI6IiMzMTMzMzciLCJxc190cmFucyI6IjI1NSIsInh5MiI6IiMxNDE0MTQiLCJIRVhfUFJPX01PREUiOiJmYWxzZSIsInh5MSI6IiMwMDAwMDAiLCJseHkwIjoiI0ZGRkZGRiIsInJlbWljb25zIjoiZmFsc2UiLCJ4eTQiOiIjODliNGY4IiwieHkzIjoiIzE0MTQxNCIsImx4eTMiOiIjRkFGQUZBIiwieHk1IjoiI0RFREVERSIsImx4eTQiOiIjMDAwMDAwIiwibHh5MSI6IiM0QzlGRkQiLCJseHkyIjoiIzlFOUU5RSIsIkhFWF9QTFVHSU5fRVhUUkFfUFJFRkVSRU5DRVMiOiJmYWxzZSIsInFzX3R3ZWFrc19yb3dzIjoiNCIsInFzX2N1c3RvbV90b2dnbGVfc3R5bGUiOiIxIiwibHh5NSI6IiMyNTI1MjUiLCJlbmFibGVfbmF2X2h0X3R3ZWFrIjoiZmFsc2UiLCJxc190d2Vha3NfbGluZXMiOiIyIiwicXNfb25fdHJhbnMiOiIyNTUiLCJIQVNfTk9fRlJBTUVTX09QVElPTiI6ImZhbHNlIiwiSEVYX0NPTU1PTl9ESUFMUEFEIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYW9zcHEiLCJwbHVnaW5fbmFtZSI6IkFPU1AgUSIsInh6MCI6IiNGRjAwMDAwMCIsInRhcmdldCI6ImhjIiwiSEVYX0NPTU1PTl9OQVZCQVIiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5hb3NwcSIsInBsdWdpbiI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmFvc3BxIiwibHh4MiI6IiNGMTZFOUEiLCJseHgzIjoiIzAwMDAwMCIsImx4eDAiOiIjRkZGRkZGIiwiZ3NiIjoidHJ1ZSIsImx4eDEiOiIjNEM5RkZEIiwibHh4NiI6IiNGQUZBRkEiLCJtc2ltIjoiZmFsc2UiLCJseHg3IjoiI0ZGRkZGRiIsImx4eDQiOiIjMjUyNTI1IiwibHh4NSI6IiNDRUNFQ0UiLCJseHg4IjoiIzIwMjAyMCIsImRlZmF1bHRfaWNvbnMiOiJ0cnVlIiwibHh4OSI6IiNGRkZGRkYifQ==
+  [assets/extra.preferences] (896 bytes):
+     uidivider=Use Applist Dividers
+     altbox=Use Solid Color Popup Boxes
+     oxyicon=Use OxygenOS Homescreen Icons
+     inout=Use WiFi In/Out Indicators
+     $selectdialogpreference,1nav,2nav=AOSP Navbar Icons, Type1, Type2
+     tinyges=Use Tiny Navigation Gesture Hint
+     4g=Replace LTE with 4G icon
+     aosppower=Use AOSP power menu icons for MISC.
+     green=Use Always Green Dialer Call Button (AOSP)
+     prods=Use ProdctSans Lockscreen Clock Font
+     outin=Disable Network Data In/Out Indicators
+     $selectdialogpreference,1badgebg,2badgebg,3badgebg,4badgebg=Homescreen Notification Badge Color, Primary Color, Accent Color, Dark, Light
+     $selectdialogpreference,1badgetxt,2badgetxt,3badgetxt=Homescreen Notification Badge Number Color, Black, White, Primary Text Color
+     background=
+     box=altbox
+     control=
+     dialpad=green
+     icons=oxyicon
+     keyboard=
+     navbar=1nav,tinyges
+     qs=
+     settingsicon=
+     statusbar=4g,inout,outin
+     home=
+     misc=uidivider,aosppower,green
+  Folders with PNG/XML assets:
+    assets/anaconda_tints/once/base/default/control: 12 PNGs, 0 XMLs -> sample: ['checkbox_021.png', 'checkbox_022.png', 'checkbox_023.png', 'checkbox_024.png', 'checkbox_025.png']
+    assets/anaconda_tints/once/base/default/misc-green: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/once/base/xx1/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/once/base/xx2/drawable-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['file_type_folder.png', 'myfiles_list_folder.png', 'tw_ic_ab_search_mtrl_tint.png']
+    assets/anaconda_tints/once/first/#000000/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/once/first/#000000/drawable-xxhdpi-v26: 2 PNGs, 0 XMLs -> sample: ['file_type_folder.png', 'myfiles_list_folder.png']
+    assets/anaconda_tints/once/first/#000000/misc-green: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/once/first/xx1/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['tw_ic_ab_search_mtrl_tint.png']
+    assets/anaconda_tints/once/first/xx2/control: 12 PNGs, 0 XMLs -> sample: ['checkbox_021.png', 'checkbox_022.png', 'checkbox_023.png', 'checkbox_024.png', 'checkbox_025.png']
+    res/drawable: 59 PNGs, 1 XMLs -> sample: ['bodh_off.png', 'bodh_off_tint.png', 'bodh_on.png', 'bodh_on_tint.png', 'check.png']
+    res/drawable-nodpi-v4: 1 PNGs, 0 XMLs -> sample: ['banner.png']
+    res/drawable-v25: 4 PNGs, 1 XMLs -> sample: ['base_d.png', 'common_bg_day.xml', 'first_d.png', 'second_d.png', 'third_d.png']
+    res/drawable-v26: 4 PNGs, 1 XMLs -> sample: ['base_n.png', 'common_bg_night.xml', 'first_n.png', 'second_n.png', 'third_n.png']
+    res/drawable-v27: 13 PNGs, 0 XMLs -> sample: ['default_off_day.png', 'default_off_tint_day.png', 'default_on_day.png', 'default_on_tint_day.png', 'ic_sysbar_back_theme_default_day.png']
+    res/mipmap-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['qlogo.png']
+*****************************************************************
+APK: Hex_ayOS_Retina_Plugin_16.apk | Total files: 566
+  Package strings: ['project.vivid.hex.UI.PLUGIN', 'project.vivid.ui.plugin.ayosdark.retina', 'project.vivid.ui.plugin.core.PluginBootstrap']
+  [assets/default.hex] (2800 bytes):
+     eyJoYmF0dCI6ImZhbHNlIiwibm90ZXVpIjoidHJ1ZSIsIm5hdnNpIjoiMjQiLCJIQVNfVElOVEFCTEVfVEFSR0VUUyI6InRydWUiLCJIRVhfQ09NTU9OX0NPTlRST0wiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5heW9zZGFyay5yZXRpbmEiLCJIRVhfQ09NTU9OX0tFWUJPQVJEIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYXlvc2RhcmsucmV0aW5hIiwibHhnOSI6IiMwMDAwMDAiLCJIRVhfQ09NTU9OX1FTIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYXlvc2RhcmsucmV0aW5hIiwicm91bmRfa2V5IjoidHJ1ZSIsImhleCI6InByb2plY3Qudml2aWQuaW5zdGFsbGVyLmJvZGhpIiwiSEVYX0NPTU1PTl9CT1giOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5heW9zZGFyay5yZXRpbmEiLCJIRVhfQ09NTU9OX1NUQVRVU0JBUiI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmF5b3NkYXJrLnJldGluYSIsInFzX2N1c3RvbV90b2dnbGVzIjoidHJ1ZSIsInRpbnRfaWNvbnMiOiJ0cnVlIiwieGc5IjoiIzQ0NTRhMiIsInh4MSI6IiM4MjZhZTUiLCJub2ZyYW1lcyI6ImZhbHNlIiwibHh6MCI6IiNGRkZGRkZGRiIsInh4MCI6IiMwOTBiMTUiLCJ4eDMiOiIjZTJlNGVmIiwieHgyIjoiI2I2MzA0ZCIsInFzX2N1c3RvbV9ncmFkaWVudCI6InRydWUiLCJIRVhfQ09NTU9OX1NFVFRJTkdTSUNPTiI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmF5b3NkYXJrLnJldGluYSIsInh4NSI6IiMwZDBkMGQiLCI0Z2ljb24iOiJ0cnVlIiwicXNfdHdlYWtzX25vX2xhYmVsIjoiZmFsc2UiLCJ4eDQiOiIjOGE4ZWFhIiwiUkVRVUlSRVNfREVGQVVMVF9PTkxZX01PREUiOiJ0cnVlIiwieHg3IjoiIzA4MDYwYiIsInh4NiI6IiMxMDE1MjAiLCJoZXhfcHJvX21peCI6ImZhbHNlIiwieHg5IjoiIzg0NGE4ZSIsInh4OCI6IiNkYWRjZWEiLCJub3RpZl9kaXZpZGVyIjoidHJ1ZSIsInFzX3R3ZWFrcyI6InRydWUiLCJxc19vZmZfdHJhbnMiOiIyNTUiLCJxc190d2Vha3NfdGlsZXMiOiI3IiwiZGVmYXVsdF9kYXlfbmlnaHRfaWNvbnMiOiJmYWxzZSIsIkhFWF9DT01NT05fSUNPTlMiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5heW9zZGFyay5yZXRpbmEiLCJIRVhfQ09NTU9OX0JBQ0tHUk9VTkQiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5heW9zZGFyay5yZXRpbmEiLCJxc190d2Vha3NfY29sdW1ucyI6IjUiLCJ4eTAiOiIjMzU0NDU3IiwicXNfdHJhbnMiOiIyNTUiLCJ4eTIiOiIjNDg1NjcxIiwiSEVYX1BST19NT0RFIjoiZmFsc2UiLCJ4eTEiOiIjYzljZmQ1IiwicmVtaWNvbnMiOiJmYWxzZSIsImx4eTAiOiIjRkZGRkZGIiwieHk0IjoiIzg1NmZiYSIsInh5MyI6IiMxNzE5MjkiLCJseHkzIjoiI0ZBRkFGQSIsInh5NSI6IiNjYmM0ZGQiLCJseHk0IjoiIzAwMDAwMCIsImx4eTEiOiIjNEM5RkZEIiwibHh5MiI6IiM5RTlFOUUiLCJIRVhfUExVR0lOX0VYVFJBX1BSRUZFUkVOQ0VTIjoiZmFsc2UiLCJxc190d2Vha3Nfcm93cyI6IjQiLCJxc19jdXN0b21fdG9nZ2xlX3N0eWxlIjoiMiIsImx4eTUiOiIjMjUyNTI1IiwiZW5hYmxlX25hdl9odF90d2VhayI6ImZhbHNlIiwicXNfdHdlYWtzX2xpbmVzIjoiMiIsInFzX29uX3RyYW5zIjoiMjU1IiwiSEFTX05PX0ZSQU1FU19PUFRJT04iOiJ0cnVlIiwiSEVYX0NPTU1PTl9ESUFMUEFEIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uYXlvc2RhcmsucmV0aW5hIiwicGx1Z2luX25hbWUiOiJheU9TIFJldGluYSBEYXJrIiwidGFyZ2V0IjoiaGMiLCJ4ejAiOiIjRkYwMDAwMDAiLCJIRVhfQ09NTU9OX05BVkJBUiI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmF5b3NkYXJrLnJldGluYSIsInBsdWdpbiI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmF5b3NkYXJrLnJldGluYSIsImx4eDIiOiIjRjE2RTlBIiwibHh4MyI6IiMwMDAwMDAiLCJseHgwIjoiI0ZGRkZGRiIsImdzYiI6InRydWUiLCJseHgxIjoiIzRDOUZGRCIsImx4eDYiOiIjRkFGQUZBIiwibXNpbSI6InRydWUiLCJseHg3IjoiI0ZGRkZGRiIsImx4eDQiOiIjMjUyNTI1IiwibHh4NSI6IiNDRUNFQ0UiLCJseHg4IjoiIzIwMjAyMCIsImRlZmF1bHRfaWNvbnMiOiJ0cnVlIiwibHh4OSI6IiNGRkZGRkYifQ==
+  [assets/extra.preferences] (993 bytes):
+     uidivider=Use Applist Dividers
+     switchaccent=Tint Control Switch Progress Background with Accent Color
+     ioswa=Use iOS style WhatsApp chat bubbles
+     notiblur=Use Gradient blur Notification Cards effect (OneUI 2 and 3 ONLY)
+     4g=Replace LTE with 4G icon
+     $selectdialogpreference,netleg,dual=iOS Legacy Statusbar Network Icons, 4 Dots, 2 Dots (recommended for DUALsim)
+     battland=Use Landscape Battery Icon (not perfect, STATIC not DYNAMIC!)
+     defges=Disable blur Navigation Gesture Pill
+     twtbg=Link Custom App Background to Twitter (OneUI 1 and 2 Only)
+     $selectdialogpreference,dialdefnav,dialsixnine,dialtalges,dialtalnav,dialfold=Dialpad Dots Screen Ratio Control, Default (navbar), Short (16:9), Tall (gesture), Tall (navbar), Fold
+     ayospower=Use ayOS Power Menu Icons for MISC.
+     icoios=Use Light Homescreen Icons
+     background=dialdefnav
+     box=
+     control=switchaccent
+     dialpad=dialdefnav
+     icons=icoios
+     keyboard=
+     navbar=
+     qs=
+     settingsicon=
+     statusbar=4g,netleg,battland
+     home=
+     misc=uidivider,ioswa,notiblur,ayospower
+  Folders with PNG/XML assets:
+    assets/anaconda_tints/once/base/#ffffff/drawable-xxhdpi-v26: 9 PNGs, 0 XMLs -> sample: ['sm_device_ic_battery.png', 'sm_device_ic_battery_select.png', 'sm_device_ic_ram.png', 'sm_device_ic_ram_select.png', 'sm_device_ic_security.png']
+    assets/anaconda_tints/once/base/default/control: 14 PNGs, 0 XMLs -> sample: ['checkbox_020.png', 'checkbox_021.png', 'checkbox_022.png', 'checkbox_023.png', 'checkbox_024.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26: 72 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_detail_ic_call_multisim_gsm_01.png']
+    assets/anaconda_tints/once/base/xx0/dialpad#p: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/base/xx0/dialpad#q: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/base/xx0/dialpad#r: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/base/xx1/buttons: 1 PNGs, 0 XMLs -> sample: ['menu_dark.png']
+    assets/anaconda_tints/once/base/xx1/drawable-xxhdpi-v26: 16 PNGs, 0 XMLs -> sample: ['bubble_sent_rcs.9.png', 'bubble_sent_rcs_no_theme.9.png', 'bubble_sent_rcs_press.9.png', 'bubble_sent_rcs_press_no_theme.9.png', 'contacts_default_caller_id_list.png']
+    assets/anaconda_tints/once/base/xx1/drawable-xxhdpi-v26#r: 4 PNGs, 0 XMLs -> sample: ['bubble_sent_rcs.9.png', 'bubble_sent_rcs_no_theme.9.png', 'bubble_sent_rcs_press.9.png', 'bubble_sent_rcs_press_no_theme.9.png']
+    assets/anaconda_tints/once/base/xx1/misc-ioswa: 5 PNGs, 0 XMLs -> sample: ['balloon_outgoing_ext_pressed.9.png', 'balloon_outgoing_normal.9.png', 'balloon_outgoing_normal_ext.9.png', 'balloon_outgoing_pressed.9.png', 'balloon_outgoing_pressed_ext.9.png']
+    assets/anaconda_tints/once/base/xx2/control-switchaccent: 4 PNGs, 0 XMLs -> sample: ['switch_track_dark_disabled_on.9.png', 'switch_track_dark_on.9.png', 'switch_track_disabled_on.9.png', 'switch_track_on.9.png']
+    assets/anaconda_tints/once/base/xx2/drawable-xxhdpi-v26: 15 PNGs, 0 XMLs -> sample: ['bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png', 'contacts_default_caller_id_groups.png']
+    assets/anaconda_tints/once/base/xx2/drawable-xxhdpi-v26#r: 4 PNGs, 0 XMLs -> sample: ['bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png']
+    assets/anaconda_tints/once/first/#000000/buttons: 1 PNGs, 0 XMLs -> sample: ['menu_dark.png']
+    assets/anaconda_tints/once/first/#000000/drawable-xxhdpi-v26: 5 PNGs, 0 XMLs -> sample: ['file_type_folder.png', 'file_type_folder_hide.png', 'myfiles_list_folder.png', 'myfiles_list_folder_hide.png', 'sec_ic_ab_search_mtrl.png']
+    assets/anaconda_tints/once/first/#EF5650/drawable-xxhdpi-v26: 4 PNGs, 0 XMLs -> sample: ['sm_device_ic_battery_select.png', 'sm_device_ic_ram_select.png', 'sm_device_ic_security_select.png', 'sm_device_ic_storage_select.png']
+    assets/anaconda_tints/once/first/#ffffff/control-switchaccent: 4 PNGs, 0 XMLs -> sample: ['switch_track_dark_disabled_on.9.png', 'switch_track_dark_on.9.png', 'switch_track_disabled_on.9.png', 'switch_track_on.9.png']
+    assets/anaconda_tints/once/first/#ffffff/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/first/#ffffff/dialpad-dialdefnav: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/first/#ffffff/dialpad-dialsixnine: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/first/#ffffff/dialpad-dialtalges: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/first/#ffffff/dialpad-dialtalnav: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/once/first/#ffffff/drawable-xxhdpi-v26: 15 PNGs, 0 XMLs -> sample: ['contacts_default_caller_id_groups.png', 'contacts_default_caller_id_list.png', 'contacts_default_caller_id_list_1.png', 'contacts_default_caller_id_list_2.png', 'contacts_default_caller_id_list_3.png']
+    assets/anaconda_tints/once/first/#ffffff/misc-ioswa: 5 PNGs, 0 XMLs -> sample: ['balloon_outgoing_ext_pressed.9.png', 'balloon_outgoing_normal.9.png', 'balloon_outgoing_normal_ext.9.png', 'balloon_outgoing_pressed.9.png', 'balloon_outgoing_pressed_ext.9.png']
+    assets/anaconda_tints/once/first/xx1/drawable-xxhdpi-v26: 19 PNGs, 0 XMLs -> sample: ['bubble_sent_rcs.9.png', 'bubble_sent_rcs_no_theme.9.png', 'bubble_sent_rcs_press.9.png', 'bubble_sent_rcs_press_no_theme.9.png', 'contacts_tw_ic_ab_more_mtrl.png']
+    assets/anaconda_tints/once/first/xx1/drawable-xxhdpi-v26#r: 4 PNGs, 0 XMLs -> sample: ['bubble_sent_rcs.9.png', 'bubble_sent_rcs_no_theme.9.png', 'bubble_sent_rcs_press.9.png', 'bubble_sent_rcs_press_no_theme.9.png']
+    assets/anaconda_tints/once/first/xx2/control: 14 PNGs, 0 XMLs -> sample: ['checkbox_020.png', 'checkbox_021.png', 'checkbox_022.png', 'checkbox_023.png', 'checkbox_024.png']
+    assets/anaconda_tints/once/first/xx2/drawable-xxhdpi-v26: 69 PNGs, 0 XMLs -> sample: ['bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png', 'contacts_cn_detail_ic_call_multisim_gsm_01.png']
+    assets/anaconda_tints/once/first/xx2/drawable-xxhdpi-v26#r: 4 PNGs, 0 XMLs -> sample: ['bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png']
+    assets/anaconda_tints/thrice/base/xx0/background: 3 PNGs, 0 XMLs -> sample: ['background1.png', 'background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/base/xx0/background-dialfold: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/base/xx0/drawable-xxhdpi-v26: 2 PNGs, 0 XMLs -> sample: ['common_window_background.png', 'sec_device_info_btn_edit_bg.png']
+    assets/anaconda_tints/thrice/base/xx0/navbar: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/base/xx0/navbar-defges: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/base/xx2/drawable-xxhdpi-v26: 5 PNGs, 0 XMLs -> sample: ['gallery_ic_search_recent.png', 'gallery_ic_smart_nopic_favorite.png', 'gallery_ic_smart_nopic_location.png', 'gallery_ic_smart_nopic_suggestion.png', 'gallery_ic_smart_nopic_video.png']
+    assets/anaconda_tints/thrice/first/xx1/background: 3 PNGs, 0 XMLs -> sample: ['background1.png', 'background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/first/xx1/background-dialdefnav: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/xx1/background-dialfold: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/xx1/background-dialsixnine: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/xx1/background-dialtalges: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/xx1/background-dialtalnav: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/xx1/drawable-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['common_window_background.png', 'gallery_ic_search_recent.png', 'gallery_ic_smart_nopic_favorite.png', 'gallery_ic_smart_nopic_location.png', 'gallery_ic_smart_nopic_suggestion.png']
+    assets/anaconda_tints/thrice/first/xx1/navbar: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/first/xx1/navbar-defges: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/second/#14ffffff/drawable-xxhdpi-v26: 5 PNGs, 0 XMLs -> sample: ['gallery_ic_search_recent.png', 'gallery_ic_smart_nopic_favorite.png', 'gallery_ic_smart_nopic_location.png', 'gallery_ic_smart_nopic_suggestion.png', 'gallery_ic_smart_nopic_video.png']
+    assets/anaconda_tints/thrice/second/xx2/background: 3 PNGs, 0 XMLs -> sample: ['background1.png', 'background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx2/background-dialdefnav: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx2/background-dialfold: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx2/background-dialsixnine: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx2/background-dialtalges: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx2/background-dialtalnav: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx2/drawable-xxhdpi-v26: 2 PNGs, 0 XMLs -> sample: ['common_window_background.png', 'sec_device_info_btn_edit_bg.png']
+    assets/anaconda_tints/thrice/second/xx2/navbar: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/second/xx2/navbar-defges: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/third/#ffffff/background: 3 PNGs, 0 XMLs -> sample: ['background1.png', 'background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/third/#ffffff/background-dialdefnav: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/#ffffff/background-dialfold: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/#ffffff/background-dialsixnine: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/#ffffff/background-dialtalges: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/#ffffff/background-dialtalnav: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/#ffffff/drawable-xxhdpi-v26: 6 PNGs, 0 XMLs -> sample: ['gallery_ic_search_recent.png', 'gallery_ic_smart_nopic_favorite.png', 'gallery_ic_smart_nopic_location.png', 'gallery_ic_smart_nopic_suggestion.png', 'gallery_ic_smart_nopic_video.png']
+    assets/anaconda_tints/thrice/third/#ffffff/navbar: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/third/#ffffff/navbar-defges: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sysbar_home.png', 'ic_sysbar_home_dark.png']
+    assets/anaconda_tints/thrice/third/xx0/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['common_window_background.png']
+    assets/anaconda_tints/twice/base/default/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['toast_frame.9.png']
+    assets/anaconda_tints/twice/base/default/drawable-xxhdpi-v29: 1 PNGs, 0 XMLs -> sample: ['sem_toast_frame_mtrl.9.png']
+    assets/anaconda_tints/twice/base/default/icons: 1 PNGs, 0 XMLs -> sample: ['homescreen_ic_folder_border.png']
+    assets/anaconda_tints/twice/base/xx1/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['store_title_image.png']
+    assets/anaconda_tints/twice/base/xx2/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/first/xx1/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/first/xx1/drawable-xxhdpi-v26: 2 PNGs, 0 XMLs -> sample: ['store_title_image.png', 'toast_frame.9.png']
+    assets/anaconda_tints/twice/first/xx1/drawable-xxhdpi-v29: 1 PNGs, 0 XMLs -> sample: ['sem_toast_frame_mtrl.9.png']
+    assets/anaconda_tints/twice/first/xx1/icons: 1 PNGs, 0 XMLs -> sample: ['homescreen_ic_folder_border.png']
+    assets/anaconda_tints/twice/first/xx2/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['store_title_image.png']
+    assets/anaconda_tints/twice/second/#ffffff/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/second/#ffffff/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['store_title_image.png']
+    assets/anaconda_tints/twice/second/xx2/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['toast_frame.9.png']
+    assets/anaconda_tints/twice/second/xx2/drawable-xxhdpi-v29: 1 PNGs, 0 XMLs -> sample: ['sem_toast_frame_mtrl.9.png']
+    assets/anaconda_tints/twice/second/xx2/icons: 1 PNGs, 0 XMLs -> sample: ['homescreen_ic_folder_border.png']
+    res/drawable: 60 PNGs, 1 XMLs -> sample: ['bodh_off.png', 'bodh_off_tint.png', 'bodh_on.png', 'bodh_on_tint.png', 'check.png']
+    res/drawable-nodpi-v4: 1 PNGs, 0 XMLs -> sample: ['banner.png']
+    res/drawable-v25: 4 PNGs, 1 XMLs -> sample: ['base_d.png', 'common_bg_day.xml', 'first_d.png', 'second_d.png', 'third_d.png']
+    res/drawable-v26: 4 PNGs, 1 XMLs -> sample: ['base_n.png', 'common_bg_night.xml', 'first_n.png', 'second_n.png', 'third_n.png']
+    res/drawable-v27: 13 PNGs, 0 XMLs -> sample: ['default_off_day.png', 'default_off_tint_day.png', 'default_on_day.png', 'default_on_tint_day.png', 'ic_sysbar_back_theme_default_day.png']
+    res/mipmap-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['qlogo.png']
+*****************************************************************
+APK: Hex_Blend_Day_Night_Plugin_5.0.apk | Total files: 1475
+  Package strings: ['project.vivid.hex.UI.PLUGIN', 'project.vivid.ui.plugin.blenddn', 'project.vivid.ui.plugin.core.PluginBootstrap']
+  [assets/info.txt] (491 bytes):
+     Blend Day/Night
+     1. Normal round ui will use blend made style strokes on dialogs, fabs etc using primary and accent colours
+     2. Note round ui will use a gradient stroke dialogs, fabs etc using primary and accent colours
+     3. Launcher icon frame on uses both background and bubble colour for background
+     4. Custom background is enabled with note ui selection and used a combination of background, bubble and box stroke colour
+     Try some primary and accent colour combinations and see if it blends
+  [assets/extra.preferences] (299 bytes):
+     bkey=Use Original Blend Keyboard Style
+     blframe=Add Gradient Frame To Settings Icon
+     blesw=Grey Colour Off Switch
+     blgrad=Gradient Outline With Note UI Corners
+     background=
+     box=blgrad
+     control=blesw
+     dialpad=blgrad
+     icons=
+     keyboard=bkey,blgrad
+     navbar=
+     qs=
+     settingsicon=blframe
+     statusbar=
+     home=
+     misc=blgrad
+  Folders with PNG/XML assets:
+    assets/anaconda_tints/once/base/default/buttons: 4 PNGs, 0 XMLs -> sample: ['back_dark.png', 'back_light.png', 'menu_dark.png', 'menu_light.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26: 68 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v4: 47 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26: 70 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v4: 47 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/base/default/home: 6 PNGs, 0 XMLs -> sample: ['homescreen_menu_page_navi_default.png', 'homescreen_menu_page_navi_home.png', 'ic_homeoption_theme.png', 'ic_settings.png', 'ic_wallpapers.png']
+    assets/anaconda_tints/once/base/default/navbar: 8 PNGs, 0 XMLs -> sample: ['ic_sysbar_back.png', 'ic_sysbar_back_dark.png', 'ic_sysbar_back_ime.png', 'ic_sysbar_back_ime_dark.png', 'ic_sysbar_docked.png']
+    assets/anaconda_tints/once/base/default/timmah: 9 PNGs, 0 XMLs -> sample: ['add.png', 'back.png', 'clear.png', 'menu.png', 'search.png']
+    assets/anaconda_tints/once/base/default/timmah-night: 9 PNGs, 0 XMLs -> sample: ['add.png', 'back.png', 'clear.png', 'menu.png', 'search.png']
+    assets/anaconda_tints/once/base/lxx1/settingsicon: 12 PNGs, 0 XMLs -> sample: ['ic_settings_development.png', 'ic_settings_location.png', 'sec_ic_settings_advanced_feature.png', 'sec_ic_settings_biometrics_and_security.png', 'sec_ic_settings_cloud_and_account.png']
+    assets/anaconda_tints/once/base/lxx1/timmah: 7 PNGs, 0 XMLs -> sample: ['gototoplight.png', 'list1.png', 'list2.png', 'list3.png', 'list4.png']
+    assets/anaconda_tints/once/base/lxx2/settingsicon: 12 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_display.png', 'ic_settings_privacy.png']
+    assets/anaconda_tints/once/base/xx1/drawable-xxhdpi-v26: 11 PNGs, 0 XMLs -> sample: ['clock_colon.png', 'clock_digit_0.png', 'clock_digit_1.png', 'clock_digit_2.png', 'clock_digit_3.png']
+    assets/anaconda_tints/once/base/xx1/settingsicon_alt: 12 PNGs, 0 XMLs -> sample: ['ic_settings_development.png', 'ic_settings_location.png', 'sec_ic_settings_advanced_feature.png', 'sec_ic_settings_biometrics_and_security.png', 'sec_ic_settings_cloud_and_account.png']
+    assets/anaconda_tints/once/base/xx1/timmah: 1 PNGs, 0 XMLs -> sample: ['gototopdark.png']
+    assets/anaconda_tints/once/base/xx1/timmah-night: 7 PNGs, 0 XMLs -> sample: ['gototopdark.png', 'list1.png', 'list2.png', 'list3.png', 'list4.png']
+    assets/anaconda_tints/once/base/xx2/settingsicon_alt: 12 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_display.png', 'ic_settings_privacy.png']
+    assets/anaconda_tints/once/first/lxx1/buttons: 2 PNGs, 0 XMLs -> sample: ['back_light.png', 'menu_light.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v26: 69 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v4: 47 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/first/lxx1/navbar: 4 PNGs, 0 XMLs -> sample: ['ic_sysbar_docked.png', 'ic_sysbar_docked_dark.png', 'ic_sysbar_recent.png', 'ic_sysbar_recent_dark.png']
+    assets/anaconda_tints/once/first/lxx1/settingsicon: 11 PNGs, 0 XMLs -> sample: ['ic_settings_development.png', 'ic_settings_location.png', 'sec_ic_settings_advanced_feature.png', 'sec_ic_settings_biometrics_and_security.png', 'sec_ic_settings_cloud_and_account.png']
+    assets/anaconda_tints/once/first/lxx1/timmah: 9 PNGs, 0 XMLs -> sample: ['add.png', 'back.png', 'clear.png', 'menu.png', 'search.png']
+    assets/anaconda_tints/once/first/lxx2/navbar: 4 PNGs, 0 XMLs -> sample: ['ic_sysbar_back.png', 'ic_sysbar_back_dark.png', 'ic_sysbar_back_ime.png', 'ic_sysbar_back_ime_dark.png']
+    assets/anaconda_tints/once/first/lxx2/settingsicon: 11 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_display.png', 'ic_settings_privacy.png']
+    assets/anaconda_tints/once/first/lxx2/timmah: 7 PNGs, 0 XMLs -> sample: ['gototoplight.png', 'list1.png', 'list2.png', 'list3.png', 'list4.png']
+    assets/anaconda_tints/once/first/xx1/buttons: 2 PNGs, 0 XMLs -> sample: ['back_dark.png', 'menu_dark.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v26: 68 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v4: 47 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/first/xx1/home: 4 PNGs, 0 XMLs -> sample: ['homescreen_menu_page_navi_default.png', 'homescreen_menu_page_navi_home.png', 'ic_homeoption_theme.png', 'ic_wallpapers.png']
+    assets/anaconda_tints/once/first/xx1/settingsicon_alt: 11 PNGs, 0 XMLs -> sample: ['ic_settings_development.png', 'ic_settings_location.png', 'sec_ic_settings_advanced_feature.png', 'sec_ic_settings_biometrics_and_security.png', 'sec_ic_settings_cloud_and_account.png']
+    assets/anaconda_tints/once/first/xx1/timmah-night: 9 PNGs, 0 XMLs -> sample: ['add.png', 'back.png', 'clear.png', 'menu.png', 'search.png']
+    assets/anaconda_tints/once/first/xx2/drawable-xxhdpi-v26: 11 PNGs, 0 XMLs -> sample: ['clock_colon.png', 'clock_digit_0.png', 'clock_digit_1.png', 'clock_digit_2.png', 'clock_digit_3.png']
+    assets/anaconda_tints/once/first/xx2/home: 2 PNGs, 0 XMLs -> sample: ['ic_settings.png', 'ic_widgets.png']
+    assets/anaconda_tints/once/first/xx2/settingsicon_alt: 11 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_display.png', 'ic_settings_privacy.png']
+    assets/anaconda_tints/once/first/xx2/timmah: 1 PNGs, 0 XMLs -> sample: ['gototopdark.png']
+    assets/anaconda_tints/once/first/xx2/timmah-night: 7 PNGs, 0 XMLs -> sample: ['gototopdark.png', 'list1.png', 'list2.png', 'list3.png', 'list4.png']
+    assets/anaconda_tints/thrice/base/default/drawable-night-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/base/default/drawable-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/base/default/drawable-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/base/default/drawable-xxhdpi-v4-noframe: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/base/default/icons: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/base/default/icons-noframe: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/base/lxx6/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/base/xx6/dialpad_night: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/first/lxx1/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/first/xx0/drawable-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/first/xx0/drawable-xxhdpi-v4-noframe: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/first/xx0/icons: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/first/xx0/icons-noframe: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/first/xx1/dialpad_night: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/first/xx6/drawable-night-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/first/xx6/drawable-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/second/lxx2/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/xx2/dialpad_night: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/xx2/drawable-night-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/second/xx2/drawable-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/second/xx6/drawable-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/second/xx6/drawable-xxhdpi-v4-noframe: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/second/xx6/icons: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/second/xx6/icons-noframe: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/third/H000000/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/third/Hfafafa/dialpad_night: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/third/default/drawable-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/third/default/drawable-xxhdpi-v4-noframe: 1 PNGs, 0 XMLs -> sample: ['ic_icon_bg.png']
+    assets/anaconda_tints/thrice/third/default/icons: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/third/default/icons-noframe: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    assets/anaconda_tints/thrice/third/xx1/drawable-night-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/thrice/third/xx1/drawable-xxhdpi-v26: 7 PNGs, 0 XMLs -> sample: ['tw_ic_do_emergencymode.png', 'tw_ic_do_emergencysos.png', 'tw_ic_do_lockdown.png', 'tw_ic_do_mobiledata.png', 'tw_ic_do_poweroff.png']
+    assets/anaconda_tints/twice/base/default/mipmap-night-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/base/default/mipmap-night-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/base/default/mipmap-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/base/default/mipmap-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/base/default/navbar: 22 PNGs, 0 XMLs -> sample: ['ic_sysbar_home.png', 'ic_sysbar_home_01.png', 'ic_sysbar_home_010.png', 'ic_sysbar_home_010_dark.png', 'ic_sysbar_home_01_dark.png']
+    assets/anaconda_tints/twice/base/lxx0/background: 1 PNGs, 0 XMLs -> sample: ['background2.png']
+    assets/anaconda_tints/twice/base/lxx3/settingsicon-blframe: 24 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/base/lxx6/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/base/xx0/background: 1 PNGs, 0 XMLs -> sample: ['background1.png']
+    assets/anaconda_tints/twice/base/xx3/settingsicon_alt-blframe: 24 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/base/xx6/dialpad_night: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/first/lxx1/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/first/lxx1/mipmap-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/first/lxx1/mipmap-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/first/lxx2/settingsicon-blframe: 24 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/first/lxx6/background: 1 PNGs, 0 XMLs -> sample: ['background2.png']
+    assets/anaconda_tints/twice/first/xx1/dialpad_night: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/first/xx1/mipmap-night-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/first/xx1/mipmap-night-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/first/xx1/navbar: 22 PNGs, 0 XMLs -> sample: ['ic_sysbar_home.png', 'ic_sysbar_home_01.png', 'ic_sysbar_home_010.png', 'ic_sysbar_home_010_dark.png', 'ic_sysbar_home_01_dark.png']
+    assets/anaconda_tints/twice/first/xx2/settingsicon_alt-blframe: 24 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/first/xx6/background: 1 PNGs, 0 XMLs -> sample: ['background1.png']
+    assets/anaconda_tints/twice/second/lxx1/settingsicon-blframe: 24 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/second/lxx2/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/second/lxx2/mipmap-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/second/lxx2/mipmap-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/second/lxx5/background: 1 PNGs, 0 XMLs -> sample: ['background2.png']
+    assets/anaconda_tints/twice/second/xx1/settingsicon_alt-blframe: 24 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/second/xx2/dialpad_night: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/second/xx2/mipmap-night-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/second/xx2/mipmap-night-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/twice/second/xx2/navbar: 22 PNGs, 0 XMLs -> sample: ['ic_sysbar_home.png', 'ic_sysbar_home_01.png', 'ic_sysbar_home_010.png', 'ic_sysbar_home_010_dark.png', 'ic_sysbar_home_01_dark.png']
+    assets/anaconda_tints/twice/second/xx5/background: 1 PNGs, 0 XMLs -> sample: ['background1.png']
+    assets/anaconda_tints/twice/second/xx6/icons-noframe: 36 PNGs, 0 XMLs -> sample: ['ic_allapps.png', 'ic_calculator.png', 'ic_camera.png', 'ic_chrome.png', 'ic_contact.png']
+    res/drawable: 59 PNGs, 1 XMLs -> sample: ['bodh_off.png', 'bodh_off_tint.png', 'bodh_on.png', 'bodh_on_tint.png', 'check.png']
+    res/drawable-nodpi-v4: 1 PNGs, 0 XMLs -> sample: ['banner.png']
+    res/drawable-v25: 4 PNGs, 1 XMLs -> sample: ['base_d.png', 'common_bg_day.xml', 'first_d.png', 'second_d.png', 'third_d.png']
+    res/drawable-v26: 4 PNGs, 1 XMLs -> sample: ['base_n.png', 'common_bg_night.xml', 'first_n.png', 'second_n.png', 'third_n.png']
+    res/drawable-v27: 14 PNGs, 0 XMLs -> sample: ['default_off_day.png', 'default_off_tint_day.png', 'default_on_day.png', 'default_on_tint.png', 'default_on_tint_day.png']
+    res/mipmap-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['qlogo.png']
+*****************************************************************
+APK: Hex_Glass_Day_Night_Plugin_v5.0.apk | Total files: 790
+  Package strings: ['project.vivid.hex.UI.PLUGIN', 'project.vivid.ui.plugin.core.PluginBootstrap', 'project.vivid.ui.plugin.glassdn']
+  [assets/info.txt] (352 bytes):
+     Glass Day/Night
+     1. Disable frame from app icons will also remove frame from settings icons
+     2. With frame disabled settings icons will be tinted by secondary text colour and app icons tinted with primary colour
+     3. Background colour uses background colour from day or night mode and a fading transparent colour of the background from the opposite mode
+  [assets/default.hex] (3284 bytes):
+     eyJub3RldWkiOiJmYWxzZSIsIkhFWF9DT01NT05fQ09OVFJPTCI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmdsYXNzZG4iLCJIRVhfQ09NTU9OX0tFWUJPQVJEIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uZ2xhc3NkbiIsImx4ZzkiOiIjMDAwMDAwIiwiaGV4IjoicHJvamVjdC52aXZpZC5oZXguYm9kaGkiLCJxc19vbl90cmFuc19saWdodCI6IjI1NSIsIkhFWF9DT01NT05fQk9YIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uZ2xhc3NkbiIsIkhFWF9DT01NT05fU1RBVFVTQkFSIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uZ2xhc3NkbiIsInhnOSI6IiMwMDAwMDAiLCJ4eDEiOiIjOWU5ZTllIiwieHgwIjoiIzAwMDAwMCIsInh4MyI6IiNGRkZGRkYiLCJ4eDIiOiIjOWU5ZTllIiwibm90aWZfdHJhbnMiOiIyNTUiLCJ4eDUiOiIjNDQ0NDQ0IiwiNGdpY29uIjoidHJ1ZSIsInFzX3R3ZWFrc19ub19sYWJlbCI6ImZhbHNlIiwieHg0IjoiI0RFREVERSIsIlJFUVVJUkVTX0RFRkFVTFRfT05MWV9NT0RFIjoidHJ1ZSIsInh4NyI6IiMwMDAwMDAiLCJ4eDYiOiIjMTQxNDE0IiwieHg5IjoiIzllOWU5ZSIsInh4OCI6IiNGQUZBRkEiLCJmb3JjZV9yb3VuZGVkX3JzaGFwZSI6ImZhbHNlIiwicXNfdHdlYWtzX3RpbGVzIjoiNiIsImRlZmF1bHRfZGF5X25pZ2h0X2ljb25zIjoidHJ1ZSIsIm5vdGlmX3RyYW5zX2xpZ2h0IjoiMjU1IiwieHkwIjoiIzM2MzYzNiIsInh5MiI6IiMzNjM2MzYiLCJIRVhfUFJPX01PREUiOiJmYWxzZSIsInh5MSI6IiM5ZTllOWUiLCJseHkwIjoiIzllOWU5ZSIsInh5NCI6IiM5ZTllOWUiLCJ4eTMiOiIjMGEwYTBhIiwibHh5MyI6IiNlZmVmZWYiLCJ4eTUiOiIjREVERURFIiwibHh5NCI6IiM5ZTllOWUiLCJseHkxIjoiIzM2MzYzNiIsImx4eTIiOiIjOWU5ZTllIiwiSEVYX1BMVUdJTl9FWFRSQV9QUkVGRVJFTkNFUyI6InRydWUiLCJxc19jdXN0b21fdG9nZ2xlX3N0eWxlIjoiMSIsImx4eTUiOiIjMDAwMDAwIiwiZW5hYmxlX25hdl9odF90d2VhayI6ImZhbHNlIiwicXNfdHdlYWtzX2xpbmVzIjoiMiIsInFzX29uX3RyYW5zIjoiMjU1IiwicnNoYXBlIjoiZmFsc2UiLCJwbHVnaW5fbmFtZSI6IkdsYXNzIERheS9OaWdodCAtIERheS9OaWdodCIsInN4MiI6IiMzMzMzOTkiLCJzeDEiOiIjRkYwMENDIiwieHowIjoiI0ZGMDAwMDAwIiwiSEVYX0NPTU1PTl9OQVZCQVIiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5nbGFzc2RuIiwicnNoYXBlX3RyYW5zIjoiMjU1IiwibHh4MiI6IiM5ZTllOWUiLCJwbHVnaW4iOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5nbGFzc2RuIiwibHh4MyI6IiMwMDAwMDAiLCJseHgwIjoiI2ZmZmZmZiIsImx4eDEiOiIjOWU5ZTllIiwibHh4NiI6IiNlZmVmZWYiLCJtc2ltIjoidHJ1ZSIsImx4eDciOiIjZmZmZmZmIiwibHh4NCI6IiM0NDQ0NDQiLCJseHg1IjoiIzQ0NDQ0NCIsInBsdWdpbl9wcmV2aWV3X2JnIjoidHJ1ZSIsInFzX3RyYW5zX2xpZ2h0IjoiMjU1IiwibHh4OCI6IiMwMDAwMDAiLCJub3JtYWxpemVfc3RhdF9pY29ucyI6ImZhbHNlIiwiZGVmYXVsdF9pY29ucyI6InRydWUiLCJseHg5IjoiI2ZmZmZmZiIsImhiYXR0IjoiZmFsc2UiLCJuYXZzaSI6IjQ4IiwiSEFTX1RJTlRBQkxFX1RBUkdFVFMiOiJ0cnVlIiwiSEVYX0NPTU1PTl9RUyI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmdsYXNzZG4iLCJyb3VuZF9rZXkiOiJ0cnVlIiwiSEVYX0NPTU1PTl9IT01FIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uZ2xhc3NkbiIsInFzX2N1c3RvbV90b2dnbGVzIjoiZmFsc2UiLCJ0aW50X2ljb25zIjoidHJ1ZSIsIm5vZnJhbWVzIjoiZmFsc2UiLCJseHowIjoiI0ZGMDAwMDAwIiwiSEVYX0NPTU1PTl9NSVNDIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4uZ2xhc3NkbiIsInFzX2N1c3RvbV9ncmFkaWVudCI6ImZhbHNlIiwiSEVYX0NPTU1PTl9TRVRUSU5HU0lDT04iOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5nbGFzc2RuIiwiaGV4X3Byb19taXgiOiJmYWxzZSIsIm5vdGlmX2RpdmlkZXIiOiJmYWxzZSIsInFzX3R3ZWFrcyI6ImZhbHNlIiwicXNfb2ZmX3RyYW5zIjoiMjU1IiwiSEVYX0VYVFJBX1BSRUZFUkVOQ0VfS0VZUyI6Im5vdGlkaXZpIiwiSEVYX0NPTU1PTl9JQ09OUyI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmdsYXNzZG4iLCJIRVhfQ09NTU9OX0JBQ0tHUk9VTkQiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5nbGFzc2RuIiwicXNfdHdlYWtzX2NvbHVtbnMiOiI1IiwicXNfdHJhbnMiOiIyNTUiLCJyZW1pY29ucyI6ImZhbHNlIiwicXNfdHdlYWtzX3Jvd3MiOiIzIiwibHp5MyI6IiNGRjAxMDEwMSIsIkhBU19OT19GUkFNRVNfT1BUSU9OIjoidHJ1ZSIsIkhFWF9DT01NT05fRElBTFBBRCI6InByb2plY3Qudml2aWQudWkucGx1Z2luLmdsYXNzZG4iLCJ0YXJnZXQiOiJoYyIsImdzYiI6InRydWUiLCJxc19vZmZfdHJhbnNfbGlnaHQiOiIyNTUifQ==
+  [assets/extra.preferences] (283 bytes):
+     notidivi=Use Unique Notification Card Dividers
+     png=Use Original QS Background (Oneui 1 and 2 Only)
+     glavol=Use Unique Volume Panel (Oneui 3)
+     glasw=Grey Colour Off Switch
+     background=
+     box=
+     control=glasw
+     dialpad=
+     icons=
+     keyboard=
+     navbar=
+     qs=
+     settingsicon=
+     statusbar=
+     home=
+     misc=notidivi
+  Folders with PNG/XML assets:
+    assets/anaconda_tints/once/base/default/control: 16 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_023.png']
+    assets/anaconda_tints/once/base/default/control_night: 16 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_023.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26: 74 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v4: 75 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/base/default/icons-noframe: 87 PNGs, 2 XMLs -> sample: ['amazonmusic.png', 'calendar.png', 'clock.png', 'discord.png', 'docs.png']
+    assets/anaconda_tints/once/base/default/mipmap-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/once/base/default/mipmap-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/once/base/default/settingsicon-noframe: 22 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/default/settingsicon_alt-noframe: 22 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx0/background: 1 PNGs, 0 XMLs -> sample: ['background2.png']
+    assets/anaconda_tints/once/base/xx0/background: 1 PNGs, 0 XMLs -> sample: ['background1.png']
+    assets/anaconda_tints/once/first/lxx0/background: 1 PNGs, 0 XMLs -> sample: ['background1.png']
+    assets/anaconda_tints/once/first/lxx1/control: 16 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_023.png']
+    assets/anaconda_tints/once/first/lxx4/settingsicon-noframe: 22 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/xx0/background: 1 PNGs, 0 XMLs -> sample: ['background2.png']
+    assets/anaconda_tints/once/first/xx1/control_night: 16 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_023.png']
+    assets/anaconda_tints/once/first/xx1/drawable-xxhdpi-v26: 69 PNGs, 0 XMLs -> sample: ['contacts_detail_ic_call_multisim_gsm_01.png', 'contacts_detail_ic_call_multisim_gsm_02.png', 'contacts_detail_ic_storage_multi_sim_01.png', 'contacts_detail_ic_storage_multi_sim_02.png', 'contacts_detail_list_ic_call.png']
+    assets/anaconda_tints/once/first/xx1/drawable-xxhdpi-v4: 74 PNGs, 0 XMLs -> sample: ['contacts_cn_detail_ic_call_multisim_gsm_01.png', 'contacts_cn_detail_ic_call_multisim_gsm_02.png', 'contacts_cn_logs_ic_expand_call_multisim_01.png', 'contacts_cn_logs_ic_expand_call_multisim_02.png', 'contacts_create_ic_status_message.png']
+    assets/anaconda_tints/once/first/xx1/icons-noframe: 87 PNGs, 2 XMLs -> sample: ['amazonmusic.png', 'calendar.png', 'clock.png', 'discord.png', 'docs.png']
+    assets/anaconda_tints/once/first/xx1/mipmap-xxhdpi: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/once/first/xx1/mipmap-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['home_lock_screen.png', 'home_screen.png', 'lock_screen.png']
+    assets/anaconda_tints/once/first/xx4/settingsicon_alt-noframe: 22 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/twice/base/default/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/base/default/dialpad_night: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/base/lxx6/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/base/xx6/dialpad_night: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/first/lxx5/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/first/xx5/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/first/xx5/dialpad_night: 5 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png', 'keypad_background.png']
+    assets/anaconda_tints/twice/second/Hfafafa/dialpad: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/second/Hfafafa/dialpad_night: 4 PNGs, 0 XMLs -> sample: ['dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/twice/second/default/dialpad: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    assets/anaconda_tints/twice/second/default/dialpad_night: 1 PNGs, 0 XMLs -> sample: ['keypad_background.png']
+    res/drawable: 59 PNGs, 1 XMLs -> sample: ['bodh_off.png', 'bodh_off_tint.png', 'bodh_on.png', 'bodh_on_tint.png', 'check.png']
+    res/drawable-nodpi-v4: 1 PNGs, 0 XMLs -> sample: ['banner.png']
+    res/drawable-v25: 5 PNGs, 1 XMLs -> sample: ['1first_d.png', 'base_d.png', 'common_bg_day.xml', 'first_d.png', 'second_d.png']
+    res/drawable-v26: 5 PNGs, 1 XMLs -> sample: ['1first_n.png', 'base_n.png', 'common_bg_night.xml', 'first_n.png', 'second_n.png']
+    res/drawable-v27: 15 PNGs, 0 XMLs -> sample: ['default_off_day.png', 'default_off_tint_day.png', 'default_on_day.png', 'default_on_tint_day.png', 'ic_sysbar_back_theme_default_day.png']
+    res/mipmap-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['qlogo.png']
+*****************************************************************
+APK: Hex_Project_X_Plugin_PX-06_base.apk | Total files: 2697
+  Package strings: ['project.vivid.hex.UI.PLUGIN', 'project.vivid.ui.plugin.core.PluginBootstrap', 'project.vivid.ui.plugin.projectx']
+  [assets/info.txt] (261 bytes):
+     Theme Samsung OneUI skin with <b>Project X</b> Elements
+     This plugin offers :
+     * Different QuickSetting background icons
+     * Different Settings dashboard icons
+     * UI Component icons
+     * Different App Icons Styles
+     * StatusBar and Navigation Bar Icons
+     * Many More....!
+  [assets/default.hex] (5152 bytes):
+     eyJub3RldWkiOiJmYWxzZSIsIkhFWF9DT01NT05fQ09OVFJPTCI6InByb2plY3Qudml2aWQudWkucGx1Z2luLnByb2plY3R4IiwiSEVYX0NPTU1PTl9LRVlCT0FSRCI6InByb2plY3Qudml2aWQudWkucGx1Z2luLnByb2plY3R4IiwicHJvamVjdHg6bmV0c2hhZG93IjoidHJ1ZSIsImx4ZzkiOiIjMDAwMDAwIiwicHJvamVjdHg6dDRnaWNvbnN0IjoidHJ1ZSIsImZyZWU6cHJvZ3Jlc3NiYXIiOiJ0cnVlIiwicHJvamVjdHg6cHNzIjoidHJ1ZSIsInByb2plY3R4OmJmIjoidHJ1ZSIsInByb2plY3R4OjRnaWNvbnMiOiJ0cnVlIiwiaGV4IjoicHJvamVjdC52aXZpZC5oZXguYm9kaGkiLCJwcm9qZWN0eDpyZW1vdmUiOiJ0cnVlIiwicXNfb25fdHJhbnNfbGlnaHQiOiIwIiwicHJvamVjdHg6YnViYmxlMSI6InRydWUiLCJIRVhfQ09NTU9OX0JPWCI6InByb2plY3Qudml2aWQudWkucGx1Z2luLnByb2plY3R4IiwiSEVYX0NPTU1PTl9TVEFUVVNCQVIiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5wcm9qZWN0eCIsInByb2plY3R4Om1jbHMiOiJ0cnVlIiwieGc5IjoiIzAwMDAwMCIsInByb2plY3R4OmludnQiOiJ0cnVlIiwieHgxIjoiIzIxOTZmMyIsInh4MCI6IiMwMDAwMDAiLCJ4eDMiOiIjZmZmZmZmIiwieHgyIjoiIzY5OWI2YiIsIm5vdGlmX3RyYW5zIjoiMTI1IiwicHJvamVjdHg6ZmNhZiI6InRydWUiLCJ4eDUiOiIjNDQ0NDQ0IiwicXNfdHdlYWtzX25vX2xhYmVsIjoiZmFsc2UiLCJ4eDQiOiIjODc4Nzg3IiwiUkVRVUlSRVNfREVGQVVMVF9PTkxZX01PREUiOiJ0cnVlIiwieHg3IjoiIzAwMDAwMCIsInh4NiI6IiMxNDE0MTQiLCJ4eDkiOiIjN2Q4ZmU3IiwieHg4IjoiI0ZBRkFGQSIsInByb2plY3R4Omlub3V0IjoidHJ1ZSIsImZvcmNlX3JvdW5kZWRfcnNoYXBlIjoiZmFsc2UiLCJwcm9qZWN0eDpwdG5hdmljIjoidHJ1ZSIsInFzX3R3ZWFrc190aWxlcyI6IjYiLCJub3RpZl90cmFuc19saWdodCI6IjEzOSIsImRlZmF1bHRfZGF5X25pZ2h0X2ljb25zIjoidHJ1ZSIsInByb2plY3R4OnFzczEiOiJ0cnVlIiwieHkwIjoiIzAwMDAwMCIsInByb2plY3R4Om5tYiI6InRydWUiLCJ4eTIiOiIjNTQ1NDU0IiwiSEVYX1BST19NT0RFIjoiZmFsc2UiLCJ4eTEiOiIjN2Q4ZmU3IiwibHh5MCI6IiNGRkZGRkYiLCJ4eTQiOiIjRkFGQUZBIiwieHkzIjoiIzBhMGEwYSIsImx4eTMiOiIjZmZmZmZmIiwieHk1IjoiI0RFREVERSIsImx4eTQiOiIjMDAwMDAwIiwibHh5MSI6IiMwMDAwMDAiLCJwcm9qZWN0eDpzdDJ4IjoidHJ1ZSIsImx4eTIiOiIjNTM1MzUzIiwiSEVYX1BMVUdJTl9FWFRSQV9QUkVGRVJFTkNFUyI6InRydWUiLCJwcm9qZWN0eDpkb2Nrc2VhdCI6InRydWUiLCJxc19jdXN0b21fdG9nZ2xlX3N0eWxlIjoiMSIsImx4eTUiOiIjMjUyNTI1IiwiZW5hYmxlX25hdl9odF90d2VhayI6ImZhbHNlIiwicXNfdHdlYWtzX2xpbmVzIjoiMiIsInFzX29uX3RyYW5zIjoiMCIsInJzaGFwZSI6InRydWUiLCJzeDIiOiIjMDA5Nzg4IiwicGx1Z2luX25hbWUiOiJQcm9qZWN0IFggLSBEYXkvTmlnaHQiLCJzeDEiOiIjMjE5NmYzIiwieHowIjoiI0ZGMDAwMDAwIiwiSEVYX0NPTU1PTl9OQVZCQVIiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5wcm9qZWN0eCIsInJzaGFwZV90cmFucyI6IjI1NSIsInByb2plY3R4OmNkcDIiOiJ0cnVlIiwicHJvamVjdHg6cGJiIjoidHJ1ZSIsImx4eDIiOiIjZGJhZTIxIiwicGx1Z2luIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4ucHJvamVjdHgiLCJseHgzIjoiIzBmMWI1MiIsImx4eDAiOiIjRkZGRkZGIiwibHh4MSI6IiMwMDk3ODgiLCJseHg2IjoiI0ZBRkFGQSIsIm1zaW0iOiJ0cnVlIiwibHh4NyI6IiNGRkZGRkYiLCJseHg0IjoiIzQ0NDQ0NCIsInByb2plY3R4OnZwMSI6InRydWUiLCJseHg1IjoiI0NFQ0VDRSIsInBsdWdpbl9wcmV2aWV3X2JnIjoidHJ1ZSIsInFzX3RyYW5zX2xpZ2h0IjoiMCIsIm5vcm1hbGl6ZV9zdGF0X2ljb25zIjoidHJ1ZSIsImx4eDgiOiIjMjAyMDIwIiwiZGVmYXVsdF9pY29ucyI6InRydWUiLCJseHg5IjoiIzAwOTc4OCIsImhiYXR0IjoiZmFsc2UiLCJwcm9qZWN0eDp3aWNvbiI6InRydWUiLCJuYXZzaSI6IjQ4IiwiSEFTX1RJTlRBQkxFX1RBUkdFVFMiOiJ0cnVlIiwicHJvamVjdHg6cGliZCI6InRydWUiLCJwcm9qZWN0eDp2cGFuZWwiOiJ0cnVlIiwiSEVYX0NPTU1PTl9RUyI6InByb2plY3Qudml2aWQudWkucGx1Z2luLnByb2plY3R4IiwicHJvamVjdHg6cG9sIjoidHJ1ZSIsInJvdW5kX2tleSI6ImZhbHNlIiwicHJvamVjdHg6dGFjcnQiOiJ0cnVlIiwicHJvamVjdHg6dnAiOiJ0cnVlIiwiSEVYX0NPTU1PTl9IT01FIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4ucHJvamVjdHgiLCJwcm9qZWN0eDpwZ3MiOiJ0cnVlIiwicXNfY3VzdG9tX3RvZ2dsZXMiOiJmYWxzZSIsInRpbnRfaWNvbnMiOiJ0cnVlIiwicHJvamVjdHg6d2EiOiJ0cnVlIiwicHJvamVjdHg6c3R5bGUyIjoidHJ1ZSIsIm5vZnJhbWVzIjoiZmFsc2UiLCJseHowIjoiI0ZGRkZGRkZGIiwiSEVYX0NPTU1PTl9NSVNDIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4ucHJvamVjdHgiLCJwcm9qZWN0eDpidWIiOiJ0cnVlIiwicHJvamVjdHg6dG5ldHNoYWRvdyI6InRydWUiLCJxc19jdXN0b21fZ3JhZGllbnQiOiJmYWxzZSIsIkhFWF9DT01NT05fU0VUVElOR1NJQ09OIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4ucHJvamVjdHgiLCJoZXhfcHJvX21peCI6ImZhbHNlIiwibm90aWZfZGl2aWRlciI6ImZhbHNlIiwicHJvamVjdHg6cmRzdCI6InRydWUiLCJwcm9qZWN0eDpibWIiOiJ0cnVlIiwicHJvamVjdHg6cGRpYiI6InRydWUiLCJxc190d2Vha3MiOiJmYWxzZSIsInFzX29mZl90cmFucyI6IjAiLCJIRVhfRVhUUkFfUFJFRkVSRU5DRV9LRVlTIjoiMSxiYmcsdGksc2RpLHBpYmQsYmYscGdzLGFncyxkb2Nrc2VhdCx3aWNvbiwyLGludnQsc3QxLHN0MngsMyxtcHRic2MsbWF0YnNjLG1mcGEsZnMsZmNhZixubWIsNCxjZHBhYmMsY2RwMSxjZHAyLGNkcDMscmRtdCxyZHN0LHJkYnQsNSxwbXksYW15LDYsc2xrYixuZWtiLGJna2IsNyxxczEscXMyLHFzMyxxczQscXM1LHplcm9jb3JuZXIsbm90aWYsbmV3bix0bmV0c2hhZG93LHRuc2gsdnBhbmVsLHBzcyxvcGxsLGxzY3MsbHNjb2wsbWNscyxwdG5hdmljLGF0bmF2aWMsdGdlcyxyZW1vdmUsYm1iLHBkaWIsYWRpYixyYmIsc2JiLHBiYixhYmIsOCx0cGNydCx0YWNydCxsZCw5LHN0eWxlMSxzdHlsZTFhLHN0eWxlMixzdHlsZTJhLHN0eWxlMyxzdHlsZTNhLHN0eWxlNCxzdHlsZTRhLDEwLGJ1YmJsZSxidWIsaW5vdXQsc3RhdHAsc3RhdGEscjRnaWNvbnNyIiwiSEVYX0NPTU1PTl9JQ09OUyI6InByb2plY3Qudml2aWQudWkucGx1Z2luLnByb2plY3R4IiwicHJvamVjdHg6bHNjcyI6InRydWUiLCJIRVhfQ09NTU9OX0JBQ0tHUk9VTkQiOiJwcm9qZWN0LnZpdmlkLnVpLnBsdWdpbi5wcm9qZWN0eCIsInFzX3R3ZWFrc19jb2x1bW5zIjoiNSIsInFzX3RyYW5zIjoiMCIsInJlbWljb25zIjoiZmFsc2UiLCJwcm9qZWN0eDpwbzEiOiJ0cnVlIiwicXNfdHdlYWtzX3Jvd3MiOiIzIiwibHp5MyI6IiNGRjAxMDEwMSIsIkhBU19OT19GUkFNRVNfT1BUSU9OIjoiZmFsc2UiLCJwcm9qZWN0eDpzdGF0cCI6InRydWUiLCJwcm9qZWN0eDpwbXkiOiJ0cnVlIiwiSEVYX0NPTU1PTl9ESUFMUEFEIjoicHJvamVjdC52aXZpZC51aS5wbHVnaW4ucHJvamVjdHgiLCJ0YXJnZXQiOiJoYyIsInByb2plY3R4OnZwYW5lbGRpZmYiOiJ0cnVlIiwiZ3NiIjoiZmFsc2UiLCJxc19vZmZfdHJhbnNfbGlnaHQiOiIwIiwicHJvamVjdHg6YmdrYiI6InRydWUiLCJwcm9qZWN0eDpzZGkiOiJ0cnVlIiwicHJvamVjdHg6cjRnaWNvbnNyIjoidHJ1ZSJ9
+  [assets/extra.preferences] (4246 bytes):
+     $selectdialogpreference,1=1.0 ▄▀▄▀▄▀ ━━━━━━━𝘏𝘰𝘮𝘦𝘚𝘤𝘳𝘦𝘦𝘯━━━━━━━ ▄▀▄▀▄▀,JUST A HEADING
+     $selectdialogpreference,bbg,ti,sdi=1.1 Change HomeScreen Icon Style,Rhombus shape (added a black background for better visibility),Triangular Shape,Samsung Default
+     pibd=1.2 Put unsupported Appicon in frame
+     bf=1.3 Add app icon frame background
+     dockseat=1.4 Remove bottom dock space
+     $selectdialogpreference,pgs,ags=1.4 Google Search bar color,Primary,Accent
+     wicon=1.5 Use Weather Icon
+     $selectdialogpreference,2=2.0 ▄▀▄▀▄▀━━━━━━━𝘉𝘢𝘤𝘬𝘨𝘳𝘰𝘶𝘯𝘥━━━━━━━▄▀▄▀▄▀,JUST A HEADING
+     invt=2.1 Invert background color Primary --> Accent
+     $selectdialogpreference,st1,st2x=2.2 Popup Style,Style 1,Style 2
+     boxgallery=2.3 Fix popup Style 2 background (must select style 2 in popup preference)
+     $selectdialogpreference,3=3.0 ▄▀▄▀▄▀ ━━━━━━━𝘔𝘦𝘴𝘴𝘢𝘨𝘨𝘦━━━━━━━ ▄▀▄▀▄▀,JUST A HEADING
+     $selectdialogpreference,mptbsc,matbsc=3.1 Change Message Send Bubble Text Color,Primary Color,Accent Color
+     mfpa=3.2 Change Fab Button Color Primary --> Accent
+     fs=3.3 Change Fab Button Size
+     nmb=3.4 Change Message Bubble style
+     $selectdialogpreference,fcaf=3.4 Change Avatar Style,Circular
+     $selectdialogpreference,4=4.0 ▄▀▄▀▄▀ ━━━━━━━𝘗𝘩𝘰𝘯𝘦━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     cdpabc=4.1 Change Dailer Call Button Color Primary --> Accent
+     $selectdialogpreference,cdp1,cdp2,cdp3=4.2 Dailpad Style,style 1,style 2,style 3
+     $selectdialogpreference,rdmt,rdst,rdbt=4.3 Remove Dialpad Font Text {Use this if you're adding a custom dailpad background which have number on it}(working),Main Text,Sub Main Text,Main & Sub Main Text
+     $selectdialogpreference,5=5.0 ▄▀▄▀▄▀ ━━━━━━━𝘔𝘺𝘧𝘪𝘭𝘦𝘴━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     $selectdialogpreference,pmy,amy=5.1 HomeScreen Icon color,Primary,Accent
+     $selectdialogpreference,6=6.0 ▄▀▄▀▄▀ ━━━━━━━𝘒𝘦𝘺𝘣𝘰𝘢𝘳𝘥━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     $selectdialogpreference,slkb,nekb,bgkb=6.1 Change keyboard Button style,Style 1,Style 2,Style 3
+     $selectdialogpreference,7=7.0 ▄▀▄▀▄▀ ━━━━━━━𝘘𝘶𝘪𝘤𝘬𝘚𝘦𝘵𝘵𝘪𝘯𝘨━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     $selectdialogpreference,qs1,qs2,qs3,qs4,qs5=7.1 QS Icon background style,shape 1,shape 2,shape 3, shape 4,shape 5
+     zerocorner=7.2 Zero radius notification corner
+     $selectdialogpreference,notif,newn,tnetshadow,tnsh=7.4 Notification Divider {OneUI 3-4 only},Style 1,style 2,style 3,style 4
+     $selectdialogpreference,vpanel=7.5 Volume Panel,solid
+     $selectdialogpreference,pss,opll=7.7 lockscreen password Digits,Solid,outline
+     $selectdialogpreference,lscs,lscol=7.8 lockscreen clock style,Solid Digits,Outline Digits
+     mcls=7.90 Multicolr lockscreen clock
+     $selectdialogpreference,ptnavic,atnavic=7.91 Navbar Icon Tint,Primary,Accent
+     tges=7.92 Tint Navbar Gesture Icon
+     remove=7.93 Remove back & Recent Navbar Icons
+     bmb=7.94 Increase Navbar Home button icon size
+     $selectdialogpreference,pdib,adib=7.95 QS Media Device background Color,Primary,Accent
+     $selectdialogpreference,rbb,sbb=7.96 Brightness bar,Style 1,Style 2
+     $selectdialogpreference,pbb,abb=7.97 Brightness bar (QS Icon On bg color),Primary,Accent
+     $selectdialogpreference,8=8.0 ▄▀▄▀▄▀ ━━━━━━━𝘚𝘸𝘪𝘵𝘤𝘩 & 𝘙𝘢𝘥𝘪𝘰 - 𝘉𝘶𝘵𝘵𝘰𝘯━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     $selectdialogpreference,tpcrt,tacrt=8.1 Switch (ON/OFF) & checkbox & radio Button,Primary,Accent
+     ld=8.2 App list Divider
+     $selectdialogpreference,9=9.0 ▄▀▄▀▄▀ ━━━━━━━𝘚𝘦𝘵𝘵𝘪𝘯𝘨━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     $selectdialogpreference,style1,style1a,style2,style2a,style3,style3a,style4,style4a=9.1 Dashboard Background style (Default Black & White) ,Style 1 (Primary),Style 1 (Accent),Style 2 (Primary),Style 2 (Accent),Style 3 (Primary) ,Style 3 (Accent),Style 4 (Primary) ,Style 4 (Accent)
+     $selectdialogpreference,10=90.0 ▄▀▄▀▄▀ ━━━━━━━𝘖𝘵𝘩𝘦𝘳𝘴━━━━━━━ ▀▄▀▄▀▄,JUST A HEADING
+     $selectdialogpreference,bubble,bub=90.91 Whatsapp Bubble,Style 1,Style 2
+     inout=90.92 Use Wifi in out icons
+     datainout=90.93 Use Data in out icons
+     $selectdialogpreference,statp,stata=90.94 Statusbar Icon Color,Primary,Accent
+     r4giconsr=90.95 Change 2-3-4-5G icon
+     lteto5g=90.96 Change LTE icon to 5G icon
+     #############################################################################
+     qs=qs1
+     statusbar=r4giconsr,inout,statp
+     misc=qss,ld,r4giconsr,inout,bubble,style1,remove,tges,ptnavic,vpanel,zerocorner,qs1,rdmt,cdp1,statp,st1,invt,wicon,pgs,dockseat,pibd,bbg,bf
+  Folders with PNG/XML assets:
+    assets/anaconda_tints/once/base/default/buttons: 4 PNGs, 0 XMLs -> sample: ['back_dark.png', 'back_light.png', 'menu_dark.png', 'menu_light.png']
+    assets/anaconda_tints/once/base/default/control-tacrt: 72 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/base/default/control-tpcrt: 72 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/base/default/control_night-tacrt: 54 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/base/default/control_night-tpcrt: 54 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/base/default/drawable-night-v21: 11 PNGs, 0 XMLs -> sample: ['sec_qs_detail_header_background_on.9.png', 'sec_quickpannel_wifi_signal_0.png', 'sec_quickpannel_wifi_signal_1.png', 'sec_quickpannel_wifi_signal_2.png', 'sec_quickpannel_wifi_signal_3.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v24: 1 PNGs, 0 XMLs -> sample: ['tw_ic_ab_search_mtrl_tint.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26: 77 PNGs, 0 XMLs -> sample: ['actionbar_back_icon.png', 'actionbar_search.png', 'assistant_plus_contact_ic_search.png', 'bubble_received_press.9.png', 'bubble_sent_mms.9.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26-adib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26-nmb: 9 PNGs, 0 XMLs -> sample: ['bubble_received_press.9.png', 'bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26-pdib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26Hq: 12 PNGs, 0 XMLs -> sample: ['sec_ic_wifi_signal_0.png', 'sec_ic_wifi_signal_1.png', 'sec_ic_wifi_signal_2.png', 'sec_ic_wifi_signal_3.png', 'sec_ic_wifi_signal_4.png']
+    assets/anaconda_tints/once/base/default/drawable-night-xxhdpi-v26Hr: 2 PNGs, 0 XMLs -> sample: ['gallery_ic_ab_back.png', 'gallery_ic_ab_more.png']
+    assets/anaconda_tints/once/base/default/drawable-v21: 15 PNGs, 0 XMLs -> sample: ['notification_dark.9.png', 'notification_dnewn.9.png', 'notification_light.9.png', 'notification_lnewn.9.png', 'sec_qs_detail_header_background_on.9.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v24: 1 PNGs, 0 XMLs -> sample: ['tw_ic_ab_search_mtrl_tint.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26: 81 PNGs, 0 XMLs -> sample: ['actionbar_back_icon.png', 'actionbar_search.png', 'assistant_plus_contact_ic_search.png', 'bubble_received_press.9.png', 'bubble_sent_mms.9.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26-adib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26-nmb: 9 PNGs, 0 XMLs -> sample: ['bubble_received_press.9.png', 'bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26-pdib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v26Hr: 2 PNGs, 0 XMLs -> sample: ['gallery_ic_ab_back.png', 'gallery_ic_ab_more.png']
+    assets/anaconda_tints/once/base/default/drawable-xxhdpi-v29Hq: 12 PNGs, 0 XMLs -> sample: ['sec_ic_wifi_signal_0.png', 'sec_ic_wifi_signal_1.png', 'sec_ic_wifi_signal_2.png', 'sec_ic_wifi_signal_3.png', 'sec_ic_wifi_signal_4.png']
+    assets/anaconda_tints/once/base/default/home: 4 PNGs, 0 XMLs -> sample: ['check_selected.png', 'check_unselected.png', 'homescreen_badge.9.png', 'recent_close_button_bg.9.png']
+    assets/anaconda_tints/once/base/default/home-ags: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/base/default/home-pgs: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/base/default/home_night: 4 PNGs, 0 XMLs -> sample: ['check_selected.png', 'check_unselected.png', 'homescreen_badge.9.png', 'recent_close_button_bg.9.png']
+    assets/anaconda_tints/once/base/default/home_night-ags: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/base/default/home_night-pgs: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/base/default/icons-bbg: 82 PNGs, 0 XMLs -> sample: ['calendar.png', 'clock.png', 'discord.png', 'docs.png', 'dropbox.png']
+    assets/anaconda_tints/once/base/default/icons-bbgHr: 10 PNGs, 0 XMLs -> sample: ['0discord.png', '0dropbox.png', '0ghome.png', '0reddit.png', '0soundcloud.png']
+    assets/anaconda_tints/once/base/default/icons-bbgHs: 2 PNGs, 0 XMLs -> sample: ['playconsole.png', 'tiktok.png']
+    assets/anaconda_tints/once/base/default/misc-bub: 2 PNGs, 0 XMLs -> sample: ['in.9.png', 'out.9.png']
+    assets/anaconda_tints/once/base/default/misc-bubble: 2 PNGs, 0 XMLs -> sample: ['in.9.png', 'out.9.png']
+    assets/anaconda_tints/once/base/default/navbar-atnavic: 10 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_docked_dark_theme.png']
+    assets/anaconda_tints/once/base/default/navbar-atnavic-remove: 6 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_recent_dark_theme.png']
+    assets/anaconda_tints/once/base/default/navbar-atnavic-tges: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sec_sysbar_gesture_hint.png', 'ic_sec_sysbar_gesture_hint_dark.png']
+    assets/anaconda_tints/once/base/default/navbar-bmb-atnavic: 2 PNGs, 0 XMLs -> sample: ['ic_sysbar_home_dark_theme.png', 'ic_sysbar_home_theme.png']
+    assets/anaconda_tints/once/base/default/navbar-bmb-ptnavic: 2 PNGs, 0 XMLs -> sample: ['ic_sysbar_home_dark_theme.png', 'ic_sysbar_home_theme.png']
+    assets/anaconda_tints/once/base/default/navbar-ptnavic: 10 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_docked_dark_theme.png']
+    assets/anaconda_tints/once/base/default/navbar-ptnavic-remove: 6 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_recent_dark_theme.png']
+    assets/anaconda_tints/once/base/default/navbar-ptnavic-tges: 4 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sec_sysbar_gesture_hint.png', 'ic_sec_sysbar_gesture_hint_dark.png']
+    assets/anaconda_tints/once/base/lxx0/drawable-xxhdpi-v26: 11 PNGs, 0 XMLs -> sample: ['contacts_default_caller_id_groups.png', 'contacts_default_caller_id_list.png', 'contacts_default_caller_id_list_1.png', 'contacts_default_caller_id_list_2.png', 'contacts_default_caller_id_list_3.png']
+    assets/anaconda_tints/once/base/lxx1/drawable-xxhdpi-v26: 11 PNGs, 0 XMLs -> sample: ['round_edit_panel_background.9.png', 'sec_device_info_btn_edit_bg.png', 'sem_text_select_handle_left_material.png', 'sem_text_select_handle_middle_material.png', 'sem_text_select_handle_right_material.png']
+    assets/anaconda_tints/once/base/lxx1/settingsicon-style1: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx1/settingsicon-style2: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx1/settingsicon-style3: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx1/settingsicon-style4: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx2/settingsicon-style1a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx2/settingsicon-style2a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx2/settingsicon-style3a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxx2/settingsicon-style4a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/lxy3/drawable-v21: 2 PNGs, 0 XMLs -> sample: ['light_shadow.9.png', 'light_shadow2.9.png']
+    assets/anaconda_tints/once/base/xx0/drawable-night-xxhdpi-v26: 11 PNGs, 0 XMLs -> sample: ['contacts_default_caller_id_groups.png', 'contacts_default_caller_id_list.png', 'contacts_default_caller_id_list_1.png', 'contacts_default_caller_id_list_2.png', 'contacts_default_caller_id_list_3.png']
+    assets/anaconda_tints/once/base/xx1/drawable-night-xxhdpi-v26: 11 PNGs, 0 XMLs -> sample: ['round_edit_panel_background.9.png', 'sec_device_info_btn_edit_bg.png', 'sem_text_select_handle_left_material.png', 'sem_text_select_handle_middle_material.png', 'sem_text_select_handle_right_material.png']
+    assets/anaconda_tints/once/base/xx1/settingsicon_alt-style1: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx1/settingsicon_alt-style2: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx1/settingsicon_alt-style3: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx1/settingsicon_alt-style4: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx2/settingsicon_alt-style1a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx2/settingsicon_alt-style2a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx2/settingsicon_alt-style3a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xx2/settingsicon_alt-style4a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/base/xy3/drawable-v21: 2 PNGs, 0 XMLs -> sample: ['dark_shadow.9.png', 'dark_shadow2.9.png']
+    assets/anaconda_tints/once/first/default/drawable-night-xxhdpi-v26: 10 PNGs, 0 XMLs -> sample: ['round_edit_panel_background.9.png', 'sem_text_select_handle_left_material.png', 'sem_text_select_handle_middle_material.png', 'sem_text_select_handle_right_material.png', 'sesl_text_select_handle_left_alpha.png']
+    assets/anaconda_tints/once/first/default/drawable-v21: 4 PNGs, 0 XMLs -> sample: ['dark_shadow.9.png', 'dark_shadow2.9.png', 'light_shadow.9.png', 'light_shadow2.9.png']
+    assets/anaconda_tints/once/first/default/drawable-xxhdpi-v26: 10 PNGs, 0 XMLs -> sample: ['round_edit_panel_background.9.png', 'sem_text_select_handle_left_material.png', 'sem_text_select_handle_middle_material.png', 'sem_text_select_handle_right_material.png', 'sesl_text_select_handle_left_alpha.png']
+    assets/anaconda_tints/once/first/default/icons-bbg: 82 PNGs, 0 XMLs -> sample: ['calendar.png', 'clock.png', 'discord.png', 'docs.png', 'dropbox.png']
+    assets/anaconda_tints/once/first/default/icons-bbgHr: 10 PNGs, 0 XMLs -> sample: ['0discord.png', '0dropbox.png', '0ghome.png', '0reddit.png', '0soundcloud.png']
+    assets/anaconda_tints/once/first/default/icons-bbgHs: 2 PNGs, 0 XMLs -> sample: ['playconsole.png', 'tiktok.png']
+    assets/anaconda_tints/once/first/default/misc-bub: 1 PNGs, 0 XMLs -> sample: ['in.9.png']
+    assets/anaconda_tints/once/first/default/misc-bubble: 1 PNGs, 0 XMLs -> sample: ['in.9.png']
+    assets/anaconda_tints/once/first/default/settingsicon-style3: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon-style3a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon-style4: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon-style4a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon_alt-style3: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon_alt-style3a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon_alt-style4: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/default/settingsicon_alt-style4a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/lxx1/buttons: 2 PNGs, 0 XMLs -> sample: ['back_light.png', 'menu_light.png']
+    assets/anaconda_tints/once/first/lxx1/control-tpcrt: 63 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-v21: 11 PNGs, 0 XMLs -> sample: ['sec_qs_detail_header_background_on.9.png', 'sec_quickpannel_wifi_signal_0.png', 'sec_quickpannel_wifi_signal_1.png', 'sec_quickpannel_wifi_signal_2.png', 'sec_quickpannel_wifi_signal_3.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v24: 1 PNGs, 0 XMLs -> sample: ['tw_ic_ab_search_mtrl_tint.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v26: 87 PNGs, 0 XMLs -> sample: ['actionbar_back_icon.png', 'actionbar_search.png', 'assistant_plus_contact_ic_search.png', 'bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v26-nmb: 9 PNGs, 0 XMLs -> sample: ['bubble_received_press.9.png', 'bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v26-pdib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v26Hr: 2 PNGs, 0 XMLs -> sample: ['gallery_ic_ab_back.png', 'gallery_ic_ab_more.png']
+    assets/anaconda_tints/once/first/lxx1/drawable-xxhdpi-v29Hq: 12 PNGs, 0 XMLs -> sample: ['sec_ic_wifi_signal_0.png', 'sec_ic_wifi_signal_1.png', 'sec_ic_wifi_signal_2.png', 'sec_ic_wifi_signal_3.png', 'sec_ic_wifi_signal_4.png']
+    assets/anaconda_tints/once/first/lxx1/home: 4 PNGs, 0 XMLs -> sample: ['check_selected.png', 'check_unselected.png', 'homescreen_badge.9.png', 'recent_close_button_bg.9.png']
+    assets/anaconda_tints/once/first/lxx1/home-pgs: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/first/lxx1/navbar-bmb-ptnavic: 1 PNGs, 0 XMLs -> sample: ['ic_sysbar_home_theme.png']
+    assets/anaconda_tints/once/first/lxx1/navbar-ptnavic: 5 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_docked_dark_theme.png', 'ic_sysbar_home_dark_theme.png', 'ic_sysbar_recent_dark_theme.png']
+    assets/anaconda_tints/once/first/lxx1/navbar-ptnavic-remove: 6 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_recent_dark_theme.png']
+    assets/anaconda_tints/once/first/lxx1/navbar-ptnavic-tges: 2 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sec_sysbar_gesture_hint_dark.png']
+    assets/anaconda_tints/once/first/lxx1/settingsicon-style1: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/lxx1/settingsicon-style2: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/lxx2/control-tacrt: 63 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/first/lxx2/drawable-xxhdpi-v26: 4 PNGs, 0 XMLs -> sample: ['bubble_received_press.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_rcs_press.9.png', 'send_button_src.png']
+    assets/anaconda_tints/once/first/lxx2/drawable-xxhdpi-v26-adib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/first/lxx2/home-ags: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/first/lxx2/navbar-atnavic: 5 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_docked_dark_theme.png', 'ic_sysbar_home_dark_theme.png', 'ic_sysbar_recent_dark_theme.png']
+    assets/anaconda_tints/once/first/lxx2/navbar-atnavic-remove: 6 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_dark_theme.png', 'ic_sysbar_back_ime_dark_theme.png', 'ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_recent_dark_theme.png']
+    assets/anaconda_tints/once/first/lxx2/navbar-atnavic-tges: 2 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint_dark.png', 'ic_sec_sysbar_gesture_hint_dark.png']
+    assets/anaconda_tints/once/first/lxx2/navbar-bmb-atnavic: 1 PNGs, 0 XMLs -> sample: ['ic_sysbar_home_theme.png']
+    assets/anaconda_tints/once/first/lxx2/settingsicon-style1a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/lxx2/settingsicon-style2a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/lxy3/drawable-v21: 2 PNGs, 0 XMLs -> sample: ['notification_light.9.png', 'notification_lnewn.9.png']
+    assets/anaconda_tints/once/first/xx0/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['toast_frame.9.png']
+    assets/anaconda_tints/once/first/xx1/buttons: 2 PNGs, 0 XMLs -> sample: ['back_dark.png', 'menu_dark.png']
+    assets/anaconda_tints/once/first/xx1/control-tpcrt: 9 PNGs, 0 XMLs -> sample: ['switch_thumb_dark_disabled_off.9.png', 'switch_thumb_dark_disabled_on.9.png', 'switch_thumb_dark_off.9.png', 'switch_thumb_dark_on.9.png', 'switch_track_dark_disabled.9.png']
+    assets/anaconda_tints/once/first/xx1/control_night-tpcrt: 54 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-v21: 11 PNGs, 0 XMLs -> sample: ['sec_qs_detail_header_background_on.9.png', 'sec_quickpannel_wifi_signal_0.png', 'sec_quickpannel_wifi_signal_1.png', 'sec_quickpannel_wifi_signal_2.png', 'sec_quickpannel_wifi_signal_3.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v24: 1 PNGs, 0 XMLs -> sample: ['tw_ic_ab_search_mtrl_tint.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v26: 85 PNGs, 0 XMLs -> sample: ['actionbar_back_icon.png', 'actionbar_search.png', 'assistant_plus_contact_ic_search.png', 'bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v26-nmb: 9 PNGs, 0 XMLs -> sample: ['bubble_received_press.9.png', 'bubble_sent_mms.9.png', 'bubble_sent_mms_no_theme.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_mms_press_no_theme.9.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v26-pdib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v26Hq: 12 PNGs, 0 XMLs -> sample: ['sec_ic_wifi_signal_0.png', 'sec_ic_wifi_signal_1.png', 'sec_ic_wifi_signal_2.png', 'sec_ic_wifi_signal_3.png', 'sec_ic_wifi_signal_4.png']
+    assets/anaconda_tints/once/first/xx1/drawable-night-xxhdpi-v26Hr: 2 PNGs, 0 XMLs -> sample: ['gallery_ic_ab_back.png', 'gallery_ic_ab_more.png']
+    assets/anaconda_tints/once/first/xx1/drawable-xxhdpi-v26: 1 PNGs, 0 XMLs -> sample: ['sesl_tablayout_subtab_indicator_background_dark.9.png']
+    assets/anaconda_tints/once/first/xx1/home_night: 4 PNGs, 0 XMLs -> sample: ['check_selected.png', 'check_unselected.png', 'homescreen_badge.9.png', 'recent_close_button_bg.9.png']
+    assets/anaconda_tints/once/first/xx1/home_night-pgs: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/first/xx1/misc-bub: 1 PNGs, 0 XMLs -> sample: ['out.9.png']
+    assets/anaconda_tints/once/first/xx1/misc-bubble: 1 PNGs, 0 XMLs -> sample: ['out.9.png']
+    assets/anaconda_tints/once/first/xx1/navbar-bmb-ptnavic: 1 PNGs, 0 XMLs -> sample: ['ic_sysbar_home_dark_theme.png']
+    assets/anaconda_tints/once/first/xx1/navbar-ptnavic: 5 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_docked_theme.png', 'ic_sysbar_home_theme.png', 'ic_sysbar_recent_theme.png']
+    assets/anaconda_tints/once/first/xx1/navbar-ptnavic-tges: 2 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_hint.png']
+    assets/anaconda_tints/once/first/xx1/settingsicon_alt-style1: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/xx1/settingsicon_alt-style2: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/xx2/control-tacrt: 9 PNGs, 0 XMLs -> sample: ['switch_thumb_dark_disabled_off.9.png', 'switch_thumb_dark_disabled_on.9.png', 'switch_thumb_dark_off.9.png', 'switch_thumb_dark_on.9.png', 'switch_track_dark_disabled.9.png']
+    assets/anaconda_tints/once/first/xx2/control_night-tacrt: 54 PNGs, 0 XMLs -> sample: ['checkbox_000.png', 'checkbox_001.png', 'checkbox_002.png', 'checkbox_003.png', 'checkbox_004.png']
+    assets/anaconda_tints/once/first/xx2/drawable-night-xxhdpi-v26: 4 PNGs, 0 XMLs -> sample: ['bubble_received_press.9.png', 'bubble_sent_mms_press.9.png', 'bubble_sent_rcs_press.9.png', 'send_button_src.png']
+    assets/anaconda_tints/once/first/xx2/drawable-night-xxhdpi-v26-adib: 1 PNGs, 0 XMLs -> sample: ['media_devices_bar_button_ripple_background.9.png']
+    assets/anaconda_tints/once/first/xx2/home_night-ags: 3 PNGs, 0 XMLs -> sample: ['folder_expanded_bg.9.png', 'google_search_big.9.png', 'google_search_small.9.png']
+    assets/anaconda_tints/once/first/xx2/navbar-atnavic: 5 PNGs, 0 XMLs -> sample: ['ic_sysbar_back_ime_theme.png', 'ic_sysbar_back_theme.png', 'ic_sysbar_docked_theme.png', 'ic_sysbar_home_theme.png', 'ic_sysbar_recent_theme.png']
+    assets/anaconda_tints/once/first/xx2/navbar-atnavic-tges: 2 PNGs, 0 XMLs -> sample: ['ic_sec_sysbar_gesture_handle_hint.png', 'ic_sec_sysbar_gesture_hint.png']
+    assets/anaconda_tints/once/first/xx2/navbar-bmb-atnavic: 1 PNGs, 0 XMLs -> sample: ['ic_sysbar_home_dark_theme.png']
+    assets/anaconda_tints/once/first/xx2/settingsicon_alt-style1a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/xx2/settingsicon_alt-style2a: 28 PNGs, 0 XMLs -> sample: ['ic_settings_about.png', 'ic_settings_accessibility.png', 'ic_settings_applications.png', 'ic_settings_development.png', 'ic_settings_display.png']
+    assets/anaconda_tints/once/first/xy3/drawable-v21: 2 PNGs, 0 XMLs -> sample: ['notification_dark.9.png', 'notification_dnewn.9.png']
+    assets/anaconda_tints/thrice/base/default/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/base/default/dialpad-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/base/default/dialpad_night: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/base/default/dialpad_night-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/base/lxx0/background: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-invt: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-invt-cdp1: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-invt-cdp2: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/base/lxx0/background-invt-cdp3: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/base/xx0/background: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-invt: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-invt-cdp1: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-invt-cdp2: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/base/xx0/background-invt-cdp3: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/lxx1/background-invt: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx1/background-invt-cdp1: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx1/background-invt-cdp2: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx1/background-invt-cdp3: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx1/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/first/lxx2/background: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx2/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx2/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx2/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/first/lxx2/dialpad-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/first/xx1/background-invt: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx1/background-invt-cdp1: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx1/background-invt-cdp2: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx1/background-invt-cdp3: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx1/dialpad_night: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/first/xx2/background: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx2/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx2/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx2/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/first/xx2/dialpad_night-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/default/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/default/dialpad-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/default/dialpad_night: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/default/dialpad_night-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/second/lxx1/background: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx1/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx1/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx1/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx2/background-invt: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx2/background-invt-cdp1: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx2/background-invt-cdp2: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/second/lxx2/background-invt-cdp3: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/second/xx1/background: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx1/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx1/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx1/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx2/background-invt: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx2/background-invt-cdp1: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx2/background-invt-cdp2: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/second/xx2/background-invt-cdp3: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/default/dialpad: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/third/default/dialpad-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/third/default/dialpad_night: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/third/default/dialpad_night-cdpabc: 5 PNGs, 0 XMLs -> sample: ['dialpad_fab_bg_image.png', 'dual_left360.png', 'dual_left411.png', 'dual_right360.png', 'dual_right411.png']
+    assets/anaconda_tints/thrice/third/lxx1/background: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx1/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx1/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx1/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx2/background-invt: 2 PNGs, 0 XMLs -> sample: ['background2.png', 'keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx2/background-invt-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx2/background-invt-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/lxx2/background-invt-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom.png']
+    assets/anaconda_tints/thrice/third/xx1/background: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx1/background-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx1/background-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx1/background-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx2/background-invt: 2 PNGs, 0 XMLs -> sample: ['background1.png', 'keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx2/background-invt-cdp1: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx2/background-invt-cdp2: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/thrice/third/xx2/background-invt-cdp3: 1 PNGs, 0 XMLs -> sample: ['keypad_custom2.png']
+    assets/anaconda_tints/twice/base/default/qs-qsusercolor: 4 PNGs, 0 XMLs -> sample: ['tw_ic_ab_more_mtrl.png', 'tw_ic_ab_power_mtrl.png', 'tw_ic_ab_search_mtrl.png', 'tw_ic_ab_setting_mtrl.png']
+    assets/anaconda_tints/twice/base/lxx0/box: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/base/lxx0/box-st1: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/base/lxx0/drawable-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['floating_action_button_background.png', 'theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/base/lxx0/drawable-xxhdpi-v26-mfpa: 2 PNGs, 0 XMLs -> sample: ['theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/base/xx0/box_night: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/base/xx0/box_night-st1: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/base/xx0/drawable-night-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['floating_action_button_background.png', 'theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/base/xx0/drawable-night-xxhdpi-v26-mfpa: 2 PNGs, 0 XMLs -> sample: ['theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/first/lxx1/box: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/first/lxx1/box-st1: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/first/lxx1/drawable-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['floating_action_button_background.png', 'theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/first/lxx2/drawable-xxhdpi-v26-mfpa: 2 PNGs, 0 XMLs -> sample: ['theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/first/xx1/box_night: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/first/xx1/box_night-st1: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/first/xx1/drawable-night-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['floating_action_button_background.png', 'theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/first/xx1/qs-qsusercolor: 4 PNGs, 0 XMLs -> sample: ['tw_ic_ab_more_mtrl.png', 'tw_ic_ab_power_mtrl.png', 'tw_ic_ab_search_mtrl.png', 'tw_ic_ab_setting_mtrl.png']
+    assets/anaconda_tints/twice/first/xx2/drawable-night-xxhdpi-v26-mfpa: 2 PNGs, 0 XMLs -> sample: ['theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/second/default/box: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/second/default/box_night: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/second/default/drawable-night-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['floating_action_button_background.png', 'theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/second/default/drawable-night-xxhdpi-v26-mfpa: 2 PNGs, 0 XMLs -> sample: ['theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/second/default/drawable-xxhdpi-v26: 3 PNGs, 0 XMLs -> sample: ['floating_action_button_background.png', 'theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/second/default/drawable-xxhdpi-v26-mfpa: 2 PNGs, 0 XMLs -> sample: ['theme_fab_background.png', 'theme_fab_background_2.png']
+    assets/anaconda_tints/twice/second/lxx2/box-st1: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/second/xx2/box_night-st1: 2 PNGs, 0 XMLs -> sample: ['dialog_.9.png', 'popup_.9.png']
+    assets/anaconda_tints/twice/second/xx2/qs-qsusercolor: 4 PNGs, 0 XMLs -> sample: ['tw_ic_ab_more_mtrl.png', 'tw_ic_ab_power_mtrl.png', 'tw_ic_ab_search_mtrl.png', 'tw_ic_ab_setting_mtrl.png']
+    assets/info_images: 19 PNGs, 0 XMLs -> sample: ['bbg.png', 'bf.png', 'boxgallery.png', 'cdp1.png', 'dockseat.png']
+    res/drawable: 57 PNGs, 1 XMLs -> sample: ['bodh_off.png', 'bodh_off_tint.png', 'bodh_on.png', 'bodh_on_tint.png', 'check.png']
+    res/drawable-nodpi-v4: 1 PNGs, 0 XMLs -> sample: ['banner.png']
+    res/drawable-v25: 4 PNGs, 1 XMLs -> sample: ['base_d.png', 'common_bg_day.xml', 'first_d.png', 'second_d.png', 'third_d.png']
+    res/drawable-v26: 4 PNGs, 1 XMLs -> sample: ['base_n.png', 'common_bg_night.xml', 'first_n.png', 'second_n.png', 'third_n.png']
+    res/drawable-v27: 13 PNGs, 0 XMLs -> sample: ['default_off_day.png', 'default_off_tint_day.png', 'default_on_day.png', 'default_on_tint_day.png', 'ic_sysbar_back_theme_default_day.png']
+    res/mipmap-xxhdpi-v4: 1 PNGs, 0 XMLs -> sample: ['qlogo.png']
+*****************************************************************
+APK: PX_split_config.xxhdpi.apk | Total files: 6
+  Package strings: ['project.vivid.ui.plugin.projectx']
+  Folders with PNG/XML assets:

@@ -1,67 +1,117 @@
-name: Android APK
+name: One UI 9.0 CI & Signed Universal APK Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, master, "feature/**", "release/**"]
     tags: ["v*"]
-    paths:
-      - "android/**"
-      - ".github/workflows/android.yml"
   pull_request:
-    paths:
-      - "android/**"
-      - ".github/workflows/android.yml"
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
-  build:
+  verify-oneui9-features:
+    name: "CI Check 1: One UI 9.0 Overlays, Drive APKs, .PNG Suites & Safe QS Sliders"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run One UI 9.0 Comprehensive Feature & APK Suite Tests
+        run: node --test tests/oneui9_release.test.js
+
+      - name: Build & Verify Universal (64-bit + 32-bit, English-Only) Signed APK Bundle
+        run: |
+          chmod +x bin/build-and-sign-release-apk.sh
+          ./bin/build-and-sign-release-apk.sh dist/HexNext_OneUI9_Universal_EN_Signed.apk
+
+      - name: Upload Signed Universal Engine APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-OneUI9-Universal-EN-Signed-APK
+          path: dist/HexNext_OneUI9_Universal_EN_Signed.apk
+          if-no-files-found: error
+
+  build-android-gradle:
+    name: "CI Check 2: Android Gradle Build & Sign (64-bit & 32-bit • EN Only)"
+    needs: verify-oneui9-features
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: android
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests
+      - name: Verify 64-bit + 32-bit ABI & English-only Gradle Configuration
+        run: |
+          grep -q 'resourceConfigurations += listOf("en")' app/build.gradle.kts
+          grep -q '"arm64-v8a"' app/build.gradle.kts
+          grep -q '"armeabi-v7a"' app/build.gradle.kts
+          grep -q '"x86_64"' app/build.gradle.kts
+          grep -q '"x86"' app/build.gradle.kts
+          grep -q 'isUniversalApk = true' app/build.gradle.kts
+
+      - name: Run Android Unit Tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
-      - name: Build APK
-        run: ./gradlew --no-daemon assembleDebug
+      - name: Assemble & Sign Universal Release & Debug APKs
+        run: ./gradlew --no-daemon assembleDebug assembleRelease
 
-      - name: Rename APK
+      - name: Collect Signed Universal APKs
         run: |
           version=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/HexNext-${version}-${GITHUB_SHA::7}.apk"
+          find app/build/outputs/apk -name "*.apk" -exec cp {} dist/ \;
+          ls -lh dist/
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Signed Gradle APK Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: HexNext-apk
+          name: HexNext-Gradle-Universal-APKs
           path: android/dist/*.apk
           if-no-files-found: error
 
   release:
+    name: "Release: Publish Signed Universal (64/32-bit • EN) APK"
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [verify-oneui9-features, build-android-gradle]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: HexNext-apk
-          path: dist
+          name: HexNext-OneUI9-Universal-EN-Signed-APK
+          path: release_dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: HexNext-Gradle-Universal-APKs
+          path: release_dist
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.apk
+          files: release_dist/*.apk
           generate_release_notes: true
