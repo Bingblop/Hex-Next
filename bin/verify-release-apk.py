@@ -98,7 +98,7 @@ def verify(apk, unsigned=False, expected_version=None):
         raise ValueError(f"Tag version {expected_version} does not match APK version {package[3]}.")
     if int(package[2]) <= 0:
         raise ValueError("APK versionCode must be positive.")
-    min_sdk = re.search(r"^sdkVersion:'([^']+)'", badging, re.MULTILINE)
+    min_sdk = re.search(r"^(?:minSdkVersion|sdkVersion):'([^']+)'", badging, re.MULTILINE)
     target_sdk = re.search(r"^targetSdkVersion:'([^']+)'", badging, re.MULTILINE)
     if not min_sdk or min_sdk[1] not in ("34", "34.0") or not target_sdk or target_sdk[1] not in ("36", "36.0"):
         raise ValueError(f"Expected minSdk 34 and targetSdk 36. SDK metadata:\n{badging}")

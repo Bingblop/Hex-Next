@@ -15,7 +15,7 @@ release_apk = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_apk)
 
 BADGING = """package: name='com.hexnext.themer' versionCode='210' versionName='2.1.0'
-sdkVersion:'34'
+minSdkVersion:'34'
 targetSdkVersion:'36'
 launchable-activity: name='com.hexnext.themer.MainActivity'
 locales: '--_--' 'en'
@@ -80,6 +80,10 @@ class ReleaseApkTest(unittest.TestCase):
         result, _ = self.verify(badging=BADGING.replace("'34'", "'34.0'").replace("'36'", "'36.0'"))
         self.assertEqual(result["target_sdk"], 36)
 
+    def test_legacy_sdk_badging_format_is_supported(self):
+        result, _ = self.verify(badging=BADGING.replace("minSdkVersion:", "sdkVersion:"))
+        self.assertEqual(result["min_sdk"], 34)
+
     def test_partial_native_abis_are_rejected(self):
         self.write_apk(abis=["arm64-v8a"])
         with self.assertRaisesRegex(ValueError, "not universal"):
@@ -117,7 +121,7 @@ class ReleaseApkTest(unittest.TestCase):
     def test_invalid_metadata_is_rejected(self):
         for badging in (
             BADGING.replace("com.hexnext.themer'", "com.other.app'", 1),
-            BADGING.replace("sdkVersion:'34'", "sdkVersion:'33'"),
+            BADGING.replace("minSdkVersion:'34'", "minSdkVersion:'33'"),
             BADGING.replace("targetSdkVersion:'36'", "targetSdkVersion:'35'"),
             BADGING.replace("versionCode='210'", "versionCode='0'"),
             BADGING.replace("com.hexnext.themer.MainActivity", "com.other.Activity"),
