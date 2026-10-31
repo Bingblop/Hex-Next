@@ -57,8 +57,10 @@ import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.MonetPalette
+import com.hexnext.themer.theme.OneUi9SettingsIcon
 import com.hexnext.themer.theme.PackedAppOverlay
 import com.hexnext.themer.theme.PaletteStyle
+import com.hexnext.themer.theme.SettingsIconStyle
 import com.hexnext.themer.theme.ToneGroup
 import com.hexnext.themer.theme.parseHexColor
 import com.hexnext.themer.theme.toHex
@@ -109,6 +111,17 @@ fun MainScreen(viewModel: MainViewModel) {
                     pureBlack = ui.spec.pureBlack,
                     onPureBlack = viewModel::setPureBlack,
                     pureBlackAvailable = ready?.isPrivileged == true,
+                )
+            }
+            item {
+                SettingsIconsCustomizationCard(
+                    palette = ui.palette,
+                    onStyleChange = viewModel::setSettingsIconStyle,
+                    onFramelessChange = viewModel::setFramelessIcons,
+                    onLargeIconsChange = viewModel::setLargeSettingsIcons,
+                    onHideEmailChange = viewModel::setHideAccountEmail,
+                    onUseLogoChange = viewModel::setUseAboutLogo,
+                    onShowDividersChange = viewModel::setShowListDividers,
                 )
             }
             item {
@@ -301,6 +314,115 @@ private fun StyleCard(
             }
             Switch(checked = pureBlack, onCheckedChange = onPureBlack, enabled = pureBlackAvailable)
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsIconsCustomizationCard(
+    palette: MonetPalette,
+    onStyleChange: (SettingsIconStyle) -> Unit,
+    onFramelessChange: (Boolean) -> Unit,
+    onLargeIconsChange: (Boolean) -> Unit,
+    onHideEmailChange: (Boolean) -> Unit,
+    onUseLogoChange: (Boolean) -> Unit,
+    onShowDividersChange: (Boolean) -> Unit,
+) {
+    val spec = palette.spec
+    SectionCard("26 SecSettings Dashboard Icons (Niferpitou One UI 9.0)") {
+        Text(
+            "Rebuilt from project.vivid.ui.plugin.niferpitou (anaconda_tints/settingsicon-*) into com.hexnext.oneui9.rro.settings & HexNextSettingsIcons26 (> SemWT_com.android.settings).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsIconStyle.entries.forEach { option ->
+                FilterChip(
+                    selected = option == spec.settingsIconStyle,
+                    onClick = { onStyleChange(option) },
+                    label = { Text(option.label) },
+                )
+            }
+        }
+        SettingToggleRow(
+            title = "Remove Dashboard Icons Frame (settframe)",
+            subtitle = "Uses ${spec.settingsIconStyle.framelessFolder} vector drawables",
+            checked = spec.framelessIcons,
+            onCheckedChange = onFramelessChange,
+        )
+        SettingToggleRow(
+            title = "Large Settings Dashboard Icons (bigsetico)",
+            subtitle = "Enlarges SecSettings category icons from 28dp to 36dp",
+            checked = spec.largeSettingsIcons,
+            onCheckedChange = onLargeIconsChange,
+        )
+        SettingToggleRow(
+            title = "Hide Account Email on Dashboard (hidemail)",
+            subtitle = "Masks Samsung Account email subtitle in top SecSettings header",
+            checked = spec.hideAccountEmail,
+            onCheckedChange = onHideEmailChange,
+        )
+        SettingToggleRow(
+            title = "Use Custom About Phone Logo (uselogo)",
+            subtitle = "Displays Terpsichora custom graphic header inside About Phone",
+            checked = spec.useAboutLogo,
+            onCheckedChange = onUseLogoChange,
+        )
+        SettingToggleRow(
+            title = "Show Settings List Dividers (uidivider)",
+            subtitle = "Renders 1dp list dividers between SecSettings preference rows",
+            checked = spec.showListDividers,
+            onCheckedChange = onShowDividersChange,
+        )
+        Text(
+            "26 Resolved Category Icon Tints (${if (spec.largeSettingsIcons) 36 else 28}dp):",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            OneUi9SettingsIcon.ALL_26_ICONS.forEach { icon ->
+                val fgArgb = icon.resolveForegroundColor(palette)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(fgArgb))
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(icon.title, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

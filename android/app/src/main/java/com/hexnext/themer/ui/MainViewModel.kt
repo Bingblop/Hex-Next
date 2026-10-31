@@ -12,6 +12,7 @@ import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.MonetPalette
 import com.hexnext.themer.theme.PackedAppOverlay
 import com.hexnext.themer.theme.PaletteStyle
+import com.hexnext.themer.theme.SettingsIconStyle
 import com.hexnext.themer.theme.ThemeEngine
 import com.hexnext.themer.theme.ThemeSpec
 import com.hexnext.themer.theme.formatOneUi
@@ -51,10 +52,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun initialState(): UiState {
         val style = runCatching { PaletteStyle.valueOf(prefs.getString(PREF_STYLE, null)!!) }
             .getOrDefault(PaletteStyle.TONAL_SPOT)
+        val iconStyle = SettingsIconStyle.fromId(prefs.getString(PREF_ICON_STYLE, "1sett"))
         val spec = ThemeSpec(
             seed = prefs.getInt(PREF_SEED, DEFAULT_SEED),
             style = style,
             pureBlack = prefs.getBoolean(PREF_PURE_BLACK, true),
+            settingsIconStyle = iconStyle,
+            framelessIcons = prefs.getBoolean(PREF_SETTFRAME, false),
+            largeSettingsIcons = prefs.getBoolean(PREF_BIGSETICO, false),
+            hideAccountEmail = prefs.getBoolean(PREF_HIDEMAIL, false),
+            useAboutLogo = prefs.getBoolean(PREF_USELOGO, true),
+            showListDividers = prefs.getBoolean(PREF_UIDIVIDER, true),
         )
         return UiState(spec = spec, palette = MonetPalette.generate(spec))
     }
@@ -62,6 +70,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setSeed(color: Int) = updateSpec { it.copy(seed = color or 0xFF000000.toInt()) }
     fun setStyle(style: PaletteStyle) = updateSpec { it.copy(style = style) }
     fun setPureBlack(enabled: Boolean) = updateSpec { it.copy(pureBlack = enabled) }
+    fun setSettingsIconStyle(style: SettingsIconStyle) = updateSpec { it.copy(settingsIconStyle = style) }
+    fun setFramelessIcons(enabled: Boolean) = updateSpec { it.copy(framelessIcons = enabled) }
+    fun setLargeSettingsIcons(enabled: Boolean) = updateSpec { it.copy(largeSettingsIcons = enabled) }
+    fun setHideAccountEmail(enabled: Boolean) = updateSpec { it.copy(hideAccountEmail = enabled) }
+    fun setUseAboutLogo(enabled: Boolean) = updateSpec { it.copy(useAboutLogo = enabled) }
+    fun setShowListDividers(enabled: Boolean) = updateSpec { it.copy(showListDividers = enabled) }
+
+    fun setPerIconColor(iconId: String, color: Int?) = updateSpec { current ->
+        val updated = current.perIconColors.toMutableMap()
+        if (color != null) updated[iconId] = color or 0xFF000000.toInt()
+        else updated.remove(iconId)
+        current.copy(perIconColors = updated)
+    }
+
+    fun resetPerIconColors() = updateSpec { it.copy(perIconColors = emptyMap()) }
 
     fun toggleTarget(id: String) {
         _ui.update { state ->
@@ -77,6 +100,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .putInt(PREF_SEED, spec.seed)
             .putString(PREF_STYLE, spec.style.name)
             .putBoolean(PREF_PURE_BLACK, spec.pureBlack)
+            .putString(PREF_ICON_STYLE, spec.settingsIconStyle.id)
+            .putBoolean(PREF_SETTFRAME, spec.framelessIcons)
+            .putBoolean(PREF_BIGSETICO, spec.largeSettingsIcons)
+            .putBoolean(PREF_HIDEMAIL, spec.hideAccountEmail)
+            .putBoolean(PREF_USELOGO, spec.useAboutLogo)
+            .putBoolean(PREF_UIDIVIDER, spec.showListDividers)
             .apply()
         _ui.update { it.copy(spec = spec, palette = MonetPalette.generate(spec)) }
     }
@@ -139,6 +168,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val PREF_SEED = "seed"
         private const val PREF_STYLE = "style"
         private const val PREF_PURE_BLACK = "pure_black"
+        private const val PREF_ICON_STYLE = "settings_icon_style"
+        private const val PREF_SETTFRAME = "settframe"
+        private const val PREF_BIGSETICO = "bigsetico"
+        private const val PREF_HIDEMAIL = "hidemail"
+        private const val PREF_USELOGO = "uselogo"
+        private const val PREF_UIDIVIDER = "uidivider"
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
 
         val androidVersion: String get() = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"

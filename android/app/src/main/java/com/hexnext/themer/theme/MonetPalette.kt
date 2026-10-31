@@ -54,11 +54,47 @@ enum class ToneGroup(val resourcePrefix: String, val label: String) {
     NEUTRAL2("system_neutral2", "Neutral variant"),
 }
 
+/**
+ * Settings dashboard icon tint styles extracted from Niferpitou (`project.vivid.ui.plugin.niferpitou`
+ * `assets/anaconda_tints/once/base/lxx1/settingsicon-*` and `assets/extra.preferences`).
+ */
+enum class SettingsIconStyle(
+    val id: String,
+    val label: String,
+    val assetFolder: String,
+    val framelessFolder: String,
+) {
+    STYLE_1SETT("1sett", "Primary Tint (1sett)", "settingsicon-1sett", "settingsicon-1sett_frameless"),
+    STYLE_2SETT("2sett", "Secondary Tint (2sett)", "settingsicon-2sett", "settingsicon-2sett_frameless"),
+    STYLE_3SETT("3sett", "OG Multi-Tone (3sett)", "settingsicon-3sett", "settingsicon-3sett_frameless"),
+    STYLE_ALT_1SETT("alt_1sett", "Duotone Primary+Accent (alt_1sett)", "settingsicon-alt_1sett", "settingsicon-alt_1sett_frameless"),
+    STYLE_ALT_2SETT("alt_2sett", "Duotone Accent+Primary (alt_2sett)", "settingsicon-alt_2sett", "settingsicon-alt_2sett_frameless");
+
+    companion object {
+        fun fromId(id: String?): SettingsIconStyle =
+            entries.firstOrNull { it.id == id } ?: STYLE_1SETT
+    }
+}
+
 data class ThemeSpec(
     val seed: Int,
     val style: PaletteStyle,
     /** Paints dark-theme backgrounds pure black, for AMOLED screens. */
     val pureBlack: Boolean,
+    /** Niferpitou 26 SecSettings dashboard icon style (`1sett`, `2sett`, `3sett`, `alt_1sett`, `alt_2sett`). */
+    val settingsIconStyle: SettingsIconStyle = SettingsIconStyle.STYLE_1SETT,
+    /** Removes dashboard icon squircle frame (`settframe` -> `settingsicon-*_frameless`). */
+    val framelessIcons: Boolean = false,
+    /** Enlarges SecSettings category icons from 28dp to 36dp (`bigsetico`). */
+    val largeSettingsIcons: Boolean = false,
+    /** Masks Samsung Account email address in top SecSettings header (`hidemail`). */
+    val hideAccountEmail: Boolean = false,
+    /** Displays Terpsichora custom graphic header inside About Phone (`uselogo`). */
+    val useAboutLogo: Boolean = true,
+    /** Renders subtle 1dp list dividers between preference rows (`uidivider`). */
+    val showListDividers: Boolean = true,
+    /** Per-icon custom color overrides keyed by icon ID (`connections`, `display`, etc.). */
+    val perIconColors: Map<String, Int> = emptyMap(),
 )
 
 /** One fabricated-overlay value: `<package>:color/<name>` = [argb]. */

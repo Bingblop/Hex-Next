@@ -184,7 +184,7 @@ function generateMonetPalette(seedHex, styleId = "TONAL_SPOT", pureBlack = true)
   };
 }
 
-function resolveSettingsDashboardIcons(spec) {
+function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
   const seed = String(spec.accent || "#00E5FF").toUpperCase();
   const secondary = String(spec.secondary || "#7C4DFF").toUpperCase();
   const card = String(spec.card || "#121724").toUpperCase();
@@ -202,9 +202,12 @@ function resolveSettingsDashboardIcons(spec) {
     SETTINGS_ICON_STYLES.find((s) => s.id === iconStyle) || SETTINGS_ICON_STYLES[0];
   const activeFolder = settframe ? styleMeta.frameless_folder : styleMeta.asset_folder;
   const iconDp = bigsetico ? 36 : 28;
+  const isDuotone = iconStyle === "alt_1sett" || iconStyle === "alt_2sett";
 
   const resolvedIcons = SETTINGS_DASHBOARD_ICONS.map((ic) => {
-    const customHex = perIconColors[ic.id];
+    const tokenName = `${ic.res_name}_tint`;
+    const overrideKey = `com.android.settings:${tokenName}`;
+    const customHex = perIconColors[ic.id] || customOverrides[overrideKey];
     let fgColor;
     let badgeColor;
     if (customHex) {
@@ -228,12 +231,14 @@ function resolveSettingsDashboardIcons(spec) {
     }
 
     const cleanFg = fgColor.replace(/^#/, "");
+    const cleanBadge = badgeColor.replace(/^#/, "");
     const frameBg = settframe ? "transparent" : `#1F${cleanFg}`;
     const frameBorder = settframe ? "transparent" : `#4D${cleanFg}`;
 
     let vectorXml =
       '<?xml version="1.0" encoding="utf-8"?>\n' +
       `<!-- Rebuilt from project.vivid.ui.plugin.niferpitou (${activeFolder}/${ic.res_name}.png) for One UI 9.0 -->\n` +
+      `<!-- Target: com.android.settings:drawable/${ic.res_name} | Tint Token: @color/${tokenName} (${fgColor}) -->\n` +
       '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n' +
       `    android:width="${iconDp}dp"\n` +
       `    android:height="${iconDp}dp"\n` +
@@ -243,11 +248,22 @@ function resolveSettingsDashboardIcons(spec) {
     if (!settframe) {
       vectorXml +=
         "    <path\n" +
-        `        android:fillColor="#26${cleanFg}"\n` +
+        `        android:name="squircle_container"\n` +
+        `        android:fillColor="#26${isDuotone ? cleanBadge : cleanFg}"\n` +
+        `        android:strokeColor="#4D${isDuotone ? cleanBadge : cleanFg}"\n` +
+        '        android:strokeWidth="0.75"\n' +
         '        android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />\n';
+    }
+    if (isDuotone) {
+      vectorXml +=
+        "    <path\n" +
+        '        android:name="duotone_accent_glow"\n' +
+        `        android:fillColor="#33${cleanBadge}"\n` +
+        '        android:pathData="M12,6a6,6 0 1,0 0,12a6,6 0 1,0 0,-12z" />\n';
     }
     vectorXml +=
       "    <path\n" +
+      '        android:name="icon_glyph"\n' +
       '        android:strokeWidth="2.0"\n' +
       '        android:strokeLineCap="round"\n' +
       '        android:strokeLineJoin="round"\n' +
@@ -258,6 +274,7 @@ function resolveSettingsDashboardIcons(spec) {
 
     return {
       ...ic,
+      token_name: tokenName,
       fg_color: fgColor,
       badge_color: badgeColor,
       frame_bg: frameBg,
@@ -272,11 +289,33 @@ function resolveSettingsDashboardIcons(spec) {
 
   const dimensXml =
     '<?xml version="1.0" encoding="utf-8"?>\n' +
+    "<!-- One UI 9.0 SecSettings Dashboard Icon & Divider Dimensions (Niferpitou extra.preferences) -->\n" +
     "<resources>\n" +
     `    <dimen name="sec_dashboard_tile_image_size">${iconDp}.0dip</dimen>\n` +
     `    <dimen name="sec_dashboard_tile_image_padding">${settframe ? "0.0dip" : "6.0dip"}</dimen>\n` +
     `    <dimen name="sec_widget_list_divider_height">${uidivider ? "1.0dip" : "0.0dip"}</dimen>\n` +
+    `    <dimen name="sec_account_email_text_height">${hidemail ? "0.0dip" : "18.0dip"}</dimen>\n` +
     "</resources>\n";
+
+  const boolsXml =
+    '<?xml version="1.0" encoding="utf-8"?>\n' +
+    "<resources>\n" +
+    `    <bool name="sec_settings_show_custom_about_logo">${uselogo ? "true" : "false"}</bool>\n` +
+    `    <bool name="sec_settings_hide_account_email">${hidemail ? "true" : "false"}</bool>\n` +
+    `    <bool name="sec_settings_frameless_dashboard_icons">${settframe ? "true" : "false"}</bool>\n` +
+    "</resources>\n";
+
+  const owner = (spec.privilege_uid ?? 1000) === 1000 ? "android" : "com.android.shell";
+  const iconFabArgs = resolvedIcons.map((ic) => {
+    const argbHex = "0xff" + ic.fg_color.replace(/^#/, "").toLowerCase();
+    return `com.android.settings:color/${ic.token_name} 0x1c ${argbHex}`;
+  });
+  const fabricateIconsCmd =
+    `cmd overlay fabricate --target com.android.settings --name HexNextSettingsIcons26 ` +
+    iconFabArgs.join(" ");
+  const enableIconsCmd =
+    `cmd overlay enable --user 0 ${owner}:HexNextSettingsIcons26 && ` +
+    `cmd overlay set-priority --user 0 ${owner}:HexNextSettingsIcons26 highest`;
 
   return {
     style_id: iconStyle,
@@ -289,6 +328,10 @@ function resolveSettingsDashboardIcons(spec) {
     uidivider,
     icon_size_dp: iconDp,
     dimens_xml: dimensXml,
+    bools_xml: boolsXml,
+    fabricate_command: fabricateIconsCmd,
+    enable_command: enableIconsCmd,
+    overlay_identifier: `${owner}:HexNextSettingsIcons26`,
     card_bg: card,
     icons: resolvedIcons,
   };
@@ -314,6 +357,8 @@ function resolveOverlayTokens(spec, customOverrides = {}) {
   const settingsIconFrame = settframe ? "#000000" : surface;
   const settingsDivider = uidivider ? surface : card;
   const settingsEmail = hidemail ? card : "#94A3B8";
+
+  const settingsIconsBundle = resolveSettingsDashboardIcons(spec, customOverrides);
 
   const monet = generateMonetPalette(
     seed,
@@ -366,6 +411,25 @@ function resolveOverlayTokens(spec, customOverrides = {}) {
       fabArgs.push(`${item.target_package}:color/${res.name} ${res.type} ${argbHex}`);
     }
 
+    // Integrate all 26 Niferpitou One UI 9.0 SecSettings Dashboard Icon tokens into com.hexnext.oneui9.rro.settings
+    if (item.id === "settings") {
+      for (const ic of settingsIconsBundle.icons) {
+        const argbHex = "0xff" + ic.fg_color.replace(/^#/, "").toLowerCase();
+        resolvedResources.push({
+          name: ic.token_name,
+          full_name: `com.android.settings:color/${ic.token_name}`,
+          type: "0x1c",
+          role: `settings_icon_${ic.id}`,
+          desc: `${ic.title} icon tint (${settingsIconsBundle.active_asset_folder}, ${ic.size_dp}dp)`,
+          value: ic.fg_color,
+          argb: argbHex,
+          icon_id: ic.id,
+          drawable_res: ic.oneui9_drawable,
+        });
+        fabArgs.push(`com.android.settings:color/${ic.token_name} 0x1c ${argbHex}`);
+      }
+    }
+
     const fabCmd =
       `cmd overlay fabricate --target ${item.target_package} ` +
       `--name ${item.fabricated_name} ` +
@@ -410,6 +474,9 @@ function resolveOverlayTokens(spec, customOverrides = {}) {
       enable_command: enableCmd,
       manifest_xml: manifestXml,
       colors_xml: colorsXml,
+      dimens_xml: item.id === "settings" ? settingsIconsBundle.dimens_xml : null,
+      bools_xml: item.id === "settings" ? settingsIconsBundle.bools_xml : null,
+      drawable_count: item.id === "settings" ? settingsIconsBundle.icons.length : (item.id === "systemui" ? 1 : 0),
     };
   });
 }
@@ -561,6 +628,7 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
     }
     if (pkg.id === "settings") {
       files.push({ name: `${folder}/res/values/dimens.xml`, content: settingsIcons.dimens_xml });
+      files.push({ name: `${folder}/res/values/bools.xml`, content: settingsIcons.bools_xml });
       for (const ic of settingsIcons.icons) {
         files.push({ name: `${folder}/res/drawable/${ic.res_name}.xml`, content: ic.vector_xml });
       }
@@ -574,6 +642,15 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
       `cmd overlay set-priority --user 0 ${pkg.system_rro_package} highest 2>/dev/null || true`,
       ""
     );
+
+    if (pkg.id === "settings") {
+      scriptLines.push(
+        `# --- 26 One UI 9.0 SecSettings Dashboard Icons (${settingsIcons.active_asset_folder}, ${settingsIcons.icon_size_dp}dp) ---`,
+        settingsIcons.fabricate_command,
+        settingsIcons.enable_command,
+        ""
+      );
+    }
   }
 
   scriptLines.push(
@@ -718,7 +795,7 @@ function buildFullState() {
   spec.privilege_uid = priv.uid;
   const monet = generateMonetPalette(spec.accent, spec.style, spec.pure_black);
   const compiledPackages = resolveOverlayTokens(spec, RUNTIME_STATE.custom_overrides);
-  const settingsIcons = resolveSettingsDashboardIcons(spec);
+  const settingsIcons = resolveSettingsDashboardIcons(spec, RUNTIME_STATE.custom_overrides);
 
   const owner = priv.owner_package;
   for (const pkg of compiledPackages) {
@@ -741,8 +818,7 @@ function buildFullState() {
   const selectedTokenSum = compiledPackages
     .filter((p) => p.selected)
     .reduce((acc, p) => acc + p.resolved_resources.length, 0);
-  const totalTokens =
-    selectedTokenSum + monet.total_shades + monet.total_roles + settingsIcons.icons.length;
+  const totalTokens = selectedTokenSum + monet.total_shades + monet.total_roles;
 
   const shapeCfg =
     HEX_QS_TOGGLE_SHAPES[spec.tile_shape] || HEX_QS_TOGGLE_SHAPES.squircle;
@@ -996,18 +1072,34 @@ const server = http.createServer(async (req, res) => {
         const icId = data.per_icon_color.id;
         const icHex = data.per_icon_color.color;
         const perMap = tweaks.per_icon_colors || (tweaks.per_icon_colors = {});
+        const iconDef = SETTINGS_DASHBOARD_ICONS.find((i) => i.id === icId);
         if (icId) {
-          if (icHex) perMap[icId] = String(icHex).toUpperCase();
-          else delete perMap[icId];
+          if (icHex) {
+            const upperHex = String(icHex).toUpperCase();
+            perMap[icId] = upperHex;
+            if (iconDef) {
+              RUNTIME_STATE.custom_overrides[`com.android.settings:${iconDef.res_name}_tint`] = upperHex;
+            }
+          } else {
+            delete perMap[icId];
+            if (iconDef) {
+              delete RUNTIME_STATE.custom_overrides[`com.android.settings:${iconDef.res_name}_tint`];
+            }
+          }
         }
       } else if (data.reset_per_icon_colors) {
         tweaks.per_icon_colors = {};
+        for (const ic of SETTINGS_DASHBOARD_ICONS) {
+          delete RUNTIME_STATE.custom_overrides[`com.android.settings:${ic.res_name}_tint`];
+        }
       } else {
         Object.assign(tweaks, data);
       }
-      const settingsIcons = resolveSettingsDashboardIcons(RUNTIME_STATE.spec);
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
+      const settingsIcons = resolveSettingsDashboardIcons(RUNTIME_STATE.spec, RUNTIME_STATE.custom_overrides);
       RUNTIME_STATE.last_build.logs.push(
-        `[*] Updated One UI 9.0 SecSettings Icons & Extra Preferences -> ${settingsIcons.active_asset_folder} (size=${settingsIcons.icon_size_dp}dp, settframe=${settingsIcons.settframe}, hidemail=${settingsIcons.hidemail}, uidivider=${settingsIcons.uidivider})`
+        `[✓] [${nowUtc}] Rebuilt com.hexnext.oneui9.rro.settings + 26 SecSettings Icons -> ${settingsIcons.active_asset_folder} (size=${settingsIcons.icon_size_dp}dp, settframe=${settingsIcons.settframe}, hidemail=${settingsIcons.hidemail}, uidivider=${settingsIcons.uidivider})`
       );
       sendJson(res, buildFullState());
       return;
@@ -1016,8 +1108,19 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/override") {
       const { key, value } = data;
       if (key) {
-        if (value) RUNTIME_STATE.custom_overrides[key] = String(value).toUpperCase();
-        else delete RUNTIME_STATE.custom_overrides[key];
+        const tweaks = RUNTIME_STATE.spec.extra_tweaks || (RUNTIME_STATE.spec.extra_tweaks = {});
+        const perMap = tweaks.per_icon_colors || (tweaks.per_icon_colors = {});
+        const matchedIcon = SETTINGS_DASHBOARD_ICONS.find(
+          (ic) => `com.android.settings:${ic.res_name}_tint` === key
+        );
+        if (value) {
+          const upperVal = String(value).toUpperCase();
+          RUNTIME_STATE.custom_overrides[key] = upperVal;
+          if (matchedIcon) perMap[matchedIcon.id] = upperVal;
+        } else {
+          delete RUNTIME_STATE.custom_overrides[key];
+          if (matchedIcon) delete perMap[matchedIcon.id];
+        }
       }
       sendJson(res, buildFullState());
       return;

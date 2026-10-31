@@ -578,7 +578,7 @@
                         <div id="settings-icons-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[540px] overflow-y-auto pr-1"></div>
                     </div>
 
-                    <!-- Selected Settings Icon VectorDrawable XML Inspector -->
+                    <!-- Selected Settings Icon VectorDrawable XML + RRO Fabrication Inspector -->
                     <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div>
@@ -588,6 +588,17 @@
                             <span id="insp-setting-icon-source" class="font-mono text-[11px] text-slate-400">assets/anaconda_tints/once/base/lxx1/settingsicon-1sett/sec_ic_settings_connections.png</span>
                         </div>
                         <pre id="insp-setting-icon-xml" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-emerald-300 overflow-x-auto"></pre>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <div class="text-[11px] font-mono text-slate-400 mb-1">res/values/dimens.xml &amp; bools.xml (<code class="text-cyan-300">com.hexnext.oneui9.rro.settings</code>)</div>
+                                <pre id="insp-setting-icon-dimens" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-2.5 font-mono text-[10px] text-amber-300 overflow-x-auto max-h-40"></pre>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-mono text-slate-400 mb-1">Fabricated RRO Command (<code class="text-cyan-300">HexNextSettingsIcons26 &gt; SemWT_*</code>)</div>
+                                <pre id="insp-setting-icon-fab" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-2.5 font-mono text-[10px] text-cyan-300 overflow-x-auto max-h-40 whitespace-pre-wrap break-all"></pre>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1351,13 +1362,21 @@
                 `;
             }).join('');
 
-            // 4. Populate VectorDrawable XML Inspector
+            // 4. Populate VectorDrawable XML + RRO Dimens/Fabrication Inspector
             const inspectedIcon = settings_icons.icons.find(i => i.id === INSPECTED_SETTING_ICON_ID) || settings_icons.icons[0];
             if (inspectedIcon) {
-                document.getElementById('insp-setting-icon-drawable').textContent = inspectedIcon.oneui9_drawable;
+                document.getElementById('insp-setting-icon-drawable').textContent = `${inspectedIcon.oneui9_drawable} • @color/${inspectedIcon.token_name || (inspectedIcon.res_name + '_tint')}`;
                 document.getElementById('insp-setting-icon-title').textContent = `${inspectedIcon.title} — One UI 9.0 VectorDrawable XML (${inspectedIcon.size_dp}dp)`;
                 document.getElementById('insp-setting-icon-source').textContent = inspectedIcon.source_asset;
                 document.getElementById('insp-setting-icon-xml').textContent = inspectedIcon.vector_xml;
+            }
+            const dimensBox = document.getElementById('insp-setting-icon-dimens');
+            if (dimensBox) {
+                dimensBox.textContent = `${settings_icons.dimens_xml || ''}\n${settings_icons.bools_xml || ''}`.trim();
+            }
+            const fabBox = document.getElementById('insp-setting-icon-fab');
+            if (fabBox) {
+                fabBox.textContent = `${settings_icons.fabricate_command || ''}\n\n${settings_icons.enable_command || ''}`.trim();
             }
         }
 
@@ -1741,7 +1760,16 @@
 
             document.getElementById('code-manifest-box').textContent = pkg.manifest_xml;
             document.getElementById('code-colors-box').textContent = pkg.colors_xml;
-            document.getElementById('code-drawable-box').textContent = APP_STATE.qs_drawable_xml;
+            if (pkg.id === 'settings' && APP_STATE.settings_icons) {
+                const sampleIcon = APP_STATE.settings_icons.icons[0];
+                document.getElementById('code-drawable-box').textContent =
+                    `/* 26 SecSettings VectorDrawables + dimens.xml + bools.xml (${APP_STATE.settings_icons.active_asset_folder}) */\n\n` +
+                    (APP_STATE.settings_icons.dimens_xml || '') + '\n' +
+                    (APP_STATE.settings_icons.bools_xml || '') + '\n' +
+                    (sampleIcon ? sampleIcon.vector_xml : '');
+            } else {
+                document.getElementById('code-drawable-box').textContent = APP_STATE.qs_drawable_xml;
+            }
 
             const shellLines = [
                 `# Privileged Context: ${APP_STATE.privilege.mode} (UID ${APP_STATE.privilege.uid})`,
@@ -1749,9 +1777,13 @@
                 `# High Contrast Theme Overlays: NOT USED (Pure From-Scratch RROs)`,
                 `# Precedence: priority=10000 (highest > Samsung SemWT_* Overlays)`,
                 ``,
-                ...APP_STATE.packages.filter(p => p.selected).map(p =>
-                    `# ${p.label} (${p.system_rro_package} > ${p.semwt_target || 'SemWT_*'})\n${p.fabricate_command}\n${p.enable_command}\n`
-                )
+                ...APP_STATE.packages.filter(p => p.selected).map(p => {
+                    const baseBlock = `# ${p.label} (${p.system_rro_package} > ${p.semwt_target || 'SemWT_*'})\n${p.fabricate_command}\n${p.enable_command}\n`;
+                    if (p.id === 'settings' && APP_STATE.settings_icons?.fabricate_command) {
+                        return baseBlock + `\n# 26 One UI 9.0 SecSettings Dashboard Icons (${APP_STATE.settings_icons.active_asset_folder}, ${APP_STATE.settings_icons.icon_size_dp}dp)\n${APP_STATE.settings_icons.fabricate_command}\n${APP_STATE.settings_icons.enable_command}\n`;
+                    }
+                    return baseBlock;
+                })
             ];
             document.getElementById('code-shell-box').textContent = shellLines.join('\n');
         }

@@ -58,17 +58,37 @@ class ThemeEngine(private val prefs: SharedPreferences) {
             if (!report(res, log, failLevel = LogLevel.WARN)) {
                 log(LogLine(LogLevel.WARN, "Skipped ${packed.targetPackage} (not installed or resource mismatch)."))
             }
+
+            if (packed.id == "settings") {
+                val spec = palette.spec
+                val activeFolder = if (spec.framelessIcons) spec.settingsIconStyle.framelessFolder else spec.settingsIconStyle.assetFolder
+                val iconDp = if (spec.largeSettingsIcons) 36 else 28
+                val iconEntries = OneUi9SettingsIcon.buildSettingsIconsEntries(palette)
+                log(
+                    LogLine(
+                        LogLevel.INFO,
+                        "Fabricating $SETTINGS_ICONS_OVERLAY (26 SecSettings icons: $activeFolder, ${iconDp}dp, settframe=${spec.framelessIcons}, hidemail=${spec.hideAccountEmail}, uidivider=${spec.showListDividers}) > SemWT_com.android.settings…"
+                    )
+                )
+                val iconRes = service.applyColorOverlay(
+                    SETTINGS_ICONS_OVERLAY,
+                    SETTINGS_TARGET,
+                    iconEntries.names(),
+                    iconEntries.colors()
+                )
+                report(iconRes, log, failLevel = LogLevel.WARN)
+            }
         }
 
         verify(service, shades.first { it.name == "system_accent1_500" }, log)
-        log(LogLine(LogLevel.OK, "From-scratch One UI 9.0 RRO overlays prioritized above SemWT_* (${selectedOverlays.size + 2} layers)."))
+        log(LogLine(LogLevel.OK, "From-scratch One UI 9.0 RRO overlays + 26 SecSettings Icons prioritized above SemWT_* (${selectedOverlays.size + 3} layers)."))
         return true
     }
 
     fun remove(service: IThemeService, isPrivileged: Boolean, log: (LogLine) -> Unit): Boolean {
         var ok = true
         if (isPrivileged) {
-            val allNames = listOf(ROLES_OVERLAY, SHADES_OVERLAY) + PackedAppOverlay.ALL.map { it.overlayName }
+            val allNames = listOf(ROLES_OVERLAY, SHADES_OVERLAY, SETTINGS_ICONS_OVERLAY) + PackedAppOverlay.ALL.map { it.overlayName }
             for (name in allNames) {
                 log(LogLine(LogLevel.INFO, "Removing $name…"))
                 ok = report(service.removeOverlay(name), log, failLevel = LogLevel.WARN) && ok
@@ -112,7 +132,9 @@ class ThemeEngine(private val prefs: SharedPreferences) {
 
     companion object {
         const val TARGET = "android"
+        const val SETTINGS_TARGET = "com.android.settings"
         const val SHADES_OVERLAY = "HexNextMonetShades"
         const val ROLES_OVERLAY = "HexNextMonetRoles"
+        const val SETTINGS_ICONS_OVERLAY = "HexNextSettingsIcons26"
     }
 }

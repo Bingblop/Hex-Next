@@ -57,14 +57,32 @@ data class PackedAppOverlay(
                 "sec_notification_card_bg_color" to cardDark,
                 "status_bar_clock_color" to textPrimary,
             )
-            "settings" -> listOf(
-                "sec_widget_round_and_bgcolor" to cardDark,
-                "sec_dashboard_background_color" to bgDark,
-                "sec_sub_app_bar_background_color" to surfaceDark,
-                "sec_preference_summary_primary_color" to primaryAccent,
-                "sec_switchbar_switch_track_on_color" to primaryAccent,
-                "sec_dashboard_icon_tint_color" to primaryAccent,
-            )
+            "settings" -> {
+                val spec = palette.spec
+                val iconTint = when (spec.settingsIconStyle) {
+                    SettingsIconStyle.STYLE_2SETT, SettingsIconStyle.STYLE_ALT_2SETT -> secondaryAccent
+                    else -> primaryAccent
+                }
+                val iconFrame = if (spec.framelessIcons) 0x00000000 else surfaceDark
+                val dividerColor = if (spec.showListDividers) surfaceDark else cardDark
+                val emailColor = if (spec.hideAccountEmail) cardDark else neutral2[4]
+
+                val baseSettings = listOf(
+                    "sec_widget_round_and_bgcolor" to cardDark,
+                    "sec_dashboard_background_color" to bgDark,
+                    "sec_dashboard_tab_selected_color" to primaryAccent,
+                    "sec_sub_app_bar_background_color" to surfaceDark,
+                    "list_item_background_color" to cardDark,
+                    "sec_dashboard_icon_tint_color" to iconTint,
+                    "sec_dashboard_icon_frame_color" to iconFrame,
+                    "sec_widget_list_divider_color" to dividerColor,
+                    "sec_account_profile_email_text_color" to emailColor,
+                )
+                val iconEntries = OneUi9SettingsIcon.ALL_26_ICONS.map { icon ->
+                    "${icon.resName}_tint" to icon.resolveForegroundColor(palette)
+                }
+                baseSettings + iconEntries
+            }
             "dialer" -> listOf(
                 "dialpad_background_color" to bgDark,
                 "dialpad_primary_text_color" to primaryAccent,
@@ -167,6 +185,110 @@ data class PackedAppOverlay(
             PackedAppOverlay("home", "HexNextOneUI9_OneUIHome", "com.hexnext.oneui9.rro.home", "com.sec.android.app.launcher:SemWT_com.sec.android.app.launcher", "com.sec.android.app.launcher", "One UI Home", "Samsung"),
             PackedAppOverlay("aod", "HexNextOneUI9_AOD", "com.hexnext.oneui9.rro.aodservice", "com.samsung.android.app.aodservice:SemWT_com.samsung.android.app.aodservice", "com.samsung.android.app.aodservice", "Always On Display", "Samsung"),
             PackedAppOverlay("smartcapture", "HexNextOneUI9_SmartCapture", "com.hexnext.oneui9.rro.smartcapture", "com.samsung.android.app.smartcapture:SemWT_com.samsung.android.app.smartcapture", "com.samsung.android.app.smartcapture", "Smart Capture", "Samsung"),
+        )
+    }
+}
+
+/**
+ * All 26 One UI 9.0 SecSettings Dashboard Icons rebuilt from `project.vivid.ui.plugin.niferpitou`
+ * (`assets/anaconda_tints/once/base/lxx1/settingsicon-*/*.png`) as One UI 9.0 VectorDrawables & RRO color tokens.
+ */
+data class OneUi9SettingsIcon(
+    val id: String,
+    val resName: String,
+    val title: String,
+    val subtitle: String,
+    val ogColor: Int,
+    val svgPath: String,
+) {
+    fun resolveForegroundColor(palette: MonetPalette): Int {
+        val spec = palette.spec
+        spec.perIconColors[id]?.let { return it or 0xFF000000.toInt() }
+        val primary = palette.shades.getValue(ToneGroup.ACCENT1)[4]
+        val secondary = palette.shades.getValue(ToneGroup.ACCENT2)[6]
+        return when (spec.settingsIconStyle) {
+            SettingsIconStyle.STYLE_1SETT -> primary
+            SettingsIconStyle.STYLE_2SETT -> secondary
+            SettingsIconStyle.STYLE_3SETT -> ogColor
+            SettingsIconStyle.STYLE_ALT_1SETT -> primary
+            SettingsIconStyle.STYLE_ALT_2SETT -> secondary
+        }
+    }
+
+    fun resolveBadgeColor(palette: MonetPalette): Int {
+        val spec = palette.spec
+        val primary = palette.shades.getValue(ToneGroup.ACCENT1)[4]
+        val secondary = palette.shades.getValue(ToneGroup.ACCENT2)[6]
+        return when (spec.settingsIconStyle) {
+            SettingsIconStyle.STYLE_1SETT -> primary
+            SettingsIconStyle.STYLE_2SETT -> secondary
+            SettingsIconStyle.STYLE_3SETT -> primary
+            SettingsIconStyle.STYLE_ALT_1SETT -> secondary
+            SettingsIconStyle.STYLE_ALT_2SETT -> primary
+        }
+    }
+
+    fun buildVectorDrawableXml(palette: MonetPalette): String {
+        val spec = palette.spec
+        val fgHex = String.format("%06X", resolveForegroundColor(palette) and 0xFFFFFF)
+        val badgeHex = String.format("%06X", resolveBadgeColor(palette) and 0xFFFFFF)
+        val isDuotone = spec.settingsIconStyle == SettingsIconStyle.STYLE_ALT_1SETT ||
+            spec.settingsIconStyle == SettingsIconStyle.STYLE_ALT_2SETT
+        val dp = if (spec.largeSettingsIcons) 36 else 28
+        val activeFolder = if (spec.framelessIcons) spec.settingsIconStyle.framelessFolder else spec.settingsIconStyle.assetFolder
+
+        return buildString {
+            appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
+            appendLine("""<!-- Rebuilt from project.vivid.ui.plugin.niferpitou ($activeFolder/$resName.png) for One UI 9.0 -->""")
+            appendLine("""<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="${dp}dp" android:height="${dp}dp" android:viewportWidth="24" android:viewportHeight="24">""")
+            if (!spec.framelessIcons) {
+                val containerHex = if (isDuotone) badgeHex else fgHex
+                appendLine("""    <path android:fillColor="#26$containerHex" android:strokeColor="#4D$containerHex" android:strokeWidth="0.75" android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />""")
+            }
+            if (isDuotone) {
+                appendLine("""    <path android:fillColor="#33$badgeHex" android:pathData="M12,6a6,6 0 1,0 0,12a6,6 0 1,0 0,-12z" />""")
+            }
+            appendLine("""    <path android:strokeWidth="2.0" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeColor="#$fgHex" android:fillColor="#00000000" android:pathData="$svgPath" />""")
+            appendLine("""</vector>""")
+        }
+    }
+
+    companion object {
+        fun buildSettingsIconsEntries(palette: MonetPalette): List<ColorEntry> =
+            ALL_26_ICONS.map { icon ->
+                ColorEntry(
+                    "com.android.settings:color/${icon.resName}_tint",
+                    icon.resolveForegroundColor(palette)
+                )
+            }
+
+        val ALL_26_ICONS: List<OneUi9SettingsIcon> = listOf(
+            OneUi9SettingsIcon("connections", "sec_ic_settings_connections", "Connections", "Wi-Fi, Bluetooth, NFC, UWB", 0xFF38BDF8.toInt(), "M12 20h.01M8.5 16.5a5 5 0 017 0M5 13a10 10 0 0114 0M2 9.5a15 15 0 0120 0"),
+            OneUi9SettingsIcon("multi_devices", "sec_ic_settings_multi_devices", "Connected devices", "Quick Share, Galaxy Wear, DeX", 0xFF34D399.toInt(), "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"),
+            OneUi9SettingsIcon("modes", "sec_ic_settings_modes", "Modes and Routines", "Sleep, Driving, Work automation", 0xFFA78BFA.toInt(), "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
+            OneUi9SettingsIcon("notifications", "sec_ic_settings_notifications", "Notifications", "App notifications, Brief pop-up", 0xFFFB7185.toInt(), "M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3A6 6 0 006 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"),
+            OneUi9SettingsIcon("sound", "ic_settings_sound", "Sounds and vibration", "Sound mode, Ringtone, Dolby Atmos", 0xFF818CF8.toInt(), "M15.5 8.5a5 5 0 010 7m2.8-9.8a9 9 0 010 12.6M6 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h2l4-4v14l-4-4z"),
+            OneUi9SettingsIcon("display", "ic_settings_display", "Display", "Dark mode, Motion smoothness, Font", 0xFFFBBF24.toInt(), "M12 3v1m0 16v1m9-9h-1M4 12H3m15.4 6.4l-.7-.7M6.3 6.3l-.7-.7m12.8 0l-.7.7M6.3 17.7l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"),
+            OneUi9SettingsIcon("wallpaper", "sec_ic_settings_wallpaper", "Wallpaper and style", "Wallpapers, Color palette (SemWT_*)", 0xFFF472B6.toInt(), "M4 16l4.6-4.6a2 2 0 012.8 0L16 16m-2-2l1.6-1.6a2 2 0 012.8 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"),
+            OneUi9SettingsIcon("themes", "ic_theme", "Themes", "HexNext From-Scratch RROs (> SemWT_*)", 0xFFC084FC.toInt(), "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.3M11 7.3l1.7-1.7a2 2 0 012.8 0l2.8 2.8a2 2 0 010 2.8l-8.5 8.5"),
+            OneUi9SettingsIcon("homescreen", "sec_ic_settings_homescreen", "Home screen", "Layout, Grid 5x6, App icon badges", 0xFF60A5FA.toInt(), "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"),
+            OneUi9SettingsIcon("lockscreen", "sec_ic_settings_lockscreen", "Lock screen and AOD", "Screen lock type, Always On Display", 0xFF2DD4BF.toInt(), "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"),
+            OneUi9SettingsIcon("biometrics", "sec_ic_settings_biometrics_and_security", "Security and privacy", "Biometrics, Auto Blocker, Knox Matrix", 0xFF4ADE80.toInt(), "M9 12l2 2 4-4m5.6-4.4A12 12 0 0012 3a12 12 0 00-8.6 4.6A12 12 0 0012 21a12 12 0 008.6-13.4z"),
+            OneUi9SettingsIcon("location", "ic_settings_location", "Location", "Location permissions, Wi-Fi scanning", 0xFF38BDF8.toInt(), "M17.7 16.7L13.4 21a2 2 0 01-2.8 0l-4.2-4.3a8 8 0 1111.3 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"),
+            OneUi9SettingsIcon("emergency", "sec_ic_settings_emergency", "Safety and emergency", "Medical info, Emergency SOS, Alerts", 0xFFF87171.toInt(), "M12 9v2m0 4h.01m-6.9 4h13.8c1.5 0 2.5-1.7 1.7-3L13.7 4c-.8-1.3-2.7-1.3-3.5 0L3.3 16c-.8 1.3.2 3 1.8 3z"),
+            OneUi9SettingsIcon("accounts", "sec_ic_settings_cloud_and_account", "Accounts and backup", "Manage accounts, Samsung Cloud, Smart Switch", 0xFF60A5FA.toInt(), "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"),
+            OneUi9SettingsIcon("google", "sec_ic_settings_google", "Google", "Google Play services & parental controls", 0xFF93C5FD.toInt(), "M21 12a9 9 0 11-3.2-6.9M21 12h-9"),
+            OneUi9SettingsIcon("advanced", "sec_ic_settings_advanced_feature", "Advanced features", "Labs, S Pen, Multi window, Motions", 0xFFFBBF24.toInt(), "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.3 6.9L21 12l-5.7 2.1L13 21l-2.3-6.9L5 12l5.7-2.1L13 3z"),
+            OneUi9SettingsIcon("wellbeing", "sec_ic_settings_digitalwellbeing", "Digital Wellbeing", "Screen time, App timers, Driving monitor", 0xFF34D399.toInt(), "M4.3 6.3a4.5 4.5 0 016.4 0L12 7.6l1.3-1.3a4.5 4.5 0 116.4 6.4L12 20.4l-7.7-7.7a4.5 4.5 0 010-6.4z"),
+            OneUi9SettingsIcon("devicecare", "sec_ic_settings_devicecare", "Device care", "Storage, Memory, App protection", 0xFF2DD4BF.toInt(), "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),
+            OneUi9SettingsIcon("apps", "ic_settings_applications", "Apps", "Default apps, App management", 0xFF818CF8.toInt(), "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"),
+            OneUi9SettingsIcon("general", "sec_ic_settings_general_device_management", "General management", "Language, Date and time, Samsung Keyboard", 0xFF94A3B8.toInt(), "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"),
+            OneUi9SettingsIcon("accessibility", "ic_settings_accessibility", "Accessibility", "TalkBack, Vision & Hearing enhancements", 0xFF4ADE80.toInt(), "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14v7m-4-5l4-2 4 2"),
+            OneUi9SettingsIcon("software_update", "sec_ic_settings_software_update", "Software update", "Download and install, One UI 9.0", 0xFF38BDF8.toInt(), "M4 4v5h.6m15.4 2A8 8 0 004.6 9m0 0H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"),
+            OneUi9SettingsIcon("remotesupport", "sec_ic_settings_remotesupport", "Tips and user guide", "Remote support, One UI 9.0 changelog", 0xFFFBBF24.toInt(), "M8.2 9c.5-1.2 1.8-2 3.3-2 2 0 3.5 1.3 3.5 3 0 1.4-1 2.2-2.2 2.7-.7.3-1.3.8-1.3 1.6V15m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),
+            OneUi9SettingsIcon("coverscreen", "sec_ic_settings_coverscreen", "Cover screen", "Flex Window widgets & quick settings", 0xFFA78BFA.toInt(), "M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4m6-18h4a2 2 0 012 2v14a2 2 0 01-2 2h-4m-6-18v18m6-18v18"),
+            OneUi9SettingsIcon("battery", "sec_ic_settings_battery", "Battery", "Battery protection, Charging settings", 0xFF4ADE80.toInt(), "M13 10V3L4 14h7v7l9-11h-7z"),
+            OneUi9SettingsIcon("about", "ic_settings_about", "About phone", "SM-S938U • One UI 9.0 • Android 16", 0xFF94A3B8.toInt(), "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),
         )
     }
 }
