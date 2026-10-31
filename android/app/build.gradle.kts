@@ -1,5 +1,6 @@
 import java.io.File
 import java.util.Base64
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -7,20 +8,52 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Helper to resolve signing credentials from environment variables or Gradle properties
-fun Project.resolveSigningCredential(vararg keys: String, defaultValue: String): String {
+// Loads signing credentials provisioned from encrypted GitHub repository secrets (keystore.secrets.properties)
+// without exposing any secret values, aliases, or passwords in Gradle build logs.
+fun Project.loadGitHubSecretsProperties(): Properties {
+    val props = Properties()
+    val secretFiles = listOfNotNull(
+        project.file("keystore.secrets.properties"),
+        rootProject.file("keystore.secrets.properties"),
+        rootProject.projectDir.parentFile?.resolve("android/keystore.secrets.properties"),
+        project.file("keystore.properties"),
+        rootProject.file("keystore.properties")
+    )
+    for (secretFile in secretFiles) {
+        if (secretFile.exists() && secretFile.isFile) {
+            secretFile.inputStream().use { props.load(it) }
+            break
+        }
+    }
+    return props
+}
+
+// Resolves a signing secret from GitHub repository secrets (keystore.secrets.properties or Gradle -P/ORG_GRADLE_PROJECT_ properties),
+// falling back to environment providers or default fallback values without logging secret contents.
+fun Project.resolveSigningSecret(vararg keys: String, defaultValue: String): String {
+    val secretProps = loadGitHubSecretsProperties()
     for (key in keys) {
-        val envVal = System.getenv(key)?.trim()
-        if (!envVal.isNullOrEmpty()) return envVal
-        val propVal = findProperty(key)?.toString()?.trim()
-        if (!propVal.isNullOrEmpty()) return propVal
+        val fromSecretsFile = secretProps.getProperty(key)?.trim()
+        if (!fromSecretsFile.isNullOrEmpty()) return fromSecretsFile
+
+        val fromGradleProp = providers.gradleProperty(key).orNull?.trim()
+            ?: findProperty(key)?.toString()?.trim()
+        if (!fromGradleProp.isNullOrEmpty()) return fromGradleProp
+
+        val fromEnvProvider = providers.environmentVariable(key).orNull?.trim()
+        if (!fromEnvProvider.isNullOrEmpty()) return fromEnvProvider
     }
     return defaultValue
 }
 
-// Helper to locate or materialize the keystore file from CI environment variables
+// Backwards-compatible delegate for resolving signing credentials
+fun Project.resolveSigningCredential(vararg keys: String, defaultValue: String): String =
+    resolveSigningSecret(*keys, defaultValue = defaultValue)
+
+// Locates or materializes the release keystore file from encrypted GitHub repository secrets
+// with restricted owner-only (0600) permissions and zero key/password output in build logs.
 fun Project.resolveKeystoreFile(defaultFallbackName: String = "debug.keystore"): File {
-    val rawPath = resolveSigningCredential(
+    val rawPath = resolveSigningSecret(
         "HEXNEXT_KEYSTORE_PATH",
         "KEYSTORE_PATH",
         "ANDROID_KEYSTORE_PATH",
@@ -28,14 +61,14 @@ fun Project.resolveKeystoreFile(defaultFallbackName: String = "debug.keystore"):
         defaultValue = ""
     )
 
-    val base64Keystore = resolveSigningCredential(
+    val base64Keystore = resolveSigningSecret(
         "HEXNEXT_KEYSTORE_BASE64",
         "KEYSTORE_BASE64",
         "ANDROID_KEYSTORE_BASE64",
         defaultValue = ""
     )
 
-    // 1. If a Base64-encoded keystore secret is provided in CI, materialize it to disk
+    // 1. If a Base64-encoded keystore secret is provided from GitHub Secrets, materialize it with 0600 permissions
     if (base64Keystore.isNotEmpty()) {
         val targetFile = if (rawPath.isNotEmpty()) {
             val candidate = File(rawPath)
@@ -47,11 +80,15 @@ fun Project.resolveKeystoreFile(defaultFallbackName: String = "debug.keystore"):
             targetFile.parentFile?.mkdirs()
             val cleanB64 = base64Keystore.replace("\\s".toRegex(), "")
             targetFile.writeBytes(Base64.getDecoder().decode(cleanB64))
+            targetFile.setReadable(false, false)
+            targetFile.setReadable(true, true)
+            targetFile.setWritable(false, false)
+            targetFile.setWritable(true, true)
         }
         return targetFile
     }
 
-    // 2. If a file path is provided via environment variables or Gradle properties, search candidate roots
+    // 2. If a keystore path secret is configured, search candidate roots silently
     if (rawPath.isNotEmpty()) {
         val directFile = File(rawPath)
         val candidates = listOfNotNull(
@@ -68,7 +105,7 @@ fun Project.resolveKeystoreFile(defaultFallbackName: String = "debug.keystore"):
         return if (directFile.isAbsolute) directFile else project.file(rawPath)
     }
 
-    // 3. Fallback to committed project/repo keystores so local & PR CI builds sign automatically
+    // 3. Fallback to committed project/repo keystores so local & fork PR builds sign automatically
     val fallbackCandidates = listOfNotNull(
         project.file(defaultFallbackName),
         project.file("release.keystore"),
@@ -112,20 +149,20 @@ android {
 
     signingConfigs {
         val resolvedKeystore = project.resolveKeystoreFile("debug.keystore")
-        val resolvedStorePassword = project.resolveSigningCredential(
+        val resolvedStorePassword = project.resolveSigningSecret(
             "HEXNEXT_STORE_PASSWORD",
             "KEYSTORE_PASSWORD",
             "STORE_PASSWORD",
             "ANDROID_STORE_PASSWORD",
             defaultValue = "android"
         )
-        val resolvedKeyAlias = project.resolveSigningCredential(
+        val resolvedKeyAlias = project.resolveSigningSecret(
             "HEXNEXT_KEY_ALIAS",
             "KEY_ALIAS",
             "ANDROID_KEY_ALIAS",
             defaultValue = "androiddebugkey"
         )
-        val resolvedKeyPassword = project.resolveSigningCredential(
+        val resolvedKeyPassword = project.resolveSigningSecret(
             "HEXNEXT_KEY_PASSWORD",
             "KEY_PASSWORD",
             "ANDROID_KEY_PASSWORD",
@@ -181,6 +218,62 @@ android {
         // Material color utilities are marked @RestrictTo but are the reference Monet implementation.
         disable += "RestrictedApi"
     }
+}
+
+// Gradle check task to verify required Android SDK build tools (aapt2, apksigner, zipalign) before building
+val verifyAndroidSdkTools by tasks.registering {
+    group = "verification"
+    description = "Checks that required Android SDK build tools (aapt2, apksigner, zipalign) are present in the environment before building."
+
+    doLast {
+        val sdkRoot = sequenceOf(
+            android.sdkDirectory.takeIf { it.exists() },
+            System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }?.let(::File),
+            System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }?.let(::File)
+        ).filterNotNull().firstOrNull { it.exists() && it.isDirectory }
+            ?: throw GradleException(
+                "Android SDK directory not found. Ensure ANDROID_HOME or ANDROID_SDK_ROOT is set before building."
+            )
+
+        val buildToolsRoot = File(sdkRoot, "build-tools")
+        val buildToolsDirs = buildToolsRoot
+            .takeIf { it.exists() && it.isDirectory }
+            ?.listFiles { file -> file.isDirectory }
+            ?.sortedByDescending { it.name }
+            .orEmpty()
+
+        if (buildToolsDirs.isEmpty()) {
+            throw GradleException(
+                "No Android SDK build-tools versions found under ${buildToolsRoot.absolutePath}."
+            )
+        }
+
+        val requiredTools = listOf("aapt2", "apksigner", "zipalign")
+        val missingTools = mutableListOf<String>()
+
+        for (tool in requiredTools) {
+            val resolvedBinary = buildToolsDirs.firstNotNullOfOrNull { dir ->
+                listOf(tool, "$tool.exe", "$tool.bat")
+                    .map { File(dir, it) }
+                    .firstOrNull { it.exists() && it.isFile }
+            }
+            if (resolvedBinary == null) {
+                missingTools.add(tool)
+            } else {
+                logger.lifecycle("[✓] Gradle verifyAndroidSdkTools: Verified $tool -> ${resolvedBinary.absolutePath}")
+            }
+        }
+
+        if (missingTools.isNotEmpty()) {
+            throw GradleException(
+                "Missing required Android SDK build tools (${missingTools.joinToString(", ")}) in ${buildToolsRoot.absolutePath}."
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "preBuild" || it.name == "check" }.configureEach {
+    dependsOn(verifyAndroidSdkTools)
 }
 
 dependencies {

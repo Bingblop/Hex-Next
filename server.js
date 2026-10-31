@@ -1593,9 +1593,14 @@ function verifyCiCdAndSdkEnvironment() {
   const gradleHasSdk36 =
     gradleContent.includes("compileSdk = 36") && gradleContent.includes("targetSdk = 36");
   const gradleResolvesKeystoreFromEnv =
+    gradleContent.includes("loadGitHubSecretsProperties") &&
+    gradleContent.includes("resolveSigningSecret") &&
     gradleContent.includes("resolveKeystoreFile") &&
     gradleContent.includes("resolveSigningCredential") &&
     keystoreEnvVars.every((envKey) => gradleContent.includes(envKey));
+  const gradleSdkToolsTaskConfigured =
+    gradleContent.includes("val verifyAndroidSdkTools by tasks.registering") &&
+    ["aapt2", "apksigner", "zipalign"].every((tool) => gradleContent.includes(`"${tool}"`));
   const keystoreFilesExist =
     fs.existsSync(debugKeystorePath) &&
     fs.statSync(debugKeystorePath).size > 500 &&
@@ -1609,9 +1614,14 @@ function verifyCiCdAndSdkEnvironment() {
   const ciHasAndroidSdkSetup =
     workflowContent.includes("android-actions/setup-android") &&
     workflowContent.includes("platforms;android-");
-  const ciPassesKeystoreEnv = keystoreEnvVars.every((envKey) =>
-    workflowContent.includes(envKey)
-  );
+  const ciRunsGradleSdkToolsCheckBeforeBuild =
+    workflowContent.includes(":app:verifyAndroidSdkTools") &&
+    workflowContent.indexOf(":app:verifyAndroidSdkTools") <
+      workflowContent.indexOf("assembleDebug assembleRelease");
+  const ciPassesKeystoreEnv =
+    keystoreEnvVars.every((envKey) => workflowContent.includes(envKey)) &&
+    workflowContent.includes("keystore.secrets.properties") &&
+    workflowContent.includes("::add-mask::");
   const ciVerifiesReleaseArtifacts =
     workflowContent.includes("Verify 64-bit & 32-bit Architecture Artifacts Before Release Publish") &&
     workflowContent.includes("softprops/action-gh-release");
@@ -1627,12 +1637,14 @@ function verifyCiCdAndSdkEnvironment() {
     gradleHasUniversal &&
     gradleHasSdk36 &&
     gradleResolvesKeystoreFromEnv &&
+    gradleSdkToolsTaskConfigured &&
     keystoreFilesExist &&
     ciVerifies64Bit &&
     ciVerifies32Bit &&
     ciVerifiesUniversal &&
     ciVerifiesSdkTools &&
     ciHasAndroidSdkSetup &&
+    ciRunsGradleSdkToolsCheckBeforeBuild &&
     ciPassesKeystoreEnv &&
     ciVerifiesReleaseArtifacts &&
     scriptVerifiesSdkAndGradle;
@@ -1641,9 +1653,14 @@ function verifyCiCdAndSdkEnvironment() {
     all_passed: allChecksPassed,
     gradle_64_32_bit_aligned: gradleHas64Bit && gradleHas32Bit && gradleHasUniversal,
     gradle_keystore_env_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
+    gradle_github_secrets_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
+    gradle_sdk_tools_task_configured: gradleSdkToolsTaskConfigured,
     ci_64_32_bit_pipeline_verified: ciVerifies64Bit && ciVerifies32Bit && ciVerifiesUniversal,
     ci_keystore_env_passed: ciPassesKeystoreEnv,
-    sdk_tools_check_present: ciVerifiesSdkTools && ciHasAndroidSdkSetup,
+    ci_secrets_masked_no_log_exposure: ciPassesKeystoreEnv,
+    ci_gradle_sdk_tools_step_present: ciRunsGradleSdkToolsCheckBeforeBuild,
+    sdk_tools_check_present:
+      ciVerifiesSdkTools && ciHasAndroidSdkSetup && ciRunsGradleSdkToolsCheckBeforeBuild,
     release_pipeline_verified: ciVerifiesReleaseArtifacts,
     required_sdk_tools: requiredSdkTools,
     keystore_env_vars: keystoreEnvVars,

@@ -65,18 +65,6 @@ jobs:
     name: "CI Check 2: Android SDK Tools Check & Gradle Build (64-bit & 32-bit • EN Only)"
     needs: verify-oneui9-features
     runs-on: ubuntu-latest
-    env:
-      HEXNEXT_KEYSTORE_PATH: ${{ secrets.HEXNEXT_KEYSTORE_PATH || 'app/debug.keystore' }}
-      KEYSTORE_PATH: ${{ secrets.KEYSTORE_PATH || secrets.HEXNEXT_KEYSTORE_PATH || 'app/debug.keystore' }}
-      ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PATH || secrets.HEXNEXT_KEYSTORE_PATH || 'app/debug.keystore' }}
-      HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 || '' }}
-      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 || secrets.HEXNEXT_KEYSTORE_BASE64 || '' }}
-      HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD || secrets.STORE_PASSWORD || 'android' }}
-      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || secrets.HEXNEXT_STORE_PASSWORD || 'android' }}
-      HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS || secrets.KEY_ALIAS || 'androiddebugkey' }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS || secrets.HEXNEXT_KEY_ALIAS || 'androiddebugkey' }}
-      HEXNEXT_KEY_PASSWORD: ${{ secrets.HEXNEXT_KEY_PASSWORD || secrets.KEY_PASSWORD || 'android' }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.HEXNEXT_KEY_PASSWORD || 'android' }}
     defaults:
       run:
         working-directory: android
@@ -145,34 +133,63 @@ jobs:
             echo "[✓] Verified Android platform-tools: $SDK_ROOT/platform-tools/adb"
           fi
 
-      - name: Resolve & Verify CI Keystore from Environment Variables
+      - name: Provision Secure GitHub Repository Secrets for Gradle Signing (Zero Log Exposure)
         run: |
-          echo "[*] Verifying keystore resolution from environment variables..."
-          KS_PATH="${HEXNEXT_KEYSTORE_PATH:-${KEYSTORE_PATH:-app/debug.keystore}}"
-          if [ -n "${HEXNEXT_KEYSTORE_BASE64:-}" ]; then
-            echo "[*] Decoding HEXNEXT_KEYSTORE_BASE64 to $KS_PATH..."
-            mkdir -p "$(dirname "$KS_PATH")"
-            echo "$HEXNEXT_KEYSTORE_BASE64" | tr -d ' \n\r\t' | base64 -d > "$KS_PATH"
-          elif [ ! -f "$KS_PATH" ]; then
-            echo "[*] Generating deterministic fallback keystore at $KS_PATH..."
-            mkdir -p "$(dirname "$KS_PATH")"
-            keytool -genkeypair -v \
-              -keystore "$KS_PATH" \
-              -storepass "${HEXNEXT_STORE_PASSWORD:-android}" \
-              -alias "${HEXNEXT_KEY_ALIAS:-androiddebugkey}" \
-              -keypass "${HEXNEXT_KEY_PASSWORD:-android}" \
+          set +x
+          echo "[*] Provisioning Gradle signing credentials from encrypted GitHub repository secrets..."
+          umask 077
+
+          SECRET_KS_PATH="${{ secrets.HEXNEXT_KEYSTORE_PATH || secrets.KEYSTORE_PATH || secrets.ANDROID_KEYSTORE_PATH || 'app/debug.keystore' }}"
+          SECRET_KS_B64="${{ secrets.HEXNEXT_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 || '' }}"
+          SECRET_STORE_PASS="${{ secrets.HEXNEXT_STORE_PASSWORD || secrets.STORE_PASSWORD || 'android' }}"
+          SECRET_KEY_ALIAS="${{ secrets.HEXNEXT_KEY_ALIAS || secrets.KEY_ALIAS || 'androiddebugkey' }}"
+          SECRET_KEY_PASS="${{ secrets.HEXNEXT_KEY_PASSWORD || secrets.KEY_PASSWORD || 'android' }}"
+
+          # Explicitly mask all credential values so they can never appear in GitHub Actions logs
+          [ -n "$SECRET_STORE_PASS" ] && echo "::add-mask::$SECRET_STORE_PASS"
+          [ -n "$SECRET_KEY_ALIAS" ] && echo "::add-mask::$SECRET_KEY_ALIAS"
+          [ -n "$SECRET_KEY_PASS" ] && echo "::add-mask::$SECRET_KEY_PASS"
+          [ -n "$SECRET_KS_B64" ] && echo "::add-mask::$SECRET_KS_B64"
+
+          if [ -n "$SECRET_KS_B64" ]; then
+            mkdir -p "$(dirname "$SECRET_KS_PATH")"
+            printf '%s' "$SECRET_KS_B64" | tr -d ' \n\r\t' | base64 -d > "$SECRET_KS_PATH"
+            chmod 600 "$SECRET_KS_PATH"
+          elif [ ! -f "$SECRET_KS_PATH" ]; then
+            mkdir -p "$(dirname "$SECRET_KS_PATH")"
+            keytool -genkeypair \
+              -keystore "$SECRET_KS_PATH" \
+              -storepass "$SECRET_STORE_PASS" \
+              -alias "$SECRET_KEY_ALIAS" \
+              -keypass "$SECRET_KEY_PASS" \
               -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
+              -dname "CN=Android Release,O=HexNext,C=US" >/dev/null 2>&1
+            chmod 600 "$SECRET_KS_PATH"
           fi
-          keytool -list -keystore "$KS_PATH" -storepass "${HEXNEXT_STORE_PASSWORD:-android}" -alias "${HEXNEXT_KEY_ALIAS:-androiddebugkey}" >/dev/null
-          echo "[✓] Verified CI keystore file ($KS_PATH) & alias (${HEXNEXT_KEY_ALIAS:-androiddebugkey}) for automatic Gradle release signing"
+
+          # Write restricted (0600) keystore.secrets.properties consumed by loadGitHubSecretsProperties() in build.gradle.kts
+          cat > keystore.secrets.properties <<EOF
+          HEXNEXT_KEYSTORE_PATH=$SECRET_KS_PATH
+          KEYSTORE_PATH=$SECRET_KS_PATH
+          ANDROID_KEYSTORE_PATH=$SECRET_KS_PATH
+          HEXNEXT_STORE_PASSWORD=$SECRET_STORE_PASS
+          STORE_PASSWORD=$SECRET_STORE_PASS
+          HEXNEXT_KEY_ALIAS=$SECRET_KEY_ALIAS
+          KEY_ALIAS=$SECRET_KEY_ALIAS
+          HEXNEXT_KEY_PASSWORD=$SECRET_KEY_PASS
+          KEY_PASSWORD=$SECRET_KEY_PASS
+          EOF
+          chmod 600 keystore.secrets.properties
+
+          keytool -list -keystore "$SECRET_KS_PATH" -storepass "$SECRET_STORE_PASS" -alias "$SECRET_KEY_ALIAS" >/dev/null 2>&1
+          echo "[✓] Provisioned encrypted GitHub repository signing secrets into restricted keystore.secrets.properties (0600, masked)"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & Keystore Gradle Configuration
+      - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & GitHub Secrets Signing Configuration
         run: |
-          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI, SDK 36 & env-based keystore signing..."
+          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI, SDK 36 & GitHub Secrets signing..."
           grep -q 'compileSdk = 36' app/build.gradle.kts
           grep -q 'targetSdk = 36' app/build.gradle.kts
           grep -q 'minSdk = 34' app/build.gradle.kts
@@ -181,6 +198,8 @@ jobs:
           grep -q 'abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'isUniversalApk = true' app/build.gradle.kts
+          grep -q 'loadGitHubSecretsProperties' app/build.gradle.kts
+          grep -q 'resolveSigningSecret' app/build.gradle.kts
           grep -q 'resolveKeystoreFile' app/build.gradle.kts
           grep -q 'HEXNEXT_KEYSTORE_PATH' app/build.gradle.kts
           grep -q 'KEYSTORE_PATH' app/build.gradle.kts
@@ -188,13 +207,25 @@ jobs:
           grep -q 'enableV1Signing = true' app/build.gradle.kts
           grep -q 'enableV2Signing = true' app/build.gradle.kts
           grep -q 'enableV3Signing = true' app/build.gradle.kts
-          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK & Env Keystore V1/V2/V3 Signing in build.gradle.kts"
+          grep -q 'verifyAndroidSdkTools' app/build.gradle.kts
+          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK & GitHub Secrets V1/V2/V3 Signing in build.gradle.kts"
+
+      - name: Run Gradle Check Task to Verify Required Android SDK Tools (aapt2, apksigner, zipalign)
+        run: |
+          echo "[*] Executing Gradle check task (:app:verifyAndroidSdkTools) to verify aapt2, apksigner, and zipalign..."
+          ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools
 
       - name: Run Android Unit Tests
-        run: ./gradlew --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon --console=plain testDebugUnitTest
 
       - name: Assemble & Sign Universal + 64-bit & 32-bit ABI Split APKs (Debug & Release)
-        run: ./gradlew --no-daemon assembleDebug assembleRelease
+        run: ./gradlew --no-daemon --console=plain assembleDebug assembleRelease
+
+      - name: Clean Up Temporary GitHub Signing Secrets
+        if: always()
+        run: |
+          rm -f keystore.secrets.properties app/keystore.secrets.properties app/build/keystore/ci-release.keystore
+          echo "[✓] Removed temporary CI signing secrets file"
 
       - name: Verify & Collect Signed 64-bit, 32-bit & Universal APKs
         run: |

@@ -20,3 +20,10 @@ daemon.log
 !android/gradle/wrapper/gradle-wrapper.jar
 !android/app/debug.keystore
 !bin/release.keystore
+
+# Never commit CI signing secret property files materialized from GitHub repository secrets.
+*.secrets.properties
+keystore.properties
+android/keystore.secrets.properties
+android/app/keystore.secrets.properties
+
