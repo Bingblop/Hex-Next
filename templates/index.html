@@ -604,28 +604,32 @@
             </div>
         </div>
 
-        <!-- ======================= TAB 3: FROM-SCRATCH RRO MATRIX (18 TARGETS + STATUS ICONS) ======================= -->
+        <!-- ======================= TAB 3: FROM-SCRATCH RRO MATRIX (18 TARGETS + STATUS ICONS + HIGH-FREQ FILTER) ======================= -->
         <div id="view-matrix" class="hidden space-y-5">
             <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h2 class="font-display font-bold text-lg text-white">One UI 9.0 From-Scratch RRO Matrix (Precedence &gt; <code class="font-mono text-cyan-300">SemWT_*</code>)</h2>
                     <p class="text-xs text-slate-400">
-                        Builds standalone <code class="font-mono text-slate-200">com.hexnext.oneui9.rro.*</code> packages with <code class="font-mono text-cyan-300">priority=10000</code> above Samsung's modern <code class="font-mono text-cyan-300">SemWT_*</code> overlays. Status icons indicate live <code class="font-mono text-emerald-400">STATE_ENABLED</code> vs <code class="font-mono text-rose-400">COMPILE_FAILED</code>.
+                        Builds standalone <code class="font-mono text-slate-200">com.hexnext.oneui9.rro.*</code> packages with <code class="font-mono text-cyan-300">priority=10000</code> above Samsung's modern <code class="font-mono text-cyan-300">SemWT_*</code> overlays. Status icons &amp; real-time telemetry highlight high-frequency <code class="font-mono text-amber-300">idmap2</code> compilation failures.
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2.5">
-                    <!-- Status Filter Bar with Status Icons -->
-                    <div class="flex items-center bg-[#131926] p-1 rounded-lg border border-[#263248] text-xs font-mono">
+                    <!-- Status Filter Bar with Status Icons + High-Frequency Failure Filter -->
+                    <div class="flex flex-wrap items-center bg-[#131926] p-1 rounded-lg border border-[#263248] text-xs font-mono gap-0.5">
                         <button onclick="setMatrixStatusFilter('all')" id="matrix-filter-all" class="px-2.5 py-1 rounded bg-[#1E293B] text-white cursor-pointer">
                             All (<span id="count-all">18</span>)
                         </button>
                         <button onclick="setMatrixStatusFilter('active')" id="matrix-filter-active" class="px-2.5 py-1 rounded text-emerald-400 hover:bg-[#1E293B]/60 flex items-center gap-1 cursor-pointer">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Active (<span id="count-active">16</span>)</span>
+                            <span>Active (<span id="count-active">14</span>)</span>
                         </button>
                         <button onclick="setMatrixStatusFilter('failed')" id="matrix-filter-failed" class="px-2.5 py-1 rounded text-rose-400 hover:bg-[#1E293B]/60 flex items-center gap-1 cursor-pointer">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                            <span>Failed (<span id="count-failed">0</span>)</span>
+                            <span>Failed (<span id="count-failed">2</span>)</span>
+                        </button>
+                        <button onclick="setMatrixStatusFilter('high_freq')" id="matrix-filter-high_freq" class="px-2.5 py-1 rounded text-amber-300 hover:bg-amber-500/15 flex items-center gap-1 cursor-pointer border border-transparent">
+                            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <span>High-Freq (<span id="count-high-freq">2</span>)</span>
                         </button>
                         <button onclick="setMatrixStatusFilter('disabled')" id="matrix-filter-disabled" class="px-2.5 py-1 rounded text-slate-400 hover:bg-[#1E293B]/60 flex items-center gap-1 cursor-pointer">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -636,6 +640,135 @@
                     <input type="text" id="matrix-search" oninput="renderMatrix()" placeholder="Search RRO, SemWT_*, or token..." class="bg-[#131926] border border-[#263248] rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 w-60">
                 </div>
             </div>
+
+            <!-- Real-Time High-Frequency Compilation Failure Filter & Triage Bar -->
+            <div id="matrix-high-freq-banner" class="bg-[#0D111A] border border-amber-500/40 rounded-xl p-3.5 space-y-3 transition-all shadow-lg shadow-amber-950/10">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="flex items-center gap-2">
+                            <span id="hf-status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                            <h3 class="font-display font-bold text-xs uppercase tracking-wider text-amber-200 flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                <span>Real-Time High-Frequency Compilation Failure Monitor</span>
+                            </h3>
+                        </div>
+                        <span id="hf-summary-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/40 font-semibold">
+                            2 High-Freq RROs Need Immediate Repair
+                        </span>
+                        <span id="hf-fault-sum-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                            7 Total Faults
+                        </span>
+                        <span id="hf-peak-rate-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-[#131926] text-slate-300 border border-[#263248]">
+                            Peak Fail Rate: 80%
+                        </span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Real-Time Threshold Selector -->
+                        <label class="flex items-center gap-1.5 bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1 text-[11px] font-mono text-slate-300">
+                            <span class="text-slate-400">Threshold:</span>
+                            <select id="matrix-hf-threshold" onchange="setHighFreqThreshold(this.value)" class="bg-transparent text-amber-300 font-semibold focus:outline-none cursor-pointer">
+                                <option value="2" selected>&ge; 2 Faults (Default)</option>
+                                <option value="3">&ge; 3 Faults (Critical)</option>
+                                <option value="4">&ge; 4 Faults (Severe)</option>
+                                <option value="rate50">&ge; 50% Fail Rate</option>
+                            </select>
+                        </label>
+
+                        <!-- Highlight High-Freq Toggle -->
+                        <button id="btn-hf-highlight" onclick="toggleHighFreqHighlight()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all">
+                            <span id="dot-hf-highlight" class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span>Highlight High-Freq</span>
+                        </button>
+
+                        <!-- Pin High-Freq to Top Toggle -->
+                        <button id="btn-hf-pin-top" onclick="toggleHighFreqPinTop()" class="px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all">
+                            <span>Pin High-Freq First</span>
+                        </button>
+
+                        <!-- Isolate High-Freq Only Filter Toggle -->
+                        <button id="btn-hf-isolate" onclick="toggleIsolateHighFreq()" class="px-2.5 py-1 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-amber-300 font-mono text-[11px] flex items-center gap-1 cursor-pointer transition-all">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                            <span id="label-hf-isolate">Isolate High-Freq Only</span>
+                        </button>
+
+                        <!-- Repair All High-Freq RROs Button -->
+                        <button id="btn-repair-high-freq" onclick="repairHighFreqOverlays()" class="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <span>Repair High-Freq RROs</span>
+                        </button>
+
+                        <!-- Simulate High-Freq Spike Button -->
+                        <button onclick="simulateHighFreqSpike()" class="px-2.5 py-1 rounded-lg bg-[#131926] hover:bg-rose-950/60 border border-rose-500/30 text-rose-300 font-mono text-[11px] cursor-pointer" title="Inject a 3x idmap2 compilation failure burst to test real-time high-frequency detection">
+                            Simulate 3x Fault Spike
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Triage Chips for High-Frequency RROs -->
+                <div id="hf-quick-chips" class="flex flex-wrap items-center gap-2 pt-1 border-t border-[#1E2738]/80"></div>
+            </div>
+
+            <!-- Shizuku / UID 0 Multi-Select Batch Repair & Sequential Recompile Control Bar -->
+            <div id="matrix-batch-repair-bar" class="bg-[#0D111A] border border-cyan-500/40 rounded-xl p-4 space-y-3 shadow-lg shadow-cyan-950/10">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 flex items-center justify-center font-mono text-xs font-bold">0</span>
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="font-display font-bold text-xs uppercase tracking-wider text-white">Shizuku / UID 0 Batch Repair &amp; Sequential Recompile</h3>
+                                    <span id="batch-selected-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 font-semibold">
+                                        2 Failed RROs Selected
+                                    </span>
+                                    <span class="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                        UID 0 (root) • Clear idmap2 + Sequential Build
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-400 font-mono mt-0.5">
+                                    Select multiple failed RROs below to sequentially purge stale <code class="text-amber-300">/data/resource-cache/*.{idmap,frro}</code> locks and rebuild at <code class="text-cyan-300">priority=10000 (&gt; SemWT_*)</code>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="selectAllFailedForBatch()" class="px-2.5 py-1.5 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-rose-300 font-mono text-[11px] cursor-pointer transition-colors">
+                            Select All Failed (<span id="batch-count-failed-btn">2</span>)
+                        </button>
+                        <button onclick="selectHighFreqForBatch()" class="px-2.5 py-1.5 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-amber-300 font-mono text-[11px] cursor-pointer transition-colors">
+                            Select High-Freq (<span id="batch-count-hf-btn">2</span>)
+                        </button>
+                        <button onclick="clearBatchSelection()" class="px-2.5 py-1.5 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-400 hover:text-slate-200 font-mono text-[11px] cursor-pointer transition-colors">
+                            Clear Selection
+                        </button>
+
+                        <button id="btn-batch-repair-selected" onclick="runBatchRepairAndRecompile()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-500/10 transition-all">
+                            <svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span id="btn-batch-repair-label">Repair &amp; Recompile (2 Selected)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sequential Shizuku/UID 0 idmap2 Cache Purge & Rebuild Progress Console -->
+                <div id="batch-repair-console" class="hidden bg-[#070A10] border border-[#1E2738] rounded-lg p-3 space-y-2.5 font-mono text-xs">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span id="batch-console-spinner" class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                            <span id="batch-console-title" class="text-cyan-300 font-semibold text-[11px]">Shizuku UID 0 Sequential Pipeline — Ready</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="batch-console-step-badge" class="text-[10px] px-2 py-0.5 rounded bg-[#131926] text-slate-300 border border-[#263248]">0 / 0 Completed</span>
+                            <button onclick="document.getElementById('batch-repair-console').classList.add('hidden')" class="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer">Hide</button>
+                        </div>
+                    </div>
+                    <div class="w-full h-1.5 rounded-full bg-[#131926] overflow-hidden">
+                        <div id="batch-console-progress" class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div id="batch-console-steps-list" class="space-y-1.5 max-h-44 overflow-y-auto pt-1"></div>
+                </div>
+            </div>
+
 
             <!-- Real-Time Recent Logs Diagnostic Widget for RRO Matrix -->
             <div id="matrix-recent-logs-widget" class="bg-[#0D111A] border border-[#1E2738] rounded-xl overflow-hidden transition-all">
@@ -774,10 +907,24 @@
         let INSPECTED_SETTING_ICON_ID = 'connections';
         let MATRIX_STATUS_FILTER = 'all';
         let MATRIX_LOG_FILTER = 'all';
+        let HIGH_FREQ_THRESHOLD = '2';
+        let HIGHLIGHT_HIGH_FREQ = true;
+        let PIN_HIGH_FREQ_TOP = true;
+        let BATCH_SELECTED_IDS = new Set(['aodservice', 'messaging']);
+        let BATCH_SELECTION_INITIALIZED = false;
+        let IS_BATCH_REPAIRING = false;
 
         async function fetchState() {
             const res = await fetch('/api/state');
             APP_STATE = await res.json();
+            if (!BATCH_SELECTION_INITIALIZED && APP_STATE && Array.isArray(APP_STATE.packages)) {
+                BATCH_SELECTED_IDS = new Set(
+                    APP_STATE.packages
+                        .filter(p => p.compile_status === 'failed' || Number(p.failure_count || 0) >= 2)
+                        .map(p => p.id)
+                );
+                BATCH_SELECTION_INITIALIZED = true;
+            }
             renderAll();
         }
 
@@ -940,13 +1087,239 @@
             renderAll();
         }
 
-        async function setOverlayCompileStatus(pkgId, status) {
+        async function setOverlayCompileStatus(pkgId, status, burst = 1) {
             const res = await fetch('/api/overlays/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: pkgId, status })
+                body: JSON.stringify({ id: pkgId, status, burst })
             });
             APP_STATE = await res.json();
+            if (status === 'failed') {
+                BATCH_SELECTED_IDS.add(pkgId);
+            } else if (status === 'active') {
+                BATCH_SELECTED_IDS.delete(pkgId);
+            }
+            renderAll();
+        }
+
+        function isPackageHighFreq(pkg) {
+            const faults = Number(pkg.failure_count || 0);
+            const rate = Number(pkg.failure_rate || 0);
+            if (HIGH_FREQ_THRESHOLD === 'rate50') {
+                return faults >= 2 && rate >= 50;
+            }
+            const minFaults = parseInt(HIGH_FREQ_THRESHOLD, 10) || 2;
+            return faults >= minFaults;
+        }
+
+        function setHighFreqThreshold(val) {
+            HIGH_FREQ_THRESHOLD = String(val || '2');
+            renderMatrix();
+        }
+
+        function toggleHighFreqHighlight() {
+            HIGHLIGHT_HIGH_FREQ = !HIGHLIGHT_HIGH_FREQ;
+            renderMatrix();
+        }
+
+        function toggleHighFreqPinTop() {
+            PIN_HIGH_FREQ_TOP = !PIN_HIGH_FREQ_TOP;
+            renderMatrix();
+        }
+
+        function toggleIsolateHighFreq() {
+            if (MATRIX_STATUS_FILTER === 'high_freq') {
+                MATRIX_STATUS_FILTER = 'all';
+            } else {
+                MATRIX_STATUS_FILTER = 'high_freq';
+            }
+            renderMatrix();
+        }
+
+        async function simulateHighFreqSpike(pkgIds = null) {
+            const payload = pkgIds ? { ids: pkgIds, burst: 3 } : { burst: 3 };
+            const res = await fetch('/api/overlays/simulate_high_freq', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            APP_STATE = await res.json();
+            (APP_STATE.packages || []).forEach(p => {
+                if (p.compile_status === 'failed' || Number(p.failure_count || 0) >= 2) {
+                    BATCH_SELECTED_IDS.add(p.id);
+                }
+            });
+            renderAll();
+        }
+
+        function toggleBatchRepairSelect(pkgId, checked) {
+            if (checked === undefined) {
+                if (BATCH_SELECTED_IDS.has(pkgId)) {
+                    BATCH_SELECTED_IDS.delete(pkgId);
+                } else {
+                    BATCH_SELECTED_IDS.add(pkgId);
+                }
+            } else if (checked) {
+                BATCH_SELECTED_IDS.add(pkgId);
+            } else {
+                BATCH_SELECTED_IDS.delete(pkgId);
+            }
+            renderMatrix();
+        }
+
+        function selectAllFailedForBatch() {
+            if (!APP_STATE || !Array.isArray(APP_STATE.packages)) return;
+            APP_STATE.packages.forEach(p => {
+                if (p.compile_status === 'failed' || Number(p.failure_count || 0) > 0) {
+                    BATCH_SELECTED_IDS.add(p.id);
+                }
+            });
+            renderMatrix();
+        }
+
+        function selectHighFreqForBatch() {
+            if (!APP_STATE || !Array.isArray(APP_STATE.packages)) return;
+            BATCH_SELECTED_IDS.clear();
+            APP_STATE.packages.forEach(p => {
+                if (isPackageHighFreq(p)) {
+                    BATCH_SELECTED_IDS.add(p.id);
+                }
+            });
+            renderMatrix();
+        }
+
+        function clearBatchSelection() {
+            BATCH_SELECTED_IDS.clear();
+            renderMatrix();
+        }
+
+        async function runBatchRepairAndRecompile() {
+            if (IS_BATCH_REPAIRING || !APP_STATE) return;
+            const allPkgs = APP_STATE.packages || [];
+            let targetIds = Array.from(BATCH_SELECTED_IDS);
+
+            // If user clicked button with 0 explicitly checked, auto-select all failed/high-freq RROs
+            if (targetIds.length === 0) {
+                targetIds = allPkgs
+                    .filter(p => p.compile_status === 'failed' || isPackageHighFreq(p))
+                    .map(p => p.id);
+                targetIds.forEach(id => BATCH_SELECTED_IDS.add(id));
+            }
+
+            const consoleEl = document.getElementById('batch-repair-console');
+            const titleEl = document.getElementById('batch-console-title');
+            const badgeEl = document.getElementById('batch-console-step-badge');
+            const progressEl = document.getElementById('batch-console-progress');
+            const listEl = document.getElementById('batch-console-steps-list');
+            const spinnerEl = document.getElementById('batch-console-spinner');
+
+            if (consoleEl) consoleEl.classList.remove('hidden');
+
+            if (targetIds.length === 0) {
+                if (titleEl) titleEl.textContent = 'No Failed RROs Selected — Select one or more RRO targets or click "Simulate 3x Fault Spike"';
+                if (spinnerEl) spinnerEl.className = 'w-2 h-2 rounded-full bg-amber-400';
+                if (badgeEl) badgeEl.textContent = '0 RROs Queued';
+                if (progressEl) progressEl.style.width = '100%';
+                if (listEl) {
+                    listEl.innerHTML = `<div class="text-slate-400 text-[11px]">Check any RRO card checkbox in the Matrix view to run a Shizuku/UID 0 idmap2 cache purge &amp; sequential recompile.</div>`;
+                }
+                return;
+            }
+
+            IS_BATCH_REPAIRING = true;
+            renderMatrix();
+
+            const total = targetIds.length;
+            if (spinnerEl) spinnerEl.className = 'w-2 h-2 rounded-full bg-cyan-400 animate-ping';
+            if (listEl) listEl.innerHTML = '';
+
+            // Step through each selected RRO sequentially so the user sees the Shizuku UID 0 idmap2 purge + recompile sequence
+            for (let i = 0; i < total; i++) {
+                const pkgId = targetIds[i];
+                const pkgObj = allPkgs.find(p => p.id === pkgId);
+                const rroName = pkgObj ? pkgObj.system_rro_package : `com.hexnext.oneui9.rro.${pkgId}`;
+                const targetPkg = pkgObj ? pkgObj.target_package : 'android';
+                const semwt = (pkgObj && pkgObj.semwt_target) || 'SemWT_*';
+
+                if (titleEl) {
+                    titleEl.textContent = `[SEQ ${i + 1}/${total}] Shizuku UID 0: Clearing idmap2 cache & rebuilding ${rroName}...`;
+                }
+                if (badgeEl) {
+                    badgeEl.textContent = `Step ${i + 1} / ${total}`;
+                }
+                if (progressEl) {
+                    progressEl.style.width = `${Math.round(((i + 0.5) / total) * 100)}%`;
+                }
+                if (listEl) {
+                    const row = document.createElement('div');
+                    row.id = `batch-step-row-${pkgId}`;
+                    row.className = 'px-2.5 py-1.5 rounded bg-[#0E1420] border border-cyan-500/30 flex flex-wrap items-center justify-between gap-2 text-[11px]';
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-cyan-300 font-bold">[SEQ ${i + 1}/${total}]</span>
+                            <span class="text-white font-semibold">${rroName}</span>
+                            <span class="text-slate-400 truncate">→ rm -f /data/resource-cache/system@${rroName}@idmap &amp;&amp; cmd overlay fabricate</span>
+                        </div>
+                        <span class="text-amber-300">Purging idmap2 &amp; Compiling...</span>
+                    `;
+                    listEl.appendChild(row);
+                    listEl.scrollTop = listEl.scrollHeight;
+                }
+
+                await new Promise(r => setTimeout(r, 180));
+
+                const rowEl = document.getElementById(`batch-step-row-${pkgId}`);
+                if (rowEl) {
+                    rowEl.className = 'px-2.5 py-1.5 rounded bg-emerald-950/30 border border-emerald-500/40 flex flex-wrap items-center justify-between gap-2 text-[11px]';
+                    rowEl.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-emerald-400 font-bold">✓ [SEQ ${i + 1}/${total}]</span>
+                            <span class="text-cyan-300 font-semibold">${rroName}</span>
+                            <span class="text-slate-300 truncate">(${targetPkg}) • idmap2 cache purged • priority=10000 &gt; ${semwt}</span>
+                        </div>
+                        <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px]">STATE_ENABLED</span>
+                    `;
+                }
+                if (progressEl) {
+                    progressEl.style.width = `${Math.round(((i + 1) / total) * 100)}%`;
+                }
+            }
+
+            // Commit the batch repair & sequential recompile on the backend
+            const res = await fetch('/api/overlays/repair_batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: targetIds, privilege_mode: 'shizuku_uid0' })
+            });
+            APP_STATE = await res.json();
+            BATCH_SELECTED_IDS.clear();
+            IS_BATCH_REPAIRING = false;
+
+            if (spinnerEl) spinnerEl.className = 'w-2 h-2 rounded-full bg-emerald-400';
+            if (titleEl) {
+                titleEl.textContent = `Batch Repair Complete — ${total} RRO${total === 1 ? '' : 's'} rebuilt sequentially under Shizuku / UID 0 (priority=10000 > SemWT_*)`;
+            }
+            if (badgeEl) {
+                badgeEl.textContent = `${total} / ${total} Completed ✓`;
+            }
+            if (MATRIX_STATUS_FILTER === 'high_freq' || MATRIX_STATUS_FILTER === 'failed') {
+                MATRIX_STATUS_FILTER = 'all';
+            }
+            renderAll();
+        }
+
+        async function repairHighFreqOverlays() {
+            const minFaults = HIGH_FREQ_THRESHOLD === 'rate50' ? 2 : (parseInt(HIGH_FREQ_THRESHOLD, 10) || 2);
+            const res = await fetch('/api/overlays/repair_all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ only_high_freq: true, min_failures: minFaults })
+            });
+            APP_STATE = await res.json();
+            BATCH_SELECTED_IDS.clear();
+            if (MATRIX_STATUS_FILTER === 'high_freq') {
+                MATRIX_STATUS_FILTER = 'all';
+            }
             renderAll();
         }
 
@@ -967,6 +1340,10 @@
                 body: JSON.stringify({})
             });
             APP_STATE = await res.json();
+            BATCH_SELECTED_IDS.clear();
+            if (MATRIX_STATUS_FILTER === 'high_freq' || MATRIX_STATUS_FILTER === 'failed') {
+                MATRIX_STATUS_FILTER = 'all';
+            }
             renderAll();
         }
 
@@ -1020,20 +1397,40 @@
 
         function getOverlayStatusMeta(pkg) {
             const status = pkg.compile_status || (pkg.selected ? 'active' : 'disabled');
-            if (status === 'failed') {
-                return {
-                    status: 'failed',
-                    label: 'COMPILE FAILED',
-                    badgeClass: 'bg-rose-950/70 text-rose-300 border-rose-700/60',
-                    cardBorder: 'border-rose-500/60 bg-[#120D14]',
-                    iconHtml: `<span title="Compilation Failed (IDMAP2 / FRRO Fault)" class="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-400 shrink-0">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    </span>`
-                };
+            const highFreq = isPackageHighFreq(pkg);
+            const faults = Number(pkg.failure_count || 0);
+            const rate = Number(pkg.failure_rate || 0);
+
+            if (status === 'failed' || highFreq) {
+                if (highFreq && HIGHLIGHT_HIGH_FREQ) {
+                    return {
+                        status: status === 'failed' ? 'failed' : 'active',
+                        isHighFreq: true,
+                        label: `⚡ HIGH-FREQ FAILURE (${faults}x • ${rate}%)`,
+                        badgeClass: 'bg-amber-500/20 text-amber-200 border-amber-400/60 font-semibold',
+                        cardBorder: 'border-amber-500/70 ring-1 ring-rose-500/40 bg-gradient-to-br from-[#1B1018] via-[#120D16] to-[#0D111A] shadow-lg shadow-rose-950/30',
+                        iconHtml: `<span title="High-Frequency Compilation Failure (${faults} faults / ${rate}% fail rate) — Needs Immediate Repair" class="w-6 h-6 rounded-full bg-amber-500/25 border border-amber-400/70 flex items-center justify-center text-amber-300 shrink-0 animate-pulse">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </span>`
+                    };
+                }
+                if (status === 'failed') {
+                    return {
+                        status: 'failed',
+                        isHighFreq: highFreq,
+                        label: 'COMPILE FAILED',
+                        badgeClass: 'bg-rose-950/70 text-rose-300 border-rose-700/60',
+                        cardBorder: 'border-rose-500/60 bg-[#120D14]',
+                        iconHtml: `<span title="Compilation Failed (IDMAP2 / FRRO Fault)" class="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-400 shrink-0">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </span>`
+                    };
+                }
             }
             if (status === 'active' && pkg.selected) {
                 return {
                     status: 'active',
+                    isHighFreq: false,
                     label: 'ACTIVE • STATE_ENABLED',
                     badgeClass: 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50',
                     cardBorder: 'border-[#263248] bg-[#0D111A]',
@@ -1044,6 +1441,7 @@
             }
             return {
                 status: 'disabled',
+                isHighFreq: false,
                 label: 'DISABLED • STATE_DISABLED',
                 badgeClass: 'bg-slate-900 text-slate-400 border-slate-700/50',
                 cardBorder: 'border-[#182030] bg-[#0D111A] opacity-70',
@@ -1603,26 +2001,150 @@
             const allPkgs = APP_STATE.packages || [];
             const activeCount = allPkgs.filter(p => (p.compile_status === 'active' && p.selected)).length;
             const failedCount = allPkgs.filter(p => p.compile_status === 'failed').length;
+            const highFreqPkgs = allPkgs.filter(p => isPackageHighFreq(p));
+            const highFreqCount = highFreqPkgs.length;
             const disabledCount = allPkgs.length - activeCount - failedCount;
 
             document.getElementById('count-all').textContent = allPkgs.length;
             document.getElementById('count-active').textContent = activeCount;
             document.getElementById('count-failed').textContent = failedCount;
+            const hfCountEl = document.getElementById('count-high-freq');
+            if (hfCountEl) hfCountEl.textContent = highFreqCount;
             document.getElementById('count-disabled').textContent = disabledCount;
 
-            ['all', 'active', 'failed', 'disabled'].forEach(f => {
+            // Update High-Frequency Triage Banner
+            const totalFaults = allPkgs.reduce((acc, p) => acc + Number(p.failure_count || 0), 0);
+            const peakRate = allPkgs.reduce((max, p) => Math.max(max, Number(p.failure_rate || 0)), 0);
+            const hfBanner = document.getElementById('matrix-high-freq-banner');
+            const hfDot = document.getElementById('hf-status-dot');
+            const hfSummaryBadge = document.getElementById('hf-summary-badge');
+            const hfFaultSumBadge = document.getElementById('hf-fault-sum-badge');
+            const hfPeakRateBadge = document.getElementById('hf-peak-rate-badge');
+            const hfRepairBtn = document.getElementById('btn-repair-high-freq');
+            const hfChips = document.getElementById('hf-quick-chips');
+
+            if (hfSummaryBadge) {
+                if (highFreqCount > 0) {
+                    hfSummaryBadge.textContent = `${highFreqCount} High-Freq RRO${highFreqCount === 1 ? ' Needs' : 's Need'} Immediate Repair`;
+                    hfSummaryBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/40 font-semibold';
+                    if (hfDot) hfDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
+                    if (hfBanner) hfBanner.className = 'bg-[#0D111A] border border-amber-500/45 rounded-xl p-3.5 space-y-3 transition-all shadow-lg shadow-amber-950/15';
+                    if (hfRepairBtn) hfRepairBtn.classList.remove('hidden');
+                } else {
+                    hfSummaryBadge.textContent = '0 High-Frequency Failures Detected';
+                    hfSummaryBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+                    if (hfDot) hfDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
+                    if (hfBanner) hfBanner.className = 'bg-[#0D111A] border border-[#1E2738] rounded-xl p-3.5 space-y-3 transition-all';
+                    if (hfRepairBtn) hfRepairBtn.classList.add('hidden');
+                }
+            }
+            if (hfFaultSumBadge) hfFaultSumBadge.textContent = `${totalFaults} Total Fault${totalFaults === 1 ? '' : 's'}`;
+            if (hfPeakRateBadge) hfPeakRateBadge.textContent = `Peak Fail Rate: ${peakRate}%`;
+
+            // Update Highlight / Pin / Isolate button states
+            const btnHighlight = document.getElementById('btn-hf-highlight');
+            const dotHighlight = document.getElementById('dot-hf-highlight');
+            if (btnHighlight && dotHighlight) {
+                if (HIGHLIGHT_HIGH_FREQ) {
+                    btnHighlight.className = 'px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all';
+                    dotHighlight.className = 'w-2 h-2 rounded-full bg-amber-400';
+                } else {
+                    btnHighlight.className = 'px-2.5 py-1 rounded-lg bg-[#131926] border border-[#263248] text-slate-400 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all';
+                    dotHighlight.className = 'w-2 h-2 rounded-full bg-slate-600';
+                }
+            }
+
+            const btnPinTop = document.getElementById('btn-hf-pin-top');
+            if (btnPinTop) {
+                btnPinTop.className = PIN_HIGH_FREQ_TOP
+                    ? 'px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all'
+                    : 'px-2.5 py-1 rounded-lg bg-[#131926] border border-[#263248] text-slate-400 font-mono text-[11px] flex items-center gap-1.5 cursor-pointer transition-all';
+            }
+
+            const btnIsolate = document.getElementById('btn-hf-isolate');
+            const labelIsolate = document.getElementById('label-hf-isolate');
+            if (btnIsolate && labelIsolate) {
+                if (MATRIX_STATUS_FILTER === 'high_freq') {
+                    btnIsolate.className = 'px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-semibold border border-amber-400 font-mono text-[11px] flex items-center gap-1 cursor-pointer transition-all';
+                    labelIsolate.textContent = 'Showing High-Freq Only (Reset)';
+                } else {
+                    btnIsolate.className = 'px-2.5 py-1 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-amber-300 font-mono text-[11px] flex items-center gap-1 cursor-pointer transition-all';
+                    labelIsolate.textContent = 'Isolate High-Freq Only';
+                }
+            }
+
+            if (hfChips) {
+                if (highFreqPkgs.length === 0) {
+                    hfChips.innerHTML = `
+                        <span class="font-mono text-[11px] text-emerald-300">All 18 One UI 9.0 RRO targets are operating below the high-frequency failure threshold.</span>
+                    `;
+                } else {
+                    hfChips.innerHTML = `<span class="text-[11px] font-mono text-slate-400 mr-1">Immediate Repair Queue:</span>` +
+                        highFreqPkgs
+                            .slice()
+                            .sort((a, b) => Number(b.failure_count || 0) - Number(a.failure_count || 0))
+                            .map(pkg => `
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/50 border border-amber-500/40 font-mono text-[11px]">
+                                    <input type="checkbox" ${BATCH_SELECTED_IDS.has(pkg.id) ? 'checked' : ''} onchange="toggleBatchRepairSelect('${pkg.id}', this.checked)" class="w-3.5 h-3.5 accent-cyan-400 cursor-pointer" title="Select ${pkg.system_rro_package} for Batch Shizuku/UID 0 Repair &amp; Recompile">
+                                    <button onclick="focusMatrixCard('${pkg.id}')" class="text-amber-200 hover:underline font-semibold cursor-pointer flex items-center gap-1">
+                                        <span>⚡ ${pkg.label}</span>
+                                        <span class="text-rose-300">(${pkg.failure_count}x faults • ${pkg.failure_rate}%)</span>
+                                    </button>
+                                    <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="ml-1 px-1.5 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] cursor-pointer">
+                                        Repair Now
+                                    </button>
+                                </div>
+                            `).join('');
+                }
+            }
+
+            // Update Shizuku / UID 0 Batch Repair & Sequential Recompile Bar
+            const validSelectedIds = Array.from(BATCH_SELECTED_IDS).filter(id => allPkgs.some(p => p.id === id));
+            const selectedCount = validSelectedIds.length;
+            const batchSelectedBadge = document.getElementById('batch-selected-badge');
+            const batchFailedBtnCount = document.getElementById('batch-count-failed-btn');
+            const batchHfBtnCount = document.getElementById('batch-count-hf-btn');
+            const batchRepairBtn = document.getElementById('btn-batch-repair-selected');
+            const batchRepairLabel = document.getElementById('btn-batch-repair-label');
+
+            if (batchFailedBtnCount) batchFailedBtnCount.textContent = failedCount;
+            if (batchHfBtnCount) batchHfBtnCount.textContent = highFreqCount;
+            if (batchSelectedBadge) {
+                batchSelectedBadge.textContent = `${selectedCount} RRO${selectedCount === 1 ? '' : 's'} Selected for Batch Repair`;
+                batchSelectedBadge.className = selectedCount > 0
+                    ? 'font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 font-semibold'
+                    : 'font-mono text-[11px] px-2 py-0.5 rounded bg-[#131926] text-slate-400 border border-[#263248]';
+            }
+            if (batchRepairLabel) {
+                if (IS_BATCH_REPAIRING) {
+                    batchRepairLabel.textContent = `Rebuilding Sequentially (UID 0)...`;
+                } else if (selectedCount > 0) {
+                    batchRepairLabel.textContent = `Repair & Recompile (${selectedCount} Selected)`;
+                } else if (failedCount > 0) {
+                    batchRepairLabel.textContent = `Repair & Recompile All Failed (${failedCount})`;
+                } else {
+                    batchRepairLabel.textContent = `Repair & Recompile (0 Selected)`;
+                }
+            }
+            if (batchRepairBtn) {
+                batchRepairBtn.disabled = IS_BATCH_REPAIRING;
+            }
+
+            ['all', 'active', 'failed', 'high_freq', 'disabled'].forEach(f => {
                 const btn = document.getElementById(`matrix-filter-${f}`);
                 if (!btn) return;
                 if (f === MATRIX_STATUS_FILTER) {
-                    btn.classList.add('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                    btn.classList.add('bg-[#1E293B]', 'ring-1', f === 'high_freq' ? 'ring-amber-400/60' : 'ring-cyan-500/40');
                 } else {
-                    btn.classList.remove('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                    btn.classList.remove('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40', 'ring-amber-400/60');
                 }
             });
 
             const filtered = allPkgs.filter(pkg => {
                 const meta = getOverlayStatusMeta(pkg);
-                if (MATRIX_STATUS_FILTER !== 'all' && meta.status !== MATRIX_STATUS_FILTER) {
+                if (MATRIX_STATUS_FILTER === 'high_freq') {
+                    if (!isPackageHighFreq(pkg)) return false;
+                } else if (MATRIX_STATUS_FILTER !== 'all' && meta.status !== MATRIX_STATUS_FILTER) {
                     return false;
                 }
                 if (!query) return true;
@@ -1635,11 +2157,60 @@
                 );
             });
 
+            if (PIN_HIGH_FREQ_TOP) {
+                filtered.sort((a, b) => {
+                    const hfA = isPackageHighFreq(a) ? 1 : 0;
+                    const hfB = isPackageHighFreq(b) ? 1 : 0;
+                    if (hfA !== hfB) return hfB - hfA;
+                    const fcA = Number(a.failure_count || 0);
+                    const fcB = Number(b.failure_count || 0);
+                    if (fcA !== fcB) return fcB - fcA;
+                    return 0;
+                });
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-[#0D111A] border border-[#1E2738] rounded-xl p-8 text-center space-y-3">
+                        <div class="font-display font-bold text-sm text-white">No RRO packages match the current filter (${MATRIX_STATUS_FILTER === 'high_freq' ? 'High-Frequency Failures' : MATRIX_STATUS_FILTER}).</div>
+                        <p class="text-xs text-slate-400 font-mono">All One UI 9.0 RRO targets are currently healthy or outside the selected failure threshold.</p>
+                        <div class="flex items-center justify-center gap-2 pt-1">
+                            <button onclick="setMatrixStatusFilter('all')" class="px-3 py-1.5 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-cyan-300 cursor-pointer">Show All 18 RROs</button>
+                            <button onclick="simulateHighFreqSpike()" class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-xs font-mono text-rose-300 cursor-pointer">Simulate High-Freq Fault Spike</button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
             grid.innerHTML = filtered.map(pkg => {
                 const meta = getOverlayStatusMeta(pkg);
+                const highFreq = isPackageHighFreq(pkg);
+                const faults = Number(pkg.failure_count || 0);
+                const attempts = Math.max(1, Number(pkg.compile_attempts || 1));
+                const failRate = Number(pkg.failure_rate || 0);
+                const history = Array.isArray(pkg.failure_history) ? pkg.failure_history : ['ok'];
+                const sparkHtml = history.map((step, sIdx) =>
+                    step === 'fail'
+                        ? `<span title="Attempt #${sIdx + 1}: IDMAP2 Compile Failure" class="w-4 h-4 rounded bg-rose-500/25 border border-rose-500/60 text-rose-300 flex items-center justify-center text-[10px] font-bold">✗</span>`
+                        : `<span title="Attempt #${sIdx + 1}: Compiled OK" class="w-4 h-4 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-[10px]">✓</span>`
+                ).join('');
+
+                const isBatchSelected = BATCH_SELECTED_IDS.has(pkg.id);
+
                 return `
-                <div id="matrix-card-${pkg.id}" class="${meta.cardBorder} border rounded-xl p-4 flex flex-col justify-between gap-3 transition-all">
+                <div id="matrix-card-${pkg.id}" class="${meta.cardBorder} ${isBatchSelected ? 'ring-2 ring-cyan-400/70' : ''} border rounded-xl p-4 flex flex-col justify-between gap-3 transition-all">
                     <div>
+                        ${highFreq && HIGHLIGHT_HIGH_FREQ ? `
+                            <div class="mb-3 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-400/50 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-1.5 font-mono text-[11px] text-amber-200 font-semibold">
+                                    <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    <span>HIGH-FREQUENCY COMPILATION FAILURE • IMMEDIATE REPAIR REQUIRED</span>
+                                </div>
+                                <span class="font-mono text-[10px] text-rose-300">${faults} faults / ${attempts} builds (${failRate}% fail rate)</span>
+                            </div>
+                        ` : ''}
+
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-start gap-2.5 min-w-0">
                                 ${meta.iconHtml}
@@ -1652,17 +2223,41 @@
                                     <div class="font-mono text-xs text-slate-400">Target: <span class="text-slate-200">${pkg.target_package}</span> • Overrides <span class="text-cyan-300">${pkg.semwt_target || 'SemWT_*'}</span></div>
                                 </div>
                             </div>
-                            <label class="inline-flex items-center gap-2 cursor-pointer shrink-0">
-                                <input type="checkbox" ${pkg.selected && meta.status !== 'failed' ? 'checked' : ''} onchange="togglePackageTarget('${pkg.id}', this.checked)" class="sr-only peer">
-                                <div class="w-9 h-5 bg-slate-800 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
-                            </label>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <label class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border ${isBatchSelected ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200' : (meta.status === 'failed' || highFreq ? 'bg-rose-950/60 border-rose-500/50 text-rose-200' : 'bg-[#131926] border-[#263248] text-slate-400')} text-[10px] font-mono cursor-pointer select-none" title="Select for Shizuku/UID 0 Batch Repair &amp; Sequential Recompile">
+                                    <input type="checkbox" ${isBatchSelected ? 'checked' : ''} onchange="toggleBatchRepairSelect('${pkg.id}', this.checked)" class="w-3.5 h-3.5 accent-cyan-400 cursor-pointer">
+                                    <span>${isBatchSelected ? 'Batch Queued' : 'Batch Select'}</span>
+                                </label>
+                                <label class="inline-flex items-center gap-2 cursor-pointer shrink-0" title="Enable/Disable RRO Target">
+                                    <input type="checkbox" ${pkg.selected && meta.status !== 'failed' ? 'checked' : ''} onchange="togglePackageTarget('${pkg.id}', this.checked)" class="sr-only peer">
+                                    <div class="w-9 h-5 bg-slate-800 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
+                                </label>
+                            </div>
                         </div>
 
-                        ${meta.status === 'failed' && pkg.compile_error ? `
-                            <div class="mt-3 p-2.5 rounded-lg bg-rose-950/50 border border-rose-700/50 flex items-center justify-between gap-2 text-xs text-rose-200 font-mono">
-                                <span class="truncate">${pkg.compile_error}</span>
-                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="px-2.5 py-1 rounded bg-emerald-500 text-slate-950 font-semibold text-[11px] shrink-0 cursor-pointer">
-                                    Repair &amp; Recompile
+                        <!-- Live Compilation Telemetry & Failure Frequency Strip -->
+                        <div class="mt-3 p-2.5 rounded-lg bg-[#090D15] border ${highFreq ? 'border-amber-500/40' : 'border-[#1E2738]'} space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-400">Failure Telemetry:</span>
+                                    <span class="${faults > 0 ? 'text-amber-300 font-semibold' : 'text-emerald-400'}">${faults} Fault${faults === 1 ? '' : 's'} / ${attempts} Builds (${failRate}%)</span>
+                                    ${pkg.last_failure_at ? `<span class="text-slate-500 text-[10px]">• Last: ${pkg.last_failure_at}</span>` : ''}
+                                </div>
+                                <div class="flex items-center gap-1" title="Recent Compilation Attempt History">
+                                    <span class="text-[10px] text-slate-500 mr-1">History:</span>
+                                    ${sparkHtml}
+                                </div>
+                            </div>
+                            <div class="w-full h-1.5 rounded-full bg-[#131926] overflow-hidden">
+                                <div class="h-full transition-all ${highFreq ? 'bg-gradient-to-r from-amber-400 to-rose-500' : (faults > 0 ? 'bg-amber-400' : 'bg-emerald-500')}" style="width: ${faults > 0 ? Math.max(12, failRate) : 100}%"></div>
+                            </div>
+                        </div>
+
+                        ${(meta.status === 'failed' || highFreq) && pkg.compile_error ? `
+                            <div class="mt-2.5 p-2.5 rounded-lg bg-rose-950/50 border border-rose-700/50 flex items-center justify-between gap-2 text-xs text-rose-200 font-mono">
+                                <span class="truncate" title="${pkg.compile_error}">${pkg.compile_error}</span>
+                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-[11px] shrink-0 cursor-pointer">
+                                    ⚡ Immediate Repair
                                 </button>
                             </div>
                         ` : ''}
@@ -1672,7 +2267,7 @@
                         <div class="mt-3 space-y-1.5">
                             <div class="text-[10px] font-mono text-slate-400 uppercase">One UI 9.0 Resource Map (${pkg.resolved_resources.length} tokens):</div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                ${pkg.resolved_resources.map(r => `
+                                ${pkg.resolved_resources.slice(0, 8).map(r => `
                                     <div class="px-2 py-1.5 rounded bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-1.5">
                                         <span class="font-mono text-[11px] text-slate-200 truncate">${r.name}</span>
                                         <span class="flex items-center gap-1 shrink-0 font-mono text-[10px] text-slate-400">
@@ -1682,18 +2277,21 @@
                                     </div>
                                 `).join('')}
                             </div>
+                            ${pkg.resolved_resources.length > 8 ? `
+                                <div class="text-[10px] font-mono text-cyan-400/90 pt-0.5">+ ${pkg.resolved_resources.length - 8} additional One UI 9.0 tokens in package</div>
+                            ` : ''}
                         </div>
                     </div>
 
                     <div class="pt-2 border-t border-[#1E2738] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
                         <span>Fabricated ID: <strong class="text-slate-200">${pkg.overlay_identifier}</strong></span>
-                        <div class="flex items-center gap-3">
-                            ${meta.status === 'failed' ? `
-                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="text-emerald-400 hover:underline cursor-pointer">Repair RRO</button>
-                            ` : `
-                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'failed')" class="text-rose-400/80 hover:text-rose-300 hover:underline cursor-pointer">Simulate Fault</button>
-                            `}
-                            <button onclick="inspectPackage('${pkg.id}'); switchTab('studio');" class="text-cyan-400 hover:underline cursor-pointer">Customize in Studio →</button>
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            ${meta.status === 'failed' || highFreq ? `
+                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="text-emerald-400 hover:underline font-semibold cursor-pointer">⚡ Repair &amp; Clear Faults</button>
+                            ` : ''}
+                            <button onclick="setOverlayCompileStatus('${pkg.id}', 'failed', 1)" class="text-rose-400/80 hover:text-rose-300 hover:underline cursor-pointer">+1 Fault</button>
+                            <button onclick="setOverlayCompileStatus('${pkg.id}', 'failed', 3)" class="text-amber-300/90 hover:text-amber-200 hover:underline cursor-pointer" title="Simulate 3 consecutive compilation failures on this RRO">Spike 3x</button>
+                            <button onclick="inspectPackage('${pkg.id}'); switchTab('studio');" class="text-cyan-400 hover:underline cursor-pointer">Studio →</button>
                         </div>
                     </div>
                 </div>

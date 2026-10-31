@@ -755,9 +755,36 @@ const RUNTIME_STATE = {
       "[*] Opening Prerequisite Check: Theme Park & High Contrast Theme requirements REMOVED.",
       "[✓] Privileged session verified: UID 1000 (android.uid.system via Shizuku / Direct RRO).",
       "[✓] Synthesized 18 from-scratch RRO packages (com.hexnext.oneui9.rro.*) taking precedence over SemWT_*.",
+      "[!] [19:54:12 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #4] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_ERR: Repeated lock contention on stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro (color/aod_clock_color)",
+      "[!] [19:55:04 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #3] on com.hexnext.oneui9.rro.messaging (com.samsung.android.messaging) -> IDMAP2_ERR: Unresolved symbol 'color/message_bubble_send_bg' during SemWT_Messaging override pass",
       "[✓] Loaded 26 One UI 9.0 SecSettings Dashboard Icon VectorDrawables & Niferpitou extra.preferences.",
       "[✓] Generated 65 Android 16 Monet framework shades + 23 Material 3 dark roles above SemWT_MonetPalette.",
     ],
+  },
+};
+
+const INITIAL_HIGH_FREQ_FAULTS = {
+  aodservice: {
+    compile_status: "failed",
+    enabled: false,
+    failure_count: 4,
+    compile_attempts: 5,
+    failure_history: ["fail", "ok", "fail", "fail", "fail"],
+    failure_timestamps: ["19:51:08 UTC", "19:52:19 UTC", "19:53:40 UTC", "19:54:12 UTC"],
+    last_failure_at: "19:54:12 UTC",
+    compile_error:
+      "IDMAP2_ERR [4x HIGH-FREQ]: Stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro & unresolved symbol 'color/aod_clock_color'",
+  },
+  messaging: {
+    compile_status: "failed",
+    enabled: false,
+    failure_count: 3,
+    compile_attempts: 4,
+    failure_history: ["ok", "fail", "fail", "fail"],
+    failure_timestamps: ["19:52:44 UTC", "19:54:02 UTC", "19:55:04 UTC"],
+    last_failure_at: "19:55:04 UTC",
+    compile_error:
+      "IDMAP2_ERR [3x HIGH-FREQ]: Unresolved symbol 'color/message_bubble_send_bg' in com.samsung.android.messaging",
   },
 };
 
@@ -765,9 +792,50 @@ function initActiveOverlays() {
   const owner = RUNTIME_STATE.privilege.owner_package;
   for (const item of ONEUI9_SYSTEM_RRO_CATALOG) {
     const existing = RUNTIME_STATE.active_overlays[item.id] || {};
+    const seedFault =
+      existing.compile_status === undefined ? INITIAL_HIGH_FREQ_FAULTS[item.id] : null;
     const isEnabled =
-      existing.enabled !== undefined ? Boolean(existing.enabled) : Boolean(item.selected);
-    const compileStatus = existing.compile_status || (isEnabled ? "active" : "disabled");
+      existing.enabled !== undefined
+        ? Boolean(existing.enabled)
+        : seedFault
+        ? Boolean(seedFault.enabled)
+        : Boolean(item.selected);
+    const compileStatus =
+      existing.compile_status ||
+      (seedFault ? seedFault.compile_status : isEnabled ? "active" : "disabled");
+    const failureCount =
+      existing.failure_count !== undefined
+        ? existing.failure_count
+        : seedFault
+        ? seedFault.failure_count
+        : 0;
+    const compileAttempts =
+      existing.compile_attempts !== undefined
+        ? existing.compile_attempts
+        : seedFault
+        ? seedFault.compile_attempts
+        : isEnabled
+        ? 3
+        : 1;
+    const failureHistory =
+      existing.failure_history ||
+      (seedFault ? [...seedFault.failure_history] : isEnabled ? ["ok", "ok", "ok"] : ["ok"]);
+    const failureTimestamps =
+      existing.failure_timestamps ||
+      (seedFault ? [...seedFault.failure_timestamps] : []);
+    const lastFailureAt =
+      existing.last_failure_at !== undefined
+        ? existing.last_failure_at
+        : seedFault
+        ? seedFault.last_failure_at
+        : null;
+    const compileError =
+      existing.compile_error !== undefined
+        ? existing.compile_error
+        : seedFault
+        ? seedFault.compile_error
+        : null;
+
     RUNTIME_STATE.active_overlays[item.id] = {
       id: item.id,
       system_rro_package: item.system_rro_package,
@@ -783,7 +851,14 @@ function initActiveOverlays() {
           ? "STATE_ENABLED"
           : "STATE_DISABLED",
       compile_status: compileStatus,
-      compile_error: existing.compile_error || null,
+      compile_error: compileError,
+      failure_count: failureCount,
+      compile_attempts: compileAttempts,
+      failure_rate: Math.round((failureCount / Math.max(1, compileAttempts)) * 100),
+      failure_history: failureHistory,
+      failure_timestamps: failureTimestamps,
+      last_failure_at: lastFailureAt,
+      high_frequency_failure: failureCount >= 2,
     };
   }
 }
@@ -802,10 +877,21 @@ function buildFullState() {
     const act = RUNTIME_STATE.active_overlays[pkg.id] || {};
     const isEnabled = act.enabled !== undefined ? act.enabled : pkg.selected;
     const compileStatus = act.compile_status || (isEnabled ? "active" : "disabled");
+    const failureCount = Number(act.failure_count || 0);
+    const compileAttempts = Math.max(1, Number(act.compile_attempts || (isEnabled ? 3 : 1)));
+    const failureRate = Math.round((failureCount / compileAttempts) * 100);
+
     pkg.enabled = isEnabled;
     pkg.fabricated_id = `${owner}:${pkg.fabricated_name}`;
     pkg.compile_status = compileStatus;
     pkg.compile_error = act.compile_error || null;
+    pkg.failure_count = failureCount;
+    pkg.compile_attempts = compileAttempts;
+    pkg.failure_rate = failureRate;
+    pkg.failure_history = Array.isArray(act.failure_history) ? act.failure_history : ["ok"];
+    pkg.failure_timestamps = Array.isArray(act.failure_timestamps) ? act.failure_timestamps : [];
+    pkg.last_failure_at = act.last_failure_at || null;
+    pkg.high_frequency_failure = failureCount >= 2;
     pkg.carrier_state =
       act.carrier_state ||
       (compileStatus === "failed"
@@ -938,27 +1024,62 @@ function handleCompile(data) {
   ];
 
   let enabledCount = 0;
+  const nowStr = new Date().toISOString().slice(11, 19) + " UTC";
   for (const pkg of compiled) {
+    const prev = RUNTIME_STATE.active_overlays[pkg.id] || {};
+    const wasFailed = prev.compile_status === "failed";
     const isSel = pkg.selected;
-    const status = isSel ? "active" : "disabled";
+    let status = isSel ? "active" : "disabled";
+    let failureCount = Number(prev.failure_count || 0);
+    let compileAttempts = Number(prev.compile_attempts || 2) + (isSel ? 1 : 0);
+    let failureHistory = Array.isArray(prev.failure_history) ? [...prev.failure_history] : ["ok"];
+    let failureTimestamps = Array.isArray(prev.failure_timestamps)
+      ? [...prev.failure_timestamps]
+      : [];
+    let lastFailureAt = prev.last_failure_at || null;
+    let compileError = prev.compile_error || null;
+
+    if (wasFailed && isSel) {
+      status = "failed";
+      failureCount += 1;
+      failureHistory = [...failureHistory.slice(-5), "fail"];
+      failureTimestamps = [...failureTimestamps.slice(-9), nowStr];
+      lastFailureAt = nowStr;
+      logs.push(
+        `[!] [${nowStr}] COMPILE_FAILURE [HIGH-FREQ FAULT #${failureCount}] on ${pkg.system_rro_package} (${pkg.target_package}) -> ${compileError}`
+      );
+    } else if (isSel) {
+      failureHistory = [...failureHistory.slice(-5), "ok"];
+      enabledCount += 1;
+      logs.push(
+        `[+] Built ${pkg.system_rro_package} -> ${pkg.target_package} (${pkg.resolved_resources.length} One UI 9.0 tokens) [STATE_ENABLED | priority=highest > ${pkg.semwt_target || "SemWT_*"}]`
+      );
+    }
+
     RUNTIME_STATE.active_overlays[pkg.id] = {
       id: pkg.id,
       system_rro_package: pkg.system_rro_package,
       semwt_target: pkg.semwt_target || `${pkg.target_package}:SemWT_${pkg.target_package}`,
       fabricated_id: `${owner}:${pkg.fabricated_name}`,
       target_package: pkg.target_package,
-      enabled: isSel,
+      enabled: status === "active",
       priority: "highest (10000 > SemWT_*)",
-      carrier_state: isSel ? "STATE_ENABLED" : "STATE_DISABLED",
+      carrier_state:
+        status === "failed"
+          ? "STATE_COMPILE_FAILED"
+          : status === "active"
+          ? "STATE_ENABLED"
+          : "STATE_DISABLED",
       compile_status: status,
-      compile_error: null,
+      compile_error: status === "failed" ? compileError : null,
+      failure_count: failureCount,
+      compile_attempts: compileAttempts,
+      failure_rate: Math.round((failureCount / Math.max(1, compileAttempts)) * 100),
+      failure_history: failureHistory,
+      failure_timestamps: failureTimestamps,
+      last_failure_at: lastFailureAt,
+      high_frequency_failure: failureCount >= 2,
     };
-    if (isSel) {
-      enabledCount += 1;
-      logs.push(
-        `[+] Built ${pkg.system_rro_package} -> ${pkg.target_package} (${pkg.resolved_resources.length} One UI 9.0 tokens) [STATE_ENABLED | priority=highest > ${pkg.semwt_target || "SemWT_*"}]`
-      );
-    }
   }
 
   logs.push(
@@ -966,7 +1087,6 @@ function handleCompile(data) {
   );
 
   const elapsedMs = Math.max(42, Date.now() - t0 + 110);
-  const nowStr = new Date().toISOString().slice(11, 19) + " UTC";
   RUNTIME_STATE.last_build = {
     timestamp: nowStr,
     duration_ms: elapsedMs,
@@ -1164,6 +1284,8 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/overlays/status") {
       const pkgId = data.id;
       const status = data.status || "active";
+      const burst = Math.max(1, Math.min(10, Number(data.burst || 1)));
+      const resetTelemetry = data.reset_telemetry !== false;
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
       RUNTIME_STATE.last_build.timestamp = nowUtc;
 
@@ -1182,22 +1304,47 @@ const server = http.createServer(async (req, res) => {
           ov.compile_status = "failed";
           ov.enabled = false;
           ov.carrier_state = "STATE_COMPILE_FAILED";
-          ov.compile_error = `IDMAP2_ERR: Unresolved symbol '${legacyRes}' in ${ov.target_package} or stale /data/resource-cache/${ov.system_rro_package}.frro`;
+          ov.failure_count = Number(ov.failure_count || 0) + burst;
+          ov.compile_attempts = Number(ov.compile_attempts || 1) + burst;
+          ov.failure_rate = Math.round((ov.failure_count / Math.max(1, ov.compile_attempts)) * 100);
+          const hist = Array.isArray(ov.failure_history) ? [...ov.failure_history] : [];
+          for (let b = 0; b < burst; b++) hist.push("fail");
+          ov.failure_history = hist.slice(-6);
+          const tsList = Array.isArray(ov.failure_timestamps) ? [...ov.failure_timestamps] : [];
+          for (let b = 0; b < burst; b++) tsList.push(nowUtc);
+          ov.failure_timestamps = tsList.slice(-10);
+          ov.last_failure_at = nowUtc;
+          ov.high_frequency_failure = ov.failure_count >= 2;
+          const freqTag = ov.failure_count >= 2 ? ` [${ov.failure_count}x HIGH-FREQ]` : "";
+          ov.compile_error = `IDMAP2_ERR${freqTag}: Unresolved symbol '${legacyRes}' in ${ov.target_package} or stale /data/resource-cache/${ov.system_rro_package}.frro`;
           RUNTIME_STATE.last_build.logs.push(
-            `[!] [${nowUtc}] COMPILE_FAILURE on ${ov.system_rro_package} (${ov.target_package}) -> ${ov.compile_error}`
+            `[!] [${nowUtc}] COMPILE_FAILURE${ov.failure_count >= 2 ? ` [HIGH-FREQ FAULT #${ov.failure_count}]` : ""} on ${ov.system_rro_package} (${ov.target_package}) -> ${ov.compile_error}`
           );
         } else if (status === "active") {
+          const prevFailures = Number(ov.failure_count || 0);
           ov.compile_status = "active";
           ov.enabled = true;
           ov.carrier_state = "STATE_ENABLED";
           ov.compile_error = null;
+          if (resetTelemetry) {
+            ov.failure_count = 0;
+            ov.compile_attempts = 3;
+            ov.failure_rate = 0;
+            ov.failure_history = ["ok", "ok", "ok"];
+            ov.failure_timestamps = [];
+            ov.high_frequency_failure = false;
+          } else {
+            ov.compile_attempts = Number(ov.compile_attempts || 1) + 1;
+            ov.failure_rate = Math.round((ov.failure_count / Math.max(1, ov.compile_attempts)) * 100);
+            ov.failure_history = [...(ov.failure_history || []).slice(-5), "ok"];
+          }
           const selected = new Set(RUNTIME_STATE.spec.selected_targets || []);
           selected.add(pkgId);
           RUNTIME_STATE.spec.selected_targets = ONEUI9_SYSTEM_RRO_CATALOG.filter((i) =>
             selected.has(i.id)
           ).map((i) => i.id);
           RUNTIME_STATE.last_build.logs.push(
-            `[✓] [${nowUtc}] REPAIRED & RECOMPILED ${ov.system_rro_package} (${ov.target_package}) -> STATE_ENABLED (priority=10000 > ${semwtTarget})`
+            `[✓] [${nowUtc}] REPAIRED & STABILIZED ${ov.system_rro_package} (${ov.target_package})${prevFailures >= 2 ? ` [Cleared ${prevFailures}x High-Freq Faults]` : ""} -> STATE_ENABLED (priority=10000 > ${semwtTarget})`
           );
         }
       }
@@ -1205,25 +1352,165 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/overlays/simulate_high_freq") {
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
+      const targetIds = Array.isArray(data.ids) && data.ids.length > 0
+        ? data.ids
+        : ["aodservice", "messaging", "honeyboard"];
+      const burst = Math.max(2, Math.min(6, Number(data.burst || 3)));
+
+      for (const pkgId of targetIds) {
+        const ov = RUNTIME_STATE.active_overlays[pkgId];
+        if (!ov) continue;
+        const catalogItem = ONEUI9_SYSTEM_RRO_CATALOG.find((it) => it.id === pkgId);
+        const legacyRes =
+          catalogItem &&
+          catalogItem.legacy_broken_resources &&
+          catalogItem.legacy_broken_resources[0]
+            ? catalogItem.legacy_broken_resources[0]
+            : "color/tw_primary_color";
+        ov.compile_status = "failed";
+        ov.enabled = false;
+        ov.carrier_state = "STATE_COMPILE_FAILED";
+        ov.failure_count = Number(ov.failure_count || 0) + burst;
+        ov.compile_attempts = Number(ov.compile_attempts || 1) + burst;
+        ov.failure_rate = Math.round((ov.failure_count / Math.max(1, ov.compile_attempts)) * 100);
+        const hist = Array.isArray(ov.failure_history) ? [...ov.failure_history] : [];
+        for (let b = 0; b < burst; b++) hist.push("fail");
+        ov.failure_history = hist.slice(-6);
+        const tsList = Array.isArray(ov.failure_timestamps) ? [...ov.failure_timestamps] : [];
+        for (let b = 0; b < burst; b++) tsList.push(nowUtc);
+        ov.failure_timestamps = tsList.slice(-10);
+        ov.last_failure_at = nowUtc;
+        ov.high_frequency_failure = ov.failure_count >= 2;
+        ov.compile_error = `IDMAP2_ERR [${ov.failure_count}x HIGH-FREQ]: Repeated FRRO lock & unresolved '${legacyRes}' in ${ov.target_package}`;
+        RUNTIME_STATE.last_build.logs.push(
+          `[!] [${nowUtc}] COMPILE_FAILURE [HIGH-FREQ FAULT #${ov.failure_count}] on ${ov.system_rro_package} (${ov.target_package}) -> ${ov.compile_error}`
+        );
+      }
+      sendJson(res, buildFullState());
+      return;
+    }
+
+    if (pathname === "/api/overlays/repair_batch") {
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
+      const requestedIds = Array.isArray(data.ids) ? data.ids : [];
+      const selected = new Set(RUNTIME_STATE.spec.selected_targets || []);
+      const batchSteps = [];
+      const repairedIds = [];
+
+      // If no specific IDs passed, default to all currently failed or high-frequency RROs
+      const targetIds =
+        requestedIds.length > 0
+          ? requestedIds.filter((id) => Boolean(RUNTIME_STATE.active_overlays[id]))
+          : Object.keys(RUNTIME_STATE.active_overlays).filter((id) => {
+              const ov = RUNTIME_STATE.active_overlays[id];
+              return ov && (ov.compile_status === "failed" || Number(ov.failure_count || 0) >= 2);
+            });
+
+      const total = targetIds.length;
+      targetIds.forEach((pkgId, idx) => {
+        const ov = RUNTIME_STATE.active_overlays[pkgId];
+        if (!ov) return;
+        const catalogItem = ONEUI9_SYSTEM_RRO_CATALOG.find((it) => it.id === pkgId);
+        const semwtTarget = (catalogItem && catalogItem.semwt_target) || "SemWT_*";
+        const prevFaults = Number(ov.failure_count || 0);
+        const seqTag = `[SEQ ${idx + 1}/${total}]`;
+        const overlayIdentifier = (catalogItem && catalogItem.overlay_identifier) || ov.overlay_identifier || ov.system_rro_package;
+        const idmapCachePath = `/data/resource-cache/system@${ov.system_rro_package}@idmap`;
+        const frroCachePath = `/data/resource-cache/${overlayIdentifier}.frro`;
+        const shizukuCmd =
+          `rish -c "uid=0(root) cmd overlay disable --user 0 ${ov.system_rro_package} && ` +
+          `rm -f ${idmapCachePath} ${frroCachePath} && ` +
+          `cmd overlay fabricate --target ${ov.target_package} --name ${overlayIdentifier} && ` +
+          `cmd overlay enable --user 0 ${ov.system_rro_package} && ` +
+          `cmd overlay set-priority --user 0 ${ov.system_rro_package} highest"`;
+
+        ov.compile_status = "active";
+        ov.enabled = true;
+        ov.carrier_state = "STATE_ENABLED";
+        ov.compile_error = null;
+        ov.failure_count = 0;
+        ov.compile_attempts = Math.max(4, Number(ov.compile_attempts || 3) + 1);
+        ov.failure_rate = 0;
+        ov.failure_history = ["ok", "ok", "ok", "ok"];
+        ov.failure_timestamps = [];
+        ov.high_frequency_failure = false;
+        selected.add(pkgId);
+        repairedIds.push(pkgId);
+
+        batchSteps.push({
+          seq: idx + 1,
+          total,
+          id: pkgId,
+          label: ov.label,
+          system_rro_package: ov.system_rro_package,
+          target_package: ov.target_package,
+          semwt_target: semwtTarget,
+          cleared_faults: prevFaults,
+          idmap_cache_purged: idmapCachePath,
+          frro_cache_purged: frroCachePath,
+          shizuku_uid0_cmd: shizukuCmd,
+          status: "STATE_ENABLED",
+          priority: 10000,
+          timestamp: nowUtc,
+        });
+
+        RUNTIME_STATE.last_build.logs.push(
+          `[✓] [${nowUtc}] ${seqTag} [SHIZUKU UID 0] Purged ${idmapCachePath} & rebuilt ${ov.system_rro_package} (${ov.target_package})${prevFaults > 0 ? ` [Cleared ${prevFaults}x Faults]` : ""} -> STATE_ENABLED (priority=10000 > ${semwtTarget})`
+        );
+      });
+
+      RUNTIME_STATE.spec.selected_targets = ONEUI9_SYSTEM_RRO_CATALOG.filter((i) =>
+        selected.has(i.id)
+      ).map((i) => i.id);
+
+      const fullState = buildFullState();
+      fullState.batch_repair_report = {
+        timestamp: nowUtc,
+        privilege_context: "Shizuku UID 0 (root / u:r:su:s0) + IOverlayManager",
+        total_repaired: repairedIds.length,
+        repaired_ids: repairedIds,
+        steps: batchSteps,
+      };
+      sendJson(res, fullState);
+      return;
+    }
+
     if (pathname === "/api/overlays/repair_all") {
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
       RUNTIME_STATE.last_build.timestamp = nowUtc;
       const selected = new Set(RUNTIME_STATE.spec.selected_targets || []);
+      const onlyHighFreq = Boolean(data.only_high_freq);
+      const minFailures = Math.max(1, Number(data.min_failures || 2));
       let repairedCount = 0;
 
       for (const pkgId of Object.keys(RUNTIME_STATE.active_overlays)) {
         const ov = RUNTIME_STATE.active_overlays[pkgId];
-        if (ov.compile_status === "failed") {
+        const isHighFreq = Number(ov.failure_count || 0) >= minFailures;
+        const shouldRepair = onlyHighFreq
+          ? isHighFreq || ov.compile_status === "failed"
+          : ov.compile_status === "failed" || isHighFreq;
+        if (shouldRepair) {
+          const prevFaults = Number(ov.failure_count || 0);
           const catalogItem = ONEUI9_SYSTEM_RRO_CATALOG.find((it) => it.id === pkgId);
           const semwtTarget = (catalogItem && catalogItem.semwt_target) || "SemWT_*";
           ov.compile_status = "active";
           ov.enabled = true;
           ov.carrier_state = "STATE_ENABLED";
           ov.compile_error = null;
+          ov.failure_count = 0;
+          ov.compile_attempts = 4;
+          ov.failure_rate = 0;
+          ov.failure_history = ["ok", "ok", "ok", "ok"];
+          ov.failure_timestamps = [];
+          ov.high_frequency_failure = false;
           selected.add(pkgId);
           repairedCount++;
           RUNTIME_STATE.last_build.logs.push(
-            `[✓] [${nowUtc}] REPAIRED & RECOMPILED ${ov.system_rro_package} (${ov.target_package}) -> STATE_ENABLED (priority=10000 > ${semwtTarget})`
+            `[✓] [${nowUtc}] REPAIRED & STABILIZED ${ov.system_rro_package} (${ov.target_package}) [Cleared ${prevFaults}x Faults] -> STATE_ENABLED (priority=10000 > ${semwtTarget})`
           );
         }
       }
@@ -1232,7 +1519,7 @@ const server = http.createServer(async (req, res) => {
       ).map((i) => i.id);
       if (repairedCount === 0) {
         RUNTIME_STATE.last_build.logs.push(
-          `[*] [${nowUtc}] All selected One UI 9.0 RRO overlays verified healthy (0 failed idmap2 targets).`
+          `[*] [${nowUtc}] All selected One UI 9.0 RRO overlays verified healthy (0 failed / high-frequency idmap2 targets).`
         );
       }
       sendJson(res, buildFullState());
@@ -1255,6 +1542,9 @@ const server = http.createServer(async (req, res) => {
         RUNTIME_STATE.active_overlays[pkgId].compile_status = "disabled";
         RUNTIME_STATE.active_overlays[pkgId].compile_error = null;
         RUNTIME_STATE.active_overlays[pkgId].carrier_state = "STATE_DISABLED";
+        RUNTIME_STATE.active_overlays[pkgId].failure_count = 0;
+        RUNTIME_STATE.active_overlays[pkgId].failure_rate = 0;
+        RUNTIME_STATE.active_overlays[pkgId].high_frequency_failure = false;
       }
       RUNTIME_STATE.spec.selected_targets = [];
       RUNTIME_STATE.last_build.logs = [

@@ -130,6 +130,58 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
+    override fun repairAndRecompileBatch(
+        overlayNames: Array<String>,
+        targetPackages: Array<String>,
+    ): Bundle {
+        if (overlayNames.size != targetPackages.size) {
+            return result(-1, "overlayNames and targetPackages differ in length")
+        }
+        return try {
+            val owner = activeOwnerPackage()
+            val logs = StringBuilder()
+            val total = overlayNames.size
+
+            overlayNames.indices.forEach { index ->
+                val name = overlayNames[index]
+                val target = targetPackages[index]
+                val id = "$owner:$name"
+                val seqLabel = "[SEQ ${index + 1}/$total]"
+
+                // Step 1: Disable stale overlay & purge idmap2/frro cache files under UID 0 / Shizuku
+                exec(
+                    "cmd overlay disable --user current $id 2>/dev/null; " +
+                        "rm -f /data/resource-cache/*${name}*.idmap /data/resource-cache/*${name}*.frro"
+                )
+
+                // Step 2: Re-register fabricated overlay or re-fabricate via shell
+                if (isPrivilegedUid()) {
+                    val tx = OverlayManagerTransaction.newInstance()
+                    tx.registerFabricatedOverlay(newOverlay(name, target, owner))
+                    commit(tx)
+                } else {
+                    exec("cmd overlay fabricate --target $target --name $name")
+                }
+
+                // Step 3: Re-enable and elevate priority above Samsung SemWT_*
+                val enableRes = exec(
+                    "cmd overlay enable --user current $id && " +
+                        "cmd overlay set-priority --user current $id highest"
+                )
+                val code = enableRes.getInt(KEY_CODE)
+                logs.appendLine(
+                    "$seqLabel [UID ${Process.myUid()}] Cleared idmap2 cache & rebuilt $id -> $target " +
+                        if (code == 0) "(STATE_ENABLED, priority=highest > SemWT_*)"
+                        else "(FAILED: ${enableRes.getString(KEY_OUTPUT)})"
+                )
+            }
+
+            result(0, logs.toString().trimEnd())
+        } catch (t: Throwable) {
+            result(-1, describe(t))
+        }
+    }
+
     private fun newOverlay(name: String, target: String, owner: String): FabricatedOverlay {
         val overlay = FabricatedOverlay(name, target)
         FabricatedOverlay::class.java

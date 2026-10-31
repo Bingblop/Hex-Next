@@ -17,4 +17,9 @@ interface IThemeService {
 
     // Disables and unregisters a fabricated overlay this app created. Root only.
     Bundle removeOverlay(String name) = 4;
+
+    // Sequentially clears stale idmap2/frro caches in /data/resource-cache/ and rebuilds
+    // the specified overlays at highest priority (> SemWT_*) under Shizuku UID 0 / root.
+    Bundle repairAndRecompileBatch(in String[] overlayNames, in String[] targetPackages) = 5;
 }
+
