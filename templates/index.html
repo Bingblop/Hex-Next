@@ -1626,30 +1626,18 @@
                             <span id="matrix-log-pulse" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                             <h3 class="font-display font-bold text-xs uppercase tracking-wider text-white">Recent Logs — Overlay Build &amp; <code class="font-mono text-cyan-300">idmap2</code> Diagnostics</h3>
                         </div>
-                        <span id="matrix-log-error-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                        <span id="matrix-log-error-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 tabular-nums">
                             0 Compile Errors
                         </span>
-                        <span id="matrix-log-success-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                        <span id="matrix-log-success-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 tabular-nums">
                             0 Built
                         </span>
-                        <span id="matrix-log-timestamp" class="font-mono text-[11px] text-slate-400">
+                        <span id="matrix-log-timestamp" class="font-mono text-[11px] text-slate-400 tabular-nums">
                             Last Event: --
                         </span>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
-                        <div class="flex items-center bg-[#090D14] p-0.5 rounded-lg border border-[#263248] text-[11px] font-mono">
-                            <button onclick="setMatrixLogFilter('all')" id="matrix-log-filter-all" class="px-2 py-0.5 rounded bg-[#1E293B] text-white cursor-pointer">
-                                All (<span id="matrix-log-count-all">0</span>)
-                            </button>
-                            <button onclick="setMatrixLogFilter('errors')" id="matrix-log-filter-errors" class="px-2 py-0.5 rounded text-rose-400 hover:bg-[#1E293B]/60 cursor-pointer">
-                                Errors (<span id="matrix-log-count-errors">0</span>)
-                            </button>
-                            <button onclick="setMatrixLogFilter('success')" id="matrix-log-filter-success" class="px-2 py-0.5 rounded text-emerald-400 hover:bg-[#1E293B]/60 cursor-pointer">
-                                Compiled (<span id="matrix-log-count-success">0</span>)
-                            </button>
-                        </div>
-
                         <button id="btn-repair-all-failed" onclick="repairAllFailedOverlays()" class="hidden px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-semibold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             <span>Repair All Failed RROs</span>
@@ -1666,7 +1654,39 @@
                     </div>
                 </div>
 
-                <div id="matrix-recent-logs-list" class="max-h-48 overflow-y-auto divide-y divide-[#151D2C] font-mono text-xs"></div>
+                <!-- Compilation Failure Type Isolation Filter Bar -->
+                <div class="px-4 py-2 bg-[#0B0F19] border-b border-[#1E2738] flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-mono" role="group" aria-label="Recent Logs Compilation Failure Filters">
+                        <span class="text-slate-400 text-[10px] uppercase tracking-wider mr-1">Isolate Logs:</span>
+                        <button type="button" onclick="setMatrixLogFilter('all')" id="matrix-log-filter-all" class="px-2.5 py-1 rounded-md bg-[#1E293B] text-white cursor-pointer transition-colors whitespace-nowrap shrink-0">
+                            All (<span id="matrix-log-count-all" class="tabular-nums">0</span>)
+                        </button>
+                        <button type="button" onclick="setMatrixLogFilter('errors')" id="matrix-log-filter-errors" class="px-2.5 py-1 rounded-md text-rose-300 hover:bg-[#1E293B]/60 cursor-pointer transition-colors whitespace-nowrap shrink-0">
+                            Errors (<span id="matrix-log-count-errors" class="tabular-nums">0</span>)
+                        </button>
+                        <button type="button" onclick="setMatrixLogFilter('idmap2_conflicts')" id="matrix-log-filter-idmap2_conflicts" class="px-2.5 py-1 rounded-md text-amber-300 hover:bg-amber-500/15 border border-amber-500/25 flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0" title="Isolate IDMAP2 lock contention &amp; stale .frro overlay conflicts">
+                            <svg class="w-3 h-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            <span>IDMAP2 Conflicts (<span id="matrix-log-count-idmap2_conflicts" class="tabular-nums">0</span>)</span>
+                        </button>
+                        <button type="button" onclick="setMatrixLogFilter('systemui_mismatches')" id="matrix-log-filter-systemui_mismatches" class="px-2.5 py-1 rounded-md text-purple-300 hover:bg-purple-500/15 border border-purple-500/25 flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0" title="Isolate SystemUI &amp; SemWT_* resource ID mismatches and unresolved symbol errors">
+                            <svg class="w-3 h-3 text-purple-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                            <span>SystemUI Resource Mismatches (<span id="matrix-log-count-systemui_mismatches" class="tabular-nums">0</span>)</span>
+                        </button>
+                        <button type="button" onclick="setMatrixLogFilter('permission_denied')" id="matrix-log-filter-permission_denied" class="px-2.5 py-1 rounded-md text-rose-300 hover:bg-rose-500/15 border border-rose-500/25 flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0" title="Isolate SELinux avc: denied &amp; IOverlayManager Permission Denied errors">
+                            <svg class="w-3 h-3 text-rose-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            <span>Permission Denied (<span id="matrix-log-count-permission_denied" class="tabular-nums">0</span>)</span>
+                        </button>
+                        <button type="button" onclick="setMatrixLogFilter('success')" id="matrix-log-filter-success" class="px-2.5 py-1 rounded-md text-emerald-400 hover:bg-[#1E293B]/60 cursor-pointer transition-colors whitespace-nowrap shrink-0">
+                            Compiled (<span id="matrix-log-count-success" class="tabular-nums">0</span>)
+                        </button>
+                    </div>
+
+                    <div id="matrix-log-active-filter-summary" class="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+                        <span id="matrix-log-active-filter-text">Showing all diagnostic log events</span>
+                    </div>
+                </div>
+
+                <div id="matrix-recent-logs-list" class="max-h-56 overflow-y-auto divide-y divide-[#151D2C] font-mono text-xs"></div>
             </div>
 
             <!-- 26 System RRO Target Status Overview Strip (At-a-Glance Visual Status Icons) -->
@@ -2681,8 +2701,19 @@
         }
 
         function setMatrixLogFilter(filter) {
-            MATRIX_LOG_FILTER = filter;
+            MATRIX_LOG_FILTER = filter || 'all';
             renderMatrixRecentLogs();
+        }
+
+        async function simulateSpecificLogFailure(failureType) {
+            const res = await fetch('/api/logs/simulate_failure_type', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ failure_type: failureType })
+            });
+            APP_STATE = await res.json();
+            MATRIX_LOG_FILTER = failureType || 'all';
+            renderAll();
         }
 
         async function repairAllFailedOverlays() {
@@ -2717,6 +2748,13 @@
             const filteredLogs = parsed.filter(item => {
                 if (MATRIX_LOG_FILTER === 'errors') return item.isError;
                 if (MATRIX_LOG_FILTER === 'success') return item.isSuccess;
+                if (
+                    MATRIX_LOG_FILTER === 'idmap2_conflicts' ||
+                    MATRIX_LOG_FILTER === 'systemui_mismatches' ||
+                    MATRIX_LOG_FILTER === 'permission_denied'
+                ) {
+                    return item.isError && item.failureCategory === MATRIX_LOG_FILTER;
+                }
                 return true;
             });
 
@@ -4532,9 +4570,71 @@
 
         function parseMatrixLogEntry(rawLine, index, total) {
             const line = String(rawLine || '');
-            const isError = line.startsWith('[!]') || line.includes('COMPILE_FAILURE') || line.includes('IDMAP2_ERR');
+            const lower = line.toLowerCase();
+            const isError =
+                line.startsWith('[!]') ||
+                line.includes('COMPILE_FAILURE') ||
+                line.includes('IDMAP2_ERR') ||
+                line.includes('PERMISSION_DENIED') ||
+                lower.includes('permission denied') ||
+                lower.includes('securityexception');
             const isSuccess = !isError && (line.startsWith('[✓]') || line.startsWith('[+]'));
             const kind = isError ? 'errors' : (isSuccess ? 'success' : 'info');
+
+            let failureCategory = null;
+            let failureCategoryLabel = null;
+            let failureBadgeClass = '';
+            let remediationHint = null;
+
+            if (isError) {
+                const isPermissionDenied =
+                    lower.includes('permission_denied') ||
+                    lower.includes('permission denied') ||
+                    lower.includes('securityexception') ||
+                    lower.includes('avc: denied') ||
+                    lower.includes('selinux') ||
+                    lower.includes('eacces') ||
+                    lower.includes('uid=2000');
+
+                const isIdmap2Conflict =
+                    !isPermissionDenied &&
+                    (lower.includes('idmap2_conflict') ||
+                        lower.includes('overlay conflict') ||
+                        lower.includes('lock contention') ||
+                        lower.includes('stale /data/resource-cache/') ||
+                        lower.includes('repeated frro lock') ||
+                        lower.includes('semwt lock') ||
+                        (lower.includes('.frro') && !lower.includes('resource id mismatch')));
+
+                const isSystemUiMismatch =
+                    !isPermissionDenied &&
+                    !isIdmap2Conflict &&
+                    (lower.includes('systemui_resource_mismatch') ||
+                        lower.includes('systemui resource mismatch') ||
+                        lower.includes('resource_mismatch') ||
+                        lower.includes('resource id mismatch') ||
+                        lower.includes('unresolved symbol') ||
+                        lower.includes('com.android.systemui') ||
+                        lower.includes('rro.systemui') ||
+                        lower.includes('semwt_systemui'));
+
+                if (isPermissionDenied) {
+                    failureCategory = 'permission_denied';
+                    failureCategoryLabel = 'PERMISSION DENIED';
+                    failureBadgeClass = 'bg-rose-500/25 text-rose-200 border-rose-400/50';
+                    remediationHint = 'Elevate session to Shizuku UID 1000 (system) or UID 0 (root) before committing IOverlayManager transactions.';
+                } else if (isSystemUiMismatch) {
+                    failureCategory = 'systemui_mismatches';
+                    failureCategoryLabel = 'SYSTEMUI RESOURCE MISMATCH';
+                    failureBadgeClass = 'bg-purple-500/25 text-purple-200 border-purple-400/50';
+                    remediationHint = 'Re-sync One UI 9.0 SemWT_SystemUI / target resource IDs and strip deprecated One UI 6.x layout symbols.';
+                } else {
+                    failureCategory = 'idmap2_conflicts';
+                    failureCategoryLabel = 'IDMAP2 CONFLICT';
+                    failureBadgeClass = 'bg-amber-500/25 text-amber-200 border-amber-400/50';
+                    remediationHint = 'Purge stale /data/resource-cache/*.{idmap,frro} locks via UID 0 and re-apply at priority=10000 (> SemWT_*).';
+                }
+            }
 
             const rroMatch = line.match(/com\.hexnext\.oneui9\.rro\.([a-z0-9_]+)/i);
             const pkgId = rroMatch ? rroMatch[1] : null;
@@ -4557,6 +4657,10 @@
                 kind,
                 isError,
                 isSuccess,
+                failureCategory,
+                failureCategoryLabel,
+                failureBadgeClass,
+                remediationHint,
                 pkgId,
                 rroPkg,
                 pkgObj,
@@ -4573,11 +4677,20 @@
             const parsed = rawLogs.map((line, idx) => parseMatrixLogEntry(line, idx, rawLogs.length)).reverse();
 
             const errorEntries = parsed.filter(item => item.isError);
+            const idmap2ConflictEntries = errorEntries.filter(item => item.failureCategory === 'idmap2_conflicts');
+            const systemUiMismatchEntries = errorEntries.filter(item => item.failureCategory === 'systemui_mismatches');
+            const permissionDeniedEntries = errorEntries.filter(item => item.failureCategory === 'permission_denied');
             const successEntries = parsed.filter(item => item.isSuccess);
             const failedPkgs = (APP_STATE.packages || []).filter(p => p.compile_status === 'failed');
 
             document.getElementById('matrix-log-count-all').textContent = parsed.length;
             document.getElementById('matrix-log-count-errors').textContent = errorEntries.length;
+            const idmapCountEl = document.getElementById('matrix-log-count-idmap2_conflicts');
+            if (idmapCountEl) idmapCountEl.textContent = idmap2ConflictEntries.length;
+            const sysUiCountEl = document.getElementById('matrix-log-count-systemui_mismatches');
+            if (sysUiCountEl) sysUiCountEl.textContent = systemUiMismatchEntries.length;
+            const permCountEl = document.getElementById('matrix-log-count-permission_denied');
+            if (permCountEl) permCountEl.textContent = permissionDeniedEntries.length;
             document.getElementById('matrix-log-count-success').textContent = successEntries.length;
             document.getElementById('matrix-log-timestamp').textContent = `Last Event: ${lb.timestamp} (${lb.duration_ms}ms)`;
 
@@ -4588,12 +4701,12 @@
 
             if (failedPkgs.length > 0 || errorEntries.length > 0) {
                 errBadge.textContent = `${failedPkgs.length} Active Fault${failedPkgs.length === 1 ? '' : 's'} • ${errorEntries.length} Error Log${errorEntries.length === 1 ? '' : 's'}`;
-                errBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold';
+                errBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold tabular-nums';
                 pulseEl.className = 'w-2 h-2 rounded-full bg-rose-400 animate-ping';
                 widgetEl.className = 'bg-[#0D111A] border border-rose-500/40 rounded-xl overflow-hidden transition-all shadow-lg shadow-rose-950/20';
             } else {
                 errBadge.textContent = '0 Compile Errors';
-                errBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
+                errBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 tabular-nums';
                 pulseEl.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
                 widgetEl.className = 'bg-[#0D111A] border border-[#1E2738] rounded-xl overflow-hidden transition-all';
             }
@@ -4611,26 +4724,68 @@
                 successBadge.textContent = `${successEntries.length} Build Events`;
             }
 
-            ['all', 'errors', 'success'].forEach(f => {
+            const allFilterKeys = [
+                'all',
+                'errors',
+                'idmap2_conflicts',
+                'systemui_mismatches',
+                'permission_denied',
+                'success'
+            ];
+            allFilterKeys.forEach(f => {
                 const btn = document.getElementById(`matrix-log-filter-${f}`);
                 if (!btn) return;
                 if (f === MATRIX_LOG_FILTER) {
-                    btn.classList.add('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                    btn.classList.add('bg-[#1E293B]', 'ring-1', 'ring-cyan-400/70', 'font-semibold');
                 } else {
-                    btn.classList.remove('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                    btn.classList.remove('bg-[#1E293B]', 'ring-1', 'ring-cyan-400/70', 'font-semibold');
                 }
             });
 
             const visibleLogs = parsed.filter(item => {
                 if (MATRIX_LOG_FILTER === 'errors') return item.isError;
                 if (MATRIX_LOG_FILTER === 'success') return item.isSuccess;
+                if (
+                    MATRIX_LOG_FILTER === 'idmap2_conflicts' ||
+                    MATRIX_LOG_FILTER === 'systemui_mismatches' ||
+                    MATRIX_LOG_FILTER === 'permission_denied'
+                ) {
+                    return item.isError && item.failureCategory === MATRIX_LOG_FILTER;
+                }
                 return true;
             });
 
+            const filterLabelMap = {
+                all: `Showing all ${visibleLogs.length} diagnostic log events`,
+                errors: `Isolating all ${visibleLogs.length} compilation error logs`,
+                idmap2_conflicts: `Isolating ${visibleLogs.length} IDMAP2 Conflict error${visibleLogs.length === 1 ? '' : 's'} (stale .frro / lock contention)`,
+                systemui_mismatches: `Isolating ${visibleLogs.length} SystemUI Resource Mismatch error${visibleLogs.length === 1 ? '' : 's'} (unresolved SemWT_* symbols)`,
+                permission_denied: `Isolating ${visibleLogs.length} Permission Denied error${visibleLogs.length === 1 ? '' : 's'} (SELinux / IOverlayManager UID rejection)`,
+                success: `Isolating ${visibleLogs.length} compiled RRO build event${visibleLogs.length === 1 ? '' : 's'}`
+            };
+            const summaryTextEl = document.getElementById('matrix-log-active-filter-text');
+            if (summaryTextEl) {
+                summaryTextEl.textContent = filterLabelMap[MATRIX_LOG_FILTER] || filterLabelMap.all;
+            }
+
             if (visibleLogs.length === 0) {
+                const isSpecificErrorFilter =
+                    MATRIX_LOG_FILTER === 'idmap2_conflicts' ||
+                    MATRIX_LOG_FILTER === 'systemui_mismatches' ||
+                    MATRIX_LOG_FILTER === 'permission_denied';
                 listEl.innerHTML = `
-                    <div class="px-4 py-5 text-center text-slate-400 text-xs font-mono">
-                        No ${MATRIX_LOG_FILTER === 'errors' ? 'compilation error' : 'matching'} log entries in buffer. All active One UI 9.0 RRO targets compiled cleanly.
+                    <div class="px-4 py-5 text-center text-slate-400 text-xs font-mono space-y-2">
+                        <div>No matching log entries for filter <strong class="text-cyan-300">${MATRIX_LOG_FILTER}</strong> in current buffer.</div>
+                        <div class="flex items-center justify-center gap-2">
+                            <button type="button" onclick="setMatrixLogFilter('all')" class="px-2.5 py-1 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-cyan-300 text-[11px] cursor-pointer">
+                                Show All Logs (${parsed.length})
+                            </button>
+                            ${isSpecificErrorFilter ? `
+                                <button type="button" onclick="simulateSpecificLogFailure('${MATRIX_LOG_FILTER}')" class="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-[11px] cursor-pointer">
+                                    Simulate Sample Fault
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                 `;
                 return;
@@ -4639,28 +4794,38 @@
             listEl.innerHTML = visibleLogs.map(item => {
                 if (item.isError) {
                     const isStillFailed = item.pkgObj && item.pkgObj.compile_status === 'failed';
+                    const catBadge = item.failureCategoryLabel || 'IDMAP2 COMPILE ERROR';
+                    const catClass = item.failureBadgeClass || 'bg-rose-500/20 text-rose-300 border-rose-500/30';
                     return `
-                        <div class="px-4 py-2.5 bg-rose-950/35 hover:bg-rose-950/50 flex flex-wrap items-center justify-between gap-2 transition-colors">
+                        <div data-log-failure-category="${item.failureCategory || 'errors'}" class="px-4 py-2.5 bg-rose-950/35 hover:bg-rose-950/50 flex flex-wrap items-center justify-between gap-2 transition-colors">
                             <div class="flex items-start gap-2.5 min-w-0 flex-1">
                                 <span class="mt-0.5 w-4 h-4 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center justify-center shrink-0">!</span>
                                 <div class="min-w-0 flex-1">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">IDMAP2 COMPILE ERROR</span>
-                                        ${item.rroPkg ? `<button onclick="focusMatrixCard('${item.pkgId}')" class="text-cyan-300 hover:underline font-semibold cursor-pointer">${item.rroPkg}</button>` : ''}
+                                        <button type="button" onclick="setMatrixLogFilter('${item.failureCategory || 'errors'}')" class="text-[10px] px-1.5 py-0.5 rounded border ${catClass} font-semibold cursor-pointer hover:underline" title="Click to isolate ${catBadge} logs">
+                                            ${catBadge}
+                                        </button>
+                                        ${item.rroPkg ? `<button type="button" onclick="focusMatrixCard('${item.pkgId}')" class="text-cyan-300 hover:underline font-semibold cursor-pointer">${item.rroPkg}</button>` : ''}
                                         ${item.pkgObj ? `<span class="text-slate-400 text-[11px]">(${item.pkgObj.label} → ${item.pkgObj.target_package})</span>` : ''}
-                                        <span class="text-[10px] text-slate-500">${item.timestamp}</span>
+                                        <span class="text-[10px] text-slate-500 tabular-nums">${item.timestamp}</span>
                                     </div>
                                     <div class="text-rose-200 mt-0.5 break-all">${item.cleanMessage}</div>
+                                    ${item.remediationHint ? `<div class="text-[10px] text-slate-400 mt-0.5">Remediation: <span class="text-cyan-300/90">${item.remediationHint}</span></div>` : ''}
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 shrink-0">
+                                ${item.failureCategory === 'permission_denied' ? `
+                                    <button type="button" onclick="changePrivilegeMode('shizuku-uid0')" class="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-[11px] cursor-pointer">
+                                        Elevate UID 0
+                                    </button>
+                                ` : ''}
                                 ${item.pkgId ? `
-                                    <button onclick="focusMatrixCard('${item.pkgId}')" class="px-2 py-1 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-200 text-[11px] cursor-pointer">
+                                    <button type="button" onclick="focusMatrixCard('${item.pkgId}')" class="px-2 py-1 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-200 text-[11px] cursor-pointer">
                                         Locate Card
                                     </button>
                                 ` : ''}
                                 ${isStillFailed ? `
-                                    <button onclick="setOverlayCompileStatus('${item.pkgId}', 'active')" class="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-[11px] cursor-pointer">
+                                    <button type="button" onclick="setOverlayCompileStatus('${item.pkgId}', 'active')" class="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-[11px] cursor-pointer">
                                         Repair RRO
                                     </button>
                                 ` : (item.pkgId ? `<span class="text-[10px] text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-950/50 border border-emerald-700/40">Resolved ✓</span>` : '')}
@@ -4677,14 +4842,14 @@
                                 <div class="min-w-0 flex-1">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">BUILD OK</span>
-                                        ${item.rroPkg ? `<button onclick="focusMatrixCard('${item.pkgId}')" class="text-cyan-300 hover:underline cursor-pointer">${item.rroPkg}</button>` : ''}
-                                        <span class="text-[10px] text-slate-500">${item.timestamp}</span>
+                                        ${item.rroPkg ? `<button type="button" onclick="focusMatrixCard('${item.pkgId}')" class="text-cyan-300 hover:underline cursor-pointer">${item.rroPkg}</button>` : ''}
+                                        <span class="text-[10px] text-slate-500 tabular-nums">${item.timestamp}</span>
                                     </div>
                                     <div class="text-slate-200 mt-0.5 break-all">${item.cleanMessage}</div>
                                 </div>
                             </div>
                             ${item.pkgId ? `
-                                <button onclick="focusMatrixCard('${item.pkgId}')" class="px-2 py-0.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-400 hover:text-slate-200 text-[10px] shrink-0 cursor-pointer">
+                                <button type="button" onclick="focusMatrixCard('${item.pkgId}')" class="px-2 py-0.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-400 hover:text-slate-200 text-[10px] shrink-0 cursor-pointer">
                                     View Target
                                 </button>
                             ` : ''}
@@ -4696,7 +4861,7 @@
                     <div class="px-4 py-1.5 hover:bg-[#111726] flex items-start gap-2.5 text-slate-400 transition-colors">
                         <span class="mt-0.5 w-4 h-4 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 flex items-center justify-center shrink-0">*</span>
                         <div class="min-w-0 flex-1 break-all">
-                            <span class="text-[10px] text-slate-500 mr-2">${item.timestamp}</span>
+                            <span class="text-[10px] text-slate-500 mr-2 tabular-nums">${item.timestamp}</span>
                             <span>${item.cleanMessage}</span>
                         </div>
                     </div>

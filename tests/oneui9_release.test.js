@@ -390,6 +390,60 @@ test('GitHub CI/CD pipeline and Gradle configuration enforce 64-bit & 32-bit arc
   assert.ok(audit.keystore_env_vars.includes('HEXNEXT_KEYSTORE_BASE64'));
 });
 
+test('Recent Logs widget classifies and isolates IDMAP2 Conflicts, SystemUI Resource Mismatches, and Permission Denied compilation failures', () => {
+  const {
+    classifyRecentLogFailureType,
+    filterRecentDiagnosticLogs,
+    RUNTIME_STATE,
+  } = require('../server.js');
+
+  const sampleLogs = [
+    '[*] HexNext v3.5 — One UI 9.0 RRO Compiler Initialized',
+    '[✓] Synthesized 26 from-scratch RRO packages (com.hexnext.oneui9.rro.*) taking precedence over SemWT_*.',
+    '[!] [19:54:12 UTC] COMPILE_FAILURE [IDMAP2_CONFLICT] [HIGH-FREQ FAULT #4] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_ERR: Overlay Conflict — Repeated lock contention on stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro (color/aod_clock_color)',
+    '[!] [19:54:48 UTC] COMPILE_FAILURE [SYSTEMUI_RESOURCE_MISMATCH] on com.hexnext.oneui9.rro.systemui (com.android.systemui) -> IDMAP2_ERR: SystemUI Resource Mismatch — Unresolved symbol \'dimen/qs_tile_background_radius\' in SemWT_SystemUI target table',
+    '[!] [19:55:04 UTC] COMPILE_FAILURE [SYSTEMUI_RESOURCE_MISMATCH] [HIGH-FREQ FAULT #3] on com.hexnext.oneui9.rro.messaging (com.samsung.android.messaging) -> IDMAP2_ERR: Resource ID Mismatch — Unresolved symbol \'color/message_bubble_send_bg\' during SemWT_Messaging override pass',
+    '[!] [19:55:19 UTC] COMPILE_FAILURE [PERMISSION_DENIED] on com.hexnext.oneui9.rro.framework (android) -> PERMISSION_DENIED: SELinux avc: denied { write } for uid=2000 on /data/resource-cache/ (SecurityException: IOverlayManager.commit requires UID 1000 system or UID 0 root)',
+  ];
+
+  assert.equal(filterRecentDiagnosticLogs(sampleLogs, 'all').length, 6);
+  assert.equal(filterRecentDiagnosticLogs(sampleLogs, 'errors').length, 4);
+  assert.equal(filterRecentDiagnosticLogs(sampleLogs, 'success').length, 1);
+
+  const idmapConflicts = filterRecentDiagnosticLogs(sampleLogs, 'idmap2_conflicts');
+  assert.equal(idmapConflicts.length, 1);
+  assert.equal(idmapConflicts[0].failureCategory, 'idmap2_conflicts');
+  assert.equal(idmapConflicts[0].failureCategoryLabel, 'IDMAP2 Conflict');
+  assert.ok(idmapConflicts[0].raw.includes('aodservice'));
+
+  const systemUiMismatches = filterRecentDiagnosticLogs(sampleLogs, 'systemui_mismatches');
+  assert.equal(systemUiMismatches.length, 2);
+  assert.ok(systemUiMismatches.every(item => item.failureCategory === 'systemui_mismatches'));
+  assert.equal(systemUiMismatches[0].failureCategoryLabel, 'SystemUI Resource Mismatch');
+
+  const permissionDenied = filterRecentDiagnosticLogs(sampleLogs, 'permission_denied');
+  assert.equal(permissionDenied.length, 1);
+  assert.equal(permissionDenied[0].failureCategory, 'permission_denied');
+  assert.equal(permissionDenied[0].failureCategoryLabel, 'Permission Denied');
+  assert.ok(permissionDenied[0].raw.includes('SELinux avc: denied'));
+
+  // Verify classifyRecentLogFailureType directly
+  const cPerm = classifyRecentLogFailureType('[!] SecurityException: Permission Denied by IOverlayManager');
+  assert.equal(cPerm.isError, true);
+  assert.equal(cPerm.failureCategory, 'permission_denied');
+
+  const cSys = classifyRecentLogFailureType('[!] IDMAP2_ERR: Unresolved symbol in com.android.systemui');
+  assert.equal(cSys.isError, true);
+  assert.equal(cSys.failureCategory, 'systemui_mismatches');
+
+  const cIdmap = classifyRecentLogFailureType('[!] IDMAP2_ERR: Overlay Conflict on stale .frro lock');
+  assert.equal(cIdmap.isError, true);
+  assert.equal(cIdmap.failureCategory, 'idmap2_conflicts');
+
+  assert.ok(Array.isArray(RUNTIME_STATE.last_build.logs));
+});
+
+
 
 
 

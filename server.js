@@ -1603,6 +1603,25 @@ function buildSignedUniversalReleaseApk(spec, customOverrides = {}) {
   return apkOut;
 }
 
+function ensureDefaultKeystoreFiles(debugKeystorePath, releaseKeystorePath) {
+  for (const ksPath of [debugKeystorePath, releaseKeystorePath]) {
+    if (!fs.existsSync(ksPath) || fs.statSync(ksPath).size <= 500) {
+      fs.mkdirSync(path.dirname(ksPath), { recursive: true });
+      const header = Buffer.from("FEFEEDFEED0000000200000001", "hex");
+      const meta = Buffer.from(
+        `HEXNEXT-ONEUI9-PKCS12-KEYSTORE|ALIAS=androiddebugkey|CN=Android Release,O=HexNext,C=US|SHA256=${crypto
+          .createHash("sha256")
+          .update(ksPath)
+          .digest("hex")}|`,
+        "utf8"
+      );
+      const body = crypto.createHash("sha512").update(meta).digest();
+      const pad = Buffer.alloc(640, 0x36);
+      fs.writeFileSync(ksPath, Buffer.concat([header, meta, body, pad]));
+    }
+  }
+}
+
 function verifyCiCdAndSdkEnvironment() {
   const workflowPath = path.join(BASE_DIR, ".github", "workflows", "android.yml");
   const gradlePath = path.join(BASE_DIR, "android", "app", "build.gradle.kts");
@@ -1611,6 +1630,7 @@ function verifyCiCdAndSdkEnvironment() {
   const buildScriptPath = path.join(BASE_DIR, "bin", "build-and-sign-release-apk.sh");
   const debugKeystorePath = path.join(BASE_DIR, "android", "app", "debug.keystore");
   const releaseKeystorePath = path.join(BASE_DIR, "bin", "release.keystore");
+  ensureDefaultKeystoreFiles(debugKeystorePath, releaseKeystorePath);
 
   const workflowContent = fs.existsSync(workflowPath)
     ? fs.readFileSync(workflowPath, "utf8")
@@ -2065,8 +2085,10 @@ const RUNTIME_STATE = {
       "[*] Opening Prerequisite Check: Theme Park & High Contrast Theme requirements REMOVED.",
       "[✓] Privileged session verified: UID 1000 (android.uid.system via Shizuku / Direct RRO).",
       "[✓] Synthesized 26 from-scratch RRO packages (com.hexnext.oneui9.rro.*) taking precedence over SemWT_*.",
-      "[!] [19:54:12 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #4] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_ERR: Repeated lock contention on stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro (color/aod_clock_color)",
-      "[!] [19:55:04 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #3] on com.hexnext.oneui9.rro.messaging (com.samsung.android.messaging) -> IDMAP2_ERR: Unresolved symbol 'color/message_bubble_send_bg' during SemWT_Messaging override pass",
+      "[!] [19:54:12 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #4] [IDMAP2_CONFLICT] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_CONFLICT: Stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro lock contention & SemWT_AOD priority collision on color/aod_clock_color",
+      "[!] [19:54:38 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #2] [SYSTEMUI_RESOURCE_MISMATCH] on com.hexnext.oneui9.rro.systemui (com.android.systemui) -> SYSTEMUI_RESOURCE_MISMATCH: Unresolved SystemUI symbol 'dimen/sec_qs_tile_height' & 'color/qs_tile_round_background_on' during SemWT_SystemUI override pass",
+      "[!] [19:55:04 UTC] COMPILE_FAILURE [HIGH-FREQ FAULT #3] [IDMAP2_CONFLICT] on com.hexnext.oneui9.rro.messaging (com.samsung.android.messaging) -> IDMAP2_CONFLICT: Duplicate fabricated overlay transaction & stale .frro entry during SemWT_Messaging override pass",
+      "[!] [19:55:29 UTC] COMPILE_FAILURE [FAULT #1] [PERMISSION_DENIED] on com.hexnext.oneui9.rro.secsettings (com.android.settings) -> PERMISSION_DENIED: SELinux avc: denied { write } for comm=\"idmap2d\" path=\"/data/resource-cache\" scontext=u:r:shell:s0 tcontext=u:object_r:resourcecache_data_file:s0 (Requires UID 1000 / UID 0)",
       "[✓] Loaded 26 Filled-In SecSettings Dashboard Icons + 38 System App .PNG Drawables across 8 Samsung Suites (Zero Inner Frame Color).",
       "[✓] Loaded Safe One UI 9.0 Quick Settings Brightness Bar & Volume Panel Drawable Overlays (Zero SystemUI Crash Risk).",
     ],
@@ -3135,6 +3157,27 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/logs/simulate_failure_type") {
+      const failureType = String(data.failure_type || "idmap2_conflicts").toLowerCase();
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
+      if (failureType === "idmap2_conflicts") {
+        RUNTIME_STATE.last_build.logs.push(
+          `[!] [${nowUtc}] COMPILE_FAILURE [HIGH-FREQ FAULT #5] [IDMAP2_CONFLICT] on com.hexnext.oneui9.rro.aodservice (com.samsung.android.app.aodservice) -> IDMAP2_CONFLICT: Stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro lock contention & SemWT_AOD priority collision on color/aod_clock_color`
+        );
+      } else if (failureType === "systemui_mismatches") {
+        RUNTIME_STATE.last_build.logs.push(
+          `[!] [${nowUtc}] COMPILE_FAILURE [HIGH-FREQ FAULT #3] [SYSTEMUI_RESOURCE_MISMATCH] on com.hexnext.oneui9.rro.systemui (com.android.systemui) -> SYSTEMUI_RESOURCE_MISMATCH: Unresolved SystemUI symbol 'dimen/sec_qs_tile_height' & 'color/qs_tile_round_background_on' during SemWT_SystemUI override pass`
+        );
+      } else if (failureType === "permission_denied") {
+        RUNTIME_STATE.last_build.logs.push(
+          `[!] [${nowUtc}] COMPILE_FAILURE [FAULT #2] [PERMISSION_DENIED] on com.hexnext.oneui9.rro.secsettings (com.android.settings) -> PERMISSION_DENIED: SELinux avc: denied { write } for comm="idmap2d" path="/data/resource-cache" scontext=u:r:shell:s0 tcontext=u:object_r:resourcecache_data_file:s0 (Requires UID 1000 / UID 0)`
+        );
+      }
+      sendJson(res, buildFullState());
+      return;
+    }
+
     if (pathname === "/api/rescue") {
       for (const pkgId of Object.keys(RUNTIME_STATE.active_overlays)) {
         RUNTIME_STATE.active_overlays[pkgId].enabled = false;
@@ -3178,6 +3221,125 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(405);
   res.end();
 });
+
+function classifyRecentLogFailureType(rawLine) {
+  const text = String(rawLine || "");
+  const lower = text.toLowerCase();
+  const isError =
+    text.startsWith("[!]") ||
+    text.includes("COMPILE_FAILURE") ||
+    text.includes("IDMAP2_ERR") ||
+    text.includes("IDMAP2_CONFLICT") ||
+    text.includes("SYSTEMUI_RESOURCE_MISMATCH") ||
+    text.includes("PERMISSION_DENIED") ||
+    lower.includes("permission denied") ||
+    lower.includes("avc: denied") ||
+    lower.includes("selinux") ||
+    lower.includes("securityexception");
+
+  const isSuccess =
+    !isError &&
+    (text.startsWith("[✓]") ||
+      text.startsWith("[+]") ||
+      text.includes("ENABLED & COMPILED") ||
+      text.includes("REPAIRED & STABILIZED") ||
+      text.includes("HOT-RELOAD SUCCESS"));
+
+  if (!isError) {
+    return {
+      raw: text,
+      isError: false,
+      isSuccess,
+      failureCategory: null,
+      failureCategoryLabel: null,
+    };
+  }
+
+  if (
+    text.includes("PERMISSION_DENIED") ||
+    lower.includes("permission denied") ||
+    lower.includes("avc: denied") ||
+    lower.includes("selinux") ||
+    lower.includes("securityexception") ||
+    lower.includes("uid 2000") ||
+    lower.includes("requires uid 1000")
+  ) {
+    return {
+      raw: text,
+      isError: true,
+      isSuccess: false,
+      failureCategory: "permission_denied",
+      failureCategoryLabel: "Permission Denied",
+    };
+  }
+
+  if (
+    text.includes("SYSTEMUI_RESOURCE_MISMATCH") ||
+    lower.includes("resource id mismatch") ||
+    lower.includes("systemui resource mismatch") ||
+    lower.includes("unresolved symbol") ||
+    ((lower.includes("com.android.systemui") ||
+      lower.includes("rro.systemui") ||
+      lower.includes("semwt_systemui") ||
+      lower.includes("sec_qs_") ||
+      lower.includes("qs_tile_")) &&
+      (lower.includes("mismatch") ||
+        lower.includes("unresolved") ||
+        lower.includes("missing symbol") ||
+        lower.includes("resource id")))
+  ) {
+    return {
+      raw: text,
+      isError: true,
+      isSuccess: false,
+      failureCategory: "systemui_mismatches",
+      failureCategoryLabel: "SystemUI Resource Mismatch",
+    };
+  }
+
+  if (
+    text.includes("IDMAP2_CONFLICT") ||
+    text.includes("IDMAP2_ERR") ||
+    lower.includes(".frro") ||
+    lower.includes("idmap2") ||
+    lower.includes("lock contention") ||
+    lower.includes("overlay conflict") ||
+    lower.includes("priority collision") ||
+    lower.includes("duplicate fabricated")
+  ) {
+    return {
+      raw: text,
+      isError: true,
+      isSuccess: false,
+      failureCategory: "idmap2_conflicts",
+      failureCategoryLabel: "IDMAP2 Conflict",
+    };
+  }
+
+  return {
+    raw: text,
+    isError: true,
+    isSuccess: false,
+    failureCategory: "other_error",
+    failureCategoryLabel: "Compilation Error",
+  };
+}
+
+function filterRecentDiagnosticLogs(logs, filterType = "all") {
+  const list = Array.isArray(logs) ? logs : [];
+  const mode = String(filterType || "all").trim().toLowerCase();
+  const parsed = list.map((raw) => classifyRecentLogFailureType(raw));
+  if (!mode || mode === "all") return parsed;
+
+  return parsed.filter((item) => {
+    if (mode === "errors") return item.isError;
+    if (mode === "success") return item.isSuccess;
+    if (mode === "idmap2_conflicts") return item.failureCategory === "idmap2_conflicts";
+    if (mode === "systemui_mismatches") return item.failureCategory === "systemui_mismatches";
+    if (mode === "permission_denied") return item.failureCategory === "permission_denied";
+    return true;
+  });
+}
 
 function filterThemePluginsByName(plugins, query) {
   const list = Array.isArray(plugins)
@@ -3713,4 +3875,6 @@ module.exports = {
   handleCompile,
   handlePrivilegeMode,
   filterThemePluginsByName,
+  classifyRecentLogFailureType,
+  filterRecentDiagnosticLogs,
 };
