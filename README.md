@@ -1,4 +1,4 @@
-# Samsung One UI 9.0 Modern Theme Engine & Hex Compatibility Suite
+# Samsung One UI 9.0 Modern Theme Engine
 
 A next-generation theming framework, diagnostic suite, and compatibility layer for **Samsung Galaxy devices running One UI 7, 8, and 9.0 (Android 15, 16, and 17)**.
 
@@ -49,12 +49,25 @@ same signing identity. Previously committed placeholder keystores have been remo
 be used for releases. Never commit real signing keys or passwords.
 
 After merging a passing PR, ensure `versionName` in `android/app/build.gradle.kts` matches the release
-tag without its `v` prefix, and increase `versionCode` for every subsequent release. Push a tag such
-as `v2.1.0` to publish the verified signed APK, checksum, verification report, and R8 mapping file.
+tag without its `v` prefix, and increase `versionCode` for every subsequent release.
+
+Run **Actions > Release Universal APK > Run workflow**, select `main`, and enter a tag such as
+`v2.1.0`. Manual runs default to a **draft release**, allowing device smoke testing before publication.
+Uncheck the draft option only when ready to publish. An existing tag must point to the selected
+commit; new releases target that exact commit rather than a moving branch. Alternatively:
+
+```bash
+gh workflow run release.yml --ref main -f tag=v2.1.0 -f draft=true
+```
+
+Pushing a matching `v*` tag also runs this dedicated workflow and publishes automatically. Versions
+with a prerelease suffix such as `-rc.1` are marked as GitHub prereleases. The workflow reuses Android
+CI, then builds and verifies the production-signed APK before attaching the APK, checksum,
+verification report, and R8 mapping file. Release signing secrets are never passed to reusable CI.
 Ordinary CI builds unsigned candidates and separately tests signing with an ephemeral CI-only key;
 those test-signed APKs are never uploaded or published.
 
-Before tagging, smoke-test the signed APK on a supported Samsung device: install/upgrade, launch,
+Before publishing, smoke-test the signed APK on a supported Samsung device: install/upgrade, launch,
 grant Shizuku access, apply and remove a theme, and check both privileged and non-root behavior.
 Automated packaging checks do not establish Samsung overlay compatibility.
 
@@ -63,9 +76,8 @@ Automated packaging checks do not establish Samsung overlay compatibility.
 ## 🌟 Features
 
 - **Fabricated Runtime Resource Overlays (RRO):** Dynamic, instantaneous color and resource styling via native Android `cmd overlay fabricate`—no slow compilation, no reboot required.
-- **Hex Installer One UI 9 Fix Suite:** Fully documented reverse engineering and compatibility layer enabling legacy themers to pass all setup prerequisites.
-- **Theme Park Stub Engine:** Zero-overhead compatibility stub APK resolving the `com.samsung.android.themepark` ➔ `com.samsung.android.themedesigner` namespace migration.
-- **HexBridge Pro App & Web Dashboard:** Native Android WebView client (`com.hexbridge.pro`) + lightweight local web server with Shizuku integration for full remote theming and diagnostics.
+- **Native HexNext App:** Kotlin and Jetpack Compose controls for privileged overlay application.
+- **Web Preview Dashboard:** Theme configuration, palette previews, and JSON exports; APK releases are built by Gradle.
 - **Theme Profiles:** Ready-to-use JSON theme templates (AMOLED Pure Black, Neon Violet, Cyberpunk Gold).
 
 

@@ -1,0 +1,108 @@
+name: Release Universal APK
+run-name: Release ${{ inputs.tag || github.ref_name }}
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag matching Android versionName (for example v2.1.0)"
+        required: true
+        type: string
+      draft:
+        description: "Create a draft release for device smoke testing before publication"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release version and tag commit
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: python3 bin/prepare-release.py "$RELEASE_TAG"
+
+  validate:
+    needs: prepare
+    uses: ./.github/workflows/android.yml
+
+  release:
+    needs: [prepare, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and verify production-signed universal APK
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 }}
+          HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD }}
+          HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS }}
+          HEXNEXT_KEY_PASSWORD: ${{ secrets.HEXNEXT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${HEXNEXT_KEYSTORE_BASE64:?Missing HEXNEXT_KEYSTORE_BASE64 release secret}"
+          : "${HEXNEXT_STORE_PASSWORD:?Missing HEXNEXT_STORE_PASSWORD release secret}"
+          : "${HEXNEXT_KEY_ALIAS:?Missing HEXNEXT_KEY_ALIAS release secret}"
+          : "${HEXNEXT_KEY_PASSWORD:?Missing HEXNEXT_KEY_PASSWORD release secret}"
+          umask 077
+          export HEXNEXT_KEYSTORE_PATH="$RUNNER_TEMP/hexnext-release.keystore"
+          trap 'rm -f "$HEXNEXT_KEYSTORE_PATH"' EXIT
+          printf '%s' "$HEXNEXT_KEYSTORE_BASE64" | base64 --decode > "$HEXNEXT_KEYSTORE_PATH"
+          unset HEXNEXT_KEYSTORE_BASE64
+          ./bin/build-and-sign-release-apk.sh
+          python3 bin/verify-release-apk.py dist/HexNext_OneUI9_Universal_EN_Signed.apk \
+            --expected-version "$RELEASE_VERSION" \
+            --report dist/HexNext_OneUI9_Universal_EN_Signed.apk.json
+          cp android/app/build/outputs/mapping/release/mapping.txt dist/mapping.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Universal-Signed-Release
+          path: dist/*
+          if-no-files-found: error
+      - name: Recheck tag commit before creating the release
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: python3 bin/prepare-release.py "$RELEASE_TAG"
+      - name: Publish verified APK and checksum
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.commit }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft }}
+          prerelease: ${{ fromJSON(needs.prepare.outputs.prerelease) }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            dist/HexNext_OneUI9_Universal_EN_Signed.apk
+            dist/HexNext_OneUI9_Universal_EN_Signed.apk.sha256
+            dist/HexNext_OneUI9_Universal_EN_Signed.apk.json
+            dist/mapping.txt
