@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HexNext — One UI 9.0 Overlay Compiler</title>
-    <meta name="description" content="Rebuilt Hex Installer overlay build system for Samsung One UI 9.0 (Android 16). Compiles and layers fabricated overlays directly onto Samsung's system RROs via Shizuku (UID 0 / UID 1000) or SU root access with zero Theme Park requirements.">
+    <meta name="description" content="Rebuilt Hex Installer & Niferpitou overlay build system for Samsung One UI 9.0 (Android 16). Builds new RRO overlays from scratch that take precedence over Samsung's modern SemWT_* overlays via Shizuku (UID 0 / UID 1000) or SU root access.">
     <meta property="og:title" content="HexNext — One UI 9.0 Overlay Compiler">
-    <meta property="og:description" content="Rebuilt Hex Installer overlay build system for Samsung One UI 9.0 (Android 16). Compiles and layers fabricated overlays directly onto Samsung's system RROs via Shizuku (UID 0 / UID 1000) or SU root access with zero Theme Park requirements.">
+    <meta property="og:description" content="Rebuilt Hex Installer & Niferpitou overlay build system for Samsung One UI 9.0 (Android 16). Builds new RRO overlays from scratch that take precedence over Samsung's modern SemWT_* overlays via Shizuku (UID 0 / UID 1000) or SU root access.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
@@ -81,25 +81,29 @@
             <div class="truncate">
                 <div class="flex items-center gap-2">
                     <h1 class="font-display font-bold text-base tracking-tight text-white truncate">HexNext</h1>
-                    <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-1.5 py-0.5 rounded">One UI 9.0 RRO</span>
+                    <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-1.5 py-0.5 rounded">One UI 9.0 &gt; SemWT_*</span>
                 </div>
-                <p class="text-[11px] font-mono text-slate-400 truncate">Rebuilt project.vivid.hex.bodhi (#hex__30) • Direct System RRO Layering</p>
+                <p class="text-[11px] font-mono text-slate-400 truncate">Rebuilt #hex__30 + Niferpitou (terpsichora_) • From-Scratch RROs Overriding SemWT_*</p>
             </div>
         </div>
 
         <!-- Zone 2: Primary View Switcher -->
         <nav class="hidden md:flex items-center bg-[#0D111A] p-1 rounded-lg border border-[#1E2738]">
-            <button onclick="switchTab('studio')" id="tab-btn-studio" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all bg-[#161F30] text-white shadow-sm">
+            <button onclick="switchTab('studio')" id="tab-btn-studio" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-[#161F30] text-white shadow-sm cursor-pointer">
                 Studio &amp; Live Preview
             </button>
-            <button onclick="switchTab('matrix')" id="tab-btn-matrix" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200">
-                System RRO Matrix (<span id="nav-pkg-count" class="font-mono tabular-nums">17</span>)
+            <button onclick="switchTab('settings-icons')" id="tab-btn-settings-icons" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 cursor-pointer flex items-center gap-1.5">
+                <span>Settings Icons &amp; Tweaks</span>
+                <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">26</span>
             </button>
-            <button onclick="switchTab('monet')" id="tab-btn-monet" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200">
-                Monet 65-Shade Table
+            <button onclick="switchTab('matrix')" id="tab-btn-matrix" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 cursor-pointer">
+                RRO Matrix (<span id="nav-pkg-count" class="font-mono tabular-nums">16/18</span>)
             </button>
-            <button onclick="switchTab('code')" id="tab-btn-code" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200">
-                Manifests &amp; Shell Script
+            <button onclick="switchTab('monet')" id="tab-btn-monet" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 cursor-pointer">
+                Monet 65-Shades
+            </button>
+            <button onclick="switchTab('code')" id="tab-btn-code" class="px-3 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 cursor-pointer">
+                Manifests &amp; CLI
             </button>
         </nav>
 
@@ -130,12 +134,13 @@
     <!-- Mobile Tab Bar -->
     <div class="flex md:hidden bg-[#0A0D14] border-b border-[#1E2738] px-3 py-2 gap-1.5 overflow-x-auto">
         <button onclick="switchTab('studio')" id="mob-tab-studio" class="px-3 py-1.5 rounded text-xs font-medium bg-[#161F30] text-white shrink-0">Studio &amp; Preview</button>
-        <button onclick="switchTab('matrix')" id="mob-tab-matrix" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">RRO Matrix (17)</button>
+        <button onclick="switchTab('settings-icons')" id="mob-tab-settings-icons" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Settings Icons (26)</button>
+        <button onclick="switchTab('matrix')" id="mob-tab-matrix" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">RRO Matrix</button>
         <button onclick="switchTab('monet')" id="mob-tab-monet" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Monet 65-Shades</button>
         <button onclick="switchTab('code')" id="mob-tab-code" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Manifests &amp; CLI</button>
     </div>
 
-    <!-- System Architecture Strip: Confirms Zero Theme Park Requirement & UID 0 / UID 1000 System RROs -->
+    <!-- System Architecture Strip: Confirms Zero Theme Park / Zero High Contrast Theme & SemWT_* Precedence -->
     <section class="bg-[#0B0F18] border-b border-[#1E2738] px-4 lg:px-6 py-2.5">
         <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
             <div class="flex flex-wrap items-center gap-x-6 gap-y-1.5">
@@ -144,12 +149,12 @@
                     <span id="strip-priv-badge" class="font-mono font-semibold text-emerald-400">UID 1000 (android.uid.system)</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-slate-400">Theme Park Prerequisite:</span>
-                    <span class="font-mono font-semibold text-cyan-400">REMOVED (Zero Theme Park Dependency)</span>
+                    <span class="text-slate-400">Theme Park &amp; High Contrast:</span>
+                    <span class="font-mono font-semibold text-cyan-400">NOT USED (Pure From-Scratch RROs)</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-slate-400">Carrier RRO Base:</span>
-                    <span class="font-mono text-slate-200">com.samsung.High_contrast_theme_II.*</span>
+                    <span class="text-slate-400">Overlay Precedence:</span>
+                    <span class="font-mono text-slate-200">com.hexnext.oneui9.rro.* (priority=10000 &gt; SemWT_*)</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="text-slate-400">Transaction Owner:</span>
@@ -157,8 +162,8 @@
                 </div>
             </div>
             <div class="flex items-center gap-4 font-mono text-[11px] text-slate-400 tabular-nums">
-                <span>Active Targets: <strong id="strip-active-count" class="text-white">14/17</strong></span>
-                <span>One UI 9.0 Tokens: <strong id="strip-token-count" class="text-cyan-400">175</strong></span>
+                <span>Active Targets: <strong id="strip-active-count" class="text-white">16/18</strong></span>
+                <span>One UI 9.0 Tokens: <strong id="strip-token-count" class="text-cyan-400">205</strong></span>
                 <button onclick="triggerRescueModal()" class="text-rose-400 hover:text-rose-300 underline decoration-rose-500/40 cursor-pointer">
                     Disable All RROs (Safe Mode)
                 </button>
@@ -172,19 +177,19 @@
         <!-- ======================= TAB 1: STUDIO & LIVE PREVIEW ======================= -->
         <div id="view-studio" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            <!-- Left Column (4 cols): Rebuilt #hex_ Plugins, Color Tokens & QS Toggle Shapes -->
+            <!-- Left Column (4 cols): Rebuilt #hex_ + Niferpitou Plugins, Color Tokens & QS Toggle Shapes -->
             <div class="lg:col-span-4 space-y-5">
 
-                <!-- Rebuilt #hex_ Plugins Card -->
+                <!-- Rebuilt #hex_ + Niferpitou Plugins Card -->
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
                     <div class="flex items-center justify-between mb-3">
                         <div>
-                            <h2 class="font-display font-bold text-sm text-white">Rebuilt #hex_ Plugins</h2>
-                            <p class="text-xs text-slate-400">Extracted from <code class="font-mono text-cyan-300">#hex__30 HEX_EOL.apk</code> for One UI 9.0</p>
+                            <h2 class="font-display font-bold text-sm text-white">Rebuilt #hex_ &amp; Niferpitou Plugins</h2>
+                            <p class="text-xs text-slate-400">Includes <code class="font-mono text-cyan-300">#hex__30</code> &amp; <code class="font-mono text-cyan-300">terpsichora_ (@envy4)</code></p>
                         </div>
-                        <span class="font-mono text-[11px] text-slate-400 tabular-nums">7 Presets</span>
+                        <span class="font-mono text-[11px] text-slate-400 tabular-nums">8 Presets</span>
                     </div>
-                    <div id="plugin-list" class="grid grid-cols-1 gap-2"></div>
+                    <div id="plugin-list" class="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1"></div>
                 </div>
 
                 <!-- Core Color Tokens & AMOLED Switch -->
@@ -192,7 +197,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="font-display font-bold text-sm text-white">One UI 9.0 Color Engine</h2>
-                            <p class="text-xs text-slate-400">Drives 65 Monet Shades + 17 System RROs</p>
+                            <p class="text-xs text-slate-400">Overrides <code class="font-mono text-cyan-300">SemWT_*</code> + 26 Settings Icons</p>
                         </div>
                         <label class="inline-flex items-center gap-2 cursor-pointer select-none">
                             <input type="checkbox" id="toggle-pure-black" checked onchange="updateSpecFromInputs()" class="sr-only peer">
@@ -253,9 +258,14 @@
 
                 <!-- Rebuilt assets/hex_qs_toggles/1..28.xml Shape Selector -->
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
-                    <div class="mb-3">
-                        <h2 class="font-display font-bold text-sm text-white">QS Toggle Drawable Shape</h2>
-                        <p class="text-xs text-slate-400">Rebuilt from <code class="font-mono text-cyan-300">assets/hex_qs_toggles/*.xml</code></p>
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 class="font-display font-bold text-sm text-white">QS Toggle Drawable Shape</h2>
+                            <p class="text-xs text-slate-400">Rebuilt from <code class="font-mono text-cyan-300">assets/hex_qs_toggles/*.xml</code></p>
+                        </div>
+                        <button onclick="switchTab('settings-icons')" class="text-[11px] font-mono text-cyan-400 hover:underline cursor-pointer">
+                            26 Settings Icons →
+                        </button>
                     </div>
                     <div id="qs-shape-list" class="grid grid-cols-1 gap-2"></div>
                 </div>
@@ -263,33 +273,33 @@
 
             <!-- Center Column (4 cols): Interactive One UI 9.0 Phone Simulator -->
             <div class="lg:col-span-4 flex flex-col items-center">
-                <div class="w-full max-w-[380px] bg-[#0B0E17] border-[3px] border-[#232D42] rounded-[40px] p-3.5 shadow-2xl relative">
+                <div class="w-full max-w-[385px] bg-[#0B0E17] border-[3px] border-[#232D42] rounded-[40px] p-3.5 shadow-2xl relative">
                     <!-- Dynamic Camera Punch Hole + Status Bar -->
                     <div class="flex items-center justify-between px-4 pt-1 pb-2.5 text-[11px] font-mono text-slate-300">
                         <span>09:41</span>
                         <div class="w-3 h-3 rounded-full bg-black border border-slate-700"></div>
                         <div class="flex items-center gap-1.5">
-                            <span class="text-[10px] text-cyan-400">5G</span>
+                            <span id="sim-network-badge" class="text-[10px] text-cyan-400">4G+</span>
                             <span>100%</span>
                         </div>
                     </div>
 
                     <!-- Preview Screen Switcher -->
                     <div class="grid grid-cols-4 gap-1 bg-[#131926] p-1 rounded-xl mb-3 border border-[#1E2738]">
-                        <button onclick="setPhoneScreen('qs')" id="phone-tab-qs" class="py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Quick Panel</button>
-                        <button onclick="setPhoneScreen('settings')" id="phone-tab-settings" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white">Settings</button>
-                        <button onclick="setPhoneScreen('dialer')" id="phone-tab-dialer" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white">Dialer</button>
-                        <button onclick="setPhoneScreen('keyboard')" id="phone-tab-keyboard" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white">Keyboard</button>
+                        <button onclick="setPhoneScreen('qs')" id="phone-tab-qs" class="py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-pointer">Quick Panel</button>
+                        <button onclick="setPhoneScreen('settings')" id="phone-tab-settings" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white cursor-pointer">Settings (26)</button>
+                        <button onclick="setPhoneScreen('dialer')" id="phone-tab-dialer" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white cursor-pointer">Dialer</button>
+                        <button onclick="setPhoneScreen('keyboard')" id="phone-tab-keyboard" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white cursor-pointer">Keyboard</button>
                     </div>
 
                     <!-- Interactive Phone Viewport -->
-                    <div id="phone-viewport" class="rounded-[28px] p-4 min-h-[470px] flex flex-col justify-between transition-colors duration-200 border border-white/5" style="background-color: #000000;">
+                    <div id="phone-viewport" class="rounded-[28px] p-4 min-h-[490px] flex flex-col justify-between transition-colors duration-200 border border-white/5" style="background-color: #000000;">
 
                         <!-- Screen 1: One UI 9.0 Quick Settings Panel -->
                         <div id="screen-qs" class="space-y-3.5">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400">com.android.systemui</div>
+                                    <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400">com.android.systemui &gt; SemWT_*</div>
                                     <div class="text-sm font-display font-bold text-white">One UI 9.0 Quick Panel</div>
                                 </div>
                                 <span onclick="inspectPackage('systemui')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
@@ -337,7 +347,7 @@
                                 <!-- Brightness Slider -->
                                 <div class="pt-1">
                                     <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
-                                        <span>sec_brightness_slider_progress_color</span>
+                                        <span>qs_brightness_bar_activated_color</span>
                                         <span>82%</span>
                                     </div>
                                     <div class="w-full h-3.5 rounded-full bg-black/40 overflow-hidden p-0.5">
@@ -349,48 +359,45 @@
                             <!-- Notification Card Preview -->
                             <div onclick="inspectPackage('systemui')" id="prev-notif-card" class="p-3 rounded-2xl border border-white/10 space-y-1 cursor-pointer" style="background-color: #121724;">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[10px] font-mono text-cyan-400">System RRO Active • UID 1000</span>
+                                    <span class="text-[10px] font-mono text-cyan-400">From-Scratch RRO • priority=10000</span>
                                     <span class="text-[10px] text-slate-400">now</span>
                                 </div>
-                                <div class="text-xs font-semibold text-white">High_contrast_theme_II.systemui</div>
-                                <div class="text-[11px] text-slate-400">OverlayManagerTransaction applied with priority=highest.</div>
+                                <div class="text-xs font-semibold text-white">com.hexnext.oneui9.rro.systemui</div>
+                                <div class="text-[11px] text-slate-400">Overrides SemWT_com.android.systemui with zero High Contrast dependency.</div>
                             </div>
                         </div>
 
-                        <!-- Screen 2: SecSettings Preview -->
+                        <!-- Screen 2: SecSettings Dashboard + Niferpitou 26 Icons Live Preview -->
                         <div id="screen-settings" class="hidden space-y-2.5">
                             <div class="flex items-center justify-between mb-1">
                                 <div>
-                                    <div class="text-[10px] font-mono text-slate-400">com.android.settings</div>
-                                    <div class="text-base font-display font-bold text-white">Settings (One UI 9.0)</div>
+                                    <div class="text-[10px] font-mono text-slate-400">com.hexnext.oneui9.rro.settings</div>
+                                    <div class="text-sm font-display font-bold text-white">Settings (One UI 9.0)</div>
                                 </div>
-                                <span onclick="inspectPackage('settings')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
+                                <button onclick="switchTab('settings-icons')" class="text-[10px] font-mono text-cyan-400 underline cursor-pointer">
+                                    Customize 26 Icons →
+                                </button>
                             </div>
 
-                            <div onclick="inspectPackage('settings')" class="prev-settings-card p-3 rounded-2xl border border-white/10 flex items-center justify-between cursor-pointer" style="background-color: #121724;">
-                                <div>
-                                    <div class="text-xs font-semibold text-white">Connections</div>
-                                    <div class="text-[11px] text-slate-400">Wi-Fi, Bluetooth, UWB, NFC</div>
+                            <!-- Samsung Account Profile Card (reacts to hidemail) -->
+                            <div id="prev-settings-account-card" class="prev-settings-card p-2.5 rounded-2xl border border-white/10 flex items-center justify-between" style="background-color: #121724;">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div id="prev-account-avatar" class="w-8 h-8 rounded-full flex items-center justify-center font-display font-bold text-xs text-slate-950 shrink-0" style="background-color: #00E5FF;">HX</div>
+                                    <div class="min-w-0">
+                                        <div class="text-xs font-semibold text-white truncate">Galaxy S25 Ultra User</div>
+                                        <div id="prev-account-email" class="text-[10px] font-mono text-slate-400 truncate">hex.oneui9@samsung.account</div>
+                                    </div>
                                 </div>
-                                <div id="prev-settings-switch" class="w-9 h-5 rounded-full flex items-center justify-end px-0.5" style="background-color: #00E5FF;">
-                                    <div class="w-4 h-4 rounded-full bg-slate-950"></div>
-                                </div>
+                                <span id="prev-hidemail-badge" class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400 shrink-0">1sett</span>
                             </div>
 
-                            <div onclick="inspectPackage('settings')" class="prev-settings-card p-3 rounded-2xl border border-white/10 flex items-center justify-between cursor-pointer" style="background-color: #121724;">
-                                <div>
-                                    <div class="text-xs font-semibold text-white">Hex System RRO Engine</div>
-                                    <div class="text-[11px] text-slate-400">Direct UID 0 / UID 1000 Layering</div>
-                                </div>
-                                <span class="font-mono text-[10px] text-emerald-400">ENABLED</span>
-                            </div>
+                            <!-- Scrollable 26 SecSettings Dashboard Rows (rendered dynamically from APP_STATE.settings_icons) -->
+                            <div id="prev-settings-dashboard-list" class="prev-settings-card rounded-2xl border border-white/10 max-h-[305px] overflow-y-auto px-2.5 py-1" style="background-color: #121724;"></div>
 
-                            <div onclick="inspectPackage('lool')" class="prev-settings-card p-3 rounded-2xl border border-white/10 flex items-center justify-between cursor-pointer" style="background-color: #121724;">
-                                <div>
-                                    <div class="text-xs font-semibold text-white">Device Care (com.samsung.android.lool)</div>
-                                    <div class="text-[11px] text-slate-400">sec_device_care_score_color</div>
-                                </div>
-                                <span class="font-mono text-xs font-bold" id="prev-lool-score" style="color: #00E5FF;">100 / 100</span>
+                            <!-- Custom About Phone Terpsichora Banner (reacts to uselogo) -->
+                            <div id="prev-about-logo-banner" class="p-2 rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/60 to-indigo-950/60 flex items-center justify-between text-[10px] font-mono">
+                                <span class="text-cyan-300 font-semibold">terpsichora_ • About Phone Logo</span>
+                                <span class="text-slate-300">One UI 9.0 • SemWT Override</span>
                             </div>
                         </div>
 
@@ -398,7 +405,7 @@
                         <div id="screen-dialer" class="hidden space-y-3">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="text-[10px] font-mono text-slate-400">com.samsung.android.dialer</div>
+                                    <div class="text-[10px] font-mono text-slate-400">com.hexnext.oneui9.rro.dialer</div>
                                     <div class="text-sm font-display font-bold text-white">Samsung Phone</div>
                                 </div>
                                 <span onclick="inspectPackage('dialer')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
@@ -429,21 +436,21 @@
                         <div id="screen-keyboard" class="hidden flex-col justify-between h-full space-y-3">
                             <div onclick="inspectPackage('messaging')" class="space-y-2 cursor-pointer">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[10px] font-mono text-slate-400">com.samsung.android.messaging</span>
+                                    <span class="text-[10px] font-mono text-slate-400">com.hexnext.oneui9.rro.messaging</span>
                                     <span class="text-[10px] font-mono text-cyan-400 underline">Inspect RRO</span>
                                 </div>
                                 <div id="prev-msg-in" class="p-2.5 rounded-2xl rounded-tl-sm text-xs text-slate-200 max-w-[82%]" style="background-color: #121724;">
-                                    Did you rebuild the #hex_ anaconda overlays for One UI 9.0?
+                                    Are these overlays built from scratch above SemWT_*?
                                 </div>
                                 <div id="prev-msg-out" class="p-2.5 rounded-2xl rounded-tr-sm text-xs text-slate-950 font-medium max-w-[82%] ml-auto" style="background-color: #00E5FF;">
-                                    Yes — running directly on Samsung System RROs via UID 1000!
+                                    Yes — priority=10000 over SemWT_*, with zero High Contrast overlays!
                                 </div>
                             </div>
 
                             <div onclick="inspectPackage('honeyboard')" id="prev-keyboard-box" class="p-2.5 rounded-2xl border border-white/10 space-y-1.5 cursor-pointer" style="background-color: #0B0E17;">
                                 <div class="flex justify-between text-[10px] font-mono text-slate-400 pb-1">
-                                    <span>com.samsung.android.honeyboard</span>
-                                    <span>key_bg_color</span>
+                                    <span>com.hexnext.oneui9.rro.honeyboard</span>
+                                    <span id="prev-kb-border-label">2kbor</span>
                                 </div>
                                 <div class="grid grid-cols-10 gap-1 text-center font-mono text-[11px]">
                                     <div class="prev-kb-key py-2 rounded bg-white/10 text-white">Q</div>
@@ -467,7 +474,7 @@
 
                         <!-- Gesture Navigation Pill -->
                         <div class="pt-3 flex justify-center">
-                            <div class="w-28 h-1 rounded-full bg-white/30"></div>
+                            <div id="prev-navbar-pill" class="w-28 h-1 rounded-full bg-white/30"></div>
                         </div>
                     </div>
                 </div>
@@ -476,22 +483,22 @@
             <!-- Right Column (4 cols): Live Package Inspector & Compiler Log -->
             <div class="lg:col-span-4 space-y-5">
 
-                <!-- Selected System RRO Package Inspector -->
+                <!-- Selected From-Scratch RRO Package Inspector -->
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
                     <div class="flex items-start justify-between gap-2 pb-3 border-b border-[#1E2738]">
                         <div>
-                            <div class="text-[11px] font-mono text-cyan-400" id="insp-rro-pkg">com.samsung.High_contrast_theme_II.systemui</div>
+                            <div class="text-[11px] font-mono text-cyan-400" id="insp-rro-pkg">com.hexnext.oneui9.rro.systemui</div>
                             <h2 class="font-display font-bold text-base text-white" id="insp-title">SystemUI &amp; Quick Settings</h2>
-                            <p class="text-xs font-mono text-slate-400" id="insp-target">Target: com.android.systemui • anaconda_1</p>
+                            <p class="text-xs font-mono text-slate-400" id="insp-target">Target: com.android.systemui • Overrides SemWT_*</p>
                         </div>
-                        <button onclick="switchTab('matrix')" class="text-xs font-mono text-slate-300 hover:text-cyan-300 bg-[#131926] border border-[#263248] px-2.5 py-1 rounded">
-                            All 17 RROs →
+                        <button onclick="switchTab('matrix')" class="text-xs font-mono text-slate-300 hover:text-cyan-300 bg-[#131926] border border-[#263248] px-2.5 py-1 rounded cursor-pointer">
+                            All 18 RROs →
                         </button>
                     </div>
 
-                    <!-- Legacy Broken vs Rebuilt One UI 9.0 Note -->
+                    <!-- SemWT_* Precedence & Legacy Migration Note -->
                     <div class="my-3 p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] text-xs space-y-1">
-                        <div class="text-[11px] font-mono text-amber-300">One UI 9.0 Migration Note:</div>
+                        <div class="text-[11px] font-mono text-amber-300">One UI 9.0 SemWT_* Precedence Note:</div>
                         <p id="insp-notes" class="text-slate-300 text-xs leading-relaxed"></p>
                         <div class="pt-1 flex flex-wrap gap-1.5" id="insp-legacy-list"></div>
                     </div>
@@ -504,7 +511,7 @@
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
                     <div class="flex items-center justify-between mb-2.5">
                         <div>
-                            <h3 class="font-display font-bold text-sm text-white">System RRO Transaction Log</h3>
+                            <h3 class="font-display font-bold text-sm text-white">From-Scratch RRO Transaction Log</h3>
                             <p class="text-[11px] font-mono text-slate-400" id="log-timestamp">Ready</p>
                         </div>
                         <span class="font-mono text-[11px] text-emerald-400 tabular-nums" id="log-duration">148 ms</span>
@@ -514,30 +521,167 @@
             </div>
         </div>
 
-        <!-- ======================= TAB 2: SAMSUNG SYSTEM RRO MATRIX (17 TARGETS) ======================= -->
-        <div id="view-matrix" class="hidden space-y-5">
-            <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+        <!-- ======================= TAB 2: SETTINGS ICONS & NIFERPITOU TWEAKS (26 ICONS) ======================= -->
+        <div id="view-settings-icons" class="hidden space-y-6">
+            <!-- Header Banner -->
+            <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h2 class="font-display font-bold text-lg text-white">Samsung System RRO Carrier Matrix (One UI 9.0)</h2>
-                    <p class="text-xs text-slate-400">
-                        Rebuilt from <code class="font-mono text-cyan-300">libhex.so</code> &amp; <code class="font-mono text-cyan-300">assets/anaconda/res/anaconda_0..70</code>. Layers directly onto <code class="font-mono text-slate-200">com.samsung.High_contrast_theme_II.*</code> via UID 0 / UID 1000.
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">project.vivid.ui.plugin.niferpitou</span>
+                        <span class="text-xs font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded">com.hexnext.oneui9.rro.settings &gt; SemWT_com.android.settings</span>
+                    </div>
+                    <h2 class="font-display font-bold text-lg text-white mt-1.5">One UI 9.0 SecSettings Icons &amp; Niferpitou (<code class="font-mono text-cyan-300">terpsichora_</code>) Preferences</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Rebuilt from <code class="font-mono text-slate-200">assets/anaconda_tints/once/base/lxx1/settingsicon-*</code> &amp; <code class="font-mono text-slate-200">assets/extra.preferences</code> into 26 One UI 9.0 <code class="font-mono text-cyan-300">VectorDrawable</code> XML overlays.
                     </p>
                 </div>
                 <div class="flex items-center gap-2.5">
-                    <input type="text" id="matrix-search" oninput="renderMatrix()" placeholder="Search package or resource token..." class="bg-[#131926] border border-[#263248] rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 w-64">
+                    <button onclick="resetPerIconColors()" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-slate-300 cursor-pointer">
+                        Reset Custom Icon Colors
+                    </button>
+                    <button onclick="switchTab('studio'); setPhoneScreen('settings');" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold text-xs cursor-pointer">
+                        Preview in Phone Simulator →
+                    </button>
                 </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- Left 5 Columns: Settings Icon Style Selector + Dashboard Switches + Extra Preferences -->
+                <div class="lg:col-span-5 space-y-5">
+
+                    <!-- 5 Settings Icon Tint Modes (1sett, 2sett, 3sett, alt_1sett, alt_2sett) -->
+                    <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-display font-bold text-sm text-white">Settings Dashboard Icon Tint Mode</h3>
+                                <p class="text-xs text-slate-400">Active asset pack: <code id="active-settings-folder-label" class="font-mono text-cyan-300">settingsicon-1sett</code></p>
+                            </div>
+                            <span id="settings-icon-dp-badge" class="font-mono text-xs text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded">28dp</span>
+                        </div>
+                        <div id="settings-style-selector" class="space-y-2"></div>
+                    </div>
+
+                    <!-- Niferpitou Extra Preferences Categories -->
+                    <div id="niferpitou-categories-container" class="space-y-4"></div>
+                </div>
+
+                <!-- Right 7 Columns: Interactive 26 SecSettings Dashboard Icons Grid + Live VectorDrawable XML Inspector -->
+                <div class="lg:col-span-7 space-y-5">
+                    <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div>
+                                <h3 class="font-display font-bold text-sm text-white">26 One UI 9.0 SecSettings Dashboard Icons (<code class="font-mono text-cyan-300">com.android.settings:drawable/*</code>)</h3>
+                                <p class="text-xs text-slate-400">Click any icon card to inspect its compiled One UI 9.0 <code class="font-mono text-slate-200">VectorDrawable</code> XML or pick a custom per-icon color override.</p>
+                            </div>
+                        </div>
+
+                        <div id="settings-icons-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[540px] overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <!-- Selected Settings Icon VectorDrawable XML Inspector -->
+                    <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <div class="text-[11px] font-mono text-cyan-400" id="insp-setting-icon-drawable">com.android.settings:drawable/sec_ic_settings_connections</div>
+                                <h4 class="font-display font-bold text-sm text-white" id="insp-setting-icon-title">Connections VectorDrawable XML</h4>
+                            </div>
+                            <span id="insp-setting-icon-source" class="font-mono text-[11px] text-slate-400">assets/anaconda_tints/once/base/lxx1/settingsicon-1sett/sec_ic_settings_connections.png</span>
+                        </div>
+                        <pre id="insp-setting-icon-xml" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-emerald-300 overflow-x-auto"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= TAB 3: FROM-SCRATCH RRO MATRIX (18 TARGETS + STATUS ICONS) ======================= -->
+        <div id="view-matrix" class="hidden space-y-5">
+            <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-display font-bold text-lg text-white">One UI 9.0 From-Scratch RRO Matrix (Precedence &gt; <code class="font-mono text-cyan-300">SemWT_*</code>)</h2>
+                    <p class="text-xs text-slate-400">
+                        Builds standalone <code class="font-mono text-slate-200">com.hexnext.oneui9.rro.*</code> packages with <code class="font-mono text-cyan-300">priority=10000</code> above Samsung's modern <code class="font-mono text-cyan-300">SemWT_*</code> overlays. Status icons indicate live <code class="font-mono text-emerald-400">STATE_ENABLED</code> vs <code class="font-mono text-rose-400">COMPILE_FAILED</code>.
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <!-- Status Filter Bar with Status Icons -->
+                    <div class="flex items-center bg-[#131926] p-1 rounded-lg border border-[#263248] text-xs font-mono">
+                        <button onclick="setMatrixStatusFilter('all')" id="matrix-filter-all" class="px-2.5 py-1 rounded bg-[#1E293B] text-white cursor-pointer">
+                            All (<span id="count-all">18</span>)
+                        </button>
+                        <button onclick="setMatrixStatusFilter('active')" id="matrix-filter-active" class="px-2.5 py-1 rounded text-emerald-400 hover:bg-[#1E293B]/60 flex items-center gap-1 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Active (<span id="count-active">16</span>)</span>
+                        </button>
+                        <button onclick="setMatrixStatusFilter('failed')" id="matrix-filter-failed" class="px-2.5 py-1 rounded text-rose-400 hover:bg-[#1E293B]/60 flex items-center gap-1 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            <span>Failed (<span id="count-failed">0</span>)</span>
+                        </button>
+                        <button onclick="setMatrixStatusFilter('disabled')" id="matrix-filter-disabled" class="px-2.5 py-1 rounded text-slate-400 hover:bg-[#1E293B]/60 flex items-center gap-1 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Disabled (<span id="count-disabled">2</span>)</span>
+                        </button>
+                    </div>
+
+                    <input type="text" id="matrix-search" oninput="renderMatrix()" placeholder="Search RRO, SemWT_*, or token..." class="bg-[#131926] border border-[#263248] rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 w-60">
+                </div>
+            </div>
+
+            <!-- Real-Time Recent Logs Diagnostic Widget for RRO Matrix -->
+            <div id="matrix-recent-logs-widget" class="bg-[#0D111A] border border-[#1E2738] rounded-xl overflow-hidden transition-all">
+                <div class="px-4 py-2.5 bg-[#111726] border-b border-[#1E2738] flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="flex items-center gap-2">
+                            <span id="matrix-log-pulse" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <h3 class="font-display font-bold text-xs uppercase tracking-wider text-white">Recent Logs — Overlay Build &amp; <code class="font-mono text-cyan-300">idmap2</code> Diagnostics</h3>
+                        </div>
+                        <span id="matrix-log-error-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                            0 Compile Errors
+                        </span>
+                        <span id="matrix-log-success-badge" class="font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                            0 Built
+                        </span>
+                        <span id="matrix-log-timestamp" class="font-mono text-[11px] text-slate-400">
+                            Last Event: --
+                        </span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center bg-[#090D14] p-0.5 rounded-lg border border-[#263248] text-[11px] font-mono">
+                            <button onclick="setMatrixLogFilter('all')" id="matrix-log-filter-all" class="px-2 py-0.5 rounded bg-[#1E293B] text-white cursor-pointer">
+                                All (<span id="matrix-log-count-all">0</span>)
+                            </button>
+                            <button onclick="setMatrixLogFilter('errors')" id="matrix-log-filter-errors" class="px-2 py-0.5 rounded text-rose-400 hover:bg-[#1E293B]/60 cursor-pointer">
+                                Errors (<span id="matrix-log-count-errors">0</span>)
+                            </button>
+                            <button onclick="setMatrixLogFilter('success')" id="matrix-log-filter-success" class="px-2 py-0.5 rounded text-emerald-400 hover:bg-[#1E293B]/60 cursor-pointer">
+                                Compiled (<span id="matrix-log-count-success">0</span>)
+                            </button>
+                        </div>
+
+                        <button id="btn-repair-all-failed" onclick="repairAllFailedOverlays()" class="hidden px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-semibold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Repair All Failed RROs</span>
+                        </button>
+
+                        <button onclick="clearMatrixLogs()" class="px-2 py-1 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-400 hover:text-slate-200 font-mono text-[11px] cursor-pointer">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div id="matrix-recent-logs-list" class="max-h-48 overflow-y-auto divide-y divide-[#151D2C] font-mono text-xs"></div>
             </div>
 
             <div id="matrix-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
         </div>
 
-        <!-- ======================= TAB 3: MONET 65-SHADE + 23-ROLE TABLE ======================= -->
+        <!-- ======================= TAB 4: MONET 65-SHADE + 23-ROLE TABLE ======================= -->
         <div id="view-monet" class="hidden space-y-6">
             <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-5">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                     <div>
                         <h2 class="font-display font-bold text-lg text-white">Android 16 / One UI 9.0 Monet Framework Table (`android:color/system_*`)</h2>
-                        <p class="text-xs text-slate-400">65 tonal shades (5 palettes × 13 stops) + 23 Material 3 Dark surface/container roles fabricated into <code class="font-mono text-cyan-300">HexNextMonetShades</code></p>
+                        <p class="text-xs text-slate-400">65 tonal shades (5 palettes × 13 stops) + 23 Material 3 Dark roles fabricated into <code class="font-mono text-cyan-300">HexNextMonetShades</code> with priority=highest above <code class="font-mono text-cyan-300">android:SemWT_MonetPalette</code></p>
                     </div>
                     <div class="font-mono text-xs text-slate-300">
                         Seed: <strong id="monet-seed-label" class="text-cyan-400">#00E5FF</strong> • Style: <strong id="monet-style-label" class="text-white">VIBRANT</strong>
@@ -548,22 +692,22 @@
 
             <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-5">
                 <h3 class="font-display font-bold text-base text-white mb-1">23 Material 3 Dark Dynamic Roles (`system_*_dark`)</h3>
-                <p class="text-xs text-slate-400 mb-4">Resolved in-memory and committed to <code class="font-mono text-slate-200">android</code> framework without Theme Park</p>
+                <p class="text-xs text-slate-400 mb-4">Resolved in-memory and committed to <code class="font-mono text-slate-200">android</code> framework above <code class="font-mono text-cyan-300">SemWT_G_MonetPalette</code></p>
                 <div id="monet-roles-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
             </div>
         </div>
 
-        <!-- ======================= TAB 4: GENERATED MANIFESTS & SHELL SCRIPT ======================= -->
+        <!-- ======================= TAB 5: GENERATED MANIFESTS & SHELL SCRIPT ======================= -->
         <div id="view-code" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-5 space-y-4">
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
                     <div class="flex items-center justify-between mb-2">
-                        <h3 class="font-display font-bold text-sm text-white">Select RRO Package to Inspect</h3>
-                        <span class="font-mono text-[11px] text-cyan-400">versionCode="909090"</span>
+                        <h3 class="font-display font-bold text-sm text-white">Select From-Scratch RRO Package</h3>
+                        <span class="font-mono text-[11px] text-cyan-400">priority="10000" (&gt; SemWT_*)</span>
                     </div>
                     <select id="code-pkg-select" onchange="renderCodeInspector()" class="w-full bg-[#131926] border border-[#263248] rounded-lg px-3 py-2 text-xs font-mono text-white mb-3"></select>
 
-                    <div class="text-xs font-mono text-slate-400 mb-1">AndroidManifest.xml (Samsung System RRO Carrier)</div>
+                    <div class="text-xs font-mono text-slate-400 mb-1">AndroidManifest.xml (Standalone RRO Overriding SemWT_*)</div>
                     <pre id="code-manifest-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-cyan-300 overflow-x-auto mb-3"></pre>
 
                     <div class="text-xs font-mono text-slate-400 mb-1">res/values/colors.xml (One UI 9.0 Resource Table)</div>
@@ -576,7 +720,7 @@
                     <div class="flex items-center justify-between mb-2">
                         <div>
                             <h3 class="font-display font-bold text-sm text-white">Privileged UID 0 / UID 1000 Fabrication Commands</h3>
-                            <p class="text-xs text-slate-400">Executes via Shizuku (`rish` at UID 0 or 1000) or `su -c` with zero Theme Park dependency</p>
+                            <p class="text-xs text-slate-400">Executes via Shizuku (`rish` at UID 0 or 1000) or `su -c` — sets priority=highest above `SemWT_*`</p>
                         </div>
                         <button onclick="copyShellCommands()" id="btn-copy-cmd" class="px-3 py-1.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-cyan-300 cursor-pointer">
                             Copy Script
@@ -594,19 +738,19 @@
 
     </main>
 
-    <!-- In-Page Safe Mode Rescue Confirmation Modal (No window.alert / window.confirm) -->
+    <!-- In-Page Safe Mode Rescue Confirmation Modal -->
     <div id="rescue-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-[#0D111A] border border-[#263248] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
             <div class="flex items-center justify-between">
-                <h3 class="font-display font-bold text-base text-white">Emergency System RRO Rescue</h3>
+                <h3 class="font-display font-bold text-base text-white">Emergency RRO Rescue</h3>
                 <button onclick="closeRescueModal()" class="text-slate-400 hover:text-white text-sm font-mono">ESC</button>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">
-                This runs <code class="font-mono text-rose-300">cmd overlay disable-all --user 0</code> under your active UID 0 / UID 1000 session and unregisters all fabricated One UI 9.0 overlays from <code class="font-mono text-slate-200">/data/resource-cache/</code>.
+                This runs <code class="font-mono text-rose-300">cmd overlay disable-all --user 0</code> under your active UID 0 / UID 1000 session and unregisters all fabricated One UI 9.0 overlays from <code class="font-mono text-slate-200">/data/resource-cache/</code>, restoring default <code class="font-mono text-cyan-300">SemWT_*</code> behavior.
             </p>
             <div class="flex items-center justify-end gap-2.5 pt-2">
-                <button onclick="closeRescueModal()" class="px-3.5 py-2 rounded-lg bg-[#131926] text-slate-300 text-xs font-medium">Cancel</button>
-                <button onclick="confirmRescue()" class="px-3.5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-slate-950 font-semibold text-xs">Disable All Overlays Now</button>
+                <button onclick="closeRescueModal()" class="px-3.5 py-2 rounded-lg bg-[#131926] text-slate-300 text-xs font-medium cursor-pointer">Cancel</button>
+                <button onclick="confirmRescue()" class="px-3.5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-slate-950 font-semibold text-xs cursor-pointer">Disable All Overlays Now</button>
             </div>
         </div>
     </div>
@@ -616,6 +760,9 @@
         let CURRENT_TAB = 'studio';
         let CURRENT_PHONE_SCREEN = 'qs';
         let INSPECTED_PKG_ID = 'systemui';
+        let INSPECTED_SETTING_ICON_ID = 'connections';
+        let MATRIX_STATUS_FILTER = 'all';
+        let MATRIX_LOG_FILTER = 'all';
 
         async function fetchState() {
             const res = await fetch('/api/state');
@@ -625,17 +772,18 @@
 
         function switchTab(tab) {
             CURRENT_TAB = tab;
-            ['studio', 'matrix', 'monet', 'code'].forEach(t => {
+            ['studio', 'settings-icons', 'matrix', 'monet', 'code'].forEach(t => {
                 const view = document.getElementById(`view-${t}`);
                 const btn = document.getElementById(`tab-btn-${t}`);
                 const mob = document.getElementById(`mob-tab-${t}`);
+                if (!view) return;
                 if (t === tab) {
                     view.classList.remove('hidden');
-                    if (btn) btn.className = 'px-3.5 py-1.5 rounded-md text-xs font-medium transition-all bg-[#161F30] text-white shadow-sm';
+                    if (btn) btn.className = 'px-3 py-1.5 rounded-md text-xs font-medium transition-all bg-[#161F30] text-white shadow-sm cursor-pointer flex items-center gap-1.5';
                     if (mob) mob.className = 'px-3 py-1.5 rounded text-xs font-medium bg-[#161F30] text-white shrink-0';
                 } else {
                     view.classList.add('hidden');
-                    if (btn) btn.className = 'px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200';
+                    if (btn) btn.className = 'px-3 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 cursor-pointer flex items-center gap-1.5';
                     if (mob) mob.className = 'px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0';
                 }
             });
@@ -648,10 +796,10 @@
                 const tab = document.getElementById(`phone-tab-${s}`);
                 if (s === screen) {
                     el.classList.remove('hidden');
-                    tab.className = 'py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+                    tab.className = 'py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-pointer';
                 } else {
                     el.classList.add('hidden');
-                    tab.className = 'py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white';
+                    tab.className = 'py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white cursor-pointer';
                 }
             });
             const mapPkg = { qs: 'systemui', settings: 'settings', dialer: 'dialer', keyboard: 'honeyboard' };
@@ -748,6 +896,29 @@
             renderAll();
         }
 
+        async function updateTweak(payload) {
+            const res = await fetch('/api/tweaks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        async function setPerIconColor(iconId, hexColor) {
+            await updateTweak({ per_icon_color: { id: iconId, color: hexColor } });
+        }
+
+        async function resetPerIconColors() {
+            await updateTweak({ reset_per_icon_colors: true });
+        }
+
+        function inspectSettingIcon(iconId) {
+            INSPECTED_SETTING_ICON_ID = iconId;
+            renderSettingsIconsView();
+        }
+
         async function togglePackageTarget(pkgId, enable) {
             const res = await fetch('/api/overlays/toggle', {
                 method: 'POST',
@@ -756,6 +927,59 @@
             });
             APP_STATE = await res.json();
             renderAll();
+        }
+
+        async function setOverlayCompileStatus(pkgId, status) {
+            const res = await fetch('/api/overlays/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: pkgId, status })
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        function setMatrixStatusFilter(filter) {
+            MATRIX_STATUS_FILTER = filter;
+            renderMatrix();
+        }
+
+        function setMatrixLogFilter(filter) {
+            MATRIX_LOG_FILTER = filter;
+            renderMatrixRecentLogs();
+        }
+
+        async function repairAllFailedOverlays() {
+            const res = await fetch('/api/overlays/repair_all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        async function clearMatrixLogs() {
+            const res = await fetch('/api/logs/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        function focusMatrixCard(pkgId) {
+            MATRIX_STATUS_FILTER = 'all';
+            const searchEl = document.getElementById('matrix-search');
+            if (searchEl) searchEl.value = '';
+            renderMatrix();
+            const cardEl = document.getElementById(`matrix-card-${pkgId}`);
+            if (cardEl) {
+                cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                cardEl.classList.add('ring-2', 'ring-cyan-400');
+                setTimeout(() => cardEl.classList.remove('ring-2', 'ring-cyan-400'), 2200);
+            }
         }
 
         async function setTokenOverride(fullKey, hexValue) {
@@ -783,11 +1007,45 @@
             renderAll();
         }
 
+        function getOverlayStatusMeta(pkg) {
+            const status = pkg.compile_status || (pkg.selected ? 'active' : 'disabled');
+            if (status === 'failed') {
+                return {
+                    status: 'failed',
+                    label: 'COMPILE FAILED',
+                    badgeClass: 'bg-rose-950/70 text-rose-300 border-rose-700/60',
+                    cardBorder: 'border-rose-500/60 bg-[#120D14]',
+                    iconHtml: `<span title="Compilation Failed (IDMAP2 / FRRO Fault)" class="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-400 shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </span>`
+                };
+            }
+            if (status === 'active' && pkg.selected) {
+                return {
+                    status: 'active',
+                    label: 'ACTIVE • STATE_ENABLED',
+                    badgeClass: 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50',
+                    cardBorder: 'border-[#263248] bg-[#0D111A]',
+                    iconHtml: `<span title="Overlay Active & Prioritized Above SemWT_*" class="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </span>`
+                };
+            }
+            return {
+                status: 'disabled',
+                label: 'DISABLED • STATE_DISABLED',
+                badgeClass: 'bg-slate-900 text-slate-400 border-slate-700/50',
+                cardBorder: 'border-[#182030] bg-[#0D111A] opacity-70',
+                iconHtml: `<span title="Overlay Disabled" class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 12H6"/></svg>
+                </span>`
+            };
+        }
+
         function renderAll() {
             if (!APP_STATE) return;
             const { privilege, spec, packages, last_build } = APP_STATE;
 
-            // Top bar & Architecture strip
             document.getElementById('privilege-select').value = privilege.mode;
             document.getElementById('strip-priv-badge').textContent =
                 privilege.uid === 1000
@@ -795,12 +1053,11 @@
                     : `UID 0 (root • ${privilege.mode})`;
             document.getElementById('strip-owner-pkg').textContent = privilege.owner_package;
 
-            const enabledCount = packages.filter(p => p.selected).length;
+            const enabledCount = packages.filter(p => p.compile_status === 'active' && p.selected).length;
             document.getElementById('strip-active-count').textContent = `${enabledCount}/${packages.length}`;
             document.getElementById('nav-pkg-count').textContent = `${enabledCount}/${packages.length}`;
             document.getElementById('strip-token-count').textContent = last_build.total_tokens;
 
-            // Sync color & style controls
             document.getElementById('input-accent').value = spec.accent;
             document.getElementById('label-accent').textContent = spec.accent;
             document.getElementById('input-secondary').value = spec.secondary;
@@ -813,7 +1070,6 @@
             document.getElementById('input-qs-alpha').value = spec.qs_alpha || 90;
             document.getElementById('label-qs-alpha').textContent = `${spec.qs_alpha || 90}%`;
 
-            // Populate styles dropdown
             const styleSelect = document.getElementById('select-style');
             styleSelect.innerHTML = APP_STATE.palette_styles.map(st =>
                 `<option value="${st.id}" ${st.id === spec.style ? 'selected' : ''}>${st.label}</option>`
@@ -824,6 +1080,7 @@
             renderPhoneSimulator();
             renderInspector();
             renderLogs();
+            renderSettingsIconsView();
             renderMatrix();
             renderMonetView();
             renderCodeSelector();
@@ -875,10 +1132,17 @@
         }
 
         function renderPhoneSimulator() {
-            const { spec, qs_shapes } = APP_STATE;
+            const { spec, qs_shapes, settings_icons } = APP_STATE;
+            const tweaks = spec.extra_tweaks || {};
             const shapeObj = qs_shapes.find(s => s.id === spec.tile_shape) || qs_shapes[0];
             const vp = document.getElementById('phone-viewport');
             vp.style.backgroundColor = spec.pure_black ? '#000000' : spec.surface;
+
+            const netBadge = document.getElementById('sim-network-badge');
+            if (netBadge) {
+                netBadge.textContent = tweaks['4g'] ? '4G' : 'LTE';
+                netBadge.style.color = spec.accent;
+            }
 
             const pill1 = document.getElementById('prev-qs-pill-1');
             const pill2 = document.getElementById('prev-qs-pill-2');
@@ -892,28 +1156,209 @@
             notifCard.style.backgroundColor = spec.card;
             brightBar.style.backgroundColor = spec.accent;
 
+            const radiusMap = { default: '22px', '1roundnoti': '2px', '2roundnoti': '6px', '3roundnoti': '12px', '4roundnoti': '18px' };
+            notifCard.style.borderRadius = radiusMap[tweaks.notif_corner_radius] || '18px';
+
+            const togglePx = tweaks.qs_toggle_size === 'bigtoggle' ? '48px' : (tweaks.qs_toggle_size === 'smalltoggle' ? '36px' : '44px');
             document.querySelectorAll('.prev-qs-toggle-active').forEach(el => {
                 el.style.backgroundColor = spec.accent;
                 el.style.borderRadius = shapeObj.radius_css;
+                el.style.width = togglePx;
+                el.style.height = togglePx;
             });
             document.querySelectorAll('.prev-qs-toggle-inactive').forEach(el => {
                 el.style.backgroundColor = spec.qs_inactive;
                 el.style.borderRadius = shapeObj.radius_css;
+                el.style.width = togglePx;
+                el.style.height = togglePx;
             });
 
             document.querySelectorAll('.prev-settings-card').forEach(el => {
                 el.style.backgroundColor = spec.card;
             });
-            document.getElementById('prev-settings-switch').style.backgroundColor = spec.accent;
-            document.getElementById('prev-lool-score').style.color = spec.accent;
 
+            // Render Live SecSettings Dashboard inside Phone Simulator
+            if (settings_icons) {
+                const avatar = document.getElementById('prev-account-avatar');
+                const emailEl = document.getElementById('prev-account-email');
+                const badgeEl = document.getElementById('prev-hidemail-badge');
+                const logoBanner = document.getElementById('prev-about-logo-banner');
+                if (avatar) avatar.style.backgroundColor = spec.accent;
+                if (emailEl) {
+                    emailEl.textContent = settings_icons.hidemail ? '•••••••@samsung.account (hidemail)' : 'hex.oneui9@samsung.account';
+                    emailEl.style.opacity = settings_icons.hidemail ? '0.25' : '1';
+                }
+                if (badgeEl) badgeEl.textContent = settings_icons.active_asset_folder.replace('settingsicon-', '');
+                if (logoBanner) {
+                    logoBanner.style.display = settings_icons.uselogo ? 'flex' : 'none';
+                }
+
+                const dashContainer = document.getElementById('prev-settings-dashboard-list');
+                if (dashContainer) {
+                    const iconPx = settings_icons.bigsetico ? 32 : 26;
+                    const svgPx = settings_icons.bigsetico ? 18 : 14;
+                    dashContainer.innerHTML = settings_icons.icons.map((ic, idx) => {
+                        const dividerStyle = (settings_icons.uidivider && idx < settings_icons.icons.length - 1)
+                            ? 'border-bottom: 1px solid rgba(255,255,255,0.07);'
+                            : '';
+                        const frameStyle = settings_icons.settframe
+                            ? 'background: transparent; border: none;'
+                            : `background-color: ${ic.frame_bg}; border: 1px solid ${ic.frame_border}; border-radius: 10px;`;
+                        return `
+                            <div onclick="switchTab('settings-icons'); inspectSettingIcon('${ic.id}');" class="py-2 flex items-center gap-2.5 cursor-pointer hover:bg-white/5 px-1 rounded transition-colors" style="${dividerStyle}">
+                                <div class="flex items-center justify-center shrink-0" style="width:${iconPx}px; height:${iconPx}px; ${frameStyle}">
+                                    <svg width="${svgPx}" height="${svgPx}" viewBox="0 0 24 24" fill="none" stroke="${ic.fg_color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="${ic.svg_path}"/>
+                                    </svg>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-medium text-white truncate">${ic.title}</div>
+                                    <div class="text-[10px] text-slate-400 truncate">${ic.subtitle}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Dialer & Call Button
             document.getElementById('prev-dialer-digits').style.color = spec.accent;
-            document.getElementById('prev-call-fab').style.backgroundColor = spec.accent;
+            const callFab = document.getElementById('prev-call-fab');
+            if (tweaks.dialpad_call_btn === '1calbtn') {
+                callFab.style.backgroundColor = spec.secondary;
+            } else if (tweaks.dialpad_call_btn === 'default') {
+                callFab.style.backgroundColor = '#10B981';
+            } else {
+                callFab.style.backgroundColor = spec.accent;
+            }
 
+            // Messages & Keyboard
             document.getElementById('prev-msg-in').style.backgroundColor = spec.card;
             document.getElementById('prev-msg-out').style.backgroundColor = spec.accent;
             document.getElementById('prev-keyboard-box').style.backgroundColor = spec.surface;
             document.getElementById('prev-kb-enter').style.backgroundColor = spec.accent;
+            const kbBorderLbl = document.getElementById('prev-kb-border-label');
+            if (kbBorderLbl) kbBorderLbl.textContent = tweaks.keyboard_border_style || '2kbor';
+
+            document.querySelectorAll('.prev-kb-key').forEach(k => {
+                if (tweaks.keyboard_border_style === '2kbor') {
+                    k.style.border = `1px solid ${spec.accent}`;
+                } else if (tweaks.keyboard_border_style === '3kbor') {
+                    k.style.border = `1px solid ${spec.secondary}`;
+                } else {
+                    k.style.border = 'none';
+                }
+            });
+
+            const navPill = document.getElementById('prev-navbar-pill');
+            if (navPill) {
+                navPill.style.display = tweaks.navbar_style === 'nonav' ? 'none' : 'block';
+                navPill.style.backgroundColor = tweaks.navbar_style === '0nav' ? spec.accent : 'rgba(255,255,255,0.35)';
+            }
+        }
+
+        function renderSettingsIconsView() {
+            const { settings_icons, niferpitou_preferences, spec } = APP_STATE;
+            if (!settings_icons || !niferpitou_preferences) return;
+            const tweaks = spec.extra_tweaks || {};
+            const perIconMap = tweaks.per_icon_colors || {};
+
+            document.getElementById('active-settings-folder-label').textContent = settings_icons.active_asset_folder;
+            document.getElementById('settings-icon-dp-badge').textContent = `${settings_icons.icon_size_dp}dp (${settings_icons.settframe ? 'Frameless' : 'Squircle Frame'})`;
+
+            // 1. Render 5 Settings Icon Tint Style Buttons
+            const styleSelector = document.getElementById('settings-style-selector');
+            styleSelector.innerHTML = niferpitou_preferences.settings_icon_styles.map(st => {
+                const active = st.id === settings_icons.style_id;
+                const folderName = settings_icons.settframe ? st.frameless_folder : st.asset_folder;
+                return `
+                    <button onclick="updateTweak({ settings_icon_style: '${st.id}' })" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${active ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                        <div class="min-w-0 pr-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-white">${st.label}</span>
+                                <span class="text-[10px] font-mono text-cyan-400">${folderName}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-0.5">${st.desc}</p>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded ${active ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-500'}">${active ? 'ACTIVE' : 'USE'}</span>
+                    </button>
+                `;
+            }).join('');
+
+            // 2. Render Niferpitou Extra Preferences Categories
+            const catContainer = document.getElementById('niferpitou-categories-container');
+            catContainer.innerHTML = niferpitou_preferences.categories.map(cat => `
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-2.5">
+                    <h4 class="font-display font-bold text-xs uppercase tracking-wider text-cyan-400">${cat.title}</h4>
+                    <div class="space-y-2">
+                        ${cat.options.map(opt => {
+                            if (opt.type === 'switch') {
+                                const checked = !!tweaks[opt.key];
+                                return `
+                                    <label class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-3 cursor-pointer">
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-medium text-white">${opt.title} <code class="text-[10px] font-mono text-cyan-300">(${opt.key})</code></div>
+                                            <div class="text-[11px] text-slate-400">${opt.subtitle || ''}</div>
+                                        </div>
+                                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="updateTweak({ '${opt.key}': this.checked })" class="w-4 h-4 accent-cyan-400 cursor-pointer shrink-0">
+                                    </label>
+                                `;
+                            } else {
+                                const val = tweaks[opt.key] || 'default';
+                                return `
+                                    <div class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-3">
+                                        <div class="text-xs font-medium text-white">${opt.title}</div>
+                                        <select onchange="updateTweak({ '${opt.key}': this.value })" class="bg-[#0D111A] border border-[#263248] rounded px-2 py-1 text-xs font-mono text-cyan-300 focus:outline-none">
+                                            ${opt.choices.map(c => `<option value="${c.value}" ${c.value === val ? 'selected' : ''}>${c.label}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                `;
+                            }
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            // 3. Render 26 SecSettings Dashboard Icons Grid
+            const grid = document.getElementById('settings-icons-grid');
+            const boxPx = settings_icons.bigsetico ? 42 : 34;
+            const svgPx = settings_icons.bigsetico ? 22 : 18;
+            grid.innerHTML = settings_icons.icons.map(ic => {
+                const isInspected = ic.id === INSPECTED_SETTING_ICON_ID;
+                const hasCustom = !!perIconMap[ic.id];
+                const frameStyle = settings_icons.settframe
+                    ? 'background: transparent; border: 1px dashed rgba(255,255,255,0.12);'
+                    : `background-color: ${ic.frame_bg}; border: 1px solid ${ic.frame_border};`;
+                return `
+                    <div onclick="inspectSettingIcon('${ic.id}')" class="p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${isInspected ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="rounded-xl flex items-center justify-center shrink-0 transition-all" style="width:${boxPx}px; height:${boxPx}px; ${frameStyle}">
+                                <svg width="${svgPx}" height="${svgPx}" viewBox="0 0 24 24" fill="none" stroke="${ic.fg_color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="${ic.svg_path}"/>
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-xs font-semibold text-white truncate">${ic.title}</div>
+                                <div class="text-[10px] font-mono text-slate-400 truncate">${ic.res_name}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+                            ${hasCustom ? `<button onclick="setPerIconColor('${ic.id}', null)" title="Reset custom icon color" class="text-[10px] font-mono text-rose-400 hover:underline px-1">×</button>` : ''}
+                            <span class="font-mono text-[10px] text-cyan-300 tabular-nums">${ic.fg_color}</span>
+                            <input type="color" value="${ic.fg_color}" onchange="setPerIconColor('${ic.id}', this.value)" class="w-6 h-6 cursor-pointer" title="Custom color for ${ic.title}">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // 4. Populate VectorDrawable XML Inspector
+            const inspectedIcon = settings_icons.icons.find(i => i.id === INSPECTED_SETTING_ICON_ID) || settings_icons.icons[0];
+            if (inspectedIcon) {
+                document.getElementById('insp-setting-icon-drawable').textContent = inspectedIcon.oneui9_drawable;
+                document.getElementById('insp-setting-icon-title').textContent = `${inspectedIcon.title} — One UI 9.0 VectorDrawable XML (${inspectedIcon.size_dp}dp)`;
+                document.getElementById('insp-setting-icon-source').textContent = inspectedIcon.source_asset;
+                document.getElementById('insp-setting-icon-xml').textContent = inspectedIcon.vector_xml;
+            }
         }
 
         function renderInspector() {
@@ -922,8 +1367,8 @@
 
             document.getElementById('insp-rro-pkg').textContent = pkg.system_rro_package;
             document.getElementById('insp-title').textContent = pkg.label;
-            document.getElementById('insp-target').textContent = `Target: ${pkg.target_package} • ${pkg.anaconda_archive}`;
-            document.getElementById('insp-notes').textContent = pkg.notes;
+            document.getElementById('insp-target').textContent = `Target: ${pkg.target_package} • Overrides ${pkg.semwt_target || 'SemWT_*'}`;
+            document.getElementById('insp-notes').textContent = pkg.notes || '';
 
             const legacyContainer = document.getElementById('insp-legacy-list');
             legacyContainer.innerHTML = pkg.legacy_broken_resources.map(leg =>
@@ -953,41 +1398,260 @@
             document.getElementById('log-timestamp').textContent = `Last Commit: ${lb.timestamp}`;
             document.getElementById('log-duration').textContent = `${lb.duration_ms} ms`;
             document.getElementById('compiler-log-box').textContent = lb.logs.join('\n');
+            renderMatrixRecentLogs();
+        }
+
+        function parseMatrixLogEntry(rawLine, index, total) {
+            const line = String(rawLine || '');
+            const isError = line.startsWith('[!]') || line.includes('COMPILE_FAILURE') || line.includes('IDMAP2_ERR');
+            const isSuccess = !isError && (line.startsWith('[✓]') || line.startsWith('[+]'));
+            const kind = isError ? 'errors' : (isSuccess ? 'success' : 'info');
+
+            const rroMatch = line.match(/com\.hexnext\.oneui9\.rro\.([a-z0-9_]+)/i);
+            const pkgId = rroMatch ? rroMatch[1] : null;
+            const rroPkg = rroMatch ? rroMatch[0] : null;
+            const pkgObj = pkgId && APP_STATE?.packages ? APP_STATE.packages.find(p => p.id === pkgId) : null;
+
+            const timeMatch = line.match(/\[(\d{2}:\d{2}:\d{2}\s*UTC)\]/);
+            const timestamp = timeMatch ? timeMatch[1] : (APP_STATE?.last_build?.timestamp || 'LIVE');
+
+            const cleanMessage = line
+                .replace(/^\[(!|✓|\+|\*)\]\s*/, '')
+                .replace(/^\[\d{2}:\d{2}:\d{2}\s*UTC\]\s*/, '');
+
+            return {
+                index,
+                seq: index + 1,
+                total,
+                raw: line,
+                cleanMessage,
+                kind,
+                isError,
+                isSuccess,
+                pkgId,
+                rroPkg,
+                pkgObj,
+                timestamp
+            };
+        }
+
+        function renderMatrixRecentLogs() {
+            const listEl = document.getElementById('matrix-recent-logs-list');
+            if (!listEl || !APP_STATE || !APP_STATE.last_build) return;
+
+            const lb = APP_STATE.last_build;
+            const rawLogs = Array.isArray(lb.logs) ? lb.logs : [];
+            const parsed = rawLogs.map((line, idx) => parseMatrixLogEntry(line, idx, rawLogs.length)).reverse();
+
+            const errorEntries = parsed.filter(item => item.isError);
+            const successEntries = parsed.filter(item => item.isSuccess);
+            const failedPkgs = (APP_STATE.packages || []).filter(p => p.compile_status === 'failed');
+
+            document.getElementById('matrix-log-count-all').textContent = parsed.length;
+            document.getElementById('matrix-log-count-errors').textContent = errorEntries.length;
+            document.getElementById('matrix-log-count-success').textContent = successEntries.length;
+            document.getElementById('matrix-log-timestamp').textContent = `Last Event: ${lb.timestamp} (${lb.duration_ms}ms)`;
+
+            const errBadge = document.getElementById('matrix-log-error-badge');
+            const pulseEl = document.getElementById('matrix-log-pulse');
+            const widgetEl = document.getElementById('matrix-recent-logs-widget');
+            const repairAllBtn = document.getElementById('btn-repair-all-failed');
+
+            if (failedPkgs.length > 0 || errorEntries.length > 0) {
+                errBadge.textContent = `${failedPkgs.length} Active Fault${failedPkgs.length === 1 ? '' : 's'} • ${errorEntries.length} Error Log${errorEntries.length === 1 ? '' : 's'}`;
+                errBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold';
+                pulseEl.className = 'w-2 h-2 rounded-full bg-rose-400 animate-ping';
+                widgetEl.className = 'bg-[#0D111A] border border-rose-500/40 rounded-xl overflow-hidden transition-all shadow-lg shadow-rose-950/20';
+            } else {
+                errBadge.textContent = '0 Compile Errors';
+                errBadge.className = 'font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
+                pulseEl.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                widgetEl.className = 'bg-[#0D111A] border border-[#1E2738] rounded-xl overflow-hidden transition-all';
+            }
+
+            if (repairAllBtn) {
+                if (failedPkgs.length > 0) {
+                    repairAllBtn.classList.remove('hidden');
+                } else {
+                    repairAllBtn.classList.add('hidden');
+                }
+            }
+
+            const successBadge = document.getElementById('matrix-log-success-badge');
+            if (successBadge) {
+                successBadge.textContent = `${successEntries.length} Build Events`;
+            }
+
+            ['all', 'errors', 'success'].forEach(f => {
+                const btn = document.getElementById(`matrix-log-filter-${f}`);
+                if (!btn) return;
+                if (f === MATRIX_LOG_FILTER) {
+                    btn.classList.add('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                } else {
+                    btn.classList.remove('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                }
+            });
+
+            const visibleLogs = parsed.filter(item => {
+                if (MATRIX_LOG_FILTER === 'errors') return item.isError;
+                if (MATRIX_LOG_FILTER === 'success') return item.isSuccess;
+                return true;
+            });
+
+            if (visibleLogs.length === 0) {
+                listEl.innerHTML = `
+                    <div class="px-4 py-5 text-center text-slate-400 text-xs font-mono">
+                        No ${MATRIX_LOG_FILTER === 'errors' ? 'compilation error' : 'matching'} log entries in buffer. All active One UI 9.0 RRO targets compiled cleanly.
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = visibleLogs.map(item => {
+                if (item.isError) {
+                    const isStillFailed = item.pkgObj && item.pkgObj.compile_status === 'failed';
+                    return `
+                        <div class="px-4 py-2.5 bg-rose-950/35 hover:bg-rose-950/50 flex flex-wrap items-center justify-between gap-2 transition-colors">
+                            <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                                <span class="mt-0.5 w-4 h-4 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center justify-center shrink-0">!</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">IDMAP2 COMPILE ERROR</span>
+                                        ${item.rroPkg ? `<button onclick="focusMatrixCard('${item.pkgId}')" class="text-cyan-300 hover:underline font-semibold cursor-pointer">${item.rroPkg}</button>` : ''}
+                                        ${item.pkgObj ? `<span class="text-slate-400 text-[11px]">(${item.pkgObj.label} → ${item.pkgObj.target_package})</span>` : ''}
+                                        <span class="text-[10px] text-slate-500">${item.timestamp}</span>
+                                    </div>
+                                    <div class="text-rose-200 mt-0.5 break-all">${item.cleanMessage}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                ${item.pkgId ? `
+                                    <button onclick="focusMatrixCard('${item.pkgId}')" class="px-2 py-1 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-200 text-[11px] cursor-pointer">
+                                        Locate Card
+                                    </button>
+                                ` : ''}
+                                ${isStillFailed ? `
+                                    <button onclick="setOverlayCompileStatus('${item.pkgId}', 'active')" class="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-[11px] cursor-pointer">
+                                        Repair RRO
+                                    </button>
+                                ` : (item.pkgId ? `<span class="text-[10px] text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-950/50 border border-emerald-700/40">Resolved ✓</span>` : '')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (item.isSuccess) {
+                    return `
+                        <div class="px-4 py-2 hover:bg-[#111726] flex flex-wrap items-center justify-between gap-2 transition-colors">
+                            <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                                <span class="mt-0.5 w-4 h-4 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 flex items-center justify-center shrink-0">✓</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">BUILD OK</span>
+                                        ${item.rroPkg ? `<button onclick="focusMatrixCard('${item.pkgId}')" class="text-cyan-300 hover:underline cursor-pointer">${item.rroPkg}</button>` : ''}
+                                        <span class="text-[10px] text-slate-500">${item.timestamp}</span>
+                                    </div>
+                                    <div class="text-slate-200 mt-0.5 break-all">${item.cleanMessage}</div>
+                                </div>
+                            </div>
+                            ${item.pkgId ? `
+                                <button onclick="focusMatrixCard('${item.pkgId}')" class="px-2 py-0.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-400 hover:text-slate-200 text-[10px] shrink-0 cursor-pointer">
+                                    View Target
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="px-4 py-1.5 hover:bg-[#111726] flex items-start gap-2.5 text-slate-400 transition-colors">
+                        <span class="mt-0.5 w-4 h-4 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 flex items-center justify-center shrink-0">*</span>
+                        <div class="min-w-0 flex-1 break-all">
+                            <span class="text-[10px] text-slate-500 mr-2">${item.timestamp}</span>
+                            <span>${item.cleanMessage}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function renderMatrix() {
             const query = (document.getElementById('matrix-search')?.value || '').toLowerCase();
             const grid = document.getElementById('matrix-grid');
 
-            const filtered = APP_STATE.packages.filter(pkg => {
+            renderMatrixRecentLogs();
+
+            const allPkgs = APP_STATE.packages || [];
+            const activeCount = allPkgs.filter(p => (p.compile_status === 'active' && p.selected)).length;
+            const failedCount = allPkgs.filter(p => p.compile_status === 'failed').length;
+            const disabledCount = allPkgs.length - activeCount - failedCount;
+
+            document.getElementById('count-all').textContent = allPkgs.length;
+            document.getElementById('count-active').textContent = activeCount;
+            document.getElementById('count-failed').textContent = failedCount;
+            document.getElementById('count-disabled').textContent = disabledCount;
+
+            ['all', 'active', 'failed', 'disabled'].forEach(f => {
+                const btn = document.getElementById(`matrix-filter-${f}`);
+                if (!btn) return;
+                if (f === MATRIX_STATUS_FILTER) {
+                    btn.classList.add('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                } else {
+                    btn.classList.remove('bg-[#1E293B]', 'ring-1', 'ring-cyan-500/40');
+                }
+            });
+
+            const filtered = allPkgs.filter(pkg => {
+                const meta = getOverlayStatusMeta(pkg);
+                if (MATRIX_STATUS_FILTER !== 'all' && meta.status !== MATRIX_STATUS_FILTER) {
+                    return false;
+                }
                 if (!query) return true;
                 return (
                     pkg.label.toLowerCase().includes(query) ||
                     pkg.target_package.toLowerCase().includes(query) ||
                     pkg.system_rro_package.toLowerCase().includes(query) ||
+                    (pkg.semwt_target || '').toLowerCase().includes(query) ||
                     pkg.resolved_resources.some(r => r.name.toLowerCase().includes(query))
                 );
             });
 
-            grid.innerHTML = filtered.map(pkg => `
-                <div class="bg-[#0D111A] border ${pkg.selected ? 'border-[#263248]' : 'border-[#182030] opacity-65'} rounded-xl p-4 flex flex-col justify-between gap-3">
+            grid.innerHTML = filtered.map(pkg => {
+                const meta = getOverlayStatusMeta(pkg);
+                return `
+                <div id="matrix-card-${pkg.id}" class="${meta.cardBorder} border rounded-xl p-4 flex flex-col justify-between gap-3 transition-all">
                     <div>
                         <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <div class="font-mono text-[11px] text-cyan-400">${pkg.system_rro_package}</div>
-                                <h3 class="font-display font-bold text-base text-white">${pkg.label}</h3>
-                                <div class="font-mono text-xs text-slate-400">Target: ${pkg.target_package} • ${pkg.anaconda_archive}</div>
+                            <div class="flex items-start gap-2.5 min-w-0">
+                                ${meta.iconHtml}
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-mono text-[11px] text-cyan-400 truncate">${pkg.system_rro_package}</span>
+                                        <span class="font-mono text-[10px] px-2 py-0.5 rounded border ${meta.badgeClass}">${meta.label}</span>
+                                    </div>
+                                    <h3 class="font-display font-bold text-base text-white mt-0.5">${pkg.label}</h3>
+                                    <div class="font-mono text-xs text-slate-400">Target: <span class="text-slate-200">${pkg.target_package}</span> • Overrides <span class="text-cyan-300">${pkg.semwt_target || 'SemWT_*'}</span></div>
+                                </div>
                             </div>
-                            <label class="inline-flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" ${pkg.selected ? 'checked' : ''} onchange="togglePackageTarget('${pkg.id}', this.checked)" class="sr-only peer">
+                            <label class="inline-flex items-center gap-2 cursor-pointer shrink-0">
+                                <input type="checkbox" ${pkg.selected && meta.status !== 'failed' ? 'checked' : ''} onchange="togglePackageTarget('${pkg.id}', this.checked)" class="sr-only peer">
                                 <div class="w-9 h-5 bg-slate-800 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
                             </label>
                         </div>
 
-                        <p class="text-xs text-slate-400 mt-2">${pkg.notes}</p>
+                        ${meta.status === 'failed' && pkg.compile_error ? `
+                            <div class="mt-3 p-2.5 rounded-lg bg-rose-950/50 border border-rose-700/50 flex items-center justify-between gap-2 text-xs text-rose-200 font-mono">
+                                <span class="truncate">${pkg.compile_error}</span>
+                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="px-2.5 py-1 rounded bg-emerald-500 text-slate-950 font-semibold text-[11px] shrink-0 cursor-pointer">
+                                    Repair &amp; Recompile
+                                </button>
+                            </div>
+                        ` : ''}
+
+                        <p class="text-xs text-slate-400 mt-2">${pkg.notes || ''}</p>
 
                         <div class="mt-3 space-y-1.5">
-                            <div class="text-[10px] font-mono text-slate-400 uppercase">Rebuilt One UI 9.0 Resource Map (${pkg.resolved_resources.length} tokens):</div>
+                            <div class="text-[10px] font-mono text-slate-400 uppercase">One UI 9.0 Resource Map (${pkg.resolved_resources.length} tokens):</div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                                 ${pkg.resolved_resources.map(r => `
                                     <div class="px-2 py-1.5 rounded bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-1.5">
@@ -1002,12 +1666,20 @@
                         </div>
                     </div>
 
-                    <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between text-[11px] font-mono text-slate-400">
-                        <span>Overlay ID: <strong class="text-slate-200">${pkg.overlay_identifier}</strong></span>
-                        <button onclick="inspectPackage('${pkg.id}'); switchTab('studio');" class="text-cyan-400 hover:underline cursor-pointer">Customize in Studio →</button>
+                    <div class="pt-2 border-t border-[#1E2738] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
+                        <span>Fabricated ID: <strong class="text-slate-200">${pkg.overlay_identifier}</strong></span>
+                        <div class="flex items-center gap-3">
+                            ${meta.status === 'failed' ? `
+                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'active')" class="text-emerald-400 hover:underline cursor-pointer">Repair RRO</button>
+                            ` : `
+                                <button onclick="setOverlayCompileStatus('${pkg.id}', 'failed')" class="text-rose-400/80 hover:text-rose-300 hover:underline cursor-pointer">Simulate Fault</button>
+                            `}
+                            <button onclick="inspectPackage('${pkg.id}'); switchTab('studio');" class="text-cyan-400 hover:underline cursor-pointer">Customize in Studio →</button>
+                        </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function renderMonetView() {
@@ -1024,7 +1696,7 @@
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                         <span class="font-display font-semibold text-xs text-white">${label}</span>
-                        <span class="font-mono text-xs text-slate-400">android:color/${prefix}_*</span>
+                        <span class="font-mono text-xs text-slate-400">android:color/${prefix}_* (&gt; SemWT_MonetPalette)</span>
                     </div>
                     <div class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-13 gap-1.5">
                         ${shades.map(s => `
@@ -1057,7 +1729,7 @@
             const sel = document.getElementById('code-pkg-select');
             const currentVal = sel.value || 'systemui';
             sel.innerHTML = APP_STATE.packages.map(p =>
-                `<option value="${p.id}" ${p.id === currentVal ? 'selected' : ''}>${p.system_rro_package} → ${p.target_package}</option>`
+                `<option value="${p.id}" ${p.id === currentVal ? 'selected' : ''}>${p.system_rro_package} → ${p.target_package} (&gt; SemWT_*)</option>`
             ).join('');
             renderCodeInspector();
         }
@@ -1074,10 +1746,11 @@
             const shellLines = [
                 `# Privileged Context: ${APP_STATE.privilege.mode} (UID ${APP_STATE.privilege.uid})`,
                 `# Owning Package: ${APP_STATE.privilege.owner_package}`,
-                `# Theme Park Prerequisite: NONE (Direct System RRO Layering)`,
+                `# High Contrast Theme Overlays: NOT USED (Pure From-Scratch RROs)`,
+                `# Precedence: priority=10000 (highest > Samsung SemWT_* Overlays)`,
                 ``,
                 ...APP_STATE.packages.filter(p => p.selected).map(p =>
-                    `# ${p.label} (${p.system_rro_package})\n${p.fabricate_command}\n${p.enable_command}\n`
+                    `# ${p.label} (${p.system_rro_package} > ${p.semwt_target || 'SemWT_*'})\n${p.fabricate_command}\n${p.enable_command}\n`
                 )
             ];
             document.getElementById('code-shell-box').textContent = shellLines.join('\n');

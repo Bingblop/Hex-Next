@@ -151,7 +151,7 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission: () -> Unit) {
     val uriHandler = LocalUriHandler.current
-    SectionCard("Privilege Gate (No Theme Park Required)") {
+    SectionCard("Privilege Gate (No Theme Park / No High Contrast Overlays)") {
         val body = when (state) {
             ShizukuState.NotRunning ->
                 "Opening Requirement: Start Shizuku as UID 0 (Root) or UID 1000 (System), or grant direct SU access. Theme Park is NOT required."
@@ -161,16 +161,16 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
                 "Permission was denied. Open Shizuku and allow HexNext under authorized apps."
             is ShizukuState.Ready -> when {
                 state.isSystemUid1000 ->
-                    "Connected as System (UID 1000). Rebuilt One UI 9.0 overlays will be layered directly on top of Samsung's System RROs (com.samsung.High_contrast_theme_II.*) with owner 'android'."
+                    "Connected as System (UID 1000). New One UI 9.0 overlays (com.hexnext.oneui9.rro.*) are built from scratch with owner 'android' and highest priority above Samsung's modern SemWT_* overlays."
                 state.isRoot ->
-                    "Connected as Root (UID 0). Rebuilt One UI 9.0 overlays will be layered directly on top of Samsung's System RROs (com.samsung.High_contrast_theme_II.*)."
+                    "Connected as Root (UID 0). New One UI 9.0 overlays (com.hexnext.oneui9.rro.*) are built from scratch with highest priority above Samsung's modern SemWT_* overlays."
                 else ->
-                    "Connected as unprivileged shell (UID ${state.uid}). One UI 9.0 System RRO fabrication requires UID 0 (Root) or UID 1000 (System)."
+                    "Connected as unprivileged shell (UID ${state.uid}). One UI 9.0 RRO fabrication requires UID 0 (Root) or UID 1000 (System)."
             }
         }
         Text(body, style = MaterialTheme.typography.bodyMedium)
         Text(
-            listOfNotNull(MainViewModel.androidVersion, oneUi, "Theme Park Bypassed").joinToString(" · "),
+            listOfNotNull(MainViewModel.androidVersion, oneUi, "Precedence > SemWT_*").joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -188,9 +188,9 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SystemRroTargetsCard(enabledTargets: Set<String>, onToggle: (String) -> Unit) {
-    SectionCard("Samsung System RRO Targets (${enabledTargets.size}/${PackedAppOverlay.ALL.size})") {
+    SectionCard("One UI 9.0 From-Scratch RRO Targets (${enabledTargets.size}/${PackedAppOverlay.ALL.size})") {
         Text(
-            "Rebuilt from #hex__30 anaconda_0..70 onto com.samsung.High_contrast_theme_II.*",
+            "Built from scratch (com.hexnext.oneui9.rro.*) with priority=highest above Samsung SemWT_* overlays",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

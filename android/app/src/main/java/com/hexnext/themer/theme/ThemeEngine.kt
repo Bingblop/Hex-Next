@@ -10,20 +10,19 @@ enum class LogLevel { INFO, OK, WARN, ERROR }
 data class LogLine(val level: LogLevel, val text: String)
 
 /**
- * Rebuilt Hex Installer One UI 9.0 Overlay Engine.
+ * Rebuilt Hex Installer One UI 9.0 From-Scratch Overlay Engine.
  *
  * Operates exclusively via Shizuku (UID 0 or UID 1000) or SU root access.
- * Theme Park (`com.samsung.android.themepark`) requirements are completely removed.
- * Overlays are built and prioritized directly on top of Samsung's System RRO carrier stack
- * (`com.samsung.High_contrast_theme_II.*`).
+ * Theme Park (`com.samsung.android.themepark`) and High Contrast Theme overlays are NOT used.
+ * Overlays are built from scratch (`com.hexnext.oneui9.rro.*` / `HexNextOneUI9_*`) and set to
+ * `highest` priority so they take precedence over Samsung's modern `SemWT_*` overlays.
  */
 class ThemeEngine(private val prefs: SharedPreferences) {
 
     /**
      * Privileged UID 0 / UID 1000 path:
-     * 1. Enables Samsung's base System RRO carrier (`com.samsung.High_contrast_theme_II.*`) if installed.
-     * 2. Fabricates and commits the 65 Monet framework shades + 23 Material 3 dark roles.
-     * 3. Fabricates and commits all 17 rebuilt One UI 9.0 app overlays at `highest` priority.
+     * 1. Fabricates and commits the 65 Monet framework shades + 23 Material 3 dark roles above SemWT_MonetPalette.
+     * 2. Fabricates and commits all 17 from-scratch One UI 9.0 app overlays at `highest` priority above `SemWT_*`.
      */
     fun applyFabricated(
         service: IThemeService,
@@ -31,15 +30,15 @@ class ThemeEngine(private val prefs: SharedPreferences) {
         enabledTargets: Set<String> = PackedAppOverlay.ALL.map { it.id }.toSet(),
         log: (LogLine) -> Unit,
     ): Boolean {
-        log(LogLine(LogLevel.INFO, "Privilege verified (UID ${service.uid}) — Theme Park requirement bypassed."))
+        log(LogLine(LogLevel.INFO, "Privilege verified (UID ${service.uid}) — building from-scratch RROs above SemWT_*."))
 
         val shades = palette.shadeEntries()
-        log(LogLine(LogLevel.INFO, "Fabricating $SHADES_OVERLAY (${shades.size} Monet shades)…"))
+        log(LogLine(LogLevel.INFO, "Fabricating $SHADES_OVERLAY (${shades.size} Monet shades > SemWT_MonetPalette)…"))
         val shadeResult = service.applyColorOverlay(SHADES_OVERLAY, TARGET, shades.names(), shades.colors())
         if (!report(shadeResult, log)) return false
 
         val roles = palette.roleEntries()
-        log(LogLine(LogLevel.INFO, "Fabricating $ROLES_OVERLAY (${roles.size} Material 3 dark roles)…"))
+        log(LogLine(LogLevel.INFO, "Fabricating $ROLES_OVERLAY (${roles.size} Material 3 dark roles > SemWT_G_MonetPalette)…"))
         val roleResult = service.applyColorOverlay(ROLES_OVERLAY, TARGET, roles.names(), roles.colors())
         if (!report(roleResult, log, failLevel = LogLevel.WARN)) {
             log(LogLine(LogLevel.WARN, "Role colors were skipped; the 65 Monet shades remain active."))
@@ -47,15 +46,12 @@ class ThemeEngine(private val prefs: SharedPreferences) {
 
         val selectedOverlays = PackedAppOverlay.ALL.filter { it.id in enabledTargets }
         for (packed in selectedOverlays) {
-            // Enable underlying Samsung System RRO carrier if present on device
-            service.exec("cmd overlay enable --user current ${packed.systemRroCarrier} 2>/dev/null || true")
-
             val entries = packed.buildEntries(palette)
             if (entries.isEmpty()) continue
             log(
                 LogLine(
                     LogLevel.INFO,
-                    "Layering ${packed.overlayName} over ${packed.systemRroCarrier} -> ${packed.targetPackage} (${entries.size} One UI 9.0 tokens)…"
+                    "Building ${packed.overlayPackage} (${packed.overlayName}) > ${packed.semWtOverridden} -> ${packed.targetPackage} (${entries.size} One UI 9.0 tokens)…"
                 )
             )
             val res = service.applyColorOverlay(packed.overlayName, packed.targetPackage, entries.names(), entries.colors())
@@ -65,7 +61,7 @@ class ThemeEngine(private val prefs: SharedPreferences) {
         }
 
         verify(service, shades.first { it.name == "system_accent1_500" }, log)
-        log(LogLine(LogLevel.OK, "One UI 9.0 System RRO overlays applied (${selectedOverlays.size + 2} layers)."))
+        log(LogLine(LogLevel.OK, "From-scratch One UI 9.0 RRO overlays prioritized above SemWT_* (${selectedOverlays.size + 2} layers)."))
         return true
     }
 

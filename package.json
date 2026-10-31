@@ -3,7 +3,8 @@
   "private": true,
   "version": "2.0.0",
   "scripts": {
-    "dev": "python3 -m http.server 3000 --bind 0.0.0.0",
-    "start": "python3 -m http.server 3000 --bind 0.0.0.0"
+    "dev": "node server.js",
+    "build": "node --check server.js",
+    "start": "node server.js"
   }
 }

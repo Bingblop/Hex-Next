@@ -1,17 +1,19 @@
 package com.hexnext.themer.theme
 
 /**
- * Rebuilt Hex Installer (`project.vivid.hex.bodhi` / `#hex__30`) System RRO overlay catalog
- * for Samsung One UI 9.0 (Android 16).
+ * Rebuilt Hex Installer (`project.vivid.hex.bodhi` / `#hex__30`) & Niferpitou (`terpsichora_`)
+ * from-scratch RRO overlay catalog for Samsung One UI 9.0 (Android 16).
  *
- * Replaces the legacy precompiled `assets/anaconda/res/anaconda_0..70` archives and builds directly
- * on top of Samsung's `com.samsung.High_contrast_theme_II.*` System RRO packages via UID 0 or UID 1000
- * with zero Theme Park (`com.samsung.android.themepark`) requirements.
+ * Replaces the legacy precompiled `assets/anaconda/res/anaconda_0..70` archives and builds new
+ * overlays from scratch (`com.hexnext.oneui9.rro.*`) that take highest-priority precedence
+ * over Samsung's modern `SemWT_*` (Samsung Wallpaper Theme) overlays via UID 0 or UID 1000.
+ * Does NOT use High Contrast Theme overlays. Zero Theme Park requirements.
  */
 data class PackedAppOverlay(
     val id: String,
     val overlayName: String,
-    val systemRroCarrier: String,
+    val overlayPackage: String,
+    val semWtOverridden: String,
     val targetPackage: String,
     val label: String,
     val category: String,
@@ -61,6 +63,7 @@ data class PackedAppOverlay(
                 "sec_sub_app_bar_background_color" to surfaceDark,
                 "sec_preference_summary_primary_color" to primaryAccent,
                 "sec_switchbar_switch_track_on_color" to primaryAccent,
+                "sec_dashboard_icon_tint_color" to primaryAccent,
             )
             "dialer" -> listOf(
                 "dialpad_background_color" to bgDark,
@@ -147,23 +150,23 @@ data class PackedAppOverlay(
 
     companion object {
         val ALL: List<PackedAppOverlay> = listOf(
-            PackedAppOverlay("common", "HexNextOneUI9_Android", "com.samsung.High_contrast_theme_II.common", "android", "One UI 9.0 Framework", "Core"),
-            PackedAppOverlay("systemui", "HexNextOneUI9_SystemUI", "com.samsung.High_contrast_theme_II.systemui", "com.android.systemui", "SystemUI & Quick Settings", "Core"),
-            PackedAppOverlay("settings", "HexNextOneUI9_Settings", "com.samsung.High_contrast_theme_II.settings", "com.android.settings", "One UI SecSettings", "Core"),
-            PackedAppOverlay("dialer", "HexNextOneUI9_Dialer", "com.samsung.High_contrast_theme_II.dialer", "com.samsung.android.dialer", "Samsung Phone & Dialer", "Samsung"),
-            PackedAppOverlay("incallui", "HexNextOneUI9_InCallUI", "com.samsung.High_contrast_theme_II.InCallUI", "com.samsung.android.incallui", "Samsung InCallUI", "Samsung"),
-            PackedAppOverlay("contacts", "HexNextOneUI9_Contacts", "com.samsung.High_contrast_theme_II.contacts", "com.samsung.android.app.contacts", "Samsung Contacts", "Samsung"),
-            PackedAppOverlay("messages", "HexNextOneUI9_Messages", "com.samsung.High_contrast_theme_II.messaging", "com.samsung.android.messaging", "Samsung Messages", "Samsung"),
-            PackedAppOverlay("honeyboard", "HexNextOneUI9_HoneyBoard", "com.samsung.High_contrast_theme_II.honeyboard", "com.samsung.android.honeyboard", "Samsung HoneyBoard", "Samsung"),
-            PackedAppOverlay("myfiles", "HexNextOneUI9_MyFiles", "com.samsung.High_contrast_theme_II.myfiles", "com.sec.android.app.myfiles", "Samsung My Files", "Samsung"),
-            PackedAppOverlay("gallery", "HexNextOneUI9_Gallery", "com.samsung.High_contrast_theme_II.gallery3d", "com.sec.android.gallery3d", "Samsung Gallery", "Samsung"),
-            PackedAppOverlay("clock", "HexNextOneUI9_Clock", "com.samsung.High_contrast_theme_II.clockpackage", "com.sec.android.app.clockpackage", "Samsung Clock", "Samsung"),
-            PackedAppOverlay("calculator", "HexNextOneUI9_Calculator", "com.samsung.High_contrast_theme_II.popupcalculator", "com.sec.android.app.popupcalculator", "Samsung Calculator", "Samsung"),
-            PackedAppOverlay("calendar", "HexNextOneUI9_Calendar", "com.samsung.High_contrast_theme_II.calendar", "com.samsung.android.calendar", "Samsung Calendar", "Samsung"),
-            PackedAppOverlay("devicecare", "HexNextOneUI9_DeviceCare", "com.samsung.High_contrast_theme_II.lool", "com.samsung.android.lool", "Device Care", "Samsung"),
-            PackedAppOverlay("home", "HexNextOneUI9_OneUIHome", "com.samsung.High_contrast_theme_II.home", "com.sec.android.app.launcher", "One UI Home", "Samsung"),
-            PackedAppOverlay("aod", "HexNextOneUI9_AOD", "com.samsung.High_contrast_theme_II.aodservice", "com.samsung.android.app.aodservice", "Always On Display", "Samsung"),
-            PackedAppOverlay("smartcapture", "HexNextOneUI9_SmartCapture", "com.samsung.High_contrast_theme_II.smartcapture", "com.samsung.android.app.smartcapture", "Smart Capture", "Samsung"),
+            PackedAppOverlay("common", "HexNextOneUI9_Android", "com.hexnext.oneui9.rro.common", "android:SemWT_android", "android", "One UI 9.0 Framework", "Core"),
+            PackedAppOverlay("systemui", "HexNextOneUI9_SystemUI", "com.hexnext.oneui9.rro.systemui", "com.android.systemui:SemWT_com.android.systemui", "com.android.systemui", "SystemUI & Quick Settings", "Core"),
+            PackedAppOverlay("settings", "HexNextOneUI9_Settings", "com.hexnext.oneui9.rro.settings", "com.android.settings:SemWT_com.android.settings", "com.android.settings", "One UI SecSettings & 26 Icons", "Core"),
+            PackedAppOverlay("dialer", "HexNextOneUI9_Dialer", "com.hexnext.oneui9.rro.dialer", "com.samsung.android.dialer:SemWT_com.samsung.android.dialer", "com.samsung.android.dialer", "Samsung Phone & Dialer", "Samsung"),
+            PackedAppOverlay("incallui", "HexNextOneUI9_InCallUI", "com.hexnext.oneui9.rro.incallui", "com.samsung.android.incallui:SemWT_com.samsung.android.incallui", "com.samsung.android.incallui", "Samsung InCallUI", "Samsung"),
+            PackedAppOverlay("contacts", "HexNextOneUI9_Contacts", "com.hexnext.oneui9.rro.contacts", "com.samsung.android.app.contacts:SemWT_com.samsung.android.app.contacts", "com.samsung.android.app.contacts", "Samsung Contacts", "Samsung"),
+            PackedAppOverlay("messages", "HexNextOneUI9_Messages", "com.hexnext.oneui9.rro.messaging", "com.samsung.android.messaging:SemWT_com.samsung.android.messaging", "com.samsung.android.messaging", "Samsung Messages", "Samsung"),
+            PackedAppOverlay("honeyboard", "HexNextOneUI9_HoneyBoard", "com.hexnext.oneui9.rro.honeyboard", "com.samsung.android.honeyboard:SemWT_com.samsung.android.honeyboard", "com.samsung.android.honeyboard", "Samsung HoneyBoard", "Samsung"),
+            PackedAppOverlay("myfiles", "HexNextOneUI9_MyFiles", "com.hexnext.oneui9.rro.myfiles", "com.sec.android.app.myfiles:SemWT_com.sec.android.app.myfiles", "com.sec.android.app.myfiles", "Samsung My Files", "Samsung"),
+            PackedAppOverlay("gallery", "HexNextOneUI9_Gallery", "com.hexnext.oneui9.rro.gallery3d", "com.sec.android.gallery3d:SemWT_com.sec.android.gallery3d", "com.sec.android.gallery3d", "Samsung Gallery", "Samsung"),
+            PackedAppOverlay("clock", "HexNextOneUI9_Clock", "com.hexnext.oneui9.rro.clockpackage", "com.sec.android.app.clockpackage:SemWT_com.sec.android.app.clockpackage", "com.sec.android.app.clockpackage", "Samsung Clock", "Samsung"),
+            PackedAppOverlay("calculator", "HexNextOneUI9_Calculator", "com.hexnext.oneui9.rro.popupcalculator", "com.sec.android.app.popupcalculator:SemWT_com.sec.android.app.popupcalculator", "com.sec.android.app.popupcalculator", "Samsung Calculator", "Samsung"),
+            PackedAppOverlay("calendar", "HexNextOneUI9_Calendar", "com.hexnext.oneui9.rro.calendar", "com.samsung.android.calendar:SemWT_com.samsung.android.calendar", "com.samsung.android.calendar", "Samsung Calendar", "Samsung"),
+            PackedAppOverlay("devicecare", "HexNextOneUI9_DeviceCare", "com.hexnext.oneui9.rro.lool", "com.samsung.android.lool:SemWT_com.samsung.android.lool", "com.samsung.android.lool", "Device Care", "Samsung"),
+            PackedAppOverlay("home", "HexNextOneUI9_OneUIHome", "com.hexnext.oneui9.rro.home", "com.sec.android.app.launcher:SemWT_com.sec.android.app.launcher", "com.sec.android.app.launcher", "One UI Home", "Samsung"),
+            PackedAppOverlay("aod", "HexNextOneUI9_AOD", "com.hexnext.oneui9.rro.aodservice", "com.samsung.android.app.aodservice:SemWT_com.samsung.android.app.aodservice", "com.samsung.android.app.aodservice", "Always On Display", "Samsung"),
+            PackedAppOverlay("smartcapture", "HexNextOneUI9_SmartCapture", "com.hexnext.oneui9.rro.smartcapture", "com.samsung.android.app.smartcapture:SemWT_com.samsung.android.app.smartcapture", "com.samsung.android.app.smartcapture", "Smart Capture", "Samsung"),
         )
     }
 }
