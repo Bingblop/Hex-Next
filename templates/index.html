@@ -318,12 +318,12 @@
 
                 <!-- Rebuilt #hex_, Drive APKs (Project X, Blend, Glass, ayOS, AOSP R), Niferpitou & MIMI Skins Card -->
                 <div id="studio-card-skins" class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="font-display font-bold text-sm text-white">One UI 9.0 APK Skin Presets (13 Skins)</h2>
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <h2 class="font-display font-bold text-sm text-white">Theme Plugins — One UI 9.0 APK Skin Presets</h2>
                             <p class="text-xs text-slate-400">Includes all 5 Drive APKs (<code class="font-mono text-cyan-300">Project X</code>, <code class="font-mono text-cyan-300">Blend</code>, <code class="font-mono text-cyan-300">Glass</code>, <code class="font-mono text-cyan-300">ayOS</code>, <code class="font-mono text-cyan-300">AOSP R</code>) + <code class="font-mono text-cyan-300">Terpsichora</code> &amp; <code class="font-mono text-cyan-300">MIMI</code></p>
                         </div>
-                        <span id="plugin-preset-count-badge" class="font-mono text-[11px] text-cyan-300 tabular-nums font-bold">13 Skins</span>
+                        <span id="plugin-preset-count-badge" class="font-mono text-[11px] text-cyan-300 tabular-nums font-bold shrink-0 whitespace-nowrap">13 Skins</span>
                     </div>
 
                     <!-- Drive APK Collection Visual Quick-Launch Strip -->
@@ -376,6 +376,30 @@
                                 </div>
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Theme Plugins Search Bar -->
+                    <div class="relative flex items-center">
+                        <label for="plugin-search-input" class="sr-only">Search Theme Plugins by name</label>
+                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input
+                            type="text"
+                            id="plugin-search-input"
+                            aria-label="Search Theme Plugins by name"
+                            placeholder="Search theme plugins by name (e.g. Project X, Glass, MIMI)..."
+                            oninput="setPluginSearchQuery(this.value)"
+                            class="w-full bg-[#131926] border border-[#1E2738] focus:border-cyan-400 rounded-lg pl-8 pr-14 py-1.5 text-xs text-white placeholder-slate-500 font-sans focus:outline-none transition-colors"
+                        >
+                        <button
+                            type="button"
+                            id="plugin-search-clear"
+                            onclick="clearPluginSearch()"
+                            aria-label="Clear theme plugin search"
+                            title="Clear search"
+                            class="hidden absolute right-2 px-1.5 py-0.5 rounded bg-[#1E293B] hover:bg-slate-700 text-[10px] font-mono text-slate-300 hover:text-white cursor-pointer transition-colors"
+                        >Clear</button>
                     </div>
 
                     <div id="plugin-list" class="grid grid-cols-1 gap-2 max-h-[260px] overflow-y-auto pr-1"></div>
@@ -2947,15 +2971,71 @@
             }
         }
 
+        let PLUGIN_SEARCH_QUERY = '';
+
+        function filterThemePluginsByName(plugins, query) {
+            const list = Array.isArray(plugins) ? plugins : [];
+            const q = String(query || '').trim().toLowerCase();
+            if (!q) return list;
+            return list.filter(p => {
+                const nameMatch = String(p.name || '').toLowerCase().includes(q);
+                const idMatch = String(p.id || '').toLowerCase().includes(q);
+                const pkgMatch = String(p.plugin_pkg || p.package_name || '').toLowerCase().includes(q);
+                return nameMatch || idMatch || pkgMatch;
+            });
+        }
+
+        function setPluginSearchQuery(query) {
+            PLUGIN_SEARCH_QUERY = String(query || '');
+            renderPlugins();
+        }
+
+        function clearPluginSearch() {
+            PLUGIN_SEARCH_QUERY = '';
+            const input = document.getElementById('plugin-search-input');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+            renderPlugins();
+        }
+
         function renderPlugins() {
             const container = document.getElementById('plugin-list');
             const countBadge = document.getElementById('plugin-preset-count-badge');
-            if (countBadge && APP_STATE.plugins) {
-                countBadge.textContent = `${APP_STATE.plugins.length} Skins`;
+            const clearBtn = document.getElementById('plugin-search-clear');
+            const searchInput = document.getElementById('plugin-search-input');
+            const allPlugins = (APP_STATE && Array.isArray(APP_STATE.plugins)) ? APP_STATE.plugins : [];
+            const trimmedQuery = String(PLUGIN_SEARCH_QUERY || '').trim();
+            const filteredPlugins = filterThemePluginsByName(allPlugins, trimmedQuery);
+
+            if (searchInput && document.activeElement !== searchInput && searchInput.value !== PLUGIN_SEARCH_QUERY) {
+                searchInput.value = PLUGIN_SEARCH_QUERY;
             }
+            if (clearBtn) {
+                if (trimmedQuery.length > 0) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+            if (countBadge) {
+                countBadge.textContent = trimmedQuery.length > 0
+                    ? `${filteredPlugins.length}/${allPlugins.length} Skins`
+                    : `${allPlugins.length} Skins`;
+            }
+
+            if (filteredPlugins.length === 0) {
+                const safeQuery = trimmedQuery.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+                container.innerHTML = `
+                    <div id="plugin-search-empty-state" class="p-4 rounded-lg bg-[#131926] border border-[#1E2738] text-center space-y-2">
+                        <div class="text-xs font-medium text-slate-300">No theme plugins matching <span class="font-mono text-cyan-300">"${safeQuery}"</span></div>
+                        <button type="button" id="plugin-search-empty-reset" onclick="clearPluginSearch()" class="px-2.5 py-1 rounded bg-[#1E293B] hover:bg-slate-700 text-[11px] font-mono text-cyan-300 cursor-pointer transition-colors">Reset Search</button>
+                    </div>
+                `;
+                return;
+            }
+
             const activeId = APP_STATE.spec.plugin_id;
             const driveIds = new Set(['project_x', 'blend_dn', 'glass_dn', 'ayos_dark', 'aosp_r']);
-            container.innerHTML = APP_STATE.plugins.map(p => {
+            container.innerHTML = filteredPlugins.map(p => {
                 const isSelected = p.id === activeId;
                 const isMimi = p.id === 'mimi_miui11';
                 const isDrive = driveIds.has(p.id);

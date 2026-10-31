@@ -2877,6 +2877,22 @@ if (require.main === module) {
   });
 }
 
+function filterThemePluginsByName(plugins, query) {
+  const list = Array.isArray(plugins)
+    ? plugins
+    : Object.values(plugins || HEX_PLUGINS || {});
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((p) => {
+    const nameMatch = String(p.name || "").toLowerCase().includes(q);
+    const idMatch = String(p.id || "").toLowerCase().includes(q);
+    const pkgMatch = String(p.plugin_pkg || p.package_name || "")
+      .toLowerCase()
+      .includes(q);
+    return nameMatch || idMatch || pkgMatch;
+  });
+}
+
 module.exports = {
   server,
   CATALOG,
@@ -2893,4 +2909,6 @@ module.exports = {
   buildFullState,
   handleCompile,
   handlePrivilegeMode,
+  filterThemePluginsByName,
 };
+

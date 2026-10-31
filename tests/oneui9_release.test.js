@@ -13,7 +13,33 @@ const {
   buildThemeJsonObject,
   buildSignedUniversalReleaseApk,
   handleCompile,
+  filterThemePluginsByName,
 } = require('../server.js');
+
+test('Theme Plugins search filters plugins by name (case-insensitive), id, and handles empty/non-matching queries', () => {
+  const allPlugins = Object.values(CATALOG.HEX_PLUGINS);
+  assert.equal(allPlugins.length, 13);
+
+  // Empty query returns all 13 plugins
+  assert.equal(filterThemePluginsByName(allPlugins, '').length, 13);
+  assert.equal(filterThemePluginsByName(allPlugins, '   ').length, 13);
+
+  // Case-insensitive search by plugin name
+  const pxMatches = filterThemePluginsByName(allPlugins, 'project x');
+  assert.equal(pxMatches.length, 1);
+  assert.equal(pxMatches[0].id, 'project_x');
+
+  const dayNightMatches = filterThemePluginsByName(allPlugins, 'Day/Night');
+  assert.equal(dayNightMatches.length, 2);
+  assert.deepEqual(dayNightMatches.map(p => p.id).sort(), ['blend_dn', 'glass_dn']);
+
+  const mimiMatches = filterThemePluginsByName(allPlugins, 'MIMI');
+  assert.equal(mimiMatches.length, 1);
+  assert.equal(mimiMatches[0].id, 'mimi_miui11');
+
+  // Non-matching query returns empty array
+  assert.equal(filterThemePluginsByName(allPlugins, 'nonexistent_theme_plugin_xyz').length, 0);
+});
 
 test('Catalog contains all 5 Google Drive APKs + MIMI + Terpsichora for One UI 9.0', () => {
   const pluginIds = Object.keys(CATALOG.HEX_PLUGINS);
