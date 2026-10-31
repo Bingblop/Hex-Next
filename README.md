@@ -15,10 +15,9 @@ the unsigned CI candidate is for validation, not installation. It needs Android 
   all 65 Monet shades (`system_accent1..3_*`, `system_neutral1..2_*`) plus the Android 14+ Material role
   colors, generated from your accent color and palette style. Pure-black dark mode is available.
   Every step shows the real result, and the app reads the color back to verify it applied.
-- **Shizuku over wireless debugging (no root):** Android refuses fabricated overlays from the shell user
-  (`OverlayManagerService`: "Non-root shell cannot fabricate overlays", and `cmd overlay fabricate`
-  requires root). HexNext instead hands the seed color and style to System UI's own Monet engine through
-  `theme_customization_overlay_packages`. On One UI 9 this recolors Material You apps but not One UI's own UI.
+- **Shizuku over wireless debugging (no root):** the current native app rejects theme application from
+  the ordinary shell UID. Fabricated overlay application requires root or a supported privileged
+  system session; there is no non-root Monet fallback in this release.
 
 Build locally with `cd android && ./gradlew assembleDebug`. The old WebView app in `apps/hex-next/`
 is kept only as a design reference.

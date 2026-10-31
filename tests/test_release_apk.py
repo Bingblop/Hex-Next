@@ -59,7 +59,7 @@ class ReleaseApkTest(unittest.TestCase):
 
     def verify(self, badging=BADGING, signatures=SIGNATURES, **kwargs):
         with patch.object(release_apk, "sdk_tool", side_effect=lambda name: name), \
-                patch.object(release_apk, "run", side_effect=[badging, "", signatures]) as run:
+                patch.object(release_apk, "run", side_effect=[badging, "", signatures, signatures, signatures, signatures]) as run:
             result = release_apk.verify(self.apk, **kwargs)
             return result, run
 
@@ -138,6 +138,19 @@ class ReleaseApkTest(unittest.TestCase):
         ):
             with self.subTest(signatures=signatures), self.assertRaises(ValueError):
                 self.verify(signatures=signatures)
+
+    def test_older_schemes_skipped_for_min_sdk_are_verified_at_supported_levels(self):
+        default = SIGNATURES.replace("v1 scheme (test): true", "v1 scheme (test): false").replace(
+            "v2 scheme (test): true", "v2 scheme (test): false"
+        )
+        with patch.object(release_apk, "sdk_tool", side_effect=lambda name: name), \
+                patch.object(release_apk, "run", side_effect=[BADGING, "", default, SIGNATURES, SIGNATURES, SIGNATURES]) as run:
+            result = release_apk.verify(self.apk)
+            self.assertTrue(result["signed"])
+            self.assertEqual(run.call_count, 6)
+            for call, sdk in zip(run.call_args_list[3:], ("23", "24", "28")):
+                self.assertIn("--min-sdk-version", call.args)
+                self.assertIn(sdk, call.args)
 
     def test_real_tool_failures_are_not_swallowed(self):
         with patch.object(release_apk, "sdk_tool", return_value="aapt2"), \

@@ -116,11 +116,17 @@ def verify(apk, unsigned=False, expected_version=None):
     signatures = None
     if not unsigned:
         signatures = run(sdk_tool("apksigner"), "verify", "--verbose", "--print-certs", str(apk))
-        for scheme in (1, 2, 3):
-            if not re.search(rf"Verified using v{scheme} scheme .*: true", signatures):
-                raise ValueError(f"APK is missing a verified v{scheme} signature.")
         if "CN=Android Debug" in signatures:
             raise ValueError("Release APK must not use an Android debug certificate.")
+        # apksigner skips older schemes when minSdk is 34; verify each at its supported API level.
+        for scheme, sdk in ((1, 23), (2, 24), (3, 28)):
+            scheme_result = run(
+                sdk_tool("apksigner"), "verify", "--verbose",
+                "--min-sdk-version", str(sdk), "--max-sdk-version", str(sdk), str(apk)
+            )
+            if not re.search(rf"Verified using v{scheme} scheme .*: true", scheme_result):
+                raise ValueError(f"APK is missing a verified v{scheme} signature.\n{scheme_result}")
+            signatures += f"\nSignature scheme v{scheme} verification at API {sdk}:\n{scheme_result}"
     return {
         "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
         "application_id": package[1],
