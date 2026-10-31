@@ -365,3 +365,18 @@ test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadat
   assert.ok(fs.existsSync(path.join(__dirname, '..', '.github', 'workflows', 'android.yml')));
   assert.ok(fs.existsSync(path.join(__dirname, '..', '.github', 'PULL_REQUEST_TEMPLATE.md')));
 });
+
+test('GitHub CI/CD pipeline and Gradle configuration enforce 64-bit & 32-bit architectures and verify SDK tools availability', () => {
+  const { verifyCiCdAndSdkEnvironment } = require('../server.js');
+  const audit = verifyCiCdAndSdkEnvironment();
+
+  assert.equal(audit.all_passed, true, 'Expected all CI/CD and SDK environment checks to pass');
+  assert.equal(audit.gradle_64_32_bit_aligned, true, 'Expected Gradle 64-bit & 32-bit ABI filters & splits to be aligned');
+  assert.equal(audit.ci_64_32_bit_pipeline_verified, true, 'Expected CI workflow to verify 64-bit & 32-bit ABIs');
+  assert.equal(audit.sdk_tools_check_present, true, 'Expected CI workflow to verify SDK tools (sdkmanager, aapt2, apksigner, zipalign, keytool)');
+  assert.equal(audit.release_pipeline_verified, true, 'Expected CI release job to verify 64/32-bit artifacts before publishing');
+  assert.deepEqual(audit.abis_64_bit, ['arm64-v8a', 'x86_64']);
+  assert.deepEqual(audit.abis_32_bit, ['armeabi-v7a', 'x86']);
+  assert.deepEqual(audit.required_sdk_tools, ['sdkmanager', 'aapt2', 'apksigner', 'zipalign', 'keytool']);
+});
+

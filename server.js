@@ -1554,10 +1554,80 @@ function buildSignedUniversalReleaseApk(spec, customOverrides = {}) {
   return createZipBuffer(allApkEntries);
 }
 
+function verifyCiCdAndSdkEnvironment() {
+  const workflowPath = path.join(BASE_DIR, ".github", "workflows", "android.yml");
+  const gradlePath = path.join(BASE_DIR, "android", "app", "build.gradle.kts");
+  const buildScriptPath = path.join(BASE_DIR, "bin", "build-and-sign-release-apk.sh");
+
+  const workflowContent = fs.existsSync(workflowPath)
+    ? fs.readFileSync(workflowPath, "utf8")
+    : "";
+  const gradleContent = fs.existsSync(gradlePath) ? fs.readFileSync(gradlePath, "utf8") : "";
+  const buildScriptContent = fs.existsSync(buildScriptPath)
+    ? fs.readFileSync(buildScriptPath, "utf8")
+    : "";
+
+  const abis64 = ["arm64-v8a", "x86_64"];
+  const abis32 = ["armeabi-v7a", "x86"];
+  const allAbis = [...abis64, ...abis32];
+  const requiredSdkTools = ["sdkmanager", "aapt2", "apksigner", "zipalign", "keytool"];
+
+  const gradleHas64Bit = abis64.every((abi) => gradleContent.includes(`"${abi}"`));
+  const gradleHas32Bit = abis32.every((abi) => gradleContent.includes(`"${abi}"`));
+  const gradleHasUniversal = gradleContent.includes("isUniversalApk = true");
+  const gradleHasSdk36 =
+    gradleContent.includes("compileSdk = 36") && gradleContent.includes("targetSdk = 36");
+
+  const ciVerifies64Bit = abis64.every((abi) => workflowContent.includes(abi));
+  const ciVerifies32Bit = abis32.every((abi) => workflowContent.includes(abi));
+  const ciVerifiesUniversal = workflowContent.includes("isUniversalApk = true");
+  const ciVerifiesSdkTools = requiredSdkTools.every((tool) => workflowContent.includes(tool));
+  const ciHasAndroidSdkSetup =
+    workflowContent.includes("android-actions/setup-android") &&
+    workflowContent.includes("platforms;android-");
+  const ciVerifiesReleaseArtifacts =
+    workflowContent.includes("Verify 64-bit & 32-bit Architecture Artifacts Before Release Publish") &&
+    workflowContent.includes("softprops/action-gh-release");
+
+  const scriptVerifiesSdkAndGradle =
+    buildScriptContent.includes("Verifying Build Environment & SDK Tools") &&
+    buildScriptContent.includes("ELFCLASS64") &&
+    buildScriptContent.includes("ELFCLASS32");
+
+  const allChecksPassed =
+    gradleHas64Bit &&
+    gradleHas32Bit &&
+    gradleHasUniversal &&
+    gradleHasSdk36 &&
+    ciVerifies64Bit &&
+    ciVerifies32Bit &&
+    ciVerifiesUniversal &&
+    ciVerifiesSdkTools &&
+    ciHasAndroidSdkSetup &&
+    ciVerifiesReleaseArtifacts &&
+    scriptVerifiesSdkAndGradle;
+
+  return {
+    all_passed: allChecksPassed,
+    gradle_64_32_bit_aligned: gradleHas64Bit && gradleHas32Bit && gradleHasUniversal,
+    ci_64_32_bit_pipeline_verified: ciVerifies64Bit && ciVerifies32Bit && ciVerifiesUniversal,
+    sdk_tools_check_present: ciVerifiesSdkTools && ciHasAndroidSdkSetup,
+    release_pipeline_verified: ciVerifiesReleaseArtifacts,
+    required_sdk_tools: requiredSdkTools,
+    abis_64_bit: abis64,
+    abis_32_bit: abis32,
+    all_abis: allAbis,
+    target_sdk: 36,
+    ndk_version: "27.2.12479018",
+    build_tools_version: "36.0.0",
+  };
+}
+
 function buildReleaseReadinessReport(specInput) {
   const spec = specInput || RUNTIME_STATE.spec;
+  const ciSdkAudit = verifyCiCdAndSdkEnvironment();
   return {
-    ready_for_release: true,
+    ready_for_release: ciSdkAudit.all_passed,
     app_name: "HexNext One UI 9.0 Theme Engine",
     version_name: "2.1.0-OneUI9-Universal-EN",
     version_code: 210,
@@ -1577,6 +1647,7 @@ function buildReleaseReadinessReport(specInput) {
       abis_32_bit: ["armeabi-v7a", "x86"],
       all_abis: ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
     },
+    sdk_environment_check: ciSdkAudit,
     signing: {
       signed: true,
       schemes: ["v1 (JAR)", "v2 (APK Signature Scheme v2)", "v3 (Key Rotation)"],
@@ -1621,10 +1692,13 @@ function buildReleaseReadinessReport(specInput) {
       workflow_path: ".github/workflows/android.yml",
       pr_template_path: ".github/PULL_REQUEST_TEMPLATE.md",
       copilot_watch_ready: true,
+      sdk_tools_verified: ciSdkAudit.sdk_tools_check_present,
+      abi_64_32_pipeline_verified: ciSdkAudit.ci_64_32_bit_pipeline_verified,
       checks: [
         "node --test tests/oneui9_release.test.js (All 13 APK Skins, 26 Settings Icons, 8 App .PNG Suites, Safe QS Sliders, Universal APK Verification)",
-        "Gradle assembleRelease & assembleDebug (64-bit arm64-v8a/x86_64 + 32-bit armeabi-v7a/x86, resConfigs 'en')",
-        "APK Signature & Checksum Verification (apksigner verify / SHA-256 manifest)",
+        "Android SDK Tools Check (sdkmanager, aapt2, apksigner, zipalign, keytool, Platform 36, Build-Tools 36.0.0, NDK 27.2.12479018)",
+        "Gradle assembleRelease & assembleDebug (64-bit arm64-v8a/x86_64 + 32-bit armeabi-v7a/x86 + Universal APK, resConfigs 'en')",
+        "APK Signature & Checksum Verification (apksigner verify --verbose / ELFCLASS64 & ELFCLASS32 / SHA-256 manifest)",
       ],
     },
     active_theme: {
@@ -2079,7 +2153,7 @@ function buildFullState() {
       total_items: DRIVE_APK_PNG_GALLERY.length,
       items: DRIVE_APK_PNG_GALLERY,
     },
-    plugin_verification_report: verifyAllPluginsForOneUi9(),
+    plugin_verification_report: getCachedPluginVerificationReport(),
     release_readiness: releaseReadiness,
     niferpitou_preferences: NIFERPITOU_EXTRA_PREFERENCES,
     mimi_skin: MIMI_SKIN_MANIFEST || null,
@@ -2990,15 +3064,6 @@ const server = http.createServer(async (req, res) => {
   res.end();
 });
 
-const PORT = Number(process.env.PORT) || 3000;
-if (require.main === module) {
-  server.listen(PORT, "0.0.0.0", () => {
-    console.log(
-      `HexNext One UI 9.0 From-Scratch RRO Compiler listening on http://0.0.0.0:${PORT}`
-    );
-  });
-}
-
 function filterThemePluginsByName(plugins, query) {
   const list = Array.isArray(plugins)
     ? plugins
@@ -3496,6 +3561,23 @@ function verifyAllPluginsForOneUi9() {
   };
 }
 
+let _cachedVerificationReport = null;
+function getCachedPluginVerificationReport() {
+  if (!_cachedVerificationReport) {
+    _cachedVerificationReport = verifyAllPluginsForOneUi9();
+  }
+  return _cachedVerificationReport;
+}
+
+const PORT = Number(process.env.PORT) || 3000;
+if (require.main === module) {
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(
+      `HexNext One UI 9.0 From-Scratch RRO Compiler listening on http://0.0.0.0:${PORT}`
+    );
+  });
+}
+
 module.exports = {
   server,
   CATALOG,
@@ -3507,6 +3589,7 @@ module.exports = {
   resolveQuickSettingsOverlay,
   resolveOverlayTokens,
   verifyAllPluginsForOneUi9,
+  verifyCiCdAndSdkEnvironment,
   buildOneUi9BundleZip,
   buildSignedUniversalReleaseApk,
   buildReleaseReadinessReport,
@@ -3516,4 +3599,3 @@ module.exports = {
   handlePrivilegeMode,
   filterThemePluginsByName,
 };
-

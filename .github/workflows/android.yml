@@ -13,6 +13,13 @@ permissions:
   checks: write
   pull-requests: write
 
+env:
+  COMPILE_SDK_VERSION: "36"
+  BUILD_TOOLS_VERSION: "36.0.0"
+  NDK_VERSION: "27.2.12479018"
+  ABIS_64_BIT: "arm64-v8a,x86_64"
+  ABIS_32_BIT: "armeabi-v7a,x86"
+
 jobs:
   verify-oneui9-features:
     name: "CI Check 1: One UI 9.0 Overlays, Drive APKs, .PNG Suites & Safe QS Sliders"
@@ -31,6 +38,14 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Verify Build Environment & Host Tooling (node, python3, keytool, zip)
+        run: |
+          echo "[*] Verifying CI host build environment tools..."
+          command -v node >/dev/null 2>&1 && echo "[✓] node: $(node -v)"
+          command -v python3 >/dev/null 2>&1 && echo "[✓] python3: $(python3 --version)"
+          command -v keytool >/dev/null 2>&1 && echo "[✓] keytool: available"
+          test -f android/app/build.gradle.kts && echo "[✓] Gradle config: android/app/build.gradle.kts present"
+
       - name: Run One UI 9.0 Comprehensive Feature & APK Suite Tests
         run: node --test tests/oneui9_release.test.js
 
@@ -47,7 +62,7 @@ jobs:
           if-no-files-found: error
 
   build-android-gradle:
-    name: "CI Check 2: Android Gradle Build & Sign (64-bit & 32-bit • EN Only)"
+    name: "CI Check 2: Android SDK Tools Check & Gradle Build (64-bit & 32-bit • EN Only)"
     needs: verify-oneui9-features
     runs-on: ubuntu-latest
     defaults:
@@ -63,32 +78,109 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install & Verify Android SDK Tools (SDK 36, Build-Tools, NDK, aapt2, apksigner, zipalign)
+        run: |
+          echo "=================================================================="
+          echo " Verifying Android SDK Environment & Required Build Tools"
+          echo "=================================================================="
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            echo "[!] ERROR: ANDROID_HOME / ANDROID_SDK_ROOT is not set or directory is missing." >&2
+            exit 1
+          fi
+          echo "[✓] ANDROID_SDK_ROOT: $SDK_ROOT"
+
+          # Locate sdkmanager
+          SDKMANAGER_BIN="$(command -v sdkmanager || find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)"
+          if [ -z "$SDKMANAGER_BIN" ]; then
+            echo "[!] ERROR: sdkmanager not found in PATH or $SDK_ROOT/cmdline-tools" >&2
+            exit 1
+          fi
+          echo "[✓] sdkmanager: $SDKMANAGER_BIN"
+
+          # Accept licenses and provision Platform 36, Build-Tools, Platform-Tools, and NDK for 64/32-bit ABIs
+          yes | "$SDKMANAGER_BIN" --licenses >/dev/null || true
+          "$SDKMANAGER_BIN" --install \
+            "platform-tools" \
+            "platforms;android-${COMPILE_SDK_VERSION}" \
+            "build-tools;${BUILD_TOOLS_VERSION}" \
+            "ndk;${NDK_VERSION}" || \
+          "$SDKMANAGER_BIN" --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+          # Verify required SDK build-tools binaries (aapt2, apksigner, zipalign)
+          BUILD_TOOLS_DIR="$(find "$SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          if [ -z "$BUILD_TOOLS_DIR" ]; then
+            echo "[!] ERROR: No Android build-tools directory found under $SDK_ROOT/build-tools" >&2
+            exit 1
+          fi
+          for tool in aapt2 apksigner zipalign; do
+            if [ ! -x "$BUILD_TOOLS_DIR/$tool" ]; then
+              echo "[!] ERROR: Required Android SDK build tool '$tool' missing in $BUILD_TOOLS_DIR" >&2
+              exit 1
+            fi
+            echo "[✓] Verified SDK build tool: $BUILD_TOOLS_DIR/$tool"
+          done
+
+          # Verify platform-tools (adb) and JDK keytool
+          command -v keytool >/dev/null 2>&1 && echo "[✓] Verified JDK keytool: $(command -v keytool)"
+          if [ -x "$SDK_ROOT/platform-tools/adb" ]; then
+            echo "[✓] Verified Android platform-tools: $SDK_ROOT/platform-tools/adb"
+          fi
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verify 64-bit + 32-bit ABI & English-only Gradle Configuration
+      - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & English-Only Gradle Configuration
         run: |
+          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI & SDK 36 compliance..."
+          grep -q 'compileSdk = 36' app/build.gradle.kts
+          grep -q 'targetSdk = 36' app/build.gradle.kts
+          grep -q 'minSdk = 34' app/build.gradle.kts
           grep -q 'resourceConfigurations += listOf("en")' app/build.gradle.kts
-          grep -q '"arm64-v8a"' app/build.gradle.kts
-          grep -q '"armeabi-v7a"' app/build.gradle.kts
-          grep -q '"x86_64"' app/build.gradle.kts
-          grep -q '"x86"' app/build.gradle.kts
+          # Verify 64-bit architectures (arm64-v8a, x86_64) in both ndk.abiFilters and splits.abi
+          grep -q 'abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
+          grep -q 'include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'isUniversalApk = true' app/build.gradle.kts
+          grep -q 'enableV1Signing = true' app/build.gradle.kts
+          grep -q 'enableV2Signing = true' app/build.gradle.kts
+          grep -q 'enableV3Signing = true' app/build.gradle.kts
+          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK & V1/V2/V3 Signing in build.gradle.kts"
 
       - name: Run Android Unit Tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
-      - name: Assemble & Sign Universal Release & Debug APKs
+      - name: Assemble & Sign Universal + 64-bit & 32-bit ABI Split APKs (Debug & Release)
         run: ./gradlew --no-daemon assembleDebug assembleRelease
 
-      - name: Collect Signed Universal APKs
+      - name: Verify & Collect Signed 64-bit, 32-bit & Universal APKs
         run: |
-          version=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          APKSIGNER_BIN="$(find "$SDK_ROOT/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
           mkdir -p dist
           find app/build/outputs/apk -name "*.apk" -exec cp {} dist/ \;
           ls -lh dist/
 
-      - name: Upload Signed Gradle APK Artifacts
+          # Ensure Universal APK and all 4 ABI split APKs (arm64-v8a, x86_64, armeabi-v7a, x86) were generated and signed
+          for expected_abi in universal arm64-v8a x86_64 armeabi-v7a x86; do
+            matched_apk="$(find dist -name "*${expected_abi}*release*.apk" | head -n 1 || true)"
+            if [ -z "$matched_apk" ]; then
+              echo "[!] ERROR: Missing expected release APK for architecture target: $expected_abi" >&2
+              exit 1
+            fi
+            echo "[✓] Found release APK for $expected_abi: $matched_apk"
+            if [ -n "$APKSIGNER_BIN" ] && [ -x "$APKSIGNER_BIN" ]; then
+              "$APKSIGNER_BIN" verify --verbose "$matched_apk"
+              echo "[✓] apksigner verified V1/V2/V3 signature on $matched_apk"
+            fi
+          done
+
+      - name: Upload Signed Gradle Universal & 64/32-bit ABI APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: HexNext-Gradle-Universal-APKs
@@ -96,22 +188,42 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: "Release: Publish Signed Universal (64/32-bit • EN) APK"
+    name: "Release: Publish Signed Universal & 64/32-bit (EN) APKs"
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [verify-oneui9-features, build-android-gradle]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download Signed Universal Engine APK
+        uses: actions/download-artifact@v4
         with:
           name: HexNext-OneUI9-Universal-EN-Signed-APK
           path: release_dist
-      - uses: actions/download-artifact@v4
+
+      - name: Download Signed Gradle Universal & 64/32-bit Split APKs
+        uses: actions/download-artifact@v4
         with:
           name: HexNext-Gradle-Universal-APKs
           path: release_dist
-      - uses: softprops/action-gh-release@v2
+
+      - name: Verify 64-bit & 32-bit Architecture Artifacts Before Release Publish
+        run: |
+          echo "[*] Auditing release_dist/ artifacts before publishing GitHub Release..."
+          ls -lh release_dist/
+          test -f release_dist/HexNext_OneUI9_Universal_EN_Signed.apk
+          python3 - "release_dist/HexNext_OneUI9_Universal_EN_Signed.apk" << 'PYEOF'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1], "r") as zf:
+              names = set(zf.namelist())
+              for abi in ["arm64-v8a", "x86_64", "armeabi-v7a", "x86"]:
+                  assert f"lib/{abi}/libhexnext_rro_bridge.so" in names, f"Missing {abi} native library"
+              assert "META-INF/MANIFEST.MF" in names and "META-INF/HEXNEXT.RSA" in names
+          print("[✓] Release artifact verified: 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + V1/V2/V3 signed.")
+          PYEOF
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           files: release_dist/*.apk
           generate_release_notes: true
