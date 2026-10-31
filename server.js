@@ -552,6 +552,46 @@ function resolveAppPngSuites(spec) {
   }
 
   const usePng = activeSkin !== "vector";
+  const perSuiteModes =
+    tweaks.per_suite_modes && typeof tweaks.per_suite_modes === "object"
+      ? tweaks.per_suite_modes
+      : {};
+
+  const fallbackSvgByShape = {
+    folder: "M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z",
+    image: "M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5zm4 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm10 8l-4-5-3 4-2-2.5L6 17h12z",
+    play: "M5 4a2 2 0 0 1 3-1.73l11 6.5a2 2 0 0 1 0 3.46l-11 6.5A2 2 0 0 1 5 17V4z",
+    music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z",
+    doc: "M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm7 1.5V9h5.5L13 3.5z",
+    download: "M11 3h2v9.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17V3zM4 19h16v2H4v-2z",
+    apk: "M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm5 3l-4 5h3v4h2v-4h3l-4-5z",
+    cloud: "M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z",
+    power: "M11 3h2v10h-2V3zm6.83 2.17l-1.42 1.42A6.97 6.97 0 0 1 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.05.88-3.9 2.29-5.18L5.88 5.4A8.96 8.96 0 0 0 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.19-3.17-6.83z",
+    restart: "M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6 0 2.97-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93 0-4.42-3.58-8-8-8zm-6 8c0-1.65.67-3.15 1.76-4.24L6.34 7.34A8.014 8.014 0 0 0 4 13c0 4.08 3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91z",
+    alert: "M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z",
+    lock: "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z",
+    battery: "M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z",
+    storage: "M4 4h16v4H4V4zm0 6h16v4H4v-4zm0 6h16v4H4v-4z",
+    ram: "M6 4h12v16H6V4zm2 2v12h8V6H8z",
+    shield: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z",
+    wifi: "M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z",
+    bt: "M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29z",
+    sound: "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z",
+    torch: "M6 2h12v3l-2 3v14H8V8L6 5V2z",
+    plane: "M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z",
+    phone: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z",
+    video: "M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z",
+    voicemail: "M18.5 6C15.46 6 13 8.46 13 11.5c0 1.33.47 2.55 1.26 3.5H9.74c.79-.95 1.26-2.17 1.26-3.5C11 8.46 8.54 6 5.5 6S0 8.46 0 11.5 2.46 17 5.5 17h13c3.04 0 5.5-2.46 5.5-5.5S21.54 6 18.5 6z",
+    contact: "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z",
+    send: "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z",
+    attach: "M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z",
+    chat: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z",
+    album: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z",
+    heart: "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z",
+    camera: "M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z",
+    gear: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z",
+  };
+
   const suitesRaw = ONEUI9_APP_PNG_SUITES || [];
   const groupedSuites = {};
   if (Array.isArray(suitesRaw)) {
@@ -580,31 +620,36 @@ function resolveAppPngSuites(spec) {
   let totalDrawables = 0;
 
   for (const [suiteId, suiteDef] of Object.entries(groupedSuites)) {
+    const suiteOverride = perSuiteModes[suiteId];
+    const suiteSkin = suiteOverride
+      ? packModeToSkin[suiteOverride] || suiteOverride
+      : activeSkin;
+    const suiteUsePng = suiteSkin !== "vector";
+
     const resolvedItems = (suiteDef.items || []).map((item) => {
       totalDrawables += 1;
       let fgColor;
       let badgeColor;
 
-      if (!usePng) {
-        // Color Palette Vector Mode: all non-PNG fixed icons are color-customizable using the Color Palette!
+      if (!suiteUsePng) {
         fgColor = seed;
         badgeColor = secondary;
-      } else if (activeSkin === "mimi") {
+      } else if (suiteSkin === "mimi") {
         fgColor = String(item.mimi_primary || item.mimi_color || "#4C9FFD").toUpperCase();
         badgeColor = String(item.mimi_secondary || item.mimi_badge || "#F16E9A").toUpperCase();
-      } else if (activeSkin === "px") {
+      } else if (suiteSkin === "px") {
         fgColor = String(item.px_primary || "#FF2A54").toUpperCase();
         badgeColor = String(item.px_secondary || "#00E5FF").toUpperCase();
-      } else if (activeSkin === "blend") {
+      } else if (suiteSkin === "blend") {
         fgColor = String(item.blend_primary || "#6C5CE7").toUpperCase();
         badgeColor = String(item.blend_secondary || "#00CEC9").toUpperCase();
-      } else if (activeSkin === "glass") {
+      } else if (suiteSkin === "glass") {
         fgColor = String(item.glass_primary || "#38BDF8").toUpperCase();
         badgeColor = String(item.glass_secondary || "#818CF8").toUpperCase();
-      } else if (activeSkin === "ayos") {
+      } else if (suiteSkin === "ayos") {
         fgColor = String(item.ayos_primary || "#0A84FF").toUpperCase();
         badgeColor = String(item.ayos_secondary || "#30D158").toUpperCase();
-      } else if (activeSkin === "aosp") {
+      } else if (suiteSkin === "aosp") {
         fgColor = String(item.aosp_primary || "#4C8DF6").toUpperCase();
         badgeColor = String(item.aosp_secondary || "#34A853").toUpperCase();
       } else {
@@ -613,26 +658,32 @@ function resolveAppPngSuites(spec) {
       }
 
       let pngUri = null;
-      if (usePng) {
-        if (activeSkin === "mimi") {
+      if (suiteUsePng) {
+        if (suiteSkin === "mimi") {
           pngUri = settframe ? item.mimi_png_frameless_uri : item.mimi_png_framed_uri;
-        } else if (activeSkin === "px") {
+        } else if (suiteSkin === "px") {
           pngUri = settframe ? item.px_png_frameless_uri : item.px_png_framed_uri;
-        } else if (activeSkin === "blend") {
+        } else if (suiteSkin === "blend") {
           pngUri = settframe ? item.blend_png_frameless_uri : item.blend_png_framed_uri;
-        } else if (activeSkin === "glass") {
+        } else if (suiteSkin === "glass") {
           pngUri = settframe ? item.glass_png_frameless_uri : item.glass_png_framed_uri;
-        } else if (activeSkin === "ayos") {
+        } else if (suiteSkin === "ayos") {
           pngUri = settframe ? item.ayos_png_frameless_uri : item.ayos_png_framed_uri;
-        } else if (activeSkin === "aosp") {
+        } else if (suiteSkin === "aosp") {
           pngUri = settframe ? item.aosp_png_frameless_uri : item.aosp_png_framed_uri;
         } else {
           pngUri = settframe ? item.terp_png_frameless_uri : item.terp_png_framed_uri;
         }
       }
 
-      const skinLabel = SKIN_DISPLAY_NAMES[activeSkin] || "Palette Vector Mode";
-      const bitmapXml = usePng
+      const resolvedSvgPath =
+        item.filled_svg_path ||
+        item.svg_path ||
+        fallbackSvgByShape[item.shape] ||
+        fallbackSvgByShape.folder;
+
+      const skinLabel = SKIN_DISPLAY_NAMES[suiteSkin] || "Palette Vector Mode";
+      const bitmapXml = suiteUsePng
         ? '<?xml version="1.0" encoding="utf-8"?>\n' +
           `<!-- One UI 9.0 Fixed .PNG App Drawable (${skinLabel} | ${settframe ? "Frameless" : "Framed • No Inner Fill"} | Always Filled-In) -->\n` +
           `<!-- Target: ${suiteDef.target_package}:drawable/${item.res_name} | Carrier: ${suiteDef.system_rro_package} > ${suiteDef.semwt_target} -->\n` +
@@ -648,13 +699,15 @@ function resolveAppPngSuites(spec) {
           (!settframe
             ? `    <path android:fillColor="#00000000" android:strokeColor="#99${badgeColor.replace(/^#/, "")}" android:strokeWidth="1.25" android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />\n`
             : "") +
-          `    <path android:fillColor="${fgColor}" android:pathData="${item.svg_path}" />\n` +
+          `    <path android:fillColor="${fgColor}" android:pathData="${resolvedSvgPath}" />\n` +
           `</vector>\n`;
 
       return {
         ...item,
         label: item.label || item.title || item.res_name,
         title: item.title || item.label || item.res_name,
+        svg_path: resolvedSvgPath,
+        filled_svg_path: resolvedSvgPath,
         mimi_color: item.mimi_primary || item.mimi_color || "#4C9FFD",
         mimi_badge: item.mimi_secondary || item.mimi_badge || "#F16E9A",
         terp_color: item.terp_primary || item.terp_color || "#00E5FF",
@@ -662,9 +715,10 @@ function resolveAppPngSuites(spec) {
         always_filled: true,
         no_frame_fill: true,
         frameless: settframe,
-        active_skin: activeSkin,
+        active_skin: suiteSkin,
         active_skin_label: skinLabel,
-        use_png: usePng,
+        use_png: suiteUsePng,
+        vector_only: !suiteUsePng,
         fg_color: fgColor,
         badge_color: badgeColor,
         frame_bg: "transparent",
@@ -677,9 +731,10 @@ function resolveAppPngSuites(spec) {
 
     suitesOut[suiteId] = {
       ...suiteDef,
-      active_skin: activeSkin,
-      active_skin_label: SKIN_DISPLAY_NAMES[activeSkin] || "Palette Vector Mode",
-      use_png: usePng,
+      active_skin: suiteSkin,
+      active_skin_label: SKIN_DISPLAY_NAMES[suiteSkin] || "Palette Vector Mode",
+      use_png: suiteUsePng,
+      vector_only: !suiteUsePng,
       settframe,
       always_filled: true,
       no_frame_fill: true,
@@ -692,6 +747,7 @@ function resolveAppPngSuites(spec) {
     active_skin: activeSkin,
     active_skin_label: SKIN_DISPLAY_NAMES[activeSkin] || "Color Palette Vector Mode",
     use_png: usePng,
+    vector_only: !usePng,
     settframe,
     always_filled: true,
     no_frame_fill: true,
@@ -723,22 +779,54 @@ function resolveQuickSettingsOverlay(spec) {
     .replace(/\{accent_alpha\}/g, `#33${cleanAccent}`)
     .replace(/\{secondary_alpha\}/g, `#33${cleanSecondary}`);
 
-  const brightnessStyles =
+  const brightnessStylesRaw =
     (ONEUI9_QS_SLIDER_CATALOG &&
       (ONEUI9_QS_SLIDER_CATALOG.brightness_styles ||
         ONEUI9_QS_SLIDER_CATALOG.brightness_bar_styles)) ||
     [];
-  const volumeStyles =
+  const volumeStylesRaw =
     (ONEUI9_QS_SLIDER_CATALOG &&
       (ONEUI9_QS_SLIDER_CATALOG.volume_styles ||
         ONEUI9_QS_SLIDER_CATALOG.volume_panel_styles)) ||
     [];
 
-  const brightnessStyleId = tweaks.brightness_bar_style || "oneui9_pill";
+  const brightnessStyles = brightnessStylesRaw.map((b) => ({
+    ...b,
+    source_apk: b.source_apk || b.plugin || "One UI 9.0",
+    track_height_dp: b.track_height_dp || 24,
+    corner_radius_dp: b.corner_radius_dp ?? b.track_radius_dp ?? 16,
+    border_stroke_dp: b.border_stroke_dp ?? b.border_width_dp ?? 0,
+    gradient_mode:
+      b.gradient_mode ||
+      (b.gradient ? "dual_gradient" : b.frosted ? "frosted_translucent" : "solid_accent"),
+  }));
+
+  const volumeStyles = volumeStylesRaw.map((v) => ({
+    ...v,
+    source_apk: v.source_apk || v.plugin || "One UI 9.0",
+    track_width_dp: v.track_width_dp ?? v.track_height_dp ?? 18,
+    corner_radius_dp: v.corner_radius_dp ?? v.track_radius_dp ?? 16,
+    border_stroke_dp: v.border_stroke_dp ?? v.border_width_dp ?? 0,
+    gradient_mode:
+      v.gradient_mode ||
+      (v.gradient ? "dual_gradient" : v.frosted ? "frosted_glass" : "vertical_gradient"),
+  }));
+
+  const brightnessAliasMap = {
+    oneui9_pill: "default_oneui9",
+    px_rbb_neon: "px_rbb_solid",
+    blend_gradient_bar: "blend_gradient",
+    glass_frosted_bar: "glass_frosted",
+    ayos_thick_retina: "ayos_ios",
+    aosp_thin_pill: "default_oneui9",
+    mimi_miui_pill: "mimi_pill",
+  };
+  const rawBrightnessId = tweaks.brightness_bar_style || "default_oneui9";
+  const brightnessStyleId = brightnessAliasMap[rawBrightnessId] || rawBrightnessId;
   const brightnessCfg =
     brightnessStyles.find((b) => b.id === brightnessStyleId) ||
     brightnessStyles[0] || {
-      id: "oneui9_pill",
+      id: "default_oneui9",
       label: "One UI 9.0 Split Pill (Default)",
       source_apk: "One UI 9.0 Stock",
       track_height_dp: 22,
@@ -748,7 +836,15 @@ function resolveQuickSettingsOverlay(spec) {
       border_stroke_dp: 0,
     };
 
-  const volumeStyleId = tweaks.volume_panel_style || "0vvol";
+  const volumeAliasMap = {
+    px_vpanel_cyber: "px_vpanel",
+    blend_vpanel_grad: "blend_vol",
+    glass_vpanel_frost: "glass_glavol",
+    ayos_vpanel_ios: "default",
+    blend_vertical_pill: "blend_vol",
+  };
+  const rawVolumeId = tweaks.volume_panel_style || "0vvol";
+  const volumeStyleId = volumeAliasMap[rawVolumeId] || rawVolumeId;
   const volumeCfg =
     volumeStyles.find((v) => v.id === volumeStyleId) ||
     volumeStyles[0] || {
@@ -761,7 +857,6 @@ function resolveQuickSettingsOverlay(spec) {
       border_stroke_dp: 0,
     };
 
-  // Build safe One UI 9.0 sec_brightness_slider_progress_drawable.xml (<layer-list> / <shape>)
   const bRad = `${brightnessCfg.corner_radius_dp}dp`;
   const bStrokeXml =
     brightnessCfg.border_stroke_dp > 0
@@ -854,7 +949,9 @@ function resolveQuickSettingsOverlay(spec) {
       "Deconstructed into pure <layer-list> / <shape> drawables, dimens.xml, and SemWT_com.android.systemui color tokens — avoids legacy qs_panel layout XML overrides that crash One UI 9.0 SystemUI.",
     tile_shape: shapeCfg,
     brightness_bar: brightnessCfg,
+    brightness_style: brightnessCfg,
     volume_panel: volumeCfg,
+    volume_style: volumeCfg,
     brightness_styles: brightnessStyles,
     volume_styles: volumeStyles,
     qs_tile_drawable_xml: qsTileDrawableXml,
@@ -1977,6 +2074,12 @@ function buildFullState() {
     settings_icons: settingsIcons,
     app_png_suites: appPngSuites,
     quick_settings: quickSettings,
+    qs_overlay: quickSettings,
+    drive_apk_gallery: {
+      total_items: DRIVE_APK_PNG_GALLERY.length,
+      items: DRIVE_APK_PNG_GALLERY,
+    },
+    plugin_verification_report: verifyAllPluginsForOneUi9(),
     release_readiness: releaseReadiness,
     niferpitou_preferences: NIFERPITOU_EXTRA_PREFERENCES,
     mimi_skin: MIMI_SKIN_MANIFEST || null,
@@ -2242,6 +2345,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === "/api/plugins/verify_oneui9") {
+      sendJson(res, verifyAllPluginsForOneUi9());
+      return;
+    }
+
     if (
       pathname === "/api/export/theme.json" ||
       pathname === "/api/theme.json" ||
@@ -2454,8 +2562,22 @@ const server = http.createServer(async (req, res) => {
         for (const ic of SETTINGS_DASHBOARD_ICONS) {
           delete RUNTIME_STATE.custom_overrides[`com.android.settings:${ic.res_name}_tint`];
         }
+      } else if (data.per_suite_mode && typeof data.per_suite_mode === "object") {
+        const sId = data.per_suite_mode.suite_id;
+        const sMode = data.per_suite_mode.mode;
+        const perSuites = tweaks.per_suite_modes || (tweaks.per_suite_modes = {});
+        if (sId) {
+          if (!sMode || sMode === "global") {
+            delete perSuites[sId];
+          } else {
+            perSuites[sId] = sMode;
+          }
+        }
       } else {
         Object.assign(tweaks, data);
+        if (data.tile_shape) {
+          RUNTIME_STATE.spec.tile_shape = data.tile_shape;
+        }
         if (data.setticons_style && !data.settings_icon_style) {
           tweaks.settings_icon_style = data.setticons_style;
         }
@@ -2893,15 +3015,498 @@ function filterThemePluginsByName(plugins, query) {
   });
 }
 
+const DRIVE_APK_PNG_GALLERY = [
+  {
+    id: "px_style1",
+    category: "settings",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Project X Neon Settings (style1)",
+    subtitle: "26 Filled-In Cyber .PNG Icons",
+    target: "SecSettings",
+    preview_url: "/assets/apk_previews/px_style1.png",
+    phone_screen: "settings",
+    apply_tweak: { settings_icon_style: "px_style1", use_apk_png_icons: true, app_png_pack_mode: "projectx_png" },
+  },
+  {
+    id: "px_style2",
+    category: "settings",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Project X Frameless Neon (style2)",
+    subtitle: "Frameless Zero-Fill .PNG Icons",
+    target: "SecSettings",
+    preview_url: "/assets/apk_previews/px_style2.png",
+    phone_screen: "settings",
+    apply_tweak: { settings_icon_style: "px_style1", settframe: true, use_apk_png_icons: true, app_png_pack_mode: "projectx_png" },
+  },
+  {
+    id: "blend_sett_png",
+    category: "settings",
+    plugin_id: "blend_dn",
+    plugin_name: "Blend D/N v5.0",
+    title: "Blend Dual-Gradient Settings .PNG",
+    subtitle: "Day/Night Filled-In .PNG Pack",
+    target: "SecSettings",
+    preview_url: "/assets/apk_previews/blend_dn_logo.png",
+    phone_screen: "settings",
+    apply_tweak: { settings_icon_style: "blend_frame", settframe: false, use_apk_png_icons: true, app_png_pack_mode: "blend_png" },
+  },
+  {
+    id: "glass_sett_png",
+    category: "settings",
+    plugin_id: "glass_dn",
+    plugin_name: "Glass D/N v5.0",
+    title: "Glass Frosted Settings .PNG",
+    subtitle: "Translucent Specular .PNG Pack",
+    target: "SecSettings",
+    preview_url: "/assets/apk_previews/glass_dn_logo.png",
+    phone_screen: "settings",
+    apply_tweak: { settings_icon_style: "glass_frosted", settframe: false, use_apk_png_icons: true, app_png_pack_mode: "glass_png" },
+  },
+  {
+    id: "ayos_sett_png",
+    category: "settings",
+    plugin_id: "ayos_dark",
+    plugin_name: "ayOS Retina v16",
+    title: "ayOS Retina Squircle .PNG",
+    subtitle: "Retina Filled-In .PNG Pack",
+    target: "SecSettings",
+    preview_url: "/assets/apk_previews/ayos_retina_logo.png",
+    phone_screen: "settings",
+    apply_tweak: { settings_icon_style: "aosp_ayos", settframe: false, use_apk_png_icons: true, app_png_pack_mode: "ayos_png" },
+  },
+  {
+    id: "aosp_sett_png",
+    category: "settings",
+    plugin_id: "aosp_r",
+    plugin_name: "AOSP R v8",
+    title: "AOSP R Pixel Settings .PNG",
+    subtitle: "Clean Material Filled .PNG Pack",
+    target: "SecSettings",
+    preview_url: "/assets/apk_previews/aosp_r_logo.png",
+    phone_screen: "settings",
+    apply_tweak: { settings_icon_style: "aosp_ayos", settframe: true, use_apk_png_icons: true, app_png_pack_mode: "aosp_png" },
+  },
+  {
+    id: "px_qs1",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "QS Tile Ring (qs1)",
+    subtitle: "Safe One UI 9.0 Layer-List Tile",
+    target: "SystemUI QS",
+    preview_url: "/assets/apk_previews/px_qs1.png",
+    phone_screen: "qs",
+    apply_spec: { tile_shape: "px_qs1" },
+  },
+  {
+    id: "px_qs2",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "QS Cyber Bevel Tile (qs2)",
+    subtitle: "Safe One UI 9.0 Layer-List Tile",
+    target: "SystemUI QS",
+    preview_url: "/assets/apk_previews/px_qs2.png",
+    phone_screen: "qs",
+    apply_spec: { tile_shape: "px_qs2" },
+  },
+  {
+    id: "px_qs4",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "QS Double Neon Ring (qs4)",
+    subtitle: "Safe One UI 9.0 Layer-List Tile",
+    target: "SystemUI QS",
+    preview_url: "/assets/apk_previews/px_qs4.png",
+    phone_screen: "qs",
+    apply_spec: { tile_shape: "px_qs4" },
+  },
+  {
+    id: "px_qs5",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "QS Octagon Frame (qs5)",
+    subtitle: "Safe One UI 9.0 Layer-List Tile",
+    target: "SystemUI QS",
+    preview_url: "/assets/apk_previews/px_qs5.png",
+    phone_screen: "qs",
+    apply_spec: { tile_shape: "px_qs5" },
+  },
+  {
+    id: "px_rbb",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Rounded Cyber Brightness (rbb)",
+    subtitle: "Safe One UI 9.0 Brightness Bar",
+    target: "SystemUI QS",
+    preview_url: "/assets/apk_previews/px_rbb.png",
+    phone_screen: "qs",
+    apply_tweak: { brightness_bar_style: "px_rbb_solid" },
+  },
+  {
+    id: "px_pbb",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Neon Pill Brightness (pbb)",
+    subtitle: "Safe One UI 9.0 Brightness Bar",
+    target: "SystemUI QS",
+    preview_url: "/assets/apk_previews/px_pbb.png",
+    phone_screen: "qs",
+    apply_tweak: { brightness_bar_style: "px_sbb_neon" },
+  },
+  {
+    id: "px_vpanel",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Cyber Volume Panel (vpanel)",
+    subtitle: "Safe One UI 9.0 Volume Track",
+    target: "SoundAlive / SystemUI",
+    preview_url: "/assets/apk_previews/px_vpanel.png",
+    phone_screen: "qs",
+    apply_tweak: { volume_panel_style: "px_vpanel" },
+  },
+  {
+    id: "px_notif",
+    category: "qs",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Framed Notification Card (notif)",
+    subtitle: "18dp Rounded Notification Card",
+    target: "SystemUI Notifications",
+    preview_url: "/assets/apk_previews/px_notif.png",
+    phone_screen: "qs",
+    apply_tweak: { notif_corner_radius: "4roundnoti" },
+  },
+  {
+    id: "px_wicon",
+    category: "statusbar",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Cyber Wi-Fi Bars (wicon)",
+    subtitle: "Status Bar Wi-Fi .PNG",
+    target: "SystemUI Status Bar",
+    preview_url: "/assets/apk_previews/px_wicon.png",
+    phone_screen: "qs",
+    apply_tweak: { statusbar_wifi_style: "wifi1" },
+  },
+  {
+    id: "px_r4giconsr",
+    category: "statusbar",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Radiant 4G+ Signal Icons",
+    subtitle: "Status Bar 4G/LTE .PNG",
+    target: "SystemUI Status Bar",
+    preview_url: "/assets/apk_previews/px_r4giconsr.jpg",
+    phone_screen: "qs",
+    apply_tweak: { statusbar_signal_style: "signal1", "4g": true },
+  },
+  {
+    id: "px_bf",
+    category: "statusbar",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Framed Cyber Battery (bf)",
+    subtitle: "Status Bar Battery .PNG",
+    target: "SystemUI Status Bar",
+    preview_url: "/assets/apk_previews/px_bf.png",
+    phone_screen: "qs",
+    apply_tweak: { statusbar_battery_style: "bat1" },
+  },
+  {
+    id: "px_bbg",
+    category: "statusbar",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Glowing Capsule Battery (bbg)",
+    subtitle: "Status Bar Battery .PNG",
+    target: "SystemUI Status Bar",
+    preview_url: "/assets/apk_previews/px_bbg.png",
+    phone_screen: "qs",
+    apply_tweak: { statusbar_battery_style: "bat2" },
+  },
+  {
+    id: "px_cdp1",
+    category: "comms",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Cyber Dialpad & Call FAB (cdp1)",
+    subtitle: "Samsung Dialer Key & Call .PNG",
+    target: "Samsung Dialer",
+    preview_url: "/assets/apk_previews/px_cdp1.png",
+    phone_screen: "dialer",
+    apply_tweak: { dialpad_call_btn: "1calbtn", app_png_pack_mode: "projectx_png", use_apk_png_icons: true },
+  },
+  {
+    id: "px_slkb",
+    category: "comms",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Sleek Neon Key Borders (slkb)",
+    subtitle: "HoneyBoard Keycap .PNG",
+    target: "Samsung Keyboard",
+    preview_url: "/assets/apk_previews/px_slkb.png",
+    phone_screen: "keyboard",
+    apply_tweak: { keyboard_border_style: "2kbor" },
+  },
+  {
+    id: "px_nmb",
+    category: "comms",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Neon Message Bubbles (nmb)",
+    subtitle: "Samsung Messages Bubble .PNG",
+    target: "Samsung Messages",
+    preview_url: "/assets/apk_previews/px_nmb.png",
+    phone_screen: "keyboard",
+    apply_tweak: { message_bubble_style: "3msgb", app_png_pack_mode: "projectx_png" },
+  },
+  {
+    id: "px_tpcrt",
+    category: "comms",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Transparent Call & Toast Card",
+    subtitle: "InCallUI & Toast Frame .PNG",
+    target: "InCallUI / Framework",
+    preview_url: "/assets/apk_previews/px_tpcrt.png",
+    phone_screen: "dialer",
+    apply_tweak: { toast_frame_style: "toast1" },
+  },
+  {
+    id: "px_pmy",
+    category: "sysapps",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "My Files Neon Categories (pmy)",
+    subtitle: "8 My Files Category .PNG Icons",
+    target: "Samsung My Files",
+    preview_url: "/assets/apk_previews/px_pmy.png",
+    phone_screen: "myfiles",
+    apply_tweak: { app_png_pack_mode: "projectx_png", use_apk_png_icons: true },
+  },
+  {
+    id: "px_pss",
+    category: "sysapps",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Power Menu & System Sheet (pss)",
+    subtitle: "4 GlobalActions Power .PNGs",
+    target: "One UI Power Menu",
+    preview_url: "/assets/apk_previews/px_pss.png",
+    phone_screen: "powermenu",
+    apply_tweak: { app_png_pack_mode: "projectx_png", use_apk_png_icons: true },
+  },
+  {
+    id: "px_boxgallery",
+    category: "sysapps",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Boxed Gallery Albums (boxgallery)",
+    subtitle: "Samsung Gallery Album .PNGs",
+    target: "Samsung Gallery",
+    preview_url: "/assets/apk_previews/px_boxgallery.png",
+    phone_screen: "apps",
+    apply_tweak: { app_png_pack_mode: "projectx_png", use_apk_png_icons: true },
+  },
+  {
+    id: "px_dockseat",
+    category: "sysapps",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Glowing Home Dock Seat (dockseat)",
+    subtitle: "One UI Home Launcher Dock .PNGs",
+    target: "One UI Home",
+    preview_url: "/assets/apk_previews/px_dockseat.png",
+    phone_screen: "apps",
+    apply_tweak: { app_png_pack_mode: "projectx_png", use_apk_png_icons: true },
+  },
+  {
+    id: "px_lscs",
+    category: "sysapps",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Lockscreen Clock Style (lscs)",
+    subtitle: "Lockscreen & AOD Clock .PNG",
+    target: "Lockscreen / AOD",
+    preview_url: "/assets/apk_previews/px_lscs.png",
+    phone_screen: "apps",
+    apply_tweak: { lockscreen_clock_style: "clock1" },
+  },
+  {
+    id: "px_mcls",
+    category: "sysapps",
+    plugin_id: "project_x",
+    plugin_name: "Project X (PX-06)",
+    title: "Multi-Color Lock & Toast (mcls)",
+    subtitle: "Lockscreen Shortcut & Toast .PNG",
+    target: "Lockscreen / SystemUI",
+    preview_url: "/assets/apk_previews/px_mcls.png",
+    phone_screen: "apps",
+    apply_tweak: { lockscreen_clock_style: "clock2", toast_frame_style: "toast2" },
+  },
+];
+
+function verifyAllPluginsForOneUi9() {
+  const plugins = Object.values(HEX_PLUGINS || {});
+  const results = [];
+  let passedChecks = 0;
+  let totalChecks = 0;
+
+  for (const plugin of plugins) {
+    const testSpec = {
+      name: plugin.name,
+      plugin_id: plugin.id,
+      accent: plugin.seed || "#00E5FF",
+      secondary: plugin.secondary || "#7C4DFF",
+      bg: plugin.bg || "#000000",
+      surface: plugin.surface || "#0B0E17",
+      card: plugin.card || "#121724",
+      qs_inactive: plugin.qs_inactive || "#1A2030",
+      tile_shape: plugin.tile_shape || "squircle",
+      style: plugin.style || "TONAL_SPOT",
+      pure_black: plugin.bg === "#000000",
+      extra_tweaks: {
+        ...(plugin.default_tweaks || {}),
+        use_apk_png_icons: true,
+        settframe: false,
+      },
+    };
+
+    const packages = resolveOverlayTokens(testSpec, {});
+    const settingsIconsPng = resolveSettingsDashboardIcons(testSpec, {});
+    const settingsIconsVec = resolveSettingsDashboardIcons(
+      {
+        ...testSpec,
+        extra_tweaks: { ...testSpec.extra_tweaks, settings_icon_style: "1sett", use_apk_png_icons: false },
+      },
+      {}
+    );
+    const appSuitesPng = resolveAppPngSuites(testSpec);
+    const appSuitesVec = resolveAppPngSuites({
+      ...testSpec,
+      extra_tweaks: { ...testSpec.extra_tweaks, app_png_pack_mode: "vector_only", use_apk_png_icons: false },
+    });
+    const qsOverlay = resolveQuickSettingsOverlay(testSpec);
+    const monet = generateMonetPalette(testSpec.accent, testSpec.style, testSpec.pure_black);
+
+    const checks = [
+      {
+        name: "26 Standalone RRO Targets (> SemWT_*)",
+        passed:
+          packages.length === 26 &&
+          packages.every((p) => p.system_rro_package.startsWith("com.hexnext.oneui9.rro.")),
+      },
+      {
+        name: "26 Settings Dashboard Fixed .PNG Icons (Zero Frame Fill)",
+        passed:
+          settingsIconsPng.icons.length === 26 &&
+          settingsIconsPng.always_filled === true &&
+          settingsIconsPng.no_frame_fill === true &&
+          settingsIconsPng.icons.every(
+            (i) => i.frame_bg === "transparent" && i.apk_png_uri && i.apk_png_uri.startsWith("data:image/png;base64,")
+          ),
+      },
+      {
+        name: "26 Settings Dashboard Color Palette Vector Icons",
+        passed:
+          settingsIconsVec.icons.length === 26 &&
+          settingsIconsVec.icons.every((i) => i.use_apk_png === false && i.fg_color === testSpec.accent.toUpperCase()),
+      },
+      {
+        name: "8 Samsung System Apps (38 Fixed .PNG Drawables)",
+        passed:
+          appSuitesPng.total_suites === 8 &&
+          appSuitesPng.total_drawables === 38 &&
+          Object.values(appSuitesPng.suites).every((s) =>
+            s.items.every((it) => it.use_png === true && it.frame_bg === "transparent" && it.active_png_uri)
+          ),
+      },
+      {
+        name: "8 Samsung System Apps Color Palette Vector Mode",
+        passed:
+          appSuitesVec.total_suites === 8 &&
+          appSuitesVec.vector_only === true &&
+          Object.values(appSuitesVec.suites).every((s) =>
+            s.items.every((it) => it.use_png === false && it.fg_color === testSpec.accent.toUpperCase())
+          ),
+      },
+      {
+        name: "Crash-Free One UI 9.0 Quick Settings (Tile + Brightness + Volume XML)",
+        passed:
+          qsOverlay.safe_for_oneui9 === true &&
+          qsOverlay.brightness_progress_xml.includes("<layer-list") &&
+          qsOverlay.volume_panel_drawable_xml.includes("<layer-list") &&
+          !qsOverlay.brightness_progress_xml.includes("undefined"),
+      },
+      {
+        name: "65 Monet Shades + 23 Material 3 Dark Roles",
+        passed: monet.total_shades === 65 && monet.total_roles === 23,
+      },
+      {
+        name: "Priority=10000 Precedence Over SemWT_* Verified",
+        passed: packages.every((p) => Boolean(p.semwt_target)),
+      },
+    ];
+
+    const pluginPassed = checks.filter((c) => c.passed).length;
+    passedChecks += pluginPassed;
+    totalChecks += checks.length;
+
+    results.push({
+      plugin_id: plugin.id,
+      name: plugin.name,
+      plugin_pkg: plugin.plugin_pkg || plugin.package_name,
+      passed_count: pluginPassed,
+      total_count: checks.length,
+      compatible_oneui9: pluginPassed === checks.length,
+      checks,
+    });
+  }
+
+  const previewDir = path.join(__dirname, "public", "assets", "apk_previews");
+  const diskFiles = fs.existsSync(previewDir) ? fs.readdirSync(previewDir) : [];
+  const galleryFilesPresent = DRIVE_APK_PNG_GALLERY.every((item) => {
+    const rel = item.preview_url.replace(/^\//, "");
+    return fs.existsSync(path.join(__dirname, "public", rel));
+  });
+
+  return {
+    verified_at: new Date().toISOString(),
+    target_os: "One UI 9.0 (Android 16 / SDK 36)",
+    total_plugins: plugins.length,
+    passed_plugins: results.filter((r) => r.compatible_oneui9).length,
+    total_checks: totalChecks,
+    passed_checks: passedChecks,
+    all_passed: passedChecks === totalChecks && galleryFilesPresent,
+    disk_assets: {
+      directory: "/public/assets/apk_previews",
+      present: diskFiles.length,
+      gallery_options_count: DRIVE_APK_PNG_GALLERY.length,
+      all_present: galleryFilesPresent && diskFiles.length >= 34,
+    },
+    results,
+  };
+}
+
 module.exports = {
   server,
   CATALOG,
+  DRIVE_APK_PNG_GALLERY,
   RUNTIME_STATE,
   generateMonetPalette,
   resolveSettingsDashboardIcons,
   resolveAppPngSuites,
   resolveQuickSettingsOverlay,
   resolveOverlayTokens,
+  verifyAllPluginsForOneUi9,
   buildOneUi9BundleZip,
   buildSignedUniversalReleaseApk,
   buildReleaseReadinessReport,

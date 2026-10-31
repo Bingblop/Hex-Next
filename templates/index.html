@@ -174,18 +174,18 @@
 <body class="min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
 
     <!-- Zone 1-3 Top Navigation Bar -->
-    <header class="sticky top-0 z-40 h-16 bg-[#0A0D14]/90 backdrop-blur-md border-b border-[#1E2738] px-4 lg:px-6 flex items-center justify-between gap-4">
+    <header class="sticky top-0 z-40 h-16 bg-[#0A0D14]/90 backdrop-blur-md border-b border-[#1E2738] px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-4 max-w-full overflow-x-hidden">
         <!-- Zone 1: Brand & APK Origin -->
-        <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
-                <span class="font-mono font-bold text-slate-950 text-base">#h_</span>
+        <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
+                <span class="font-mono font-bold text-slate-950 text-sm sm:text-base">#h_</span>
             </div>
-            <div class="truncate">
-                <div class="flex items-center gap-2">
-                    <h1 class="font-display font-bold text-base tracking-tight text-white truncate">HexNext</h1>
-                    <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-1.5 py-0.5 rounded">One UI 9.0 &gt; SemWT_*</span>
+            <div class="truncate min-w-0">
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <h1 class="font-display font-bold text-sm sm:text-base tracking-tight text-white truncate">HexNext</h1>
+                    <span class="hidden sm:inline-block text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-1.5 py-0.5 rounded">One UI 9.0 &gt; SemWT_*</span>
                 </div>
-                <p class="text-[11px] font-mono text-slate-400 truncate">Rebuilt #hex__30 + Niferpitou (terpsichora_) • From-Scratch RROs Overriding SemWT_*</p>
+                <p class="text-[10px] sm:text-[11px] font-mono text-slate-400 truncate">Rebuilt #hex__30 + Niferpitou (terpsichora_) • From-Scratch RROs Overriding SemWT_*</p>
             </div>
         </div>
 
@@ -210,7 +210,7 @@
         </nav>
 
         <!-- Zone 3: Privilege Selector + Primary Actions -->
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <div class="hidden xl:flex items-center gap-1.5 bg-[#0D111A] border border-[#1E2738] rounded-lg px-2.5 py-1.5">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <label for="privilege-select" class="text-[11px] font-mono text-slate-400">PRIVILEGE:</label>
@@ -221,28 +221,30 @@
                 </select>
             </div>
 
-            <button onclick="openReleaseAuditModal()" id="btn-release-audit" class="px-2.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-emerald-300 border border-emerald-500/30 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Run One UI 9.0 Release Readiness, 64/32-bit APK & GitHub PR CI Audit">
+            <button onclick="openReleaseAuditModal()" id="btn-release-audit" class="px-2 sm:px-2.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-emerald-300 border border-emerald-500/30 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Run One UI 9.0 Release Readiness, 64/32-bit APK & GitHub PR CI Audit">
                 <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                 <span class="hidden lg:inline">Release &amp; PR CI</span>
             </button>
 
-            <a href="/api/export/apk" id="btn-download-signed-apk" onclick="showToast('Building & signing Universal One UI 9.0 APK (64-bit + 32-bit • English Only)...', 'emerald')" class="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/15 cursor-pointer" title="Download Signed Universal Release APK (arm64-v8a, armeabi-v7a, x86_64, x86 • English Only)">
+            <a href="/api/export/apk" id="btn-download-signed-apk" onclick="showToast('Building & signing Universal One UI 9.0 APK (64-bit + 32-bit • English Only)...', 'emerald')" class="px-2.5 sm:px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/15 cursor-pointer" title="Download Signed Universal Release APK (arm64-v8a, armeabi-v7a, x86_64, x86 • English Only)">
                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                <span>Signed APK (64/32-bit)</span>
+                <span class="hidden sm:inline">Signed APK (64/32-bit)</span>
+                <span class="sm:hidden">APK</span>
             </a>
 
-            <button onclick="compileAndApply()" id="btn-compile" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 font-semibold text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/15 cursor-pointer">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                <span>Build &amp; Apply RROs</span>
+            <button onclick="compileAndApply()" id="btn-compile" class="px-2.5 sm:px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 font-semibold text-xs flex items-center gap-1.5 sm:gap-2 transition-all shadow-lg shadow-cyan-500/15 cursor-pointer">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span class="hidden sm:inline">Build &amp; Apply RROs</span>
+                <span class="sm:hidden">Build</span>
             </button>
 
-            <button onclick="downloadThemeJson()" id="btn-export-theme-json" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-cyan-300 border border-cyan-500/40 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Download shareable theme.json configuration file for your customized One UI 9.0 theme">
+            <button onclick="downloadThemeJson()" id="btn-export-theme-json" class="px-2 sm:px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-cyan-300 border border-cyan-500/40 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Download shareable theme.json configuration file for your customized One UI 9.0 theme">
                 <svg class="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                 <span class="hidden sm:inline">theme.json</span>
             </button>
 
-            <a href="/api/export/zip" onclick="showToast('Generating One UI 9.0 RRO Bundle ZIP (26 RROs + Drive APKs + Monet + theme.json)...', 'cyan')" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
-                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <a href="/api/export/zip" onclick="showToast('Generating One UI 9.0 RRO Bundle ZIP (26 RROs + Drive APKs + Monet + theme.json)...', 'cyan')" class="px-2 sm:px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
+                <svg class="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 <span class="hidden xl:inline">Export ZIP</span>
             </a>
             <input type="file" id="input-import-theme-json" accept=".json,application/json" onchange="handleImportThemeJsonFile(event)" class="hidden">
@@ -307,12 +309,13 @@
                         </span>
                         <span class="text-[10px] font-mono text-slate-400">Real-Time One UI 9.0 Preview</span>
                     </div>
-                    <div class="grid grid-cols-5 gap-1 bg-[#131926] p-1 rounded-lg border border-[#1E2738] text-[10px] font-mono">
+                    <div class="grid grid-cols-6 gap-1 bg-[#131926] p-1 rounded-lg border border-[#1E2738] text-[9px] font-mono">
                         <button onclick="setStudioSectionFilter('all')" id="studio-step-all" class="py-1.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-bold cursor-pointer">All</button>
                         <button onclick="setStudioSectionFilter('skins')" id="studio-step-skins" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">1. Skins</button>
                         <button onclick="setStudioSectionFilter('colors')" id="studio-step-colors" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">2. Colors</button>
                         <button onclick="setStudioSectionFilter('qs'); setPhoneScreen('qs');" id="studio-step-qs" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">3. QS Bars</button>
-                        <button onclick="setStudioSectionFilter('icons'); setPhoneScreen('settings');" id="studio-step-icons" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">4. .PNGs</button>
+                        <button onclick="setStudioSectionFilter('icons'); setPhoneScreen('settings');" id="studio-step-icons" class="py-1.5 rounded text-slate-300 hover:text-white cursor-pointer">4. Icons</button>
+                        <button onclick="setStudioSectionFilter('apkpng'); setPhoneScreen('apps');" id="studio-step-apkpng" class="py-1.5 rounded text-amber-300 hover:text-amber-200 cursor-pointer">5. APK .PNG</button>
                     </div>
                 </div>
 
@@ -570,13 +573,13 @@
                             <span id="studio-bright-pct-label" class="text-[10px] font-mono text-slate-300 tabular-nums">84%</span>
                         </div>
                         <select id="select-brightness-style" onchange="updateTweak({ brightness_bar_style: this.value }); setPhoneScreen('qs');" class="w-full bg-[#0D111A] border border-[#263248] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
-                            <option value="oneui9_pill">One UI 9.0 Native Pill (22dp)</option>
-                            <option value="px_rbb_neon">Project X Neon Border Track (px_rbb)</option>
-                            <option value="blend_gradient_bar">Blend Dual-Tone Gradient Track</option>
-                            <option value="glass_frosted_bar">Glass Frosted Specular Track</option>
-                            <option value="ayos_thick_retina">ayOS Retina Thick Capsule (26dp)</option>
-                            <option value="aosp_thin_pill">AOSP R Material Thin Track</option>
-                            <option value="mimi_miui_pill">MIMI Miui 11 Sky Pill</option>
+                            <option value="default_oneui9">One UI 9.0 Native Pill (22dp)</option>
+                            <option value="px_rbb_solid">Project X Rounded Cyber Bar (px_rbb)</option>
+                            <option value="px_sbb_neon">Project X Neon Border Track (px_sbb)</option>
+                            <option value="blend_gradient">Blend Dual-Tone Gradient Track</option>
+                            <option value="glass_frosted">Glass Frosted Specular Track</option>
+                            <option value="mimi_pill">MIMI Miui 11 Sky Pill</option>
+                            <option value="ayos_ios">ayOS Retina Thick Capsule (26dp)</option>
                         </select>
                         <input type="range" id="input-sim-brightness" min="15" max="100" value="84" oninput="onSimBrightnessSlide(this.value)" class="w-full accent-cyan-400 cursor-pointer">
                     </div>
@@ -588,23 +591,23 @@
                             <span id="studio-vol-pct-label" class="text-[10px] font-mono text-slate-300 tabular-nums">72%</span>
                         </div>
                         <select id="select-volume-style" onchange="updateTweak({ volume_panel_style: this.value }); setPhoneScreen('qs');" class="w-full bg-[#0D111A] border border-[#263248] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
-                            <option value="0vvol">One UI 9.0 Accent Pill (0vvol)</option>
-                            <option value="px_vpanel_cyber">Project X Cyber Volume (px_vpanel)</option>
-                            <option value="blend_vpanel_grad">Blend Gradient Volume Track</option>
-                            <option value="glass_vpanel_frost">Glass Specular Volume Bar</option>
-                            <option value="ayos_vpanel_ios">ayOS Retina Tall Volume Pill</option>
+                            <option value="default">One UI 9.0 Native Volume Panel</option>
+                            <option value="px_vpanel">Project X Cyber Volume (px_vpanel)</option>
+                            <option value="glass_glavol">Glass Specular Volume Bar (glavol)</option>
+                            <option value="0vvol">Terpsichora Accent Pill (0vvol)</option>
                             <option value="1vvol">Compact Slim Volume Track (1vvol)</option>
+                            <option value="blend_vol">Blend Dual-Gradient Volume Track</option>
                         </select>
                         <input type="range" id="input-sim-volume" min="10" max="100" value="72" oninput="onSimVolumeSlide(this.value)" class="w-full accent-purple-400 cursor-pointer">
                     </div>
 
                     <!-- APK Reference Previews from Project X (px_rbb, px_vpanel, px_qs1..5) -->
                     <div class="grid grid-cols-3 gap-1.5 pt-0.5">
-                        <button onclick="updateTweak({ brightness_bar_style: 'px_rbb_neon' }); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-cyan-400 text-center cursor-pointer" title="Apply Project X Brightness Bar">
+                        <button onclick="updateTweak({ brightness_bar_style: 'px_rbb_solid' }); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-cyan-400 text-center cursor-pointer" title="Apply Project X Brightness Bar">
                             <img src="/assets/apk_previews/px_rbb.png" alt="px_rbb" class="h-7 w-full object-contain mx-auto rounded">
                             <div class="text-[9px] font-mono text-cyan-300 mt-0.5">px_rbb Bar</div>
                         </button>
-                        <button onclick="updateTweak({ volume_panel_style: 'px_vpanel_cyber' }); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-purple-400 text-center cursor-pointer" title="Apply Project X Volume Panel">
+                        <button onclick="updateTweak({ volume_panel_style: 'px_vpanel' }); setPhoneScreen('qs');" class="p-1 rounded bg-[#131926] border border-[#1E2738] hover:border-purple-400 text-center cursor-pointer" title="Apply Project X Volume Panel">
                             <img src="/assets/apk_previews/px_vpanel.png" alt="px_vpanel" class="h-7 w-full object-contain mx-auto rounded">
                             <div class="text-[9px] font-mono text-purple-300 mt-0.5">px_vpanel</div>
                         </button>
@@ -617,29 +620,62 @@
                     <div class="text-[11px] font-mono text-slate-300 font-semibold pt-1">3. QS Tile Shape (11 One UI 9.0 Safe Drawables):</div>
                     <div id="qs-shape-list" class="grid grid-cols-1 gap-1.5 max-h-[250px] overflow-y-auto pr-1"></div>
                 </div>
+
+                <!-- Card 5: Fun & Engaging Drive APK Fixed .PNG Visual Option Explorer (28 Real Extracted APK .PNG Previews) -->
+                <div id="studio-card-apk-gallery" class="bg-[#0D111A] border border-amber-500/40 rounded-xl p-4 space-y-3 shadow-lg shadow-amber-950/10">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <h2 class="font-display font-bold text-sm text-white">Drive APK <code class="font-mono text-amber-300">.PNG</code> Option Explorer</h2>
+                                <span id="studio-apk-gallery-count-badge" class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold">28 .PNG OPTIONS</span>
+                            </div>
+                            <p class="text-xs text-slate-400">Click any extracted APK <code class="font-mono text-amber-300">.PNG</code> card for instant real-time Phone Simulator preview!</p>
+                        </div>
+                        <button onclick="switchTab('settings-icons')" class="text-[11px] font-mono text-amber-300 hover:underline shrink-0 cursor-pointer">
+                            All 8 Apps →
+                        </button>
+                    </div>
+
+                    <!-- Category Filter Pills -->
+                    <div class="grid grid-cols-3 gap-1 bg-[#131926] p-1 rounded-lg border border-[#1E2738] text-[9px] font-mono">
+                        <button onclick="setDriveApkGalleryCategory('all')" id="apk-gal-cat-all" class="py-1 rounded bg-amber-500/25 text-amber-200 border border-amber-400/50 font-bold cursor-pointer">All (28)</button>
+                        <button onclick="setDriveApkGalleryCategory('settings')" id="apk-gal-cat-settings" class="py-1 rounded text-slate-300 hover:text-white cursor-pointer">Settings</button>
+                        <button onclick="setDriveApkGalleryCategory('qs')" id="apk-gal-cat-qs" class="py-1 rounded text-slate-300 hover:text-white cursor-pointer">QS &amp; Sliders</button>
+                        <button onclick="setDriveApkGalleryCategory('statusbar')" id="apk-gal-cat-statusbar" class="py-1 rounded text-slate-300 hover:text-white cursor-pointer">Status Bar</button>
+                        <button onclick="setDriveApkGalleryCategory('comms')" id="apk-gal-cat-comms" class="py-1 rounded text-slate-300 hover:text-white cursor-pointer">Phone / Keys</button>
+                        <button onclick="setDriveApkGalleryCategory('sysapps')" id="apk-gal-cat-sysapps" class="py-1 rounded text-slate-300 hover:text-white cursor-pointer">Apps &amp; Lock</button>
+                    </div>
+
+                    <!-- Visual Grid of Extracted APK .PNG Options -->
+                    <div id="studio-apk-gallery-grid" class="grid grid-cols-2 gap-2 max-h-[310px] overflow-y-auto pr-1"></div>
+                </div>
             </div>
 
             <!-- Center Column (4 cols): Interactive One UI 9.0 Phone Simulator -->
             <div class="lg:col-span-4 flex flex-col items-center">
                 <div class="w-full max-w-[385px] bg-[#0B0E17] border-[3px] border-[#232D42] rounded-[40px] p-3.5 shadow-2xl relative">
-                    <!-- Dynamic Camera Punch Hole + Status Bar -->
+                    <!-- Dynamic Camera Punch Hole + Status Bar (Supports Live APK .PNG Wi-Fi/Signal/Battery Icons) -->
                     <div class="flex items-center justify-between px-4 pt-1 pb-2.5 text-[11px] font-mono text-slate-300">
-                        <span>09:41</span>
+                        <span id="sim-clock-text">09:41</span>
                         <div class="w-3 h-3 rounded-full bg-black border border-slate-700"></div>
                         <div class="flex items-center gap-1.5">
+                            <img id="sim-wifi-png-img" src="/assets/apk_previews/px_wicon.png" alt="Wi-Fi" class="h-3.5 w-auto object-contain hidden" title="Active Status Bar Wi-Fi .PNG">
+                            <img id="sim-signal-png-img" src="/assets/apk_previews/px_r4giconsr.jpg" alt="Signal" class="h-3.5 w-auto object-contain hidden" title="Active Status Bar Signal .PNG">
                             <span id="sim-network-badge" class="text-[10px] text-cyan-400">4G+</span>
-                            <span>100%</span>
+                            <img id="sim-battery-png-img" src="/assets/apk_previews/px_bf.png" alt="Battery" class="h-3.5 w-auto object-contain hidden" title="Active Status Bar Battery .PNG">
+                            <span id="sim-battery-pct-text">100%</span>
                         </div>
                     </div>
 
-                    <!-- Preview Screen Switcher (6 One UI 9.0 Screens Including My Files & Power Menu) -->
-                    <div class="grid grid-cols-6 gap-1 bg-[#131926] p-1 rounded-xl mb-3 border border-[#1E2738]">
-                        <button onclick="setPhoneScreen('qs')" id="phone-tab-qs" class="py-1.5 rounded-lg text-[10px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-pointer">QS</button>
-                        <button onclick="setPhoneScreen('settings')" id="phone-tab-settings" class="py-1.5 rounded-lg text-[10px] font-medium text-slate-400 hover:text-white cursor-pointer">Settings</button>
-                        <button onclick="setPhoneScreen('myfiles')" id="phone-tab-myfiles" class="py-1.5 rounded-lg text-[10px] font-medium text-slate-400 hover:text-white cursor-pointer">My Files</button>
-                        <button onclick="setPhoneScreen('powermenu')" id="phone-tab-powermenu" class="py-1.5 rounded-lg text-[10px] font-medium text-slate-400 hover:text-white cursor-pointer">Power</button>
-                        <button onclick="setPhoneScreen('dialer')" id="phone-tab-dialer" class="py-1.5 rounded-lg text-[10px] font-medium text-slate-400 hover:text-white cursor-pointer">Dialer</button>
-                        <button onclick="setPhoneScreen('keyboard')" id="phone-tab-keyboard" class="py-1.5 rounded-lg text-[10px] font-medium text-slate-400 hover:text-white cursor-pointer">Keys</button>
+                    <!-- Preview Screen Switcher (7 One UI 9.0 Screens Including My Files, Power Menu & Apps/Lock) -->
+                    <div class="grid grid-cols-7 gap-1 bg-[#131926] p-1 rounded-xl mb-3 border border-[#1E2738]">
+                        <button onclick="setPhoneScreen('qs')" id="phone-tab-qs" class="py-1.5 rounded-lg text-[9px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-pointer">QS</button>
+                        <button onclick="setPhoneScreen('settings')" id="phone-tab-settings" class="py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer">Settings</button>
+                        <button onclick="setPhoneScreen('myfiles')" id="phone-tab-myfiles" class="py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer">Files</button>
+                        <button onclick="setPhoneScreen('powermenu')" id="phone-tab-powermenu" class="py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer">Power</button>
+                        <button onclick="setPhoneScreen('apps')" id="phone-tab-apps" class="py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer">Apps</button>
+                        <button onclick="setPhoneScreen('dialer')" id="phone-tab-dialer" class="py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer">Dialer</button>
+                        <button onclick="setPhoneScreen('keyboard')" id="phone-tab-keyboard" class="py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer">Keys</button>
                     </div>
 
                     <!-- Interactive Phone Viewport -->
@@ -894,6 +930,50 @@
                                 <button id="prev-power-skin-vec" onclick="updateTweak({ app_png_pack_mode: 'vector_only', settings_icon_style: '1sett', use_apk_png_icons: false })" class="py-1 rounded-lg text-center cursor-pointer text-emerald-300">Palette SVG</button>
                             </div>
                             <div id="prev-powermenu-grid" class="prev-settings-card rounded-2xl border border-white/10 p-3 grid grid-cols-2 gap-2.5 max-h-[340px] overflow-y-auto" style="background-color: #121724;"></div>
+                        </div>
+
+                        <!-- Screen 7: Samsung Gallery, Device Care, Home Dock, Lockscreen Clock & Toast .PNG / Vector Preview -->
+                        <div id="screen-apps" class="hidden space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-[10px] font-mono text-slate-400">One UI 9.0 System Apps &amp; Lockscreen .PNGs</div>
+                                    <div class="text-sm font-display font-bold text-white">Gallery • Device Care • Home • Lock</div>
+                                </div>
+                                <button onclick="switchTab('settings-icons')" class="text-[10px] font-mono text-cyan-400 underline cursor-pointer">All 8 Suites →</button>
+                            </div>
+
+                            <!-- Lockscreen Clock & Toast Frame APK .PNG Preview Strip -->
+                            <div class="p-2 rounded-xl bg-[#0C1018] border border-white/10 grid grid-cols-2 gap-2 items-center">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <img id="prev-apps-lockclock-img" src="/assets/apk_previews/px_lscs.png" alt="Lock Clock" class="w-9 h-9 rounded-lg object-contain bg-black/50 p-0.5 border border-white/10 shrink-0">
+                                    <div class="min-w-0">
+                                        <div class="text-[10px] font-semibold text-white truncate">Lock Clock .PNG</div>
+                                        <div id="prev-apps-lockclock-label" class="text-[9px] font-mono text-cyan-300 truncate">clock1</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <img id="prev-apps-toast-img" src="/assets/apk_previews/px_tpcrt.png" alt="Toast Frame" class="w-9 h-9 rounded-lg object-contain bg-black/50 p-0.5 border border-white/10 shrink-0">
+                                    <div class="min-w-0">
+                                        <div class="text-[10px] font-semibold text-white truncate">Toast Frame .PNG</div>
+                                        <div id="prev-apps-toast-label" class="text-[9px] font-mono text-amber-300 truncate">toast1</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Samsung Gallery & Device Care Icons Grid -->
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between text-[9px] font-mono text-slate-400">
+                                    <span>Samsung Gallery &amp; Device Care (<code class="text-cyan-300">.PNG</code> or <code class="text-emerald-300">Palette SVG</code>)</span>
+                                    <span id="prev-apps-suite-mode-badge" class="text-amber-300 font-bold">FIXED .PNG</span>
+                                </div>
+                                <div id="prev-apps-gallery-care-grid" class="prev-settings-card rounded-2xl border border-white/10 p-2 grid grid-cols-2 gap-1.5 max-h-[175px] overflow-y-auto" style="background-color: #121724;"></div>
+                            </div>
+
+                            <!-- One UI Home Launcher Dock Icons -->
+                            <div class="space-y-1">
+                                <div class="text-[9px] font-mono text-slate-400">One UI 9.0 Home Dock (<code class="text-cyan-300">com.sec.android.app.launcher</code>)</div>
+                                <div id="prev-apps-launcher-dock" class="prev-settings-card rounded-2xl border border-white/10 p-2 grid grid-cols-5 gap-1.5 place-items-center" style="background-color: #121724;"></div>
+                            </div>
                         </div>
 
                         <!-- Gesture Navigation Pill & MIMI 3-Button Navigation Bar -->
@@ -1183,6 +1263,27 @@
                 </div>
             </div>
 
+            <!-- One UI 9.0 All-Plugin Overlay Verification Matrix Banner (13 Plugins × 8 Checks = 104 Verified Assertions) -->
+            <div id="oneui9-plugin-verification-card" class="bg-[#0D111A] border border-emerald-500/40 rounded-xl p-4 space-y-3 shadow-lg shadow-emerald-950/10">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-mono text-[10px] font-bold">ONE UI 9.0 EXTENSIVE OVERLAY TEST SUITE</span>
+                            <span id="plugin-verify-summary-badge" class="font-mono text-xs text-cyan-300 font-bold">13/13 Plugins Verified • 104/104 One UI 9.0 Checks Passed ✓</span>
+                        </div>
+                        <h3 class="font-display font-bold text-sm text-white mt-1">
+                            Google Drive APKs (<code class="font-mono text-cyan-300">Project X</code>, <code class="font-mono text-cyan-300">Blend D/N</code>, <code class="font-mono text-cyan-300">Glass D/N</code>, <code class="font-mono text-cyan-300">ayOS Retina</code>, <code class="font-mono text-cyan-300">AOSP R</code>) + <code class="font-mono text-cyan-300">MIMI</code> &amp; <code class="font-mono text-cyan-300">Terpsichora</code> Compatibility Matrix
+                        </h3>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="runOneUi9PluginVerification()" id="btn-run-plugin-verification" class="px-3 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-sm">
+                            Re-Verify All 13 Plugins (104 Checks)
+                        </button>
+                    </div>
+                </div>
+                <div id="oneui9-plugin-verification-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <!-- Left 5 Columns: Settings Icon Style Selector + Dashboard Switches + Extra Preferences -->
                 <div class="lg:col-span-5 space-y-5">
@@ -1307,10 +1408,23 @@
                     </div>
                 </div>
 
-                <!-- Suite Filter Tabs -->
-                <div class="flex flex-wrap items-center justify-between gap-2">
+                <!-- Suite Filter Tabs + Per-Suite Individual Mode Switcher -->
+                <div class="flex flex-wrap items-center justify-between gap-2 bg-[#131926] p-2.5 rounded-xl border border-[#1E2738]">
                     <div id="app-png-suite-tabs" class="flex flex-wrap items-center gap-1.5"></div>
-                    <span class="font-mono text-[11px] text-slate-400">Click any app icon card to inspect its <code class="text-cyan-300">&lt;bitmap&gt;</code> or <code class="text-emerald-300">VectorDrawable</code> XML &amp; RRO path</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-mono text-[11px] text-slate-300">This App's Icon Mode:</span>
+                        <select id="select-current-suite-mode" onchange="setPerSuiteMode(ACTIVE_APP_PNG_SUITE_ID, this.value)" class="bg-[#0D111A] border border-cyan-500/40 rounded-lg px-2.5 py-1 text-xs font-mono text-cyan-300 focus:outline-none">
+                            <option value="global">Follow Global Pack Mode</option>
+                            <option value="vector">Color Palette Vector (Customizable)</option>
+                            <option value="terpsichora">Terpsichora Fixed .PNG</option>
+                            <option value="mimi">MIMI Miui 11 Fixed .PNG</option>
+                            <option value="px">Project X Fixed .PNG</option>
+                            <option value="blend">Blend D/N Fixed .PNG</option>
+                            <option value="glass">Glass Frosted Fixed .PNG</option>
+                            <option value="ayos">ayOS Retina Fixed .PNG</option>
+                            <option value="aosp">AOSP R Fixed .PNG</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Suite Items Grid -->
@@ -1780,19 +1894,19 @@
 
         function setPhoneScreen(screen) {
             CURRENT_PHONE_SCREEN = screen;
-            ['qs', 'settings', 'myfiles', 'powermenu', 'dialer', 'keyboard'].forEach(s => {
+            ['qs', 'settings', 'myfiles', 'powermenu', 'apps', 'dialer', 'keyboard'].forEach(s => {
                 const el = document.getElementById(`screen-${s}`);
                 const tab = document.getElementById(`phone-tab-${s}`);
                 if (!el || !tab) return;
                 if (s === screen) {
                     el.classList.remove('hidden');
-                    tab.className = 'py-1.5 rounded-lg text-[10px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-pointer';
+                    tab.className = 'py-1.5 rounded-lg text-[9px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 cursor-pointer';
                 } else {
                     el.classList.add('hidden');
-                    tab.className = 'py-1.5 rounded-lg text-[10px] font-medium text-slate-400 hover:text-white cursor-pointer';
+                    tab.className = 'py-1.5 rounded-lg text-[9px] font-medium text-slate-400 hover:text-white cursor-pointer';
                 }
             });
-            const mapPkg = { qs: 'systemui', settings: 'settings', myfiles: 'myfiles', powermenu: 'systemui', dialer: 'dialer', keyboard: 'honeyboard' };
+            const mapPkg = { qs: 'systemui', settings: 'settings', myfiles: 'myfiles', powermenu: 'systemui', apps: 'gallery', dialer: 'dialer', keyboard: 'honeyboard' };
             if (mapPkg[screen]) {
                 INSPECTED_PKG_ID = mapPkg[screen];
                 renderInspector();
@@ -1821,7 +1935,8 @@
                 skins: document.getElementById('studio-card-skins'),
                 colors: document.getElementById('studio-card-colors'),
                 icons: document.getElementById('studio-card-icons'),
-                qs: document.getElementById('studio-card-qs')
+                qs: document.getElementById('studio-card-qs'),
+                apkpng: document.getElementById('studio-card-apk-gallery')
             };
             Object.entries(cardMap).forEach(([key, el]) => {
                 if (!el) return;
@@ -1831,15 +1946,76 @@
                     el.classList.add('hidden');
                 }
             });
-            ['all', 'skins', 'colors', 'qs', 'icons'].forEach(k => {
+            ['all', 'skins', 'colors', 'qs', 'icons', 'apkpng'].forEach(k => {
                 const btn = document.getElementById(`studio-step-${k}`);
                 if (!btn) return;
                 if (k === STUDIO_SECTION_FILTER) {
                     btn.className = 'py-1.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 font-bold cursor-pointer';
                 } else {
-                    btn.className = 'py-1.5 rounded text-slate-300 hover:text-white cursor-pointer';
+                    btn.className = k === 'apkpng'
+                        ? 'py-1.5 rounded text-amber-300 hover:text-amber-200 cursor-pointer'
+                        : 'py-1.5 rounded text-slate-300 hover:text-white cursor-pointer';
                 }
             });
+        }
+
+        let DRIVE_APK_GALLERY_CATEGORY = 'all';
+        function setDriveApkGalleryCategory(cat) {
+            DRIVE_APK_GALLERY_CATEGORY = cat || 'all';
+            ['all', 'settings', 'qs', 'statusbar', 'comms', 'sysapps'].forEach(c => {
+                const btn = document.getElementById(`apk-gal-cat-${c}`);
+                if (!btn) return;
+                btn.className = c === DRIVE_APK_GALLERY_CATEGORY
+                    ? 'py-1 rounded bg-amber-500/25 text-amber-200 border border-amber-400/50 font-bold cursor-pointer'
+                    : 'py-1 rounded text-slate-300 hover:text-white cursor-pointer';
+            });
+            renderDriveApkGallery();
+        }
+
+        async function applyDriveApkGalleryItem(itemId) {
+            if (!APP_STATE || !APP_STATE.drive_apk_gallery) return;
+            const items = APP_STATE.drive_apk_gallery.items || [];
+            const item = items.find(it => it.id === itemId);
+            if (!item) return;
+
+            if (item.apply_spec && item.apply_spec.tile_shape) {
+                APP_STATE.spec.tile_shape = item.apply_spec.tile_shape;
+            }
+            if (item.apply_tweak) {
+                await updateTweak({
+                    ...item.apply_tweak,
+                    ...(item.apply_spec && item.apply_spec.tile_shape ? { tile_shape: item.apply_spec.tile_shape } : {})
+                });
+            } else if (item.apply_spec && item.apply_spec.tile_shape) {
+                await selectQsShape(item.apply_spec.tile_shape);
+            }
+            const targetScreen = item.phone_screen || 'qs';
+            setPhoneScreen(targetScreen);
+            showToast(`Applied APK .PNG Option: ${item.title} (${item.plugin_name})`, 'amber');
+        }
+
+        async function setPerSuiteMode(suiteId, modeValue) {
+            if (!suiteId) return;
+            await updateTweak({
+                per_suite_mode: {
+                    suite_id: suiteId,
+                    mode: modeValue === 'global' ? null : modeValue
+                }
+            });
+            if (suiteId === 'myfiles') setPhoneScreen('myfiles');
+            else if (suiteId === 'powermenu') setPhoneScreen('powermenu');
+            else if (suiteId === 'gallery' || suiteId === 'devicecare' || suiteId === 'launcher') setPhoneScreen('apps');
+            showToast(`Updated ${suiteId} icon mode to ${modeValue === 'global' ? 'Global Pack' : modeValue.toUpperCase()}`, 'cyan');
+        }
+
+        async function runOneUi9PluginVerification() {
+            const res = await fetch('/api/plugins/verify_oneui9');
+            const report = await res.json();
+            if (APP_STATE) {
+                APP_STATE.plugin_verification_report = report;
+                renderOneUi9PluginVerification();
+            }
+            showToast(`Verified ${report.passed_plugins}/${report.total_plugins} Plugins (${report.passed_checks}/${report.total_checks} One UI 9.0 checks passed)!`, 'emerald');
         }
 
         function onSimBrightnessSlide(val) {
@@ -2842,15 +3018,79 @@
 
             renderPlugins();
             renderQsShapes();
+            renderDriveApkGallery();
             renderPhoneSimulator();
             renderLivePalettePreview();
             renderInspector();
             renderLogs();
             renderSettingsIconsView();
+            renderOneUi9PluginVerification();
             renderMatrix();
             renderMonetView();
             renderCodeSelector();
             renderMimiSkinShowcase();
+        }
+
+        function renderDriveApkGallery() {
+            const gridEl = document.getElementById('studio-apk-gallery-grid');
+            const badgeEl = document.getElementById('studio-apk-gallery-count-badge');
+            if (!gridEl || !APP_STATE || !APP_STATE.drive_apk_gallery) return;
+            const allItems = APP_STATE.drive_apk_gallery.items || [];
+            const filtered = DRIVE_APK_GALLERY_CATEGORY === 'all'
+                ? allItems
+                : allItems.filter(it => it.category === DRIVE_APK_GALLERY_CATEGORY);
+
+            if (badgeEl) {
+                badgeEl.textContent = `${filtered.length}/${allItems.length} .PNG OPTIONS`;
+            }
+
+            const tweaks = (APP_STATE.spec && APP_STATE.spec.extra_tweaks) || {};
+            const activeShape = APP_STATE.spec && APP_STATE.spec.tile_shape;
+
+            gridEl.innerHTML = filtered.map(item => {
+                let isItemActive = false;
+                if (item.apply_spec && item.apply_spec.tile_shape) {
+                    isItemActive = activeShape === item.apply_spec.tile_shape;
+                } else if (item.apply_tweak) {
+                    isItemActive = Object.entries(item.apply_tweak).every(([k, v]) => tweaks[k] === v);
+                }
+                return `
+                    <button type="button" onclick="applyDriveApkGalleryItem('${item.id}')" class="p-2 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${isItemActive ? 'bg-[#182238] border-amber-400 ring-1 ring-amber-400/50' : 'bg-[#131926] border-[#1E2738] hover:border-amber-500/50'}">
+                        <div class="w-full h-11 rounded-lg bg-[#090D14] border border-white/10 flex items-center justify-center p-1 overflow-hidden">
+                            <img src="${item.preview_url}" alt="${item.title}" class="max-h-full max-w-full object-contain">
+                        </div>
+                        <div class="min-w-0 w-full">
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-[10px] font-semibold text-white truncate">${item.title}</span>
+                                <span class="text-[8px] font-mono px-1 py-0.2 rounded shrink-0 ${isItemActive ? 'bg-amber-400 text-slate-950 font-bold' : 'bg-white/10 text-amber-300'}">${isItemActive ? 'ACTIVE' : 'TRY'}</span>
+                            </div>
+                            <div class="text-[9px] font-mono text-cyan-300 truncate">${item.plugin_name} • ${item.target}</div>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderOneUi9PluginVerification() {
+            const gridEl = document.getElementById('oneui9-plugin-verification-grid');
+            const summaryBadge = document.getElementById('plugin-verify-summary-badge');
+            if (!gridEl || !APP_STATE || !APP_STATE.plugin_verification_report) return;
+            const report = APP_STATE.plugin_verification_report;
+            if (summaryBadge) {
+                summaryBadge.textContent = `${report.passed_plugins}/${report.total_plugins} Plugins Verified • ${report.passed_checks}/${report.total_checks} One UI 9.0 Checks Passed ✓`;
+            }
+            gridEl.innerHTML = (report.results || []).map(r => `
+                <div onclick="applyPluginPreset('${r.plugin_id}')" class="p-2.5 rounded-lg bg-[#131926] hover:bg-[#192234] border ${r.compatible_oneui9 ? 'border-emerald-500/35' : 'border-rose-500/50'} flex items-center justify-between gap-2 cursor-pointer transition-all" title="Click to activate ${r.name} and preview its One UI 9.0 overlays">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full ${r.compatible_oneui9 ? 'bg-emerald-400' : 'bg-rose-400'} shrink-0"></span>
+                            <span class="text-xs font-semibold text-white truncate">${r.name}</span>
+                        </div>
+                        <div class="text-[10px] font-mono text-slate-400 truncate">${r.plugin_pkg}</div>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono text-[10px] font-bold shrink-0">${r.passed_count}/${r.total_count} ✓</span>
+                </div>
+            `).join('');
         }
 
         let MIMI_OVERLAY_TAB = 'drawables';
@@ -3039,7 +3279,7 @@
                 const isSelected = p.id === activeId;
                 const isMimi = p.id === 'mimi_miui11';
                 const isDrive = driveIds.has(p.id);
-                const imgSrc = p.logo_data_uri || p.preview_asset || '';
+                const imgSrc = p.logo_url || p.logo_data_uri || p.banner_url || p.preview_asset || '';
                 return `
                     <button onclick="applyPluginPreset('${p.id}')" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${isSelected ? 'bg-[#161F30] border-cyan-400 ring-1 ring-cyan-400/40' : (isDrive ? 'bg-[#121A2B] border-cyan-500/35 hover:border-cyan-400' : (isMimi ? 'bg-[#141C2E] border-[#4C9FFD]/50 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'))}">
                         <div class="flex items-center gap-2.5 min-w-0 pr-2">
@@ -3124,8 +3364,10 @@
             notifCard.style.backgroundColor = spec.card;
 
             // Sync Brightness & Volume dropdowns and live bar styles from qs_overlay
-            const bStyleId = tweaks.brightness_bar_style || (qs_overlay && qs_overlay.brightness_style && qs_overlay.brightness_style.id) || 'oneui9_pill';
-            const vStyleId = tweaks.volume_panel_style || (qs_overlay && qs_overlay.volume_style && qs_overlay.volume_style.id) || '0vvol';
+            const bStyleObj = (qs_overlay && (qs_overlay.brightness_style || qs_overlay.brightness_bar)) || null;
+            const vStyleObj = (qs_overlay && (qs_overlay.volume_style || qs_overlay.volume_panel)) || null;
+            const bStyleId = (bStyleObj && bStyleObj.id) || tweaks.brightness_bar_style || 'default_oneui9';
+            const vStyleId = (vStyleObj && vStyleObj.id) || tweaks.volume_panel_style || '0vvol';
 
             const bSel = document.getElementById('select-brightness-style');
             if (bSel && bSel.value !== bStyleId) bSel.value = bStyleId;
@@ -3135,50 +3377,46 @@
             if (brightBar && brightTrack) {
                 brightBar.style.border = 'none';
                 brightTrack.style.border = 'none';
-                if (bStyleId === 'px_rbb_neon') {
-                    brightBar.style.background = `linear-gradient(90deg, ${spec.accent}44, ${spec.accent})`;
-                    brightBar.style.border = `1.5px solid ${spec.accent}`;
-                    brightBar.style.borderRadius = '10px';
-                    brightTrack.style.borderRadius = '10px';
-                } else if (bStyleId === 'blend_gradient_bar') {
+                if (bStyleId === 'px_rbb_solid' || bStyleId === 'px_sbb_neon' || bStyleId === 'px_rbb_neon') {
+                    brightBar.style.background = `linear-gradient(90deg, ${spec.accent}55, ${spec.accent})`;
+                    brightBar.style.border = `1.5px solid ${spec.secondary}`;
+                    brightBar.style.borderRadius = bStyleId === 'px_sbb_neon' ? '8px' : '12px';
+                    brightTrack.style.borderRadius = bStyleId === 'px_sbb_neon' ? '8px' : '12px';
+                } else if (bStyleId === 'blend_gradient' || bStyleId === 'blend_gradient_bar') {
                     brightBar.style.background = `linear-gradient(90deg, ${spec.accent}, ${spec.secondary})`;
                     brightBar.style.borderRadius = '14px';
                     brightTrack.style.borderRadius = '14px';
-                } else if (bStyleId === 'glass_frosted_bar') {
+                } else if (bStyleId === 'glass_frosted' || bStyleId === 'glass_frosted_bar') {
                     brightBar.style.background = `linear-gradient(180deg, #FFFFFF88, ${spec.accent}CC)`;
-                    brightBar.style.border = '1px solid rgba(255,255,255,0.6)';
+                    brightBar.style.border = '1px solid rgba(255,255,255,0.65)';
                     brightBar.style.borderRadius = '16px';
                     brightTrack.style.borderRadius = '16px';
-                } else if (bStyleId === 'ayos_thick_retina') {
+                } else if (bStyleId === 'ayos_ios' || bStyleId === 'ayos_thick_retina') {
                     brightBar.style.background = spec.accent;
                     brightBar.style.borderRadius = '14px';
                     brightTrack.style.borderRadius = '14px';
-                } else if (bStyleId === 'aosp_thin_pill') {
-                    brightBar.style.background = spec.accent;
-                    brightBar.style.borderRadius = '999px';
-                    brightTrack.style.borderRadius = '999px';
                 } else {
                     brightBar.style.background = spec.accent;
                     brightBar.style.borderRadius = '999px';
                     brightTrack.style.borderRadius = '999px';
                 }
                 if (brightLbl) {
-                    brightLbl.textContent = `Brightness • ${(qs_overlay && qs_overlay.brightness_style && qs_overlay.brightness_style.label) || bStyleId}`;
+                    brightLbl.textContent = `Brightness • ${(bStyleObj && bStyleObj.label) || bStyleId}`;
                 }
             }
 
             if (volBar && volTrack) {
                 volBar.style.border = 'none';
-                if (vStyleId === 'px_vpanel_cyber') {
+                if (vStyleId === 'px_vpanel' || vStyleId === 'px_vpanel_cyber') {
                     volBar.style.background = `linear-gradient(90deg, ${spec.secondary}55, ${spec.accent})`;
                     volBar.style.border = `1.5px solid ${spec.accent}`;
                     volBar.style.borderRadius = '8px';
                     volTrack.style.borderRadius = '8px';
-                } else if (vStyleId === 'blend_vpanel_grad') {
+                } else if (vStyleId === 'blend_vol' || vStyleId === 'blend_vpanel_grad') {
                     volBar.style.background = `linear-gradient(90deg, ${spec.accent}, ${spec.secondary})`;
                     volBar.style.borderRadius = '12px';
                     volTrack.style.borderRadius = '12px';
-                } else if (vStyleId === 'glass_vpanel_frost') {
+                } else if (vStyleId === 'glass_glavol' || vStyleId === 'glass_vpanel_frost') {
                     volBar.style.background = `linear-gradient(180deg, #FFFFFF77, ${spec.secondary}CC)`;
                     volBar.style.border = '1px solid rgba(255,255,255,0.5)';
                     volBar.style.borderRadius = '14px';
@@ -3189,8 +3427,28 @@
                     volTrack.style.borderRadius = '999px';
                 }
                 if (volLbl) {
-                    volLbl.textContent = `Volume • ${(qs_overlay && qs_overlay.volume_style && qs_overlay.volume_style.label) || vStyleId}`;
+                    volLbl.textContent = `Volume • ${(vStyleObj && vStyleObj.label) || vStyleId}`;
                 }
+            }
+
+            // Live Status Bar Wi-Fi, Signal & Battery .PNG Preview Icons
+            const wifiImg = document.getElementById('sim-wifi-png-img');
+            const sigImg = document.getElementById('sim-signal-png-img');
+            const batImg = document.getElementById('sim-battery-png-img');
+            const wifiMap = { wifi1: '/assets/apk_previews/px_wicon.png', wifi2: '/assets/apk_previews/px_wicon.png', wifi3: '/assets/apk_previews/px_wicon.png', gla_wifi: '/assets/apk_previews/glass_dn_logo.png' };
+            const sigMap = { signal1: '/assets/apk_previews/px_r4giconsr.jpg', signal2: '/assets/apk_previews/px_r4giconsr.jpg' };
+            const batMap = { bat1: '/assets/apk_previews/px_bf.png', bat2: '/assets/apk_previews/px_bbg.png' };
+            if (wifiImg) {
+                const wUrl = wifiMap[tweaks.statusbar_wifi_style] || (spec.plugin_id === 'glass_dn' ? wifiMap.gla_wifi : (spec.plugin_id === 'project_x' ? wifiMap.wifi1 : null));
+                if (wUrl) { wifiImg.src = wUrl; wifiImg.classList.remove('hidden'); } else { wifiImg.classList.add('hidden'); }
+            }
+            if (sigImg) {
+                const sUrl = sigMap[tweaks.statusbar_signal_style] || (spec.plugin_id === 'project_x' ? sigMap.signal1 : null);
+                if (sUrl) { sigImg.src = sUrl; sigImg.classList.remove('hidden'); } else { sigImg.classList.add('hidden'); }
+            }
+            if (batImg) {
+                const bUrl = batMap[tweaks.statusbar_battery_style] || (spec.plugin_id === 'project_x' ? batMap.bat1 : null);
+                if (bUrl) { batImg.src = bUrl; batImg.classList.remove('hidden'); } else { batImg.classList.add('hidden'); }
             }
 
             const radiusMap = { default: '22px', '1roundnoti': '2px', '2roundnoti': '6px', '3roundnoti': '12px', '4roundnoti': '18px' };
@@ -3387,32 +3645,32 @@
                 }
             }
 
-            // Render Samsung My Files & One UI 9.0 Power Menu inside Phone Simulator using APP_STATE.app_png_suites
+            // Render Samsung My Files, Power Menu & Apps/Lockscreen inside Phone Simulator using APP_STATE.app_png_suites
             if (APP_STATE.app_png_suites && APP_STATE.app_png_suites.suites) {
                 const appSuites = APP_STATE.app_png_suites;
                 const frameTxt = appSuites.settframe ? 'Frameless' : 'With Frame';
-                const isVecApp = !!appSuites.vector_only;
 
                 const mfFrameBtn = document.getElementById('prev-myfiles-frame-btn');
                 if (mfFrameBtn) mfFrameBtn.textContent = frameTxt;
                 const pwFrameBtn = document.getElementById('prev-power-frame-btn');
                 if (pwFrameBtn) pwFrameBtn.textContent = frameTxt;
 
-                const renderAppPreviewItem = (suiteKey, item, sizePx = 32) => {
-                    const frameBorderStyle = (!appSuites.settframe && isVecApp)
+                const renderAppPreviewItem = (suiteObj, item, sizePx = 32) => {
+                    const suiteVec = !!(suiteObj && suiteObj.vector_only);
+                    const frameBorderStyle = (!appSuites.settframe && suiteVec)
                         ? `background: transparent; border: 1.5px solid ${item.fg_color}; border-radius: 10px;`
                         : 'background: transparent; border: none;';
-                    const visualHtml = (!isVecApp && item.active_png_uri)
+                    const visualHtml = (!suiteVec && item.active_png_uri)
                         ? `<img src="${item.active_png_uri}" alt="${item.title}" style="width:${sizePx}px; height:${sizePx}px;" class="object-contain">`
                         : `<svg width="${Math.round(sizePx * 0.62)}" height="${Math.round(sizePx * 0.62)}" viewBox="0 0 24 24" fill="${item.fg_color}" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="${item.filled_svg_path}"/></svg>`;
-                    return { frameBorderStyle, visualHtml };
+                    return { frameBorderStyle, visualHtml, suiteVec };
                 };
 
                 const myfilesSuite = appSuites.suites.myfiles;
                 const myfilesGrid = document.getElementById('prev-myfiles-categories-grid');
                 if (myfilesSuite && myfilesGrid) {
                     myfilesGrid.innerHTML = (myfilesSuite.items || []).map(item => {
-                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem('myfiles', item, 32);
+                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem(myfilesSuite, item, 32);
                         return `
                             <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('myfiles', '${item.id}');" class="p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 flex items-center gap-2.5 cursor-pointer transition-all">
                                 <div class="w-8 h-8 flex items-center justify-center shrink-0" style="${frameBorderStyle}">
@@ -3431,14 +3689,71 @@
                 const powerGrid = document.getElementById('prev-powermenu-grid');
                 if (powerSuite && powerGrid) {
                     powerGrid.innerHTML = (powerSuite.items || []).map(item => {
-                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem('powermenu', item, 42);
+                        const { frameBorderStyle, visualHtml, suiteVec } = renderAppPreviewItem(powerSuite, item, 42);
                         return `
                             <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('powermenu', '${item.id}');" class="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 flex flex-col items-center text-center gap-1.5 cursor-pointer transition-all">
                                 <div class="w-11 h-11 flex items-center justify-center" style="${frameBorderStyle}">
                                     ${visualHtml}
                                 </div>
                                 <div class="text-[11px] font-semibold text-white leading-tight">${item.title}</div>
-                                <div class="text-[9px] font-mono text-slate-400 truncate max-w-full">${isVecApp ? `${item.res_name}.xml` : `${item.res_name}.png`}</div>
+                                <div class="text-[9px] font-mono text-slate-400 truncate max-w-full">${suiteVec ? `${item.res_name}.xml` : `${item.res_name}.png`}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                // Render Screen 7: Gallery, Device Care, Home Dock, Lockscreen Clock & Toast .PNGs
+                const lockClockImg = document.getElementById('prev-apps-lockclock-img');
+                const lockClockLbl = document.getElementById('prev-apps-lockclock-label');
+                const toastImg = document.getElementById('prev-apps-toast-img');
+                const toastLbl = document.getElementById('prev-apps-toast-label');
+                const clockStyle = tweaks.lockscreen_clock_style || 'clock1';
+                const toastStyle = tweaks.toast_frame_style || 'toast1';
+                if (lockClockImg) lockClockImg.src = clockStyle === 'clock2' ? '/assets/apk_previews/px_mcls.png' : '/assets/apk_previews/px_lscs.png';
+                if (lockClockLbl) lockClockLbl.textContent = clockStyle;
+                if (toastImg) toastImg.src = toastStyle === 'toast2' ? '/assets/apk_previews/px_notif.png' : '/assets/apk_previews/px_tpcrt.png';
+                if (toastLbl) toastLbl.textContent = toastStyle;
+
+                const galSuite = appSuites.suites.gallery3d || appSuites.suites.gallery || Object.values(appSuites.suites)[5];
+                const careSuite = appSuites.suites.device_care || appSuites.suites.devicecare || Object.values(appSuites.suites)[2];
+                const galCareGrid = document.getElementById('prev-apps-gallery-care-grid');
+                const appsModeBadge = document.getElementById('prev-apps-suite-mode-badge');
+                if (appsModeBadge && galSuite) {
+                    appsModeBadge.textContent = galSuite.vector_only ? 'PALETTE VECTOR' : `${(galSuite.active_skin || 'px').toUpperCase()} .PNG`;
+                    appsModeBadge.className = galSuite.vector_only ? 'text-emerald-300 font-bold' : 'text-amber-300 font-bold';
+                }
+                if (galCareGrid) {
+                    const combined = [
+                        ...((galSuite && galSuite.items) || []).map(it => ({ suite: galSuite, item: it })),
+                        ...((careSuite && careSuite.items) || []).slice(0, 2).map(it => ({ suite: careSuite, item: it }))
+                    ];
+                    galCareGrid.innerHTML = combined.map(({ suite, item }) => {
+                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem(suite, item, 28);
+                        return `
+                            <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('${suite.id}', '${item.id}');" class="p-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 flex items-center gap-2 cursor-pointer transition-all">
+                                <div class="w-7 h-7 flex items-center justify-center shrink-0" style="${frameBorderStyle}">
+                                    ${visualHtml}
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-semibold text-white truncate">${item.title}</div>
+                                    <div class="text-[8px] font-mono text-slate-400 truncate">${suite.title}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+
+                const launcherSuite = appSuites.suites.launcher;
+                const dockEl = document.getElementById('prev-apps-launcher-dock');
+                if (launcherSuite && dockEl) {
+                    dockEl.innerHTML = (launcherSuite.items || []).map(item => {
+                        const { frameBorderStyle, visualHtml } = renderAppPreviewItem(launcherSuite, item, 32);
+                        return `
+                            <div onclick="switchTab('settings-icons'); inspectAppPngDrawable('launcher', '${item.id}');" class="flex flex-col items-center gap-1 cursor-pointer group" title="${item.title}">
+                                <div class="w-9 h-9 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform" style="${frameBorderStyle}">
+                                    ${visualHtml}
+                                </div>
+                                <span class="text-[8px] font-mono text-slate-300 truncate max-w-[48px]">${item.title.replace(' App', '')}</span>
                             </div>
                         `;
                     }).join('');
@@ -3741,8 +4056,14 @@
                     ACTIVE_APP_PNG_SUITE_ID = suiteKeys[0];
                 }
                 const currentSuite = suitesMap[ACTIVE_APP_PNG_SUITE_ID];
-                const isVectorSuite = !!app_png_suites.vector_only;
-                const activeSuiteSkin = (app_png_suites.active_skin || 'terpsichora').toUpperCase();
+                const isVectorSuite = currentSuite ? !!currentSuite.vector_only : !!app_png_suites.vector_only;
+                const activeSuiteSkin = ((currentSuite && currentSuite.active_skin) || app_png_suites.active_skin || 'terpsichora').toUpperCase();
+
+                const suiteModeSel = document.getElementById('select-current-suite-mode');
+                if (suiteModeSel && currentSuite) {
+                    const perSuiteModes = (APP_STATE.spec && APP_STATE.spec.extra_tweaks && APP_STATE.spec.extra_tweaks.per_suite_modes) || {};
+                    suiteModeSel.value = perSuiteModes[ACTIVE_APP_PNG_SUITE_ID] || 'global';
+                }
 
                 const skinPill = document.getElementById('app-suites-active-skin-pill');
                 if (skinPill) {
@@ -3759,15 +4080,16 @@
                         : 'WITH FRAME • ZERO INNER COLOR • ALWAYS FILLED-IN';
                 }
 
+                const globalVec = !!app_png_suites.vector_only;
                 const skinBtnMap = {
-                    'app-suite-skin-btn-terp': !isVectorSuite && app_png_suites.active_skin === 'terpsichora',
-                    'app-suite-skin-btn-mimi': !isVectorSuite && app_png_suites.active_skin === 'mimi',
-                    'app-suite-skin-btn-px': !isVectorSuite && app_png_suites.active_skin === 'projectx',
-                    'app-suite-skin-btn-blend': !isVectorSuite && app_png_suites.active_skin === 'blend',
-                    'app-suite-skin-btn-glass': !isVectorSuite && app_png_suites.active_skin === 'glass',
-                    'app-suite-skin-btn-ayos': !isVectorSuite && app_png_suites.active_skin === 'ayos',
-                    'app-suite-skin-btn-aosp': !isVectorSuite && app_png_suites.active_skin === 'aosp',
-                    'app-suite-skin-btn-vec': isVectorSuite
+                    'app-suite-skin-btn-terp': !globalVec && app_png_suites.active_skin === 'terpsichora',
+                    'app-suite-skin-btn-mimi': !globalVec && app_png_suites.active_skin === 'mimi',
+                    'app-suite-skin-btn-px': !globalVec && (app_png_suites.active_skin === 'px' || app_png_suites.active_skin === 'projectx'),
+                    'app-suite-skin-btn-blend': !globalVec && app_png_suites.active_skin === 'blend',
+                    'app-suite-skin-btn-glass': !globalVec && app_png_suites.active_skin === 'glass',
+                    'app-suite-skin-btn-ayos': !globalVec && app_png_suites.active_skin === 'ayos',
+                    'app-suite-skin-btn-aosp': !globalVec && app_png_suites.active_skin === 'aosp',
+                    'app-suite-skin-btn-vec': globalVec
                 };
                 Object.entries(skinBtnMap).forEach(([btnId, isAct]) => {
                     const b = document.getElementById(btnId);

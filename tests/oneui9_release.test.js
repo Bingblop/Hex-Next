@@ -7,9 +7,11 @@ const path = require('node:path');
 
 const {
   CATALOG,
+  DRIVE_APK_PNG_GALLERY,
   resolveSettingsDashboardIcons,
   resolveAppPngSuites,
   resolveQuickSettingsOverlay,
+  verifyAllPluginsForOneUi9,
   buildThemeJsonObject,
   buildSignedUniversalReleaseApk,
   handleCompile,
@@ -41,7 +43,7 @@ test('Theme Plugins search filters plugins by name (case-insensitive), id, and h
   assert.equal(filterThemePluginsByName(allPlugins, 'nonexistent_theme_plugin_xyz').length, 0);
 });
 
-test('Catalog contains all 5 Google Drive APKs + MIMI + Terpsichora for One UI 9.0', () => {
+test('Catalog contains all 5 Google Drive APKs + MIMI + Terpsichora for One UI 9.0 with valid logo URLs on disk', () => {
   const pluginIds = Object.keys(CATALOG.HEX_PLUGINS);
   const requiredPlugins = [
     'project_x',
@@ -54,6 +56,44 @@ test('Catalog contains all 5 Google Drive APKs + MIMI + Terpsichora for One UI 9
   ];
   for (const id of requiredPlugins) {
     assert.ok(pluginIds.includes(id), `Expected HEX_PLUGINS to include ${id}`);
+  }
+  for (const driveId of ['project_x', 'blend_dn', 'glass_dn', 'ayos_dark', 'aosp_r']) {
+    const p = CATALOG.HEX_PLUGINS[driveId];
+    assert.ok(p.logo_url && p.logo_url.startsWith('/assets/apk_previews/'), `Expected logo_url on ${driveId}`);
+    const diskPath = path.join(__dirname, '..', 'public', p.logo_url.replace(/^\//, ''));
+    assert.ok(fs.existsSync(diskPath), `Expected ${diskPath} to exist on disk`);
+  }
+});
+
+test('One UI 9.0 Extensive Plugin Verification Suite passes all 104 checks across all 13 plugins and verifies all extracted APK .PNG files', () => {
+  const report = verifyAllPluginsForOneUi9();
+  assert.equal(report.all_passed, true);
+  assert.equal(report.total_plugins, 13);
+  assert.equal(report.passed_plugins, 13);
+  assert.equal(report.total_checks, 104);
+  assert.equal(report.passed_checks, 104);
+  assert.equal(report.disk_assets.all_present, true);
+  assert.ok(report.disk_assets.present >= 34);
+
+  for (const pluginResult of report.results) {
+    assert.equal(pluginResult.compatible_oneui9, true, `Plugin ${pluginResult.plugin_id} failed One UI 9.0 compatibility check`);
+    assert.equal(pluginResult.passed_count, 8);
+  }
+});
+
+test('Drive APK Fixed .PNG Gallery exposes all 28 interactive .PNG options across 5 categories with real extracted PNG assets on disk', () => {
+  assert.equal(DRIVE_APK_PNG_GALLERY.length, 28);
+  const categories = new Set(DRIVE_APK_PNG_GALLERY.map(i => i.category));
+  for (const expectedCat of ['settings', 'qs', 'statusbar', 'comms', 'sysapps']) {
+    assert.ok(categories.has(expectedCat), `Expected category ${expectedCat}`);
+  }
+
+  for (const item of DRIVE_APK_PNG_GALLERY) {
+    assert.ok(item.id && item.title && item.plugin_id && item.preview_url);
+    const assetDiskPath = path.join(__dirname, '..', 'public', item.preview_url.replace(/^\//, ''));
+    assert.ok(fs.existsSync(assetDiskPath), `Expected gallery PNG ${assetDiskPath} to exist on disk`);
+    const stat = fs.statSync(assetDiskPath);
+    assert.ok(stat.size > 100, `Expected non-empty PNG file for ${item.id}`);
   }
 });
 
@@ -129,7 +169,7 @@ test('Settings Dashboard Icons support both Fixed APK .PNGs (Framed & Frameless,
   assert.equal(conn.always_filled, true);
 });
 
-test('8 Samsung System App Suites (38 drawables) resolve Fixed APK .PNGs (Framed & Frameless) and Color Palette Vector mode', () => {
+test('8 Samsung System App Suites (38 drawables) resolve Fixed APK .PNGs (Framed & Frameless), Color Palette Vector mode, and Per-Suite Overrides', () => {
   const suitesBundle = resolveAppPngSuites({
     plugin_id: 'project_x',
     accent: '#00E5FF',
@@ -145,17 +185,43 @@ test('8 Samsung System App Suites (38 drawables) resolve Fixed APK .PNGs (Framed
   assert.equal(suitesBundle.total_suites, 8);
   assert.equal(suitesBundle.total_drawables, 38);
   assert.equal(suitesBundle.active_skin, 'px');
+  assert.equal(suitesBundle.vector_only, false);
 
   for (const suite of Object.values(suitesBundle.suites)) {
     assert.equal(suite.active_skin, 'px');
+    assert.equal(suite.vector_only, false);
     for (const item of suite.items) {
       assert.equal(item.use_png, true);
       assert.equal(item.always_filled, true);
       assert.equal(item.no_frame_fill, true);
       assert.equal(item.frame_bg, 'transparent');
       assert.ok(item.active_png_uri.startsWith('data:image/png;base64,'));
+      assert.ok(item.filled_svg_path && item.filled_svg_path.length > 10);
     }
   }
+
+  // Test Per-Suite individual mode override (e.g., My Files in Vector mode, Power Menu in Glass .PNG mode)
+  const mixedSuitesBundle = resolveAppPngSuites({
+    plugin_id: 'project_x',
+    accent: '#00E5FF',
+    secondary: '#FF2A85',
+    extra_tweaks: {
+      settings_icon_style: 'px_style1',
+      settframe: false,
+      use_apk_png_icons: true,
+      app_png_pack_mode: 'projectx_png',
+      per_suite_modes: {
+        myfiles: 'vector',
+        powermenu: 'glass',
+      },
+    },
+  });
+
+  assert.equal(mixedSuitesBundle.suites.myfiles.vector_only, true);
+  assert.equal(mixedSuitesBundle.suites.myfiles.items[0].use_png, false);
+  assert.equal(mixedSuitesBundle.suites.powermenu.vector_only, false);
+  assert.equal(mixedSuitesBundle.suites.powermenu.active_skin, 'glass');
+  assert.equal(mixedSuitesBundle.suites.powermenu.items[0].use_png, true);
 
   // Test Color Palette Vector override across all 8 suites
   const vectorSuitesBundle = resolveAppPngSuites({
@@ -171,7 +237,9 @@ test('8 Samsung System App Suites (38 drawables) resolve Fixed APK .PNGs (Framed
   });
 
   assert.equal(vectorSuitesBundle.use_png, false);
+  assert.equal(vectorSuitesBundle.vector_only, true);
   for (const suite of Object.values(vectorSuitesBundle.suites)) {
+    assert.equal(suite.vector_only, true);
     for (const item of suite.items) {
       assert.equal(item.use_png, false);
       assert.equal(item.fg_color, '#00E5FF');
@@ -181,19 +249,19 @@ test('8 Samsung System App Suites (38 drawables) resolve Fixed APK .PNGs (Framed
   }
 });
 
-test('Safe One UI 9.0 Quick Settings Overlay generates crash-free drawable XML for all tiles, brightness bars, and volume panels', () => {
+test('Safe One UI 9.0 Quick Settings Overlay generates crash-free drawable XML for all tiles, brightness bars, and volume panels (including aliases)', () => {
   const shapes = Object.keys(CATALOG.HEX_QS_TOGGLE_SHAPES);
   const baseQs = resolveQuickSettingsOverlay({});
   const bStyles = baseQs.brightness_styles.map(b => b.id);
   const vStyles = baseQs.volume_styles.map(v => v.id);
 
   assert.ok(shapes.length >= 11);
-  assert.ok(bStyles.length >= 1);
-  assert.ok(vStyles.length >= 1);
+  assert.equal(bStyles.length, 7);
+  assert.equal(vStyles.length, 6);
 
   for (const tile_shape of shapes) {
-    for (const brightness_bar_style of bStyles) {
-      for (const volume_panel_style of vStyles) {
+    for (const brightness_bar_style of [...bStyles, 'px_rbb_neon', 'blend_gradient_bar', 'glass_frosted_bar']) {
+      for (const volume_panel_style of [...vStyles, 'px_vpanel_cyber', 'blend_vpanel_grad', 'glass_vpanel_frost']) {
         const qs = resolveQuickSettingsOverlay({
           tile_shape,
           accent: '#38BDF8',
@@ -205,9 +273,11 @@ test('Safe One UI 9.0 Quick Settings Overlay generates crash-free drawable XML f
           },
         });
         assert.equal(qs.safe_for_oneui9, true);
+        assert.ok(qs.brightness_style && qs.brightness_style.id);
+        assert.ok(qs.volume_style && qs.volume_style.id);
         assert.ok(qs.qs_tile_drawable_xml.includes('<shape') || qs.qs_tile_drawable_xml.includes('<layer-list'));
-        assert.ok(qs.brightness_progress_xml.includes('<layer-list'));
-        assert.ok(qs.volume_panel_drawable_xml.includes('<layer-list'));
+        assert.ok(qs.brightness_progress_xml.includes('<layer-list') && !qs.brightness_progress_xml.includes('undefined'));
+        assert.ok(qs.volume_panel_drawable_xml.includes('<layer-list') && !qs.volume_panel_drawable_xml.includes('undefined'));
         assert.ok(qs.qs_dimens_xml.includes('sec_brightness_slider_height'));
       }
     }
@@ -257,7 +327,7 @@ test('Signed Universal Release APK supports 64-bit & 32-bit ABIs, English-only l
   assert.ok(apkText.includes('META-INF/HEXNEXT.RSA'));
 });
 
-test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadata and CI/Release artifacts', () => {
+test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadata, Drive APK gallery, and plugin verification report', () => {
   const fullState = handleCompile({
     plugin_id: 'blend_dn',
     accent: '#6C5CE7',
@@ -268,8 +338,8 @@ test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadat
     tile_shape: 'blend_gradient_pill',
     extra_tweaks: {
       settings_icon_style: 'blend_frame',
-      brightness_bar_style: 'blend_dual_neon',
-      volume_panel_style: 'blend_vertical_pill',
+      brightness_bar_style: 'blend_gradient',
+      volume_panel_style: 'blend_vol',
       settframe: false,
       use_apk_png_icons: true,
       app_png_pack_mode: 'auto_skin',
@@ -280,6 +350,10 @@ test('Full handleCompile and buildThemeJsonObject include all One UI 9.0 metadat
   assert.equal(fullState.app_png_suites.total_suites, 8);
   assert.equal(fullState.app_png_suites.total_drawables, 38);
   assert.equal(fullState.quick_settings.safe_for_oneui9, true);
+  assert.equal(fullState.qs_overlay.safe_for_oneui9, true);
+  assert.equal(fullState.drive_apk_gallery.total_items, 28);
+  assert.equal(fullState.plugin_verification_report.all_passed, true);
+  assert.equal(fullState.plugin_verification_report.passed_checks, 104);
   assert.equal(fullState.monet.total_shades, 65);
   assert.equal(fullState.monet.total_roles, 23);
   assert.deepEqual(fullState.release_readiness.architectures.abis_64_bit, ['arm64-v8a', 'x86_64']);
