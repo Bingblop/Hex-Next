@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -23,6 +24,23 @@ SIGNATURES = "\n".join(
     f"Verified using v{scheme} scheme (test): true" for scheme in (1, 2, 3)
 )
 
+def elf_library(abi, alignment=16384):
+    elf_class, machine = release_apk.ELF_ABIS[abi]
+    header_size = 64 if elf_class == 2 else 52
+    entry_size = 56 if elf_class == 2 else 32
+    data = bytearray(header_size + entry_size)
+    data[:6] = b"\x7fELF" + bytes((elf_class, 1))
+    struct.pack_into("<H", data, 18, machine)
+    if elf_class == 2:
+        struct.pack_into("<Q", data, 32, header_size)
+        struct.pack_into("<HH", data, 54, entry_size, 1)
+        struct.pack_into("<Q", data, header_size + 48, alignment)
+    else:
+        struct.pack_into("<I", data, 28, header_size)
+        struct.pack_into("<HH", data, 42, entry_size, 1)
+    struct.pack_into("<I", data, header_size, 1)
+    return bytes(data)
+
 
 class ReleaseApkTest(unittest.TestCase):
     def setUp(self):
@@ -37,7 +55,7 @@ class ReleaseApkTest(unittest.TestCase):
             archive.writestr("classes.dex", dex)
             archive.writestr("resources.arsc", b"compiled")
             for abi in abis:
-                archive.writestr(f"lib/{abi}/library.so", b"native")
+                archive.writestr(f"lib/{abi}/library.so", elf_library(abi))
 
     def verify(self, badging=BADGING, signatures=SIGNATURES, **kwargs):
         with patch.object(release_apk, "sdk_tool", side_effect=lambda name: name), \
@@ -58,10 +76,26 @@ class ReleaseApkTest(unittest.TestCase):
         result, _ = self.verify()
         self.assertEqual(set(result["native_abis"]), release_apk.ABIS)
 
+    def test_sdk_major_minor_zero_format_is_supported(self):
+        result, _ = self.verify(badging=BADGING.replace("'34'", "'34.0'").replace("'36'", "'36.0'"))
+        self.assertEqual(result["target_sdk"], 36)
+
     def test_partial_native_abis_are_rejected(self):
         self.write_apk(abis=["arm64-v8a"])
         with self.assertRaisesRegex(ValueError, "not universal"):
             self.verify()
+
+    def test_each_native_library_must_cover_all_abis(self):
+        self.write_apk(abis=release_apk.ABIS)
+        with zipfile.ZipFile(self.apk, "a") as archive:
+            archive.writestr("lib/arm64-v8a/extra.so", elf_library("arm64-v8a"))
+        with self.assertRaisesRegex(ValueError, "missing universal ABI"):
+            self.verify()
+
+    def test_native_stubs_and_small_page_alignment_are_rejected(self):
+        for data in (bytes(128), elf_library("arm64-v8a", alignment=4096)):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                release_apk.verify_native_library(data, "arm64-v8a")
 
     def test_placeholder_manifest_and_dex_are_rejected(self):
         self.write_apk(manifest=b"<manifest/>")

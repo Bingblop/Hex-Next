@@ -40,7 +40,7 @@ or in an ignored `android/keystore.properties` file using the same names. Then r
 
 The output is `dist/HexNext_OneUI9_Universal_EN_Signed.apk`, with a SHA-256 checksum and a verification
 report. The build runs unit tests and release lint, and verifies compiled resources, launcher,
-SDK versions, universal architecture coverage, ZIP alignment, and real v1/v2/v3 signatures.
+SDK versions, universal architecture coverage, 16 KB ELF/ZIP alignment, and real v1/v2/v3 signatures.
 Missing or incomplete signing configuration fails; there is no debug-key or generated-key fallback.
 
 For GitHub publishing, configure repository Actions secrets `HEXNEXT_KEYSTORE_BASE64` (the Base64
