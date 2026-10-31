@@ -79,6 +79,96 @@
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 6px;
         }
+        /* Smooth RRO Build Process Status Indicator Transitions & Console Animations */
+        .rro-status-pill {
+            transition:
+                background-color 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                border-color 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                color 320ms ease,
+                transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 260ms ease;
+        }
+        .rro-status-pill .rro-status-dot {
+            transition:
+                background-color 280ms ease,
+                transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 280ms ease;
+        }
+        .rro-status-queued {
+            background-color: rgba(15, 23, 42, 0.75);
+            border-color: rgba(51, 65, 85, 0.65);
+            color: #94A3B8;
+            transform: scale(0.98);
+        }
+        .rro-status-processing {
+            background-color: rgba(8, 51, 68, 0.85) !important;
+            border-color: rgba(34, 211, 238, 0.95) !important;
+            color: #ECFEFF !important;
+            transform: translateY(-1.5px) scale(1.04);
+            box-shadow: 0 0 14px rgba(34, 211, 238, 0.45), inset 0 0 8px rgba(34, 211, 238, 0.2);
+            z-index: 10;
+        }
+        .rro-status-compiled {
+            background-color: rgba(6, 78, 59, 0.42);
+            border-color: rgba(16, 185, 129, 0.6);
+            color: #A7F3D0;
+            transform: scale(1);
+            animation: rroCompiledFlash 520ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .rro-status-fault {
+            background-color: rgba(136, 19, 55, 0.48);
+            border-color: rgba(244, 63, 94, 0.75);
+            color: #FECDD3;
+            transform: scale(1);
+            animation: rroFaultFlash 560ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .rro-status-skipped {
+            background-color: rgba(15, 23, 42, 0.45);
+            border-color: rgba(30, 41, 59, 0.7);
+            color: #64748B;
+            opacity: 0.65;
+            transform: scale(0.97);
+        }
+        @keyframes rroCompiledFlash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.75);
+                transform: scale(1.06);
+            }
+            100% {
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+                transform: scale(1);
+            }
+        }
+        @keyframes rroFaultFlash {
+            0% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.85);
+                transform: translateX(-2px) scale(1.05);
+            }
+            40% {
+                transform: translateX(2px) scale(1.03);
+            }
+            100% {
+                box-shadow: 0 0 0 7px rgba(244, 63, 94, 0);
+                transform: translateX(0) scale(1);
+            }
+        }
+        @keyframes compilerLineSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .compiler-log-line {
+            animation: compilerLineSlideIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .compiler-progress-smooth {
+            transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1), background-color 280ms ease;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -141,10 +231,16 @@
                 <span>Build &amp; Apply RROs</span>
             </button>
 
-            <a href="/api/export/zip" onclick="showToast('Generating One UI 9.0 RRO Bundle ZIP (26 RROs + MIMI + Monet)...', 'cyan')" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
+            <button onclick="downloadThemeJson()" id="btn-export-theme-json" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-cyan-300 border border-cyan-500/40 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer" title="Download shareable theme.json configuration file for your customized One UI 9.0 theme">
+                <svg class="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                <span>theme.json</span>
+            </button>
+
+            <a href="/api/export/zip" onclick="showToast('Generating One UI 9.0 RRO Bundle ZIP (26 RROs + MIMI + Monet + theme.json)...', 'cyan')" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
                 <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 <span class="hidden sm:inline">Export ZIP</span>
             </a>
+            <input type="file" id="input-import-theme-json" accept=".json,application/json" onchange="handleImportThemeJsonFile(event)" class="hidden">
         </div>
     </header>
 
@@ -287,6 +383,42 @@
                                 <span id="label-qs-alpha" class="text-cyan-400 tabular-nums">90%</span>
                             </div>
                             <input type="range" id="input-qs-alpha" min="45" max="100" value="90" oninput="updateSpecFromInputs()" class="w-full accent-cyan-400 cursor-pointer mt-1.5">
+                        </div>
+                    </div>
+
+                    <!-- Compact Real-Time Monet Strip & Jump Link to Full Live Palette Preview -->
+                    <div class="p-2.5 rounded-lg bg-[#111726] border border-cyan-500/30 space-y-2">
+                        <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+                            <span class="text-cyan-300 font-semibold flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                <span>Live Monet Seed Ribbon (65 Shades + 23 Roles)</span>
+                            </span>
+                            <button onclick="document.getElementById('studio-live-palette-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })" class="text-cyan-400 hover:text-cyan-200 underline cursor-pointer">
+                                Full Grid ↓
+                            </button>
+                        </div>
+                        <div id="studio-seed-mini-ribbon" class="grid grid-cols-13 gap-0.5 h-4 rounded overflow-hidden border border-white/10"></div>
+                    </div>
+
+                    <!-- Save & Share theme.json Configuration -->
+                    <div class="pt-3 border-t border-[#1E2738] space-y-2.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <label for="input-theme-name" class="text-[11px] font-mono text-slate-400 uppercase">Theme Profile Name (<code class="text-cyan-300">theme.json</code>)</label>
+                            <span class="font-mono text-[10px] text-emerald-400">Shareable Config</span>
+                        </div>
+                        <input type="text" id="input-theme-name" value="#hex_ Bodhi Default (One UI 9.0)" oninput="updateSpecFromInputs()" placeholder="Custom One UI 9.0 Theme Name" class="w-full bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="downloadThemeJson()" id="btn-studio-download-theme-json" class="col-span-2 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 font-mono font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer" title="Generate and download theme.json with all customized One UI 9.0 settings">
+                                <svg class="w-3.5 h-3.5 text-cyan-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                <span>Download theme.json</span>
+                            </button>
+                            <button onclick="copyThemeJson()" id="btn-studio-copy-theme-json" class="px-2.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-slate-200 font-mono text-xs flex items-center justify-center gap-1 transition-all cursor-pointer" title="Copy theme.json content to clipboard">
+                                <span>Copy JSON</span>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between gap-2 text-[10px] font-mono text-slate-400">
+                            <span>Includes colors, 26 icons, Monet &amp; 26 RROs</span>
+                            <button onclick="triggerImportThemeJson()" class="text-cyan-400 hover:text-cyan-300 underline cursor-pointer">Import theme.json ↑</button>
                         </div>
                     </div>
                 </div>
@@ -591,16 +723,127 @@
                     <div class="space-y-2 max-h-[290px] overflow-y-auto pr-1" id="insp-token-list"></div>
                 </div>
 
-                <!-- Live Privileged Transaction & Compiler Console -->
-                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
-                    <div class="flex items-center justify-between mb-2.5">
-                        <div>
-                            <h3 class="font-display font-bold text-sm text-white">From-Scratch RRO Transaction Log</h3>
-                            <p class="text-[11px] font-mono text-slate-400" id="log-timestamp">Ready</p>
+                <!-- Live Privileged Transaction & Animated RRO Compiler Console -->
+                <div id="compiler-console-card" class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3 transition-all duration-300">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span id="compiler-status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 transition-all duration-300"></span>
+                                <h3 class="font-display font-bold text-sm text-white">From-Scratch RRO Compiler Console</h3>
+                                <span id="compiler-status-badge" class="rro-status-pill px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 font-mono text-[10px] font-semibold text-emerald-300">
+                                    READY • 26 TARGETS
+                                </span>
+                            </div>
+                            <p class="text-[11px] font-mono text-slate-400 mt-0.5 truncate" id="log-timestamp">Ready</p>
                         </div>
-                        <span class="font-mono text-[11px] text-emerald-400 tabular-nums" id="log-duration">148 ms</span>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="runLiveCompilerStream(APP_STATE)" id="btn-replay-build-stream" class="px-2 py-1 rounded bg-[#131926] hover:bg-[#1E293B] border border-cyan-500/35 text-[10px] font-mono text-cyan-300 hover:text-cyan-200 flex items-center gap-1 cursor-pointer transition-colors" title="Replay real-time RRO package compilation stream">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Stream Pass</span>
+                            </button>
+                            <span class="font-mono text-[11px] text-emerald-400 tabular-nums" id="log-duration">148 ms</span>
+                        </div>
                     </div>
-                    <pre id="compiler-log-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-[210px] leading-relaxed"></pre>
+
+                    <!-- Real-Time Build Progress Bar & Active Package Ticker -->
+                    <div class="bg-[#090D15] border border-[#1E2738] rounded-lg p-2.5 space-y-2">
+                        <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="text-slate-400 shrink-0">Pipeline:</span>
+                                <span id="compiler-current-pkg-label" class="text-cyan-300 font-semibold truncate">All 26 One UI 9.0 RRO targets synchronized</span>
+                            </div>
+                            <span id="compiler-progress-counter" class="text-slate-300 tabular-nums shrink-0">26/26 (100%)</span>
+                        </div>
+                        <div class="w-full h-1.5 rounded-full bg-[#131926] overflow-hidden">
+                            <div id="compiler-progress-bar" class="h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-emerald-400 to-emerald-500" style="width: 100%"></div>
+                        </div>
+
+                        <!-- 26-Package Smooth Transition Status Indicator Strip -->
+                        <div id="compiler-pkg-indicator-strip" class="grid grid-cols-4 sm:grid-cols-6 gap-1 pt-1"></div>
+                    </div>
+
+                    <div id="compiler-log-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-[225px] overflow-y-auto leading-relaxed space-y-1"></div>
+                </div>
+            </div>
+
+            <!-- Full-Width Live Palette Preview Component (Real-Time 65 Monet Shades + 23 Material 3 Roles in Color Studio) -->
+            <div id="studio-live-palette-preview" class="lg:col-span-12 bg-[#0D111A] border border-cyan-500/40 rounded-xl p-5 space-y-5 shadow-lg shadow-cyan-950/10">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[#1E2738] pb-4">
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-500/15 border border-cyan-400/40 text-cyan-300 font-mono text-[10px] font-bold">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                                <span>LIVE PALETTE PREVIEW</span>
+                            </span>
+                            <span class="font-mono text-xs text-emerald-300">65 Monet Shades (5×13) + 23 Material 3 Dark Roles</span>
+                            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-[#131926] text-slate-300 border border-[#263248]">
+                                Overrides <code class="text-cyan-300">android:SemWT_MonetPalette</code>
+                            </span>
+                        </div>
+                        <h3 class="font-display font-bold text-base text-white mt-1">
+                            Real-Time Android 16 / One UI 9.0 Dynamic Color Matrix (<code class="font-mono text-cyan-300">HexNextMonetShades</code>)
+                        </h3>
+                        <p class="text-xs text-slate-400">
+                            Modify the <strong>Primary Seed</strong> color, scheme variant, or AMOLED mode to watch all <strong>65 tonal shades</strong> and <strong>23 Material 3 roles</strong> recalculate instantaneously. Click any swatch to copy its resource token and hex value.
+                        </p>
+                    </div>
+
+                    <!-- Synchronized Real-Time Seed & Variant Controls -->
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <div class="flex items-center gap-2 bg-[#131926] border border-cyan-500/40 rounded-lg px-2.5 py-1.5">
+                            <input type="color" id="live-palette-seed-input" value="#00E5FF" oninput="onLivePaletteSeedInput(this.value)" class="w-7 h-7 cursor-pointer shrink-0" title="Drag to modify Seed Color in real time">
+                            <div>
+                                <div class="text-[9px] font-mono text-slate-400 uppercase">Seed Color</div>
+                                <div id="live-palette-seed-label" class="font-mono text-xs font-bold text-cyan-300 tabular-nums">#00E5FF</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-1.5">
+                            <div class="text-[9px] font-mono text-slate-400 uppercase">Scheme Variant</div>
+                            <select id="live-palette-style-select" onchange="onLivePaletteStyleChange(this.value)" class="bg-transparent font-mono text-xs font-semibold text-white focus:outline-none cursor-pointer"></select>
+                        </div>
+
+                        <label class="bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-2 flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="live-palette-amoled-toggle" checked onchange="onLivePaletteAmoledChange(this.checked)" class="w-3.5 h-3.5 accent-cyan-400 cursor-pointer">
+                            <span class="font-mono text-xs text-slate-200">AMOLED #000</span>
+                        </label>
+
+                        <div class="flex items-center bg-[#090D14] p-1 rounded-lg border border-[#263248] text-[11px] font-mono">
+                            <button onclick="setLivePaletteViewMode('all')" id="live-pal-btn-all" class="px-2.5 py-1 rounded bg-[#1E293B] text-white cursor-pointer">
+                                All (88)
+                            </button>
+                            <button onclick="setLivePaletteViewMode('shades')" id="live-pal-btn-shades" class="px-2.5 py-1 rounded text-slate-400 hover:text-white cursor-pointer">
+                                65 Shades
+                            </button>
+                            <button onclick="setLivePaletteViewMode('roles')" id="live-pal-btn-roles" class="px-2.5 py-1 rounded text-slate-400 hover:text-white cursor-pointer">
+                                23 Roles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 1: Real-Time 65 Monet Shades Grid (5 Palettes × 13 Tonal Stops) -->
+                <div id="live-palette-shades-section" class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-cyan-300">65 Android 16 Monet Tonal Shades (5 Palettes × 13 Stops)</h4>
+                            <span id="live-palette-shades-count-badge" class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-200 border border-cyan-500/30">65/65 Active</span>
+                        </div>
+                        <span class="font-mono text-[11px] text-slate-400">Stops: 0 • 10 • 50 • 100 • 200 • 300 • 400 • 500 • 600 • 700 • 800 • 900 • 1000</span>
+                    </div>
+                    <div id="studio-live-monet-shades-grid" class="space-y-3"></div>
+                </div>
+
+                <!-- Section 2: Real-Time 23 Material 3 Dark Dynamic Roles Grid -->
+                <div id="live-palette-roles-section" class="pt-4 border-t border-[#1E2738] space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-emerald-300">23 Material 3 Dark Dynamic Roles (<code class="font-mono text-emerald-200">android:color/system_*_dark</code>)</h4>
+                            <span id="live-palette-roles-count-badge" class="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-500/30">23/23 Active</span>
+                        </div>
+                        <span class="font-mono text-[11px] text-slate-400">Fabricated above <code class="text-cyan-300">SemWT_G_MonetPalette</code> at priority=highest</span>
+                    </div>
+                    <div id="studio-live-monet-roles-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5"></div>
                 </div>
             </div>
 
@@ -1100,6 +1343,32 @@
                     <div class="text-xs font-mono text-slate-400 mb-1">res/drawable/sec_qs_tile_bg.xml (Rebuilt from assets/hex_qs_toggles)</div>
                     <pre id="code-drawable-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-amber-300 overflow-x-auto"></pre>
                 </div>
+
+                <!-- Live Shareable theme.json Configuration Inspector & Exporter -->
+                <div class="bg-[#0D111A] border border-cyan-500/35 rounded-xl p-4 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-display font-bold text-sm text-white">Shareable <code class="font-mono text-cyan-300">theme.json</code> Configuration</h3>
+                                <span class="px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 font-mono text-[10px] text-cyan-300">Schema v1.0.0</span>
+                            </div>
+                            <p class="text-xs text-slate-400">Complete portable snapshot of your customized One UI 9.0 theme settings, 26 Settings Icons, Monet palette &amp; RRO targets</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="triggerImportThemeJson()" class="px-2.5 py-1.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-slate-300 cursor-pointer">
+                                Import theme.json
+                            </button>
+                            <button onclick="copyThemeJson()" id="btn-code-copy-theme-json" class="px-2.5 py-1.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-cyan-300 cursor-pointer">
+                                Copy theme.json
+                            </button>
+                            <button onclick="downloadThemeJson()" class="px-3 py-1.5 rounded bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono font-bold text-xs flex items-center gap-1.5 cursor-pointer">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                <span>Download theme.json</span>
+                            </button>
+                        </div>
+                    </div>
+                    <pre id="code-theme-json-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3.5 font-mono text-[11px] text-cyan-200 overflow-x-auto max-h-[340px] leading-relaxed"></pre>
+                </div>
             </div>
         </div>
 
@@ -1135,10 +1404,13 @@
             <div id="release-audit-body" class="space-y-2.5 text-xs font-mono"></div>
             <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-[#1E2738]">
                 <span class="text-[11px] font-mono text-slate-400">Zero Theme Park • Zero High Contrast Overlays • priority=10000 &gt; SemWT_*</span>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <button onclick="closeReleaseAuditModal()" class="px-3 py-2 rounded-lg bg-[#131926] text-slate-300 text-xs font-medium cursor-pointer">Close</button>
                     <button onclick="runReleasePrepareAndRepair()" class="px-3.5 py-2 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display font-bold text-xs cursor-pointer">
                         Repair All &amp; Stabilize for Release
+                    </button>
+                    <button onclick="closeReleaseAuditModal(); downloadThemeJson();" class="px-3.5 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-cyan-500/40 text-cyan-300 font-display font-bold text-xs cursor-pointer">
+                        Download theme.json
                     </button>
                     <a href="/api/export/zip" onclick="closeReleaseAuditModal(); showToast('Exporting Production One UI 9.0 RRO ZIP Bundle...', 'cyan');" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-display font-bold text-xs">
                         Download Release ZIP
@@ -1265,11 +1537,14 @@
             });
             APP_STATE = await res.json();
             renderAll();
+            runLiveCompilerStream(APP_STATE);
             showToast(`Applied skin preset: ${plugin.name} (${APP_STATE.stats?.total_tokens || 247} tokens)`, 'cyan');
         }
 
         function updateSpecFromInputs() {
             if (!APP_STATE) return;
+            const themeNameEl = document.getElementById('input-theme-name');
+            const themeName = themeNameEl ? (themeNameEl.value.trim() || '#hex_ Custom One UI 9.0 Theme') : (APP_STATE.spec.name || '#hex_ Custom One UI 9.0 Theme');
             const accent = document.getElementById('input-accent').value.toUpperCase();
             const secondary = document.getElementById('input-secondary').value.toUpperCase();
             const surface = document.getElementById('input-surface').value.toUpperCase();
@@ -1284,6 +1559,7 @@
             document.getElementById('label-card').textContent = card;
             document.getElementById('label-qs-alpha').textContent = `${qsAlpha}%`;
 
+            APP_STATE.spec.name = themeName;
             APP_STATE.spec.accent = accent;
             APP_STATE.spec.secondary = secondary;
             APP_STATE.spec.surface = surface;
@@ -1293,7 +1569,131 @@
             APP_STATE.spec.style = style;
             APP_STATE.spec.qs_alpha = qsAlpha;
 
+            // Recalculate all 65 Monet shades and 23 Material 3 dark roles in real time on seed/style/AMOLED change
+            APP_STATE.monet = computeClientMonetPalette(accent, style, pureBlack);
+
+            if (APP_STATE.theme_json && APP_STATE.theme_json.theme) {
+                APP_STATE.theme_json.theme.name = themeName;
+                APP_STATE.theme_json.theme.palette_style = style;
+                APP_STATE.theme_json.theme.pure_black_amoled = pureBlack;
+                APP_STATE.theme_json.theme.qs_alpha = qsAlpha;
+                APP_STATE.theme_json.theme.colors = {
+                    accent,
+                    secondary,
+                    bg: APP_STATE.spec.bg,
+                    surface,
+                    card,
+                    qs_inactive: APP_STATE.spec.qs_inactive || '#1A2030'
+                };
+                APP_STATE.theme_json.spec = { ...APP_STATE.spec };
+                APP_STATE.theme_json.monet_palette = {
+                    seed: APP_STATE.monet.seed,
+                    style: APP_STATE.monet.style,
+                    pure_black: APP_STATE.monet.pure_black,
+                    total_shades: APP_STATE.monet.total_shades,
+                    total_roles: APP_STATE.monet.total_roles,
+                    roles_dark: APP_STATE.monet.roles_dark,
+                    flat_shades: APP_STATE.monet.flat_shades
+                };
+                const themeJsonBox = document.getElementById('code-theme-json-box');
+                if (themeJsonBox) {
+                    themeJsonBox.textContent = JSON.stringify(APP_STATE.theme_json, null, 2);
+                }
+            }
+
             renderPhoneSimulator();
+            renderLivePalettePreview();
+            renderMonetView();
+        }
+
+        function getFormattedThemeJsonString() {
+            if (!APP_STATE) return '{}';
+            const themeObj = APP_STATE.theme_json || {
+                schema_version: '1.0.0',
+                file_name: 'theme.json',
+                exported_at: new Date().toISOString(),
+                engine: 'HexNext One UI 9.0 From-Scratch RRO Compiler (Precedence > SemWT_*)',
+                spec: APP_STATE.spec
+            };
+            return JSON.stringify(themeObj, null, 2);
+        }
+
+        async function downloadThemeJson() {
+            if (!APP_STATE) return;
+            try {
+                // Ensure backend state reflects any live input edits before exporting theme.json
+                await fetch('/api/compile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(APP_STATE.spec)
+                });
+                const exportRes = await fetch('/api/export/theme.json');
+                const jsonText = await exportRes.text();
+                const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'theme.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+                // Refresh state so diagnostic log shows the export event
+                const stateRes = await fetch('/api/state');
+                APP_STATE = await stateRes.json();
+                renderAll();
+                showToast(`Downloaded theme.json — "${APP_STATE.spec?.name || 'One UI 9.0 Theme'}" ready to save & share!`, 'emerald');
+            } catch (err) {
+                const fallbackJson = getFormattedThemeJsonString();
+                const blob = new Blob([fallbackJson], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'theme.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                showToast('Downloaded theme.json configuration file', 'emerald');
+            }
+        }
+
+        async function copyThemeJson() {
+            const jsonText = getFormattedThemeJsonString();
+            try {
+                await navigator.clipboard.writeText(jsonText);
+                showToast('Copied shareable theme.json configuration to clipboard!', 'emerald');
+            } catch (_) {
+                showToast('Prepared theme.json configuration in Manifests & CLI tab', 'cyan');
+            }
+        }
+
+        function triggerImportThemeJson() {
+            const fileInput = document.getElementById('input-import-theme-json');
+            if (fileInput) {
+                fileInput.value = '';
+                fileInput.click();
+            }
+        }
+
+        async function handleImportThemeJsonFile(event) {
+            const file = event.target && event.target.files && event.target.files[0];
+            if (!file) return;
+            try {
+                const rawText = await file.text();
+                const parsed = JSON.parse(rawText);
+                const res = await fetch('/api/import/theme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parsed)
+                });
+                APP_STATE = await res.json();
+                renderAll();
+                showToast(`Imported theme.json: "${APP_STATE.spec?.name || file.name}" applied!`, 'emerald');
+            } catch (err) {
+                showToast('Invalid theme.json file — please select a valid One UI 9.0 theme.json configuration.', 'amber');
+            }
         }
 
         async function selectQsShape(shapeId) {
@@ -1304,7 +1704,7 @@
         async function compileAndApply() {
             const btn = document.getElementById('btn-compile');
             const origHtml = btn.innerHTML;
-            btn.innerHTML = '<span>Compiling RROs...</span>';
+            btn.innerHTML = '<span class="inline-block w-3 h-3 rounded-full border-2 border-slate-950 border-t-transparent animate-spin"></span><span>Compiling RROs...</span>';
             const res = await fetch('/api/compile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1313,6 +1713,7 @@
             APP_STATE = await res.json();
             btn.innerHTML = origHtml;
             renderAll();
+            await runLiveCompilerStream(APP_STATE);
             showToast(`Compiled ${APP_STATE.stats?.selected_packages || 22}/${APP_STATE.stats?.total_packages || 26} RROs (${APP_STATE.stats?.total_tokens || 247} tokens, priority=10000)`, 'emerald');
         }
 
@@ -2030,6 +2431,10 @@
             const inspAllRroCount = document.getElementById('insp-all-rro-count');
             if (inspAllRroCount) inspAllRroCount.textContent = packages.length;
 
+            const themeNameInput = document.getElementById('input-theme-name');
+            if (themeNameInput && document.activeElement !== themeNameInput) {
+                themeNameInput.value = spec.name || '#hex_ Bodhi Default (One UI 9.0)';
+            }
             document.getElementById('input-accent').value = spec.accent;
             document.getElementById('label-accent').textContent = spec.accent;
             document.getElementById('input-secondary').value = spec.secondary;
@@ -2050,6 +2455,7 @@
             renderPlugins();
             renderQsShapes();
             renderPhoneSimulator();
+            renderLivePalettePreview();
             renderInspector();
             renderLogs();
             renderSettingsIconsView();
@@ -2711,11 +3117,288 @@
             }).join('');
         }
 
+        let COMPILER_STREAM_RUN_ID = 0;
+        let IS_COMPILER_STREAMING = false;
+
+        function formatCompilerLogLineHtml(rawLine) {
+            const line = String(rawLine || '');
+            const isError = line.startsWith('[!]') || line.includes('COMPILE_FAILURE') || line.includes('IDMAP2_ERR');
+            const isSuccess = !isError && (line.startsWith('[✓]') || line.startsWith('[+]'));
+            const badgeHtml = isError
+                ? `<span class="px-1.5 py-0.2 rounded bg-rose-500/20 border border-rose-500/50 text-rose-300 text-[9px] font-bold shrink-0">FAULT</span>`
+                : (isSuccess
+                    ? `<span class="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold shrink-0">OK</span>`
+                    : `<span class="px-1.5 py-0.2 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[9px] font-bold shrink-0">STEP</span>`);
+            const textClass = isError ? 'text-rose-200' : (isSuccess ? 'text-emerald-200' : 'text-slate-300');
+            const rowBg = isError ? 'bg-rose-950/30 border-l-2 border-rose-500/70' : (isSuccess ? 'bg-emerald-950/15 border-l-2 border-emerald-500/60' : 'bg-white/[0.02] border-l-2 border-cyan-500/40');
+            const escaped = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            return `
+                <div class="compiler-log-line px-2 py-1 rounded-r ${rowBg} flex items-start gap-2">
+                    ${badgeHtml}
+                    <span class="${textClass} break-all">${escaped}</span>
+                </div>
+            `;
+        }
+
+        function renderCompilerIndicatorStrip(phaseMap = {}) {
+            const stripEl = document.getElementById('compiler-pkg-indicator-strip');
+            if (!stripEl || !APP_STATE || !Array.isArray(APP_STATE.packages)) return;
+            const pkgs = APP_STATE.packages;
+
+            stripEl.innerHTML = pkgs.map(pkg => {
+                const phase = phaseMap[pkg.id] || 'settled';
+                const isFailed = pkg.compile_status === 'failed';
+                const isSelected = !!pkg.selected;
+
+                let pillStateClass = 'rro-status-compiled';
+                let dotClass = 'bg-emerald-400';
+                let sym = '✓';
+                let statusHint = 'Compiled & Active (STATE_ENABLED)';
+
+                if (phase === 'queued') {
+                    pillStateClass = 'rro-status-queued';
+                    dotClass = 'bg-slate-500';
+                    sym = '•';
+                    statusHint = 'Queued in RRO Compiler Pipeline';
+                } else if (phase === 'processing') {
+                    pillStateClass = 'rro-status-processing';
+                    dotClass = 'bg-cyan-300 animate-ping';
+                    sym = '↻';
+                    statusHint = `Compiling ${pkg.system_rro_package} → ${pkg.target_package}...`;
+                } else if (isFailed) {
+                    pillStateClass = 'rro-status-fault';
+                    dotClass = 'bg-rose-400';
+                    sym = '✗';
+                    statusHint = `IDMAP2 Fault: ${pkg.failure_reason || 'Compile Error'}`;
+                } else if (!isSelected || pkg.compile_status === 'disabled') {
+                    pillStateClass = 'rro-status-skipped';
+                    dotClass = 'bg-slate-600';
+                    sym = '–';
+                    statusHint = 'Target Disabled (STATE_DISABLED)';
+                }
+
+                return `
+                    <button
+                        id="compiler-ind-${pkg.id}"
+                        onclick="inspectPackage('${pkg.id}')"
+                        title="${pkg.system_rro_package} (${pkg.target_package}) — ${statusHint}"
+                        class="rro-status-pill ${pillStateClass} px-1.5 py-1 rounded border flex items-center justify-between gap-1 text-[9px] font-mono cursor-pointer truncate">
+                        <span class="flex items-center gap-1 min-w-0 truncate">
+                            <span id="compiler-ind-dot-${pkg.id}" class="rro-status-dot w-1.5 h-1.5 rounded-full ${dotClass} shrink-0"></span>
+                            <span class="truncate">${pkg.id.slice(0, 7)}</span>
+                        </span>
+                        <span id="compiler-ind-sym-${pkg.id}" class="font-bold shrink-0">${sym}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function setPackageIndicatorPhase(pkg, phase) {
+            const pill = document.getElementById(`compiler-ind-${pkg.id}`);
+            const dot = document.getElementById(`compiler-ind-dot-${pkg.id}`);
+            const sym = document.getElementById(`compiler-ind-sym-${pkg.id}`);
+            const matrixChip = document.getElementById(`matrix-strip-chip-${pkg.id}`);
+
+            const isFailed = pkg.compile_status === 'failed';
+            const isSelected = !!pkg.selected;
+
+            const stateClasses = ['rro-status-queued', 'rro-status-processing', 'rro-status-compiled', 'rro-status-fault', 'rro-status-skipped'];
+
+            if (pill) {
+                pill.classList.remove(...stateClasses);
+                if (phase === 'queued') {
+                    pill.classList.add('rro-status-queued');
+                    if (dot) dot.className = 'rro-status-dot w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0';
+                    if (sym) sym.textContent = '•';
+                } else if (phase === 'processing') {
+                    pill.classList.add('rro-status-processing');
+                    if (dot) dot.className = 'rro-status-dot w-1.5 h-1.5 rounded-full bg-cyan-300 animate-ping shrink-0';
+                    if (sym) sym.textContent = '↻';
+                } else if (isFailed) {
+                    pill.classList.add('rro-status-fault');
+                    if (dot) dot.className = 'rro-status-dot w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0';
+                    if (sym) sym.textContent = '✗';
+                } else if (!isSelected || pkg.compile_status === 'disabled') {
+                    pill.classList.add('rro-status-skipped');
+                    if (dot) dot.className = 'rro-status-dot w-1.5 h-1.5 rounded-full bg-slate-600 shrink-0';
+                    if (sym) sym.textContent = '–';
+                } else {
+                    pill.classList.add('rro-status-compiled');
+                    if (dot) dot.className = 'rro-status-dot w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0';
+                    if (sym) sym.textContent = '✓';
+                }
+            }
+
+            if (matrixChip) {
+                matrixChip.classList.remove('rro-status-processing', 'rro-status-compiled', 'rro-status-fault');
+                if (phase === 'processing') {
+                    matrixChip.classList.add('rro-status-processing');
+                } else if (phase === 'settled') {
+                    matrixChip.classList.add(isFailed ? 'rro-status-fault' : 'rro-status-compiled');
+                }
+            }
+        }
+
+        async function runLiveCompilerStream(stateSnapshot) {
+            const state = stateSnapshot || APP_STATE;
+            if (!state || !Array.isArray(state.packages)) return;
+
+            const runId = ++COMPILER_STREAM_RUN_ID;
+            IS_COMPILER_STREAMING = true;
+
+            const pkgs = state.packages;
+            const total = pkgs.length;
+            const lb = state.last_build || {};
+            const cardEl = document.getElementById('compiler-console-card');
+            const dotEl = document.getElementById('compiler-status-dot');
+            const badgeEl = document.getElementById('compiler-status-badge');
+            const pkgLabelEl = document.getElementById('compiler-current-pkg-label');
+            const counterEl = document.getElementById('compiler-progress-counter');
+            const progressBarEl = document.getElementById('compiler-progress-bar');
+            const logBox = document.getElementById('compiler-log-box');
+
+            // Initialize all 26 indicators in QUEUED state
+            const queuedMap = {};
+            pkgs.forEach(p => { queuedMap[p.id] = 'queued'; });
+            renderCompilerIndicatorStrip(queuedMap);
+
+            if (cardEl) cardEl.classList.add('border-cyan-500/60', 'shadow-lg', 'shadow-cyan-950/20');
+            if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping transition-all duration-300';
+            if (badgeEl) {
+                badgeEl.className = 'rro-status-pill px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/60 font-mono text-[10px] font-semibold text-cyan-200';
+                badgeEl.textContent = 'COMPILING RROS...';
+            }
+            if (progressBarEl) {
+                progressBarEl.style.width = '4%';
+                progressBarEl.className = 'h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400';
+            }
+            if (logBox) {
+                logBox.innerHTML = '';
+                const headerLogs = [
+                    `[*] Starting One UI 9.0 From-Scratch RRO Compiler (Privilege: ${state.privilege?.mode || 'shizuku-uid1000'} / UID ${state.privilege?.uid ?? 1000})`,
+                    `[*] Fabricating 65 Monet shades + 23 Material 3 dark roles -> ${state.privilege?.owner_package || 'android'}:HexNextMonetShades (> SemWT_MonetPalette)`
+                ];
+                headerLogs.forEach(l => {
+                    logBox.insertAdjacentHTML('beforeend', formatCompilerLogLineHtml(l));
+                });
+            }
+
+            for (let i = 0; i < total; i++) {
+                if (runId !== COMPILER_STREAM_RUN_ID) return;
+                const pkg = pkgs[i];
+                const stepNum = String(i + 1).padStart(2, '0');
+                const pct = Math.round(((i + 1) / total) * 100);
+
+                // Transition current package indicator to PROCESSING
+                setPackageIndicatorPhase(pkg, 'processing');
+                if (pkgLabelEl) {
+                    pkgLabelEl.textContent = `[${stepNum}/${total}] Processing ${pkg.system_rro_package} → ${pkg.target_package}`;
+                }
+                if (counterEl) {
+                    counterEl.textContent = `${i + 1}/${total} (${pct}%)`;
+                }
+                if (badgeEl) {
+                    badgeEl.textContent = `BUILDING ${stepNum}/${total} • ${pkg.id.toUpperCase()}`;
+                }
+                if (progressBarEl) {
+                    progressBarEl.style.width = `${pct}%`;
+                }
+
+                await new Promise(r => setTimeout(r, 22));
+                if (runId !== COMPILER_STREAM_RUN_ID) return;
+
+                // Transition current package indicator smoothly to settled state (COMPILED / FAULT / SKIPPED)
+                setPackageIndicatorPhase(pkg, 'settled');
+
+                if (logBox) {
+                    let pkgLogLine;
+                    if (pkg.compile_status === 'failed') {
+                        pkgLogLine = `[!] [${stepNum}/${total}] COMPILE_FAILURE on ${pkg.system_rro_package} (${pkg.target_package}) -> ${pkg.failure_reason || 'IDMAP2 Fault'}: ${pkg.compile_error || 'Stale FRRO lock'}`;
+                    } else if (!pkg.selected || pkg.compile_status === 'disabled') {
+                        pkgLogLine = `[*] [${stepNum}/${total}] SKIPPED ${pkg.system_rro_package} (${pkg.target_package}) -> STATE_DISABLED`;
+                    } else {
+                        pkgLogLine = `[✓] [${stepNum}/${total}] COMPILED ${pkg.system_rro_package} -> ${pkg.target_package} (${pkg.resolved_resources?.length || 0} tokens | priority=10000 > ${pkg.semwt_target || 'SemWT_*'})`;
+                    }
+                    logBox.insertAdjacentHTML('beforeend', formatCompilerLogLineHtml(pkgLogLine));
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            }
+
+            if (runId !== COMPILER_STREAM_RUN_ID) return;
+            IS_COMPILER_STREAMING = false;
+
+            const activeCount = pkgs.filter(p => p.compile_status === 'active' && p.selected).length;
+            const failedCount = pkgs.filter(p => p.compile_status === 'failed').length;
+
+            if (cardEl) cardEl.classList.remove('border-cyan-500/60', 'shadow-lg', 'shadow-cyan-950/20');
+            if (failedCount > 0) {
+                if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse transition-all duration-300';
+                if (badgeEl) {
+                    badgeEl.className = 'rro-status-pill px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 font-mono text-[10px] font-semibold text-amber-200';
+                    badgeEl.textContent = `${activeCount}/${total} ACTIVE • ${failedCount} FAULT${failedCount === 1 ? '' : 'S'}`;
+                }
+                if (progressBarEl) {
+                    progressBarEl.className = 'h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-emerald-400 to-amber-400';
+                }
+            } else {
+                if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 transition-all duration-300';
+                if (badgeEl) {
+                    badgeEl.className = 'rro-status-pill px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 font-mono text-[10px] font-semibold text-emerald-300';
+                    badgeEl.textContent = `COMPLETE • ${activeCount}/${total} ACTIVE`;
+                }
+                if (progressBarEl) {
+                    progressBarEl.className = 'h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-emerald-400 to-emerald-500';
+                }
+            }
+            if (pkgLabelEl) {
+                pkgLabelEl.textContent = `Processed ${total}/${total} RRO packages (${activeCount} active, ${failedCount} failed)`;
+            }
+            if (logBox && Array.isArray(lb.logs)) {
+                const summaryLine = `[✓] Completed One UI 9.0 RRO transaction pass in ${lb.duration_ms || 148}ms (${state.stats?.total_tokens || 247} tokens prioritized above SemWT_*).`;
+                logBox.insertAdjacentHTML('beforeend', formatCompilerLogLineHtml(summaryLine));
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+        }
+
         function renderLogs() {
             const lb = APP_STATE.last_build;
             document.getElementById('log-timestamp').textContent = `Last Commit: ${lb.timestamp}`;
             document.getElementById('log-duration').textContent = `${lb.duration_ms} ms`;
-            document.getElementById('compiler-log-box').textContent = lb.logs.join('\n');
+
+            if (!IS_COMPILER_STREAMING) {
+                renderCompilerIndicatorStrip();
+                const pkgs = APP_STATE.packages || [];
+                const total = pkgs.length || 26;
+                const activeCount = pkgs.filter(p => p.compile_status === 'active' && p.selected).length;
+                const failedCount = pkgs.filter(p => p.compile_status === 'failed').length;
+                const dotEl = document.getElementById('compiler-status-dot');
+                const badgeEl = document.getElementById('compiler-status-badge');
+                const pkgLabelEl = document.getElementById('compiler-current-pkg-label');
+                const counterEl = document.getElementById('compiler-progress-counter');
+
+                if (counterEl) counterEl.textContent = `${total}/${total} (100%)`;
+                if (pkgLabelEl) pkgLabelEl.textContent = `Processed ${total}/${total} RRO packages (${activeCount} active, ${failedCount} failed)`;
+                if (badgeEl && dotEl) {
+                    if (failedCount > 0) {
+                        dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse transition-all duration-300';
+                        badgeEl.className = 'rro-status-pill px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/50 font-mono text-[10px] font-semibold text-amber-200';
+                        badgeEl.textContent = `${activeCount}/${total} ACTIVE • ${failedCount} FAULT${failedCount === 1 ? '' : 'S'}`;
+                    } else {
+                        dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 transition-all duration-300';
+                        badgeEl.className = 'rro-status-pill px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 font-mono text-[10px] font-semibold text-emerald-300';
+                        badgeEl.textContent = `READY • ${activeCount}/${total} ACTIVE`;
+                    }
+                }
+
+                const logBox = document.getElementById('compiler-log-box');
+                if (logBox) {
+                    logBox.innerHTML = (lb.logs || []).map(l => formatCompilerLogLineHtml(l)).join('');
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            }
             renderMatrixRecentLogs();
         }
 
@@ -3076,7 +3759,7 @@
                 stripEl.innerHTML = allPkgs.map(pkg => {
                     const meta = getOverlayStatusMeta(pkg);
                     return `
-                        <button onclick="focusMatrixCard('${pkg.id}')" class="relative px-2.5 py-1.5 rounded-lg border ${meta.chipClass} flex items-center justify-between gap-2 text-left transition-all cursor-pointer group" title="${meta.tooltipPlain}">
+                        <button id="matrix-strip-chip-${pkg.id}" onclick="focusMatrixCard('${pkg.id}')" class="rro-status-pill relative px-2.5 py-1.5 rounded-lg border ${meta.chipClass} flex items-center justify-between gap-2 text-left cursor-pointer group" title="${meta.tooltipPlain}">
                             ${meta.tooltipPopoverHtml}
                             <div class="flex items-center gap-1.5 min-w-0">
                                 ${meta.inlineIconHtml}
@@ -3233,6 +3916,312 @@
             }).join('');
         }
 
+        const CLIENT_MONET_SHADES = [0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+        let LIVE_PALETTE_VIEW_MODE = 'all';
+
+        function clientHexToRgb(hexStr) {
+            let clean = String(hexStr || '').trim().replace(/^#/, '');
+            if (clean.length === 8) clean = clean.slice(2);
+            if (clean.length !== 6) return [0, 229, 255];
+            return [
+                parseInt(clean.slice(0, 2), 16) || 0,
+                parseInt(clean.slice(2, 4), 16) || 0,
+                parseInt(clean.slice(4, 6), 16) || 0
+            ];
+        }
+
+        function clientRgbToHex(r, g, b) {
+            const ri = Math.max(0, Math.min(255, Math.round(r)));
+            const gi = Math.max(0, Math.min(255, Math.round(g)));
+            const bi = Math.max(0, Math.min(255, Math.round(b)));
+            return (
+                '#' +
+                ri.toString(16).padStart(2, '0').toUpperCase() +
+                gi.toString(16).padStart(2, '0').toUpperCase() +
+                bi.toString(16).padStart(2, '0').toUpperCase()
+            );
+        }
+
+        function clientRgbToHls(r, g, b) {
+            const maxc = Math.max(r, g, b);
+            const minc = Math.min(r, g, b);
+            const l = (minc + maxc) / 2.0;
+            if (minc === maxc) return [0.0, l, 0.0];
+            const s = l <= 0.5 ? (maxc - minc) / (maxc + minc) : (maxc - minc) / (2.0 - maxc - minc);
+            const rc = (maxc - r) / (maxc - minc);
+            const gc = (maxc - g) / (maxc - minc);
+            const bc = (maxc - b) / (maxc - minc);
+            let h;
+            if (r === maxc) h = bc - gc;
+            else if (g === maxc) h = 2.0 + rc - bc;
+            else h = 4.0 + gc - rc;
+            h = (h / 6.0) % 1.0;
+            if (h < 0) h += 1.0;
+            return [h, l, s];
+        }
+
+        function clientHlsToRgb(h, l, s) {
+            if (s === 0.0) return [l, l, l];
+            const m2 = l <= 0.5 ? l * (1.0 + s) : l + s - l * s;
+            const m1 = 2.0 * l - m2;
+            const v = (m1v, m2v, hue) => {
+                let hh = hue % 1.0;
+                if (hh < 0) hh += 1.0;
+                if (hh < 1.0 / 6.0) return m1v + (m2v - m1v) * hh * 6.0;
+                if (hh < 0.5) return m2v;
+                if (hh < 2.0 / 3.0) return m1v + (m2v - m1v) * (2.0 / 3.0 - hh) * 6.0;
+                return m1v;
+            };
+            return [v(m1, m2, h + 1.0 / 3.0), v(m1, m2, h), v(m1, m2, h - 1.0 / 3.0)];
+        }
+
+        function clientToneToHex(hDeg, sRatio, tone) {
+            const lRatio = Math.max(0.0, Math.min(1.0, tone / 100.0));
+            const effS = sRatio * (1.0 - 0.55 * Math.pow(Math.abs(2.0 * lRatio - 1.0), 1.6));
+            const normH = (((hDeg % 360.0) + 360.0) % 360.0) / 360.0;
+            const [r, g, b] = clientHlsToRgb(normH, lRatio, Math.max(0.0, Math.min(1.0, effS)));
+            return clientRgbToHex(r * 255.0, g * 255.0, b * 255.0);
+        }
+
+        function clientToneForShade(shade) {
+            if (shade === 0) return 100;
+            if (shade === 10) return 99;
+            if (shade === 50) return 95;
+            return 100 - Math.floor(shade / 10);
+        }
+
+        function computeClientMonetPalette(seedHex, styleId = 'VIBRANT', pureBlack = true) {
+            const [r, g, b] = clientHexToRgb(seedHex);
+            const [h, , s] = clientRgbToHls(r / 255.0, g / 255.0, b / 255.0);
+            const hDeg = h * 360.0;
+
+            const paletteStyles = (APP_STATE && APP_STATE.palette_styles) || [
+                { id: 'TONAL_SPOT', label: 'Tonal Spot (Default Android 16)', chroma_mult: 1.0, sec_shift: 12, tert_shift: 60 },
+                { id: 'VIBRANT', label: 'Vibrant (#hex_ High Chroma)', chroma_mult: 1.35, sec_shift: 24, tert_shift: 45 },
+                { id: 'EXPRESSIVE', label: 'Expressive (Shifted Hue)', chroma_mult: 1.25, sec_shift: 45, tert_shift: 120 },
+                { id: 'SPRITZ', label: 'Spritz (Muted Monochrome)', chroma_mult: 0.25, sec_shift: 0, tert_shift: 0 }
+            ];
+            const styleCfg = paletteStyles.find(st => st.id === styleId) || paletteStyles[0];
+            const cMult = styleCfg.chroma_mult;
+            const baseS = cMult > 0 ? Math.max(0.35, s) * cMult : 0.0;
+
+            const groupsSpec = [
+                ['ACCENT1', 'system_accent1', 'Primary (accent1)', hDeg, Math.min(1.0, baseS * 0.95)],
+                ['ACCENT2', 'system_accent2', 'Secondary (accent2)', hDeg + styleCfg.sec_shift, Math.min(1.0, baseS * 0.42)],
+                ['ACCENT3', 'system_accent3', 'Tertiary (accent3)', hDeg + styleCfg.tert_shift, Math.min(1.0, baseS * 0.58)],
+                ['NEUTRAL1', 'system_neutral1', 'Neutral (neutral1)', hDeg, Math.min(1.0, baseS * 0.08)],
+                ['NEUTRAL2', 'system_neutral2', 'Neutral Variant (neutral2)', hDeg, Math.min(1.0, baseS * 0.14)]
+            ];
+
+            const groupsOut = {};
+            const flatShades = {};
+
+            for (const [key, prefix, label, gh, gs] of groupsSpec) {
+                const row = [];
+                for (const sh of CLIENT_MONET_SHADES) {
+                    let hexVal;
+                    if (pureBlack && key === 'NEUTRAL1' && sh >= 900) {
+                        hexVal = '#000000';
+                    } else {
+                        hexVal = clientToneToHex(gh, gs, clientToneForShade(sh));
+                    }
+                    const resName = `${prefix}_${sh}`;
+                    flatShades[resName] = hexVal;
+                    row.push({ shade: sh, name: resName, hex: hexVal });
+                }
+                groupsOut[key] = { label, prefix, shades: row };
+            }
+
+            const rolesDark = {
+                system_primary_dark: flatShades.system_accent1_200,
+                system_on_primary_dark: flatShades.system_accent1_800,
+                system_primary_container_dark: flatShades.system_accent1_700,
+                system_on_primary_container_dark: flatShades.system_accent1_100,
+                system_secondary_dark: flatShades.system_accent2_200,
+                system_on_secondary_dark: flatShades.system_accent2_800,
+                system_secondary_container_dark: flatShades.system_accent2_700,
+                system_on_secondary_container_dark: flatShades.system_accent2_100,
+                system_tertiary_dark: flatShades.system_accent3_200,
+                system_on_tertiary_dark: flatShades.system_accent3_800,
+                system_background_dark: pureBlack ? '#000000' : flatShades.system_neutral1_900,
+                system_on_background_dark: flatShades.system_neutral1_100,
+                system_surface_dark: pureBlack ? '#000000' : flatShades.system_neutral1_900,
+                system_surface_dim_dark: pureBlack ? '#000000' : flatShades.system_neutral1_900,
+                system_surface_container_lowest_dark: pureBlack ? '#000000' : flatShades.system_neutral1_1000,
+                system_surface_container_low_dark: pureBlack ? '#05070B' : flatShades.system_neutral1_900,
+                system_surface_container_dark: flatShades.system_neutral2_800,
+                system_surface_container_high_dark: flatShades.system_neutral2_700,
+                system_surface_container_highest_dark: flatShades.system_neutral2_600,
+                system_on_surface_dark: flatShades.system_neutral1_100,
+                system_on_surface_variant_dark: flatShades.system_neutral2_200,
+                system_outline_dark: flatShades.system_neutral2_400,
+                system_control_activated_dark: flatShades.system_accent1_200
+            };
+
+            return {
+                seed: String(seedHex || '#00E5FF').toUpperCase(),
+                style: styleId,
+                pure_black: pureBlack,
+                groups: groupsOut,
+                flat_shades: flatShades,
+                roles_dark: rolesDark,
+                total_shades: Object.keys(flatShades).length,
+                total_roles: Object.keys(rolesDark).length
+            };
+        }
+
+        function onLivePaletteSeedInput(hexValue) {
+            const accentEl = document.getElementById('input-accent');
+            if (accentEl) {
+                accentEl.value = hexValue;
+            }
+            updateSpecFromInputs();
+        }
+
+        function onLivePaletteStyleChange(styleId) {
+            const styleEl = document.getElementById('select-style');
+            if (styleEl) {
+                styleEl.value = styleId;
+            }
+            updateSpecFromInputs();
+        }
+
+        function onLivePaletteAmoledChange(checked) {
+            const amoledEl = document.getElementById('toggle-pure-black');
+            if (amoledEl) {
+                amoledEl.checked = !!checked;
+            }
+            updateSpecFromInputs();
+        }
+
+        function setLivePaletteViewMode(mode) {
+            LIVE_PALETTE_VIEW_MODE = mode;
+            const shadesSec = document.getElementById('live-palette-shades-section');
+            const rolesSec = document.getElementById('live-palette-roles-section');
+            if (shadesSec) {
+                if (mode === 'roles') shadesSec.classList.add('hidden');
+                else shadesSec.classList.remove('hidden');
+            }
+            if (rolesSec) {
+                if (mode === 'shades') rolesSec.classList.add('hidden');
+                else rolesSec.classList.remove('hidden');
+            }
+            ['all', 'shades', 'roles'].forEach(m => {
+                const btn = document.getElementById(`live-pal-btn-${m}`);
+                if (!btn) return;
+                if (m === mode) {
+                    btn.className = 'px-2.5 py-1 rounded bg-[#1E293B] text-white cursor-pointer';
+                } else {
+                    btn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white cursor-pointer';
+                }
+            });
+        }
+
+        function copyMonetToken(resName, hexVal) {
+            const tokenStr = `android:color/${resName} (${hexVal})`;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(hexVal).catch(() => {});
+            }
+            showToast(`Copied ${tokenStr} to clipboard`, 'cyan');
+        }
+
+        function renderLivePalettePreview() {
+            if (!APP_STATE || !APP_STATE.monet) return;
+            const { monet, spec } = APP_STATE;
+
+            // Sync Live Palette controls
+            const seedInput = document.getElementById('live-palette-seed-input');
+            const seedLabel = document.getElementById('live-palette-seed-label');
+            const styleSelect = document.getElementById('live-palette-style-select');
+            const amoledToggle = document.getElementById('live-palette-amoled-toggle');
+
+            if (seedInput && seedInput.value.toUpperCase() !== monet.seed) {
+                seedInput.value = monet.seed;
+            }
+            if (seedLabel) {
+                seedLabel.textContent = monet.seed;
+            }
+            if (styleSelect && APP_STATE.palette_styles) {
+                styleSelect.innerHTML = APP_STATE.palette_styles.map(st =>
+                    `<option value="${st.id}" ${st.id === monet.style ? 'selected' : ''} class="bg-[#0D111A] text-white">${st.label}</option>`
+                ).join('');
+            }
+            if (amoledToggle) {
+                amoledToggle.checked = !!monet.pure_black;
+            }
+
+            // Render compact 13-stop mini ribbon in Color Engine card
+            const miniRibbon = document.getElementById('studio-seed-mini-ribbon');
+            const accent1Shades = (monet.groups && monet.groups.ACCENT1 && monet.groups.ACCENT1.shades) || [];
+            if (miniRibbon && accent1Shades.length > 0) {
+                miniRibbon.innerHTML = accent1Shades.map(s =>
+                    `<div title="android:color/${s.name} (${s.hex})" class="h-full w-full transition-colors duration-150" style="background-color: ${s.hex}"></div>`
+                ).join('');
+            }
+
+            // Render 65 Monet Shades Grid (5 Palettes × 13 Stops)
+            const shadesContainer = document.getElementById('studio-live-monet-shades-grid');
+            if (shadesContainer) {
+                shadesContainer.innerHTML = Object.entries(monet.groups || {}).map(([groupName, groupData]) => {
+                    const shades = Array.isArray(groupData) ? groupData : (groupData?.shades || []);
+                    const prefix = groupData?.prefix || groupName.toLowerCase();
+                    const label = groupData?.label || groupName;
+                    return `
+                        <div class="bg-[#111724] border border-[#1E2738] rounded-xl p-3 space-y-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30 font-mono text-[10px] font-bold text-cyan-300">${groupName}</span>
+                                    <span class="font-display font-semibold text-xs text-white">${label}</span>
+                                </div>
+                                <span class="font-mono text-[11px] text-slate-400">android:color/${prefix}_* (13 stops)</span>
+                            </div>
+                            <div class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-13 gap-1.5">
+                                ${shades.map(s => {
+                                    const isDarkShade = s.shade >= 500;
+                                    return `
+                                        <button
+                                            onclick="copyMonetToken('${s.name}', '${s.hex}')"
+                                            title="Click to copy ${s.hex} • android:color/${s.name}"
+                                            class="group text-left rounded-lg overflow-hidden border border-[#222D42] hover:border-cyan-400 bg-[#0B0F18] transition-all cursor-pointer">
+                                            <div class="h-8 w-full flex items-end justify-between px-1.5 py-1 transition-colors duration-150" style="background-color: ${s.hex}">
+                                                <span class="font-mono text-[9px] font-bold tabular-nums ${isDarkShade ? 'text-white/90' : 'text-slate-950/90'}">${s.shade}</span>
+                                            </div>
+                                            <div class="px-1.5 py-1 font-mono text-[9px] flex items-center justify-between">
+                                                <span class="text-slate-300 group-hover:text-cyan-300 tabular-nums">${s.hex}</span>
+                                            </div>
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Render 23 Material 3 Dark Dynamic Roles Grid
+            const rolesContainer = document.getElementById('studio-live-monet-roles-grid');
+            if (rolesContainer && monet.roles_dark) {
+                rolesContainer.innerHTML = Object.entries(monet.roles_dark).map(([roleName, hexVal]) => {
+                    const shortRole = roleName.replace(/^system_/, '').replace(/_dark$/, '');
+                    return `
+                        <button
+                            onclick="copyMonetToken('${roleName}', '${hexVal}')"
+                            title="Click to copy ${hexVal} • android:color/${roleName}"
+                            class="p-2.5 rounded-xl bg-[#111724] border border-[#1E2738] hover:border-emerald-400/60 flex items-center gap-2.5 text-left transition-all cursor-pointer group">
+                            <div class="w-8 h-8 rounded-lg border border-white/20 shrink-0 shadow-inner transition-colors duration-150" style="background-color: ${hexVal}"></div>
+                            <div class="min-w-0 font-mono flex-1">
+                                <div class="text-[11px] font-semibold text-white group-hover:text-emerald-300 truncate" title="android:color/${roleName}">${shortRole}</div>
+                                <div class="flex items-center justify-between gap-1 text-[10px] mt-0.5">
+                                    <span class="text-cyan-400 tabular-nums">${hexVal}</span>
+                                    <span class="text-[9px] text-slate-500 truncate">${roleName}</span>
+                                </div>
+                            </div>
+                        </button>
+                    `;
+                }).join('');
+            }
+        }
+
         function renderMonetView() {
             const { monet } = APP_STATE;
             document.getElementById('monet-seed-label').textContent = monet.seed;
@@ -3318,6 +4307,10 @@
                 })
             ];
             document.getElementById('code-shell-box').textContent = shellLines.join('\n');
+            const themeJsonBox = document.getElementById('code-theme-json-box');
+            if (themeJsonBox) {
+                themeJsonBox.textContent = getFormattedThemeJsonString();
+            }
         }
 
         function copyShellCommands() {

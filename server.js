@@ -772,55 +772,134 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
     'echo "[✓] All from-scratch One UI 9.0 RRO overlays + 26 Settings Icons fabricated and prioritized above SemWT_*!"'
   );
   files.push({ name: "install_oneui9_overlays.sh", content: scriptLines.join("\n") + "\n" });
+  const themeJsonObj = buildThemeJsonObject(spec, customOverrides, compiled, settingsIcons, monet);
+  const themeJsonStr = JSON.stringify(themeJsonObj, null, 2);
+  files.push({
+    name: "theme.json",
+    content: themeJsonStr,
+  });
   files.push({
     name: "theme_profile_oneui9.json",
-    content: JSON.stringify(
-      {
-        engine: "HexNext One UI 9.0 From-Scratch RRO Compiler (Precedence > SemWT_*)",
-        theme_park_required: false,
-        uses_high_contrast_theme_overlays: false,
-        semwt_precedence_mode: "priority=10000 (highest > SemWT_*)",
-        privilege_requirement: "UID 0 (Root) or UID 1000 (System)",
-        spec,
-        settings_icons_customization: {
-          style_id: settingsIcons.style_id,
-          use_apk_png_icons: settingsIcons.use_apk_png_icons,
-          fixed_state: settingsIcons.fixed_state,
-          settframe: settingsIcons.settframe,
-          bigsetico: settingsIcons.bigsetico,
-          hidemail: settingsIcons.hidemail,
-          uselogo: settingsIcons.uselogo,
-          uidivider: settingsIcons.uidivider,
-          icon_count: settingsIcons.icons.length,
-        },
-        monet_palette: monet,
-        mimi_skin_manifest: MIMI_SKIN_MANIFEST
-          ? {
-              plugin_id: MIMI_SKIN_MANIFEST.plugin_id,
-              package_name: MIMI_SKIN_MANIFEST.package_name,
-              version_name: MIMI_SKIN_MANIFEST.version_name,
-              total_overlays: MIMI_SKIN_MANIFEST.total_overlays,
-              anaconda_overlays: MIMI_SKIN_MANIFEST.anaconda_overlays,
-              crocodile_overlays: MIMI_SKIN_MANIFEST.crocodile_overlays,
-              tint_always_overlays: MIMI_SKIN_MANIFEST.tint_always_overlays,
-            }
-          : null,
-        overlays: compiled.map((p) => ({
-          id: p.id,
-          system_rro_package: p.system_rro_package,
-          mimi_bundle: p.mimi_bundle || null,
-          semwt_overridden: p.semwt_target,
-          target_package: p.target_package,
-          selected: p.selected,
-          resources: Object.fromEntries(p.resolved_resources.map((r) => [r.name, r.value])),
-        })),
-      },
-      null,
-      2
-    ),
+    content: themeJsonStr,
   });
 
   return createZipBuffer(files);
+}
+
+function buildThemeJsonObject(specInput, customOverridesInput, preCompiled, preSettingsIcons, preMonet) {
+  const spec = specInput || RUNTIME_STATE.spec;
+  const customOverrides = customOverridesInput || RUNTIME_STATE.custom_overrides || {};
+  const priv = RUNTIME_STATE.privilege;
+  spec.privilege_uid = priv.uid;
+  const compiled = preCompiled || resolveOverlayTokens(spec, customOverrides);
+  const settingsIcons = preSettingsIcons || resolveSettingsDashboardIcons(spec, customOverrides);
+  const monet =
+    preMonet ||
+    generateMonetPalette(
+      spec.accent || "#00E5FF",
+      spec.style || "VIBRANT",
+      spec.pure_black !== false
+    );
+
+  return {
+    schema_version: "1.0.0",
+    file_name: "theme.json",
+    exported_at: new Date().toISOString(),
+    engine: "HexNext One UI 9.0 From-Scratch RRO Compiler (Precedence > SemWT_*)",
+    compatibility: {
+      oneui_version: "One UI 9.0 (SEP 17.0)",
+      android_version: "Android 16 (Baklava / SDK 36)",
+      rro_carrier_base: "com.hexnext.oneui9.rro.*",
+      semwt_precedence_mode: "priority=10000 (highest > SemWT_*)",
+      theme_park_required: false,
+      uses_high_contrast_theme_overlays: false,
+      privilege_requirement: "UID 0 (Root) or UID 1000 (System)",
+    },
+    privilege_context: {
+      mode: priv.mode,
+      uid: priv.uid,
+      owner_package: priv.owner_package,
+      selinux_context: priv.selinux_context,
+    },
+    theme: {
+      name: spec.name || "#hex_ Custom One UI 9.0 Theme",
+      plugin_id: spec.plugin_id || "bodhi_default",
+      palette_style: spec.style || "VIBRANT",
+      pure_black_amoled: spec.pure_black !== false,
+      qs_alpha: Number(spec.qs_alpha ?? 90),
+      tile_shape: spec.tile_shape || "squircle",
+      colors: {
+        accent: spec.accent || "#00E5FF",
+        secondary: spec.secondary || "#7C4DFF",
+        bg: spec.bg || "#000000",
+        surface: spec.surface || "#0B0E17",
+        card: spec.card || "#121724",
+        qs_inactive: spec.qs_inactive || "#1A2030",
+      },
+    },
+    spec,
+    settings_icons_customization: {
+      style_id: settingsIcons.style_id,
+      style_label: settingsIcons.style_label,
+      active_asset_folder: settingsIcons.active_asset_folder,
+      use_apk_png_icons: settingsIcons.use_apk_png_icons,
+      fixed_state: settingsIcons.fixed_state,
+      icon_size_dp: settingsIcons.icon_size_dp,
+      settframe: settingsIcons.settframe,
+      bigsetico: settingsIcons.bigsetico,
+      hidemail: settingsIcons.hidemail,
+      uselogo: settingsIcons.uselogo,
+      uidivider: settingsIcons.uidivider,
+      per_icon_colors: (spec.extra_tweaks && spec.extra_tweaks.per_icon_colors) || {},
+      icon_count: settingsIcons.icons.length,
+      icons: settingsIcons.icons.map((ic) => ({
+        id: ic.id,
+        label: ic.label,
+        res_name: ic.res_name,
+        token_name: ic.token_name,
+        fg_color: ic.fg_color,
+        badge_color: ic.badge_color,
+        use_apk_png: ic.use_apk_png,
+        fixed_state: ic.fixed_state,
+        apk_png_res_path: ic.apk_png_res_path,
+        oneui9_drawable: ic.oneui9_drawable,
+      })),
+    },
+    extra_tweaks: spec.extra_tweaks || {},
+    custom_overrides: customOverrides,
+    selected_targets: spec.selected_targets || [],
+    monet_palette: {
+      seed: monet.seed,
+      style: monet.style,
+      pure_black: monet.pure_black,
+      total_shades: monet.total_shades,
+      total_roles: monet.total_roles,
+      roles_dark: monet.roles_dark,
+      flat_shades: monet.flat_shades,
+    },
+    mimi_skin_manifest: MIMI_SKIN_MANIFEST
+      ? {
+          plugin_id: MIMI_SKIN_MANIFEST.plugin_id,
+          package_name: MIMI_SKIN_MANIFEST.package_name,
+          version_name: MIMI_SKIN_MANIFEST.version_name,
+          total_overlays: MIMI_SKIN_MANIFEST.total_overlays,
+          anaconda_overlays: MIMI_SKIN_MANIFEST.anaconda_overlays,
+          crocodile_overlays: MIMI_SKIN_MANIFEST.crocodile_overlays,
+          tint_always_overlays: MIMI_SKIN_MANIFEST.tint_always_overlays,
+        }
+      : null,
+    overlays: compiled.map((p) => ({
+      id: p.id,
+      label: p.label,
+      system_rro_package: p.system_rro_package,
+      mimi_bundle: p.mimi_bundle || null,
+      semwt_overridden: p.semwt_target,
+      target_package: p.target_package,
+      selected: p.selected,
+      priority: "10000 (highest > SemWT_*)",
+      resources: Object.fromEntries(p.resolved_resources.map((r) => [r.name, r.value])),
+    })),
+  };
 }
 
 // Runtime State
@@ -1091,6 +1170,13 @@ function buildFullState() {
     palette_styles: PALETTE_STYLES,
     qs_shapes: Object.values(HEX_QS_TOGGLE_SHAPES),
     qs_drawable_xml: qsDrawablePreview,
+    theme_json: buildThemeJsonObject(
+      spec,
+      RUNTIME_STATE.custom_overrides,
+      compiledPackages,
+      settingsIcons,
+      monet
+    ),
     stats: {
       total_packages: compiledPackages.length,
       selected_packages: compiledPackages.filter((p) => p.selected).length,
@@ -1332,6 +1418,30 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (
+      pathname === "/api/export/theme.json" ||
+      pathname === "/api/theme.json" ||
+      pathname === "/theme.json"
+    ) {
+      const spec = RUNTIME_STATE.spec;
+      spec.privilege_uid = RUNTIME_STATE.privilege.uid;
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      const themeObj = buildThemeJsonObject(spec, RUNTIME_STATE.custom_overrides);
+      const jsonBytes = Buffer.from(JSON.stringify(themeObj, null, 2) + "\n", "utf8");
+      RUNTIME_STATE.last_build.timestamp = nowUtc;
+      RUNTIME_STATE.last_build.logs.push(
+        `[✓] [${nowUtc}] EXPORTED theme.json configuration -> '${themeObj.theme.name}' (skin=${themeObj.theme.plugin_id}, seed=${themeObj.theme.colors.accent}, style=${themeObj.theme.palette_style}, icons=${themeObj.settings_icons_customization.style_id}, targets=${themeObj.selected_targets.length}/26)`
+      );
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="theme.json"',
+        "Content-Length": jsonBytes.length,
+        "Cache-Control": "no-store",
+      });
+      res.end(jsonBytes);
+      return;
+    }
+
     if (pathname === "/api/export/zip") {
       const spec = RUNTIME_STATE.spec;
       spec.privilege_uid = RUNTIME_STATE.privilege.uid;
@@ -1388,6 +1498,66 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/compile") {
       sendJson(res, handleCompile(data));
+      return;
+    }
+
+    if (pathname === "/api/import/theme") {
+      const incomingSpec = data.spec || (data.theme
+        ? {
+            name: data.theme.name,
+            plugin_id: data.theme.plugin_id,
+            accent: data.theme.colors && data.theme.colors.accent,
+            secondary: data.theme.colors && data.theme.colors.secondary,
+            bg: data.theme.colors && data.theme.colors.bg,
+            surface: data.theme.colors && data.theme.colors.surface,
+            card: data.theme.colors && data.theme.colors.card,
+            qs_inactive: data.theme.colors && data.theme.colors.qs_inactive,
+            tile_shape: data.theme.tile_shape,
+            style: data.theme.palette_style,
+            pure_black: data.theme.pure_black_amoled,
+            qs_alpha: data.theme.qs_alpha,
+            selected_targets: data.selected_targets,
+            extra_tweaks: data.extra_tweaks,
+          }
+        : data);
+
+      const mergedPayload = { ...incomingSpec };
+      if (data.extra_tweaks && typeof data.extra_tweaks === "object") {
+        mergedPayload.extra_tweaks = {
+          ...(mergedPayload.extra_tweaks || {}),
+          ...data.extra_tweaks,
+        };
+      }
+      if (data.settings_icons_customization && typeof data.settings_icons_customization === "object") {
+        const sic = data.settings_icons_customization;
+        mergedPayload.extra_tweaks = {
+          ...(mergedPayload.extra_tweaks || {}),
+          settings_icon_style: sic.style_id || "1sett",
+          use_apk_png_icons: Boolean(sic.use_apk_png_icons),
+          settframe: Boolean(sic.settframe),
+          bigsetico: Boolean(sic.bigsetico),
+          hidemail: Boolean(sic.hidemail),
+          uselogo: sic.uselogo !== false,
+          uidivider: sic.uidivider !== false,
+          per_icon_colors: sic.per_icon_colors || {},
+        };
+      }
+      if (Array.isArray(data.selected_targets)) {
+        mergedPayload.selected_targets = data.selected_targets;
+      }
+      if (data.custom_overrides && typeof data.custom_overrides === "object") {
+        mergedPayload.custom_overrides = data.custom_overrides;
+      }
+      if (data.privilege_context && data.privilege_context.mode) {
+        handlePrivilegeMode({ mode: data.privilege_context.mode });
+      }
+      const resultState = handleCompile(mergedPayload);
+      const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      RUNTIME_STATE.last_build.logs.push(
+        `[✓] [${nowUtc}] IMPORTED theme.json configuration -> '${RUNTIME_STATE.spec.name}' (${resultState.stats.selected_packages}/${resultState.stats.total_packages} RROs, ${resultState.stats.total_tokens} tokens)`
+      );
+      resultState.last_build.logs = [...RUNTIME_STATE.last_build.logs];
+      sendJson(res, resultState);
       return;
     }
 
