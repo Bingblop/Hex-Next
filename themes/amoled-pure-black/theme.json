@@ -1,0 +1,38 @@
+{
+  "name": "AmoledBlack",
+  "version": "1.0",
+  "author": "OneUI-Theme-Engine",
+  "description": "True pitch black background theme for OLED screens on One UI 9.0",
+  "overlays": {
+    "android": {
+      "colors": {
+        "background_dark": "#000000",
+        "background_floating_material_dark": "#050505",
+        "primary_material_dark": "#000000",
+        "primary_dark_material_dark": "#000000",
+        "system_neutral1_900": "#000000",
+        "system_neutral1_1000": "#000000",
+        "system_neutral2_900": "#000000",
+        "system_neutral2_1000": "#000000",
+        "system_accent1_600": "#00E5FF",
+        "system_accent1_100": "#E0F7FA"
+      }
+    },
+    "com.android.systemui": {
+      "colors": {
+        "qs_background_dark": "#000000",
+        "quick_settings_panel_background_color": "#000000",
+        "notification_panel_background_color": "#000000",
+        "qs_tile_active_color": "#00E5FF",
+        "qs_tile_inactive_color": "#121212"
+      }
+    },
+    "com.android.settings": {
+      "colors": {
+        "sec_widget_round_and_bgcolor": "#080808",
+        "sec_dashboard_tab_selected_color": "#00E5FF",
+        "sec_dashboard_background_color": "#000000"
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+apps/**/bin/
+apps/**/obj/
+apps/**/build/
+*.keystore
+*.idsig
+*.apk
+.hex_temp/
+daemon.pid
+daemon.log
+*.jar
+
+# Native Android app: keep the Gradle wrapper and the shared debug signing key.
+!android/gradle/wrapper/gradle-wrapper.jar
+!android/app/debug.keystore

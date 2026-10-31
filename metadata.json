@@ -1,0 +1,5 @@
+{
+  "name": "HexNext — One UI 9.0 Overlay Compiler",
+  "description": "Rebuilt Hex Installer application and One UI 9.0 system RRO overlay build engine utilizing Shizuku (UID 0 / UID 1000) or SU access with zero Theme Park requirements.",
+  "requestFramePermissions": []
+}

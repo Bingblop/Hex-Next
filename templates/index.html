@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HexNext — One UI 9.0 Overlay Compiler</title>
+    <meta name="description" content="Rebuilt Hex Installer overlay build system for Samsung One UI 9.0 (Android 16). Compiles and layers fabricated overlays directly onto Samsung's system RROs via Shizuku (UID 0 / UID 1000) or SU root access with zero Theme Park requirements.">
+    <meta property="og:title" content="HexNext — One UI 9.0 Overlay Compiler">
+    <meta property="og:description" content="Rebuilt Hex Installer overlay build system for Samsung One UI 9.0 (Android 16). Compiles and layers fabricated overlays directly onto Samsung's system RROs via Shizuku (UID 0 / UID 1000) or SU root access with zero Theme Park requirements.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        canvas: '#07090E',
+                        surface: '#0D111A',
+                        elevated: '#131926',
+                        borderSubtle: '#1E2738',
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background-color: #07090E;
+            color: #F1F5F9;
+            font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+        }
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #07090E;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E2738;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            padding: 0;
+            background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
+
+    <!-- Zone 1-3 Top Navigation Bar -->
+    <header class="sticky top-0 z-40 h-16 bg-[#0A0D14]/90 backdrop-blur-md border-b border-[#1E2738] px-4 lg:px-6 flex items-center justify-between gap-4">
+        <!-- Zone 1: Brand & APK Origin -->
+        <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
+                <span class="font-mono font-bold text-slate-950 text-base">#h_</span>
+            </div>
+            <div class="truncate">
+                <div class="flex items-center gap-2">
+                    <h1 class="font-display font-bold text-base tracking-tight text-white truncate">HexNext</h1>
+                    <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-1.5 py-0.5 rounded">One UI 9.0 RRO</span>
+                </div>
+                <p class="text-[11px] font-mono text-slate-400 truncate">Rebuilt project.vivid.hex.bodhi (#hex__30) • Direct System RRO Layering</p>
+            </div>
+        </div>
+
+        <!-- Zone 2: Primary View Switcher -->
+        <nav class="hidden md:flex items-center bg-[#0D111A] p-1 rounded-lg border border-[#1E2738]">
+            <button onclick="switchTab('studio')" id="tab-btn-studio" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all bg-[#161F30] text-white shadow-sm">
+                Studio &amp; Live Preview
+            </button>
+            <button onclick="switchTab('matrix')" id="tab-btn-matrix" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200">
+                System RRO Matrix (<span id="nav-pkg-count" class="font-mono tabular-nums">17</span>)
+            </button>
+            <button onclick="switchTab('monet')" id="tab-btn-monet" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200">
+                Monet 65-Shade Table
+            </button>
+            <button onclick="switchTab('code')" id="tab-btn-code" class="px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200">
+                Manifests &amp; Shell Script
+            </button>
+        </nav>
+
+        <!-- Zone 3: Privilege Selector + Primary Actions -->
+        <div class="flex items-center gap-2.5 shrink-0">
+            <div class="hidden xl:flex items-center gap-1.5 bg-[#0D111A] border border-[#1E2738] rounded-lg px-2.5 py-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <label for="privilege-select" class="text-[11px] font-mono text-slate-400">PRIVILEGE:</label>
+                <select id="privilege-select" onchange="changePrivilegeMode(this.value)" class="bg-transparent text-xs font-mono font-semibold text-emerald-300 focus:outline-none cursor-pointer">
+                    <option value="shizuku-uid1000" class="bg-[#0D111A] text-slate-100">Shizuku UID 1000 (system)</option>
+                    <option value="shizuku-uid0" class="bg-[#0D111A] text-slate-100">Shizuku UID 0 (root)</option>
+                    <option value="su-root" class="bg-[#0D111A] text-slate-100">Direct SU UID 0 (root)</option>
+                </select>
+            </div>
+
+            <button onclick="compileAndApply()" id="btn-compile" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 active:scale-[0.99] text-slate-950 font-semibold text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/15 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Build &amp; Apply RROs</span>
+            </button>
+
+            <a href="/api/export/zip" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1C2539] text-slate-200 border border-[#263248] font-medium text-xs flex items-center gap-1.5 transition-all">
+                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span class="hidden sm:inline">Export ZIP</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Mobile Tab Bar -->
+    <div class="flex md:hidden bg-[#0A0D14] border-b border-[#1E2738] px-3 py-2 gap-1.5 overflow-x-auto">
+        <button onclick="switchTab('studio')" id="mob-tab-studio" class="px-3 py-1.5 rounded text-xs font-medium bg-[#161F30] text-white shrink-0">Studio &amp; Preview</button>
+        <button onclick="switchTab('matrix')" id="mob-tab-matrix" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">RRO Matrix (17)</button>
+        <button onclick="switchTab('monet')" id="mob-tab-monet" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Monet 65-Shades</button>
+        <button onclick="switchTab('code')" id="mob-tab-code" class="px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0">Manifests &amp; CLI</button>
+    </div>
+
+    <!-- System Architecture Strip: Confirms Zero Theme Park Requirement & UID 0 / UID 1000 System RROs -->
+    <section class="bg-[#0B0F18] border-b border-[#1E2738] px-4 lg:px-6 py-2.5">
+        <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-1.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400">Opening Gate:</span>
+                    <span id="strip-priv-badge" class="font-mono font-semibold text-emerald-400">UID 1000 (android.uid.system)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400">Theme Park Prerequisite:</span>
+                    <span class="font-mono font-semibold text-cyan-400">REMOVED (Zero Theme Park Dependency)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400">Carrier RRO Base:</span>
+                    <span class="font-mono text-slate-200">com.samsung.High_contrast_theme_II.*</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400">Transaction Owner:</span>
+                    <span id="strip-owner-pkg" class="font-mono text-amber-300">android</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 font-mono text-[11px] text-slate-400 tabular-nums">
+                <span>Active Targets: <strong id="strip-active-count" class="text-white">14/17</strong></span>
+                <span>One UI 9.0 Tokens: <strong id="strip-token-count" class="text-cyan-400">175</strong></span>
+                <button onclick="triggerRescueModal()" class="text-rose-400 hover:text-rose-300 underline decoration-rose-500/40 cursor-pointer">
+                    Disable All RROs (Safe Mode)
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 lg:px-6 py-6">
+
+        <!-- ======================= TAB 1: STUDIO & LIVE PREVIEW ======================= -->
+        <div id="view-studio" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+            <!-- Left Column (4 cols): Rebuilt #hex_ Plugins, Color Tokens & QS Toggle Shapes -->
+            <div class="lg:col-span-4 space-y-5">
+
+                <!-- Rebuilt #hex_ Plugins Card -->
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 class="font-display font-bold text-sm text-white">Rebuilt #hex_ Plugins</h2>
+                            <p class="text-xs text-slate-400">Extracted from <code class="font-mono text-cyan-300">#hex__30 HEX_EOL.apk</code> for One UI 9.0</p>
+                        </div>
+                        <span class="font-mono text-[11px] text-slate-400 tabular-nums">7 Presets</span>
+                    </div>
+                    <div id="plugin-list" class="grid grid-cols-1 gap-2"></div>
+                </div>
+
+                <!-- Core Color Tokens & AMOLED Switch -->
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-display font-bold text-sm text-white">One UI 9.0 Color Engine</h2>
+                            <p class="text-xs text-slate-400">Drives 65 Monet Shades + 17 System RROs</p>
+                        </div>
+                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="toggle-pure-black" checked onchange="updateSpecFromInputs()" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-800 peer-checked:bg-cyan-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
+                            <span class="text-xs font-medium text-slate-300">AMOLED #000</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-[#131926] border border-[#1E2738] rounded-lg p-2.5 flex items-center gap-2.5">
+                            <input type="color" id="input-accent" value="#00E5FF" oninput="updateSpecFromInputs()" class="w-8 h-8 cursor-pointer shrink-0">
+                            <div class="min-w-0">
+                                <div class="text-[11px] text-slate-400">Primary Seed</div>
+                                <div id="label-accent" class="font-mono text-xs font-semibold text-white uppercase">#00E5FF</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-[#131926] border border-[#1E2738] rounded-lg p-2.5 flex items-center gap-2.5">
+                            <input type="color" id="input-secondary" value="#7C4DFF" oninput="updateSpecFromInputs()" class="w-8 h-8 cursor-pointer shrink-0">
+                            <div class="min-w-0">
+                                <div class="text-[11px] text-slate-400">Secondary Accent</div>
+                                <div id="label-secondary" class="font-mono text-xs font-semibold text-white uppercase">#7C4DFF</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-[#131926] border border-[#1E2738] rounded-lg p-2.5 flex items-center gap-2.5">
+                            <input type="color" id="input-surface" value="#0B0E17" oninput="updateSpecFromInputs()" class="w-8 h-8 cursor-pointer shrink-0">
+                            <div class="min-w-0">
+                                <div class="text-[11px] text-slate-400">SecSettings Surface</div>
+                                <div id="label-surface" class="font-mono text-xs font-semibold text-white uppercase">#0B0E17</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-[#131926] border border-[#1E2738] rounded-lg p-2.5 flex items-center gap-2.5">
+                            <input type="color" id="input-card" value="#121724" oninput="updateSpecFromInputs()" class="w-8 h-8 cursor-pointer shrink-0">
+                            <div class="min-w-0">
+                                <div class="text-[11px] text-slate-400">One UI Card Surface</div>
+                                <div id="label-card" class="font-mono text-xs font-semibold text-white uppercase">#121724</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Palette Style & QS Blur Transparency -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block text-[11px] font-mono text-slate-400 mb-1">DYNAMIC SCHEME VARIANT</label>
+                            <select id="select-style" onchange="updateSpecFromInputs()" class="w-full bg-[#131926] border border-[#263248] rounded-lg px-2.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"></select>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+                                <span>QS PANEL OPACITY</span>
+                                <span id="label-qs-alpha" class="text-cyan-400 tabular-nums">90%</span>
+                            </div>
+                            <input type="range" id="input-qs-alpha" min="45" max="100" value="90" oninput="updateSpecFromInputs()" class="w-full accent-cyan-400 cursor-pointer mt-1.5">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rebuilt assets/hex_qs_toggles/1..28.xml Shape Selector -->
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="mb-3">
+                        <h2 class="font-display font-bold text-sm text-white">QS Toggle Drawable Shape</h2>
+                        <p class="text-xs text-slate-400">Rebuilt from <code class="font-mono text-cyan-300">assets/hex_qs_toggles/*.xml</code></p>
+                    </div>
+                    <div id="qs-shape-list" class="grid grid-cols-1 gap-2"></div>
+                </div>
+            </div>
+
+            <!-- Center Column (4 cols): Interactive One UI 9.0 Phone Simulator -->
+            <div class="lg:col-span-4 flex flex-col items-center">
+                <div class="w-full max-w-[380px] bg-[#0B0E17] border-[3px] border-[#232D42] rounded-[40px] p-3.5 shadow-2xl relative">
+                    <!-- Dynamic Camera Punch Hole + Status Bar -->
+                    <div class="flex items-center justify-between px-4 pt-1 pb-2.5 text-[11px] font-mono text-slate-300">
+                        <span>09:41</span>
+                        <div class="w-3 h-3 rounded-full bg-black border border-slate-700"></div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[10px] text-cyan-400">5G</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+
+                    <!-- Preview Screen Switcher -->
+                    <div class="grid grid-cols-4 gap-1 bg-[#131926] p-1 rounded-xl mb-3 border border-[#1E2738]">
+                        <button onclick="setPhoneScreen('qs')" id="phone-tab-qs" class="py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Quick Panel</button>
+                        <button onclick="setPhoneScreen('settings')" id="phone-tab-settings" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white">Settings</button>
+                        <button onclick="setPhoneScreen('dialer')" id="phone-tab-dialer" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white">Dialer</button>
+                        <button onclick="setPhoneScreen('keyboard')" id="phone-tab-keyboard" class="py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white">Keyboard</button>
+                    </div>
+
+                    <!-- Interactive Phone Viewport -->
+                    <div id="phone-viewport" class="rounded-[28px] p-4 min-h-[470px] flex flex-col justify-between transition-colors duration-200 border border-white/5" style="background-color: #000000;">
+
+                        <!-- Screen 1: One UI 9.0 Quick Settings Panel -->
+                        <div id="screen-qs" class="space-y-3.5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400">com.android.systemui</div>
+                                    <div class="text-sm font-display font-bold text-white">One UI 9.0 Quick Panel</div>
+                                </div>
+                                <span onclick="inspectPackage('systemui')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
+                            </div>
+
+                            <!-- Dual Large Pills -->
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div onclick="inspectPackage('systemui')" id="prev-qs-pill-1" class="p-3 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all" style="background-color: #00E5FF; color: #041016;">
+                                    <div class="w-8 h-8 rounded-full bg-black/15 flex items-center justify-center font-bold text-xs">Wi-Fi</div>
+                                    <div>
+                                        <div class="text-xs font-bold leading-tight">Wi-Fi 7</div>
+                                        <div class="text-[10px] opacity-80">Connected</div>
+                                    </div>
+                                </div>
+                                <div onclick="inspectPackage('systemui')" id="prev-qs-pill-2" class="p-3 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all" style="background-color: #7C4DFF; color: #FFFFFF;">
+                                    <div class="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center font-bold text-xs">BT</div>
+                                    <div>
+                                        <div class="text-xs font-bold leading-tight">Buds3 Pro</div>
+                                        <div class="text-[10px] opacity-80">LE Audio</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 4x2 QS Toggles Grid -->
+                            <div onclick="inspectPackage('systemui')" id="prev-qs-card" class="p-3.5 rounded-2xl border border-white/10 space-y-3 cursor-pointer" style="background-color: #121724;">
+                                <div class="grid grid-cols-4 gap-2.5 place-items-center">
+                                    <div class="flex flex-col items-center gap-1">
+                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">SND</div>
+                                        <span class="text-[10px] text-slate-300">Sound</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-1">
+                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">ROT</div>
+                                        <span class="text-[10px] text-slate-300">Auto</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-1">
+                                        <div class="prev-qs-toggle-inactive w-11 h-11 flex items-center justify-center font-mono text-xs text-slate-300" style="background-color: #1A2030; border-radius: 20px;">AIR</div>
+                                        <span class="text-[10px] text-slate-400">Flight</span>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-1">
+                                        <div class="prev-qs-toggle-active w-11 h-11 flex items-center justify-center font-mono text-xs font-bold shadow-md" style="background-color: #00E5FF; color: #051016; border-radius: 20px;">TOR</div>
+                                        <span class="text-[10px] text-slate-300">Torch</span>
+                                    </div>
+                                </div>
+
+                                <!-- Brightness Slider -->
+                                <div class="pt-1">
+                                    <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                                        <span>sec_brightness_slider_progress_color</span>
+                                        <span>82%</span>
+                                    </div>
+                                    <div class="w-full h-3.5 rounded-full bg-black/40 overflow-hidden p-0.5">
+                                        <div id="prev-brightness-bar" class="h-full rounded-full w-4/5 transition-all" style="background-color: #00E5FF;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notification Card Preview -->
+                            <div onclick="inspectPackage('systemui')" id="prev-notif-card" class="p-3 rounded-2xl border border-white/10 space-y-1 cursor-pointer" style="background-color: #121724;">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-mono text-cyan-400">System RRO Active • UID 1000</span>
+                                    <span class="text-[10px] text-slate-400">now</span>
+                                </div>
+                                <div class="text-xs font-semibold text-white">High_contrast_theme_II.systemui</div>
+                                <div class="text-[11px] text-slate-400">OverlayManagerTransaction applied with priority=highest.</div>
+                            </div>
+                        </div>
+
+                        <!-- Screen 2: SecSettings Preview -->
+                        <div id="screen-settings" class="hidden space-y-2.5">
+                            <div class="flex items-center justify-between mb-1">
+                                <div>
+                                    <div class="text-[10px] font-mono text-slate-400">com.android.settings</div>
+                                    <div class="text-base font-display font-bold text-white">Settings (One UI 9.0)</div>
+                                </div>
+                                <span onclick="inspectPackage('settings')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
+                            </div>
+
+                            <div onclick="inspectPackage('settings')" class="prev-settings-card p-3 rounded-2xl border border-white/10 flex items-center justify-between cursor-pointer" style="background-color: #121724;">
+                                <div>
+                                    <div class="text-xs font-semibold text-white">Connections</div>
+                                    <div class="text-[11px] text-slate-400">Wi-Fi, Bluetooth, UWB, NFC</div>
+                                </div>
+                                <div id="prev-settings-switch" class="w-9 h-5 rounded-full flex items-center justify-end px-0.5" style="background-color: #00E5FF;">
+                                    <div class="w-4 h-4 rounded-full bg-slate-950"></div>
+                                </div>
+                            </div>
+
+                            <div onclick="inspectPackage('settings')" class="prev-settings-card p-3 rounded-2xl border border-white/10 flex items-center justify-between cursor-pointer" style="background-color: #121724;">
+                                <div>
+                                    <div class="text-xs font-semibold text-white">Hex System RRO Engine</div>
+                                    <div class="text-[11px] text-slate-400">Direct UID 0 / UID 1000 Layering</div>
+                                </div>
+                                <span class="font-mono text-[10px] text-emerald-400">ENABLED</span>
+                            </div>
+
+                            <div onclick="inspectPackage('lool')" class="prev-settings-card p-3 rounded-2xl border border-white/10 flex items-center justify-between cursor-pointer" style="background-color: #121724;">
+                                <div>
+                                    <div class="text-xs font-semibold text-white">Device Care (com.samsung.android.lool)</div>
+                                    <div class="text-[11px] text-slate-400">sec_device_care_score_color</div>
+                                </div>
+                                <span class="font-mono text-xs font-bold" id="prev-lool-score" style="color: #00E5FF;">100 / 100</span>
+                            </div>
+                        </div>
+
+                        <!-- Screen 3: Samsung Dialer Preview -->
+                        <div id="screen-dialer" class="hidden space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-[10px] font-mono text-slate-400">com.samsung.android.dialer</div>
+                                    <div class="text-sm font-display font-bold text-white">Samsung Phone</div>
+                                </div>
+                                <span onclick="inspectPackage('dialer')" class="text-[11px] font-mono text-cyan-400 underline cursor-pointer">Inspect RRO</span>
+                            </div>
+                            <div class="text-center py-2">
+                                <div id="prev-dialer-digits" class="font-mono text-xl font-bold tracking-widest" style="color: #00E5FF;">*#06#</div>
+                                <div class="text-[10px] text-slate-400 font-mono">dialpad_primary_text_color</div>
+                            </div>
+                            <div onclick="inspectPackage('dialer')" class="grid grid-cols-3 gap-2 text-center font-mono">
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">1</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">2</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">3</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">4</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">5</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">6</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">7</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">8</div>
+                                <div class="prev-dial-key p-2.5 rounded-xl bg-white/5 text-white font-bold text-sm">9</div>
+                            </div>
+                            <div class="flex justify-center pt-1">
+                                <div id="prev-call-fab" onclick="inspectPackage('dialer')" class="w-12 h-12 rounded-full flex items-center justify-center text-slate-950 font-bold text-xs cursor-pointer shadow-lg" style="background-color: #00E5FF;">
+                                    CALL
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Screen 4: Samsung HoneyBoard & Messages Preview -->
+                        <div id="screen-keyboard" class="hidden flex-col justify-between h-full space-y-3">
+                            <div onclick="inspectPackage('messaging')" class="space-y-2 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] font-mono text-slate-400">com.samsung.android.messaging</span>
+                                    <span class="text-[10px] font-mono text-cyan-400 underline">Inspect RRO</span>
+                                </div>
+                                <div id="prev-msg-in" class="p-2.5 rounded-2xl rounded-tl-sm text-xs text-slate-200 max-w-[82%]" style="background-color: #121724;">
+                                    Did you rebuild the #hex_ anaconda overlays for One UI 9.0?
+                                </div>
+                                <div id="prev-msg-out" class="p-2.5 rounded-2xl rounded-tr-sm text-xs text-slate-950 font-medium max-w-[82%] ml-auto" style="background-color: #00E5FF;">
+                                    Yes — running directly on Samsung System RROs via UID 1000!
+                                </div>
+                            </div>
+
+                            <div onclick="inspectPackage('honeyboard')" id="prev-keyboard-box" class="p-2.5 rounded-2xl border border-white/10 space-y-1.5 cursor-pointer" style="background-color: #0B0E17;">
+                                <div class="flex justify-between text-[10px] font-mono text-slate-400 pb-1">
+                                    <span>com.samsung.android.honeyboard</span>
+                                    <span>key_bg_color</span>
+                                </div>
+                                <div class="grid grid-cols-10 gap-1 text-center font-mono text-[11px]">
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">Q</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">W</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">E</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">R</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">T</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">Y</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">U</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">I</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">O</div>
+                                    <div class="prev-kb-key py-2 rounded bg-white/10 text-white">P</div>
+                                </div>
+                                <div class="grid grid-cols-4 gap-1.5 pt-1">
+                                    <div class="py-1.5 rounded bg-white/5 text-center text-[10px] text-slate-300">Sym</div>
+                                    <div class="col-span-2 py-1.5 rounded bg-white/10 text-center text-[10px] text-white">English (US)</div>
+                                    <div id="prev-kb-enter" class="py-1.5 rounded text-center text-[10px] font-bold text-slate-950" style="background-color: #00E5FF;">Enter</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gesture Navigation Pill -->
+                        <div class="pt-3 flex justify-center">
+                            <div class="w-28 h-1 rounded-full bg-white/30"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column (4 cols): Live Package Inspector & Compiler Log -->
+            <div class="lg:col-span-4 space-y-5">
+
+                <!-- Selected System RRO Package Inspector -->
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="flex items-start justify-between gap-2 pb-3 border-b border-[#1E2738]">
+                        <div>
+                            <div class="text-[11px] font-mono text-cyan-400" id="insp-rro-pkg">com.samsung.High_contrast_theme_II.systemui</div>
+                            <h2 class="font-display font-bold text-base text-white" id="insp-title">SystemUI &amp; Quick Settings</h2>
+                            <p class="text-xs font-mono text-slate-400" id="insp-target">Target: com.android.systemui • anaconda_1</p>
+                        </div>
+                        <button onclick="switchTab('matrix')" class="text-xs font-mono text-slate-300 hover:text-cyan-300 bg-[#131926] border border-[#263248] px-2.5 py-1 rounded">
+                            All 17 RROs →
+                        </button>
+                    </div>
+
+                    <!-- Legacy Broken vs Rebuilt One UI 9.0 Note -->
+                    <div class="my-3 p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] text-xs space-y-1">
+                        <div class="text-[11px] font-mono text-amber-300">One UI 9.0 Migration Note:</div>
+                        <p id="insp-notes" class="text-slate-300 text-xs leading-relaxed"></p>
+                        <div class="pt-1 flex flex-wrap gap-1.5" id="insp-legacy-list"></div>
+                    </div>
+
+                    <!-- Live Editable One UI 9.0 Resource Tokens -->
+                    <div class="space-y-2 max-h-[290px] overflow-y-auto pr-1" id="insp-token-list"></div>
+                </div>
+
+                <!-- Live Privileged Transaction & Compiler Console -->
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <div>
+                            <h3 class="font-display font-bold text-sm text-white">System RRO Transaction Log</h3>
+                            <p class="text-[11px] font-mono text-slate-400" id="log-timestamp">Ready</p>
+                        </div>
+                        <span class="font-mono text-[11px] text-emerald-400 tabular-nums" id="log-duration">148 ms</span>
+                    </div>
+                    <pre id="compiler-log-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-[210px] leading-relaxed"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= TAB 2: SAMSUNG SYSTEM RRO MATRIX (17 TARGETS) ======================= -->
+        <div id="view-matrix" class="hidden space-y-5">
+            <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-display font-bold text-lg text-white">Samsung System RRO Carrier Matrix (One UI 9.0)</h2>
+                    <p class="text-xs text-slate-400">
+                        Rebuilt from <code class="font-mono text-cyan-300">libhex.so</code> &amp; <code class="font-mono text-cyan-300">assets/anaconda/res/anaconda_0..70</code>. Layers directly onto <code class="font-mono text-slate-200">com.samsung.High_contrast_theme_II.*</code> via UID 0 / UID 1000.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <input type="text" id="matrix-search" oninput="renderMatrix()" placeholder="Search package or resource token..." class="bg-[#131926] border border-[#263248] rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 w-64">
+                </div>
+            </div>
+
+            <div id="matrix-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- ======================= TAB 3: MONET 65-SHADE + 23-ROLE TABLE ======================= -->
+        <div id="view-monet" class="hidden space-y-6">
+            <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-5">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="font-display font-bold text-lg text-white">Android 16 / One UI 9.0 Monet Framework Table (`android:color/system_*`)</h2>
+                        <p class="text-xs text-slate-400">65 tonal shades (5 palettes × 13 stops) + 23 Material 3 Dark surface/container roles fabricated into <code class="font-mono text-cyan-300">HexNextMonetShades</code></p>
+                    </div>
+                    <div class="font-mono text-xs text-slate-300">
+                        Seed: <strong id="monet-seed-label" class="text-cyan-400">#00E5FF</strong> • Style: <strong id="monet-style-label" class="text-white">VIBRANT</strong>
+                    </div>
+                </div>
+                <div id="monet-groups-container" class="space-y-4"></div>
+            </div>
+
+            <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-5">
+                <h3 class="font-display font-bold text-base text-white mb-1">23 Material 3 Dark Dynamic Roles (`system_*_dark`)</h3>
+                <p class="text-xs text-slate-400 mb-4">Resolved in-memory and committed to <code class="font-mono text-slate-200">android</code> framework without Theme Park</p>
+                <div id="monet-roles-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+            </div>
+        </div>
+
+        <!-- ======================= TAB 4: GENERATED MANIFESTS & SHELL SCRIPT ======================= -->
+        <div id="view-code" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-5 space-y-4">
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-display font-bold text-sm text-white">Select RRO Package to Inspect</h3>
+                        <span class="font-mono text-[11px] text-cyan-400">versionCode="909090"</span>
+                    </div>
+                    <select id="code-pkg-select" onchange="renderCodeInspector()" class="w-full bg-[#131926] border border-[#263248] rounded-lg px-3 py-2 text-xs font-mono text-white mb-3"></select>
+
+                    <div class="text-xs font-mono text-slate-400 mb-1">AndroidManifest.xml (Samsung System RRO Carrier)</div>
+                    <pre id="code-manifest-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-cyan-300 overflow-x-auto mb-3"></pre>
+
+                    <div class="text-xs font-mono text-slate-400 mb-1">res/values/colors.xml (One UI 9.0 Resource Table)</div>
+                    <pre id="code-colors-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-emerald-300 overflow-x-auto max-h-[260px]"></pre>
+                </div>
+            </div>
+
+            <div class="lg:col-span-7 space-y-4">
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h3 class="font-display font-bold text-sm text-white">Privileged UID 0 / UID 1000 Fabrication Commands</h3>
+                            <p class="text-xs text-slate-400">Executes via Shizuku (`rish` at UID 0 or 1000) or `su -c` with zero Theme Park dependency</p>
+                        </div>
+                        <button onclick="copyShellCommands()" id="btn-copy-cmd" class="px-3 py-1.5 rounded bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-cyan-300 cursor-pointer">
+                            Copy Script
+                        </button>
+                    </div>
+                    <pre id="code-shell-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3.5 font-mono text-[11px] text-slate-200 overflow-x-auto max-h-[420px] leading-relaxed"></pre>
+                </div>
+
+                <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
+                    <div class="text-xs font-mono text-slate-400 mb-1">res/drawable/sec_qs_tile_bg.xml (Rebuilt from assets/hex_qs_toggles)</div>
+                    <pre id="code-drawable-box" class="bg-[#07090E] border border-[#1E2738] rounded-lg p-3 font-mono text-[11px] text-amber-300 overflow-x-auto"></pre>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- In-Page Safe Mode Rescue Confirmation Modal (No window.alert / window.confirm) -->
+    <div id="rescue-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-[#0D111A] border border-[#263248] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="font-display font-bold text-base text-white">Emergency System RRO Rescue</h3>
+                <button onclick="closeRescueModal()" class="text-slate-400 hover:text-white text-sm font-mono">ESC</button>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+                This runs <code class="font-mono text-rose-300">cmd overlay disable-all --user 0</code> under your active UID 0 / UID 1000 session and unregisters all fabricated One UI 9.0 overlays from <code class="font-mono text-slate-200">/data/resource-cache/</code>.
+            </p>
+            <div class="flex items-center justify-end gap-2.5 pt-2">
+                <button onclick="closeRescueModal()" class="px-3.5 py-2 rounded-lg bg-[#131926] text-slate-300 text-xs font-medium">Cancel</button>
+                <button onclick="confirmRescue()" class="px-3.5 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-slate-950 font-semibold text-xs">Disable All Overlays Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let APP_STATE = null;
+        let CURRENT_TAB = 'studio';
+        let CURRENT_PHONE_SCREEN = 'qs';
+        let INSPECTED_PKG_ID = 'systemui';
+
+        async function fetchState() {
+            const res = await fetch('/api/state');
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        function switchTab(tab) {
+            CURRENT_TAB = tab;
+            ['studio', 'matrix', 'monet', 'code'].forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                const mob = document.getElementById(`mob-tab-${t}`);
+                if (t === tab) {
+                    view.classList.remove('hidden');
+                    if (btn) btn.className = 'px-3.5 py-1.5 rounded-md text-xs font-medium transition-all bg-[#161F30] text-white shadow-sm';
+                    if (mob) mob.className = 'px-3 py-1.5 rounded text-xs font-medium bg-[#161F30] text-white shrink-0';
+                } else {
+                    view.classList.add('hidden');
+                    if (btn) btn.className = 'px-3.5 py-1.5 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200';
+                    if (mob) mob.className = 'px-3 py-1.5 rounded text-xs font-medium text-slate-400 shrink-0';
+                }
+            });
+        }
+
+        function setPhoneScreen(screen) {
+            CURRENT_PHONE_SCREEN = screen;
+            ['qs', 'settings', 'dialer', 'keyboard'].forEach(s => {
+                const el = document.getElementById(`screen-${s}`);
+                const tab = document.getElementById(`phone-tab-${s}`);
+                if (s === screen) {
+                    el.classList.remove('hidden');
+                    tab.className = 'py-1.5 rounded-lg text-[11px] font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+                } else {
+                    el.classList.add('hidden');
+                    tab.className = 'py-1.5 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white';
+                }
+            });
+            const mapPkg = { qs: 'systemui', settings: 'settings', dialer: 'dialer', keyboard: 'honeyboard' };
+            if (mapPkg[screen]) {
+                INSPECTED_PKG_ID = mapPkg[screen];
+                renderInspector();
+            }
+        }
+
+        function inspectPackage(pkgId) {
+            INSPECTED_PKG_ID = pkgId;
+            renderInspector();
+        }
+
+        async function changePrivilegeMode(mode) {
+            const res = await fetch('/api/privilege/mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode })
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        async function applyPluginPreset(pluginId) {
+            const plugin = APP_STATE.plugins.find(p => p.id === pluginId);
+            if (!plugin) return;
+            const payload = {
+                name: plugin.name,
+                plugin_id: plugin.id,
+                accent: plugin.seed,
+                secondary: plugin.secondary,
+                bg: plugin.bg,
+                surface: plugin.surface,
+                card: plugin.card,
+                qs_inactive: plugin.qs_inactive,
+                tile_shape: plugin.tile_shape,
+                style: plugin.style,
+                pure_black: plugin.bg === '#000000'
+            };
+            const res = await fetch('/api/compile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        function updateSpecFromInputs() {
+            if (!APP_STATE) return;
+            const accent = document.getElementById('input-accent').value.toUpperCase();
+            const secondary = document.getElementById('input-secondary').value.toUpperCase();
+            const surface = document.getElementById('input-surface').value.toUpperCase();
+            const card = document.getElementById('input-card').value.toUpperCase();
+            const pureBlack = document.getElementById('toggle-pure-black').checked;
+            const style = document.getElementById('select-style').value;
+            const qsAlpha = parseInt(document.getElementById('input-qs-alpha').value, 10);
+
+            document.getElementById('label-accent').textContent = accent;
+            document.getElementById('label-secondary').textContent = secondary;
+            document.getElementById('label-surface').textContent = surface;
+            document.getElementById('label-card').textContent = card;
+            document.getElementById('label-qs-alpha').textContent = `${qsAlpha}%`;
+
+            APP_STATE.spec.accent = accent;
+            APP_STATE.spec.secondary = secondary;
+            APP_STATE.spec.surface = surface;
+            APP_STATE.spec.card = card;
+            APP_STATE.spec.pure_black = pureBlack;
+            APP_STATE.spec.bg = pureBlack ? '#000000' : surface;
+            APP_STATE.spec.style = style;
+            APP_STATE.spec.qs_alpha = qsAlpha;
+
+            renderPhoneSimulator();
+        }
+
+        async function selectQsShape(shapeId) {
+            APP_STATE.spec.tile_shape = shapeId;
+            await compileAndApply();
+        }
+
+        async function compileAndApply() {
+            const btn = document.getElementById('btn-compile');
+            const origHtml = btn.innerHTML;
+            btn.innerHTML = '<span>Compiling RROs...</span>';
+            const res = await fetch('/api/compile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(APP_STATE.spec)
+            });
+            APP_STATE = await res.json();
+            btn.innerHTML = origHtml;
+            renderAll();
+        }
+
+        async function togglePackageTarget(pkgId, enable) {
+            const res = await fetch('/api/overlays/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: pkgId, enable })
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        async function setTokenOverride(fullKey, hexValue) {
+            const res = await fetch('/api/override', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: fullKey, value: hexValue })
+            });
+            APP_STATE = await res.json();
+            renderAll();
+        }
+
+        function triggerRescueModal() {
+            document.getElementById('rescue-modal').classList.remove('hidden');
+        }
+
+        function closeRescueModal() {
+            document.getElementById('rescue-modal').classList.add('hidden');
+        }
+
+        async function confirmRescue() {
+            const res = await fetch('/api/rescue', { method: 'POST' });
+            APP_STATE = await res.json();
+            closeRescueModal();
+            renderAll();
+        }
+
+        function renderAll() {
+            if (!APP_STATE) return;
+            const { privilege, spec, packages, last_build } = APP_STATE;
+
+            // Top bar & Architecture strip
+            document.getElementById('privilege-select').value = privilege.mode;
+            document.getElementById('strip-priv-badge').textContent =
+                privilege.uid === 1000
+                    ? `UID 1000 (android.uid.system • ${privilege.mode})`
+                    : `UID 0 (root • ${privilege.mode})`;
+            document.getElementById('strip-owner-pkg').textContent = privilege.owner_package;
+
+            const enabledCount = packages.filter(p => p.selected).length;
+            document.getElementById('strip-active-count').textContent = `${enabledCount}/${packages.length}`;
+            document.getElementById('nav-pkg-count').textContent = `${enabledCount}/${packages.length}`;
+            document.getElementById('strip-token-count').textContent = last_build.total_tokens;
+
+            // Sync color & style controls
+            document.getElementById('input-accent').value = spec.accent;
+            document.getElementById('label-accent').textContent = spec.accent;
+            document.getElementById('input-secondary').value = spec.secondary;
+            document.getElementById('label-secondary').textContent = spec.secondary;
+            document.getElementById('input-surface').value = spec.surface;
+            document.getElementById('label-surface').textContent = spec.surface;
+            document.getElementById('input-card').value = spec.card;
+            document.getElementById('label-card').textContent = spec.card;
+            document.getElementById('toggle-pure-black').checked = !!spec.pure_black;
+            document.getElementById('input-qs-alpha').value = spec.qs_alpha || 90;
+            document.getElementById('label-qs-alpha').textContent = `${spec.qs_alpha || 90}%`;
+
+            // Populate styles dropdown
+            const styleSelect = document.getElementById('select-style');
+            styleSelect.innerHTML = APP_STATE.palette_styles.map(st =>
+                `<option value="${st.id}" ${st.id === spec.style ? 'selected' : ''}>${st.label}</option>`
+            ).join('');
+
+            renderPlugins();
+            renderQsShapes();
+            renderPhoneSimulator();
+            renderInspector();
+            renderLogs();
+            renderMatrix();
+            renderMonetView();
+            renderCodeSelector();
+        }
+
+        function renderPlugins() {
+            const container = document.getElementById('plugin-list');
+            const activeId = APP_STATE.spec.plugin_id;
+            container.innerHTML = APP_STATE.plugins.map(p => {
+                const isSelected = p.id === activeId;
+                return `
+                    <button onclick="applyPluginPreset('${p.id}')" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${isSelected ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                        <div class="min-w-0 pr-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-white truncate">${p.name}</span>
+                                <span class="text-[10px] font-mono text-slate-400">${p.style}</span>
+                            </div>
+                            <div class="text-[11px] font-mono text-slate-400 truncate">${p.plugin_pkg}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <span class="w-4 h-4 rounded-full border border-white/20" style="background-color: ${p.seed}"></span>
+                            <span class="w-4 h-4 rounded-full border border-white/20" style="background-color: ${p.secondary}"></span>
+                            <span class="w-4 h-4 rounded-full border border-white/20" style="background-color: ${p.card}"></span>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderQsShapes() {
+            const container = document.getElementById('qs-shape-list');
+            const activeShape = APP_STATE.spec.tile_shape;
+            const accent = APP_STATE.spec.accent;
+            container.innerHTML = APP_STATE.qs_shapes.map(sh => {
+                const active = sh.id === activeShape;
+                return `
+                    <button onclick="selectQsShape('${sh.id}')" class="w-full p-2.5 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${active ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-7 h-7 flex items-center justify-center text-[10px] font-mono font-bold text-slate-950" style="background-color: ${accent}; border-radius: ${sh.radius_css};">QS</div>
+                            <div class="text-left">
+                                <div class="text-xs font-semibold text-white">${sh.label}</div>
+                                <div class="text-[10px] font-mono text-slate-400">anaconda_${sh.anaconda_index}</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-mono ${active ? 'text-cyan-400' : 'text-slate-500'}">${active ? 'ACTIVE' : 'SELECT'}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderPhoneSimulator() {
+            const { spec, qs_shapes } = APP_STATE;
+            const shapeObj = qs_shapes.find(s => s.id === spec.tile_shape) || qs_shapes[0];
+            const vp = document.getElementById('phone-viewport');
+            vp.style.backgroundColor = spec.pure_black ? '#000000' : spec.surface;
+
+            const pill1 = document.getElementById('prev-qs-pill-1');
+            const pill2 = document.getElementById('prev-qs-pill-2');
+            const qsCard = document.getElementById('prev-qs-card');
+            const notifCard = document.getElementById('prev-notif-card');
+            const brightBar = document.getElementById('prev-brightness-bar');
+
+            pill1.style.backgroundColor = spec.accent;
+            pill2.style.backgroundColor = spec.secondary;
+            qsCard.style.backgroundColor = spec.card;
+            notifCard.style.backgroundColor = spec.card;
+            brightBar.style.backgroundColor = spec.accent;
+
+            document.querySelectorAll('.prev-qs-toggle-active').forEach(el => {
+                el.style.backgroundColor = spec.accent;
+                el.style.borderRadius = shapeObj.radius_css;
+            });
+            document.querySelectorAll('.prev-qs-toggle-inactive').forEach(el => {
+                el.style.backgroundColor = spec.qs_inactive;
+                el.style.borderRadius = shapeObj.radius_css;
+            });
+
+            document.querySelectorAll('.prev-settings-card').forEach(el => {
+                el.style.backgroundColor = spec.card;
+            });
+            document.getElementById('prev-settings-switch').style.backgroundColor = spec.accent;
+            document.getElementById('prev-lool-score').style.color = spec.accent;
+
+            document.getElementById('prev-dialer-digits').style.color = spec.accent;
+            document.getElementById('prev-call-fab').style.backgroundColor = spec.accent;
+
+            document.getElementById('prev-msg-in').style.backgroundColor = spec.card;
+            document.getElementById('prev-msg-out').style.backgroundColor = spec.accent;
+            document.getElementById('prev-keyboard-box').style.backgroundColor = spec.surface;
+            document.getElementById('prev-kb-enter').style.backgroundColor = spec.accent;
+        }
+
+        function renderInspector() {
+            const pkg = APP_STATE.packages.find(p => p.id === INSPECTED_PKG_ID) || APP_STATE.packages[0];
+            if (!pkg) return;
+
+            document.getElementById('insp-rro-pkg').textContent = pkg.system_rro_package;
+            document.getElementById('insp-title').textContent = pkg.label;
+            document.getElementById('insp-target').textContent = `Target: ${pkg.target_package} • ${pkg.anaconda_archive}`;
+            document.getElementById('insp-notes').textContent = pkg.notes;
+
+            const legacyContainer = document.getElementById('insp-legacy-list');
+            legacyContainer.innerHTML = pkg.legacy_broken_resources.map(leg =>
+                `<span class="font-mono text-[10px] line-through text-rose-400/80 bg-rose-950/30 border border-rose-800/30 px-1.5 py-0.5 rounded">${leg}</span>`
+            ).join('');
+
+            const tokenList = document.getElementById('insp-token-list');
+            tokenList.innerHTML = pkg.resolved_resources.map(res => {
+                const overrideKey = `${pkg.target_package}:${res.name}`;
+                return `
+                    <div class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="font-mono text-xs text-white truncate">${res.name}</div>
+                            <div class="text-[11px] text-slate-400 truncate">${res.desc}</div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="font-mono text-[11px] text-cyan-300 uppercase tabular-nums">${res.value}</span>
+                            <input type="color" value="${res.value}" onchange="setTokenOverride('${overrideKey}', this.value)" class="w-6 h-6 cursor-pointer">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderLogs() {
+            const lb = APP_STATE.last_build;
+            document.getElementById('log-timestamp').textContent = `Last Commit: ${lb.timestamp}`;
+            document.getElementById('log-duration').textContent = `${lb.duration_ms} ms`;
+            document.getElementById('compiler-log-box').textContent = lb.logs.join('\n');
+        }
+
+        function renderMatrix() {
+            const query = (document.getElementById('matrix-search')?.value || '').toLowerCase();
+            const grid = document.getElementById('matrix-grid');
+
+            const filtered = APP_STATE.packages.filter(pkg => {
+                if (!query) return true;
+                return (
+                    pkg.label.toLowerCase().includes(query) ||
+                    pkg.target_package.toLowerCase().includes(query) ||
+                    pkg.system_rro_package.toLowerCase().includes(query) ||
+                    pkg.resolved_resources.some(r => r.name.toLowerCase().includes(query))
+                );
+            });
+
+            grid.innerHTML = filtered.map(pkg => `
+                <div class="bg-[#0D111A] border ${pkg.selected ? 'border-[#263248]' : 'border-[#182030] opacity-65'} rounded-xl p-4 flex flex-col justify-between gap-3">
+                    <div>
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="font-mono text-[11px] text-cyan-400">${pkg.system_rro_package}</div>
+                                <h3 class="font-display font-bold text-base text-white">${pkg.label}</h3>
+                                <div class="font-mono text-xs text-slate-400">Target: ${pkg.target_package} • ${pkg.anaconda_archive}</div>
+                            </div>
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" ${pkg.selected ? 'checked' : ''} onchange="togglePackageTarget('${pkg.id}', this.checked)" class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-800 peer-checked:bg-emerald-500 rounded-full relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
+                            </label>
+                        </div>
+
+                        <p class="text-xs text-slate-400 mt-2">${pkg.notes}</p>
+
+                        <div class="mt-3 space-y-1.5">
+                            <div class="text-[10px] font-mono text-slate-400 uppercase">Rebuilt One UI 9.0 Resource Map (${pkg.resolved_resources.length} tokens):</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                ${pkg.resolved_resources.map(r => `
+                                    <div class="px-2 py-1.5 rounded bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-1.5">
+                                        <span class="font-mono text-[11px] text-slate-200 truncate">${r.name}</span>
+                                        <span class="flex items-center gap-1 shrink-0 font-mono text-[10px] text-slate-400">
+                                            <span class="w-3 h-3 rounded-sm border border-white/20" style="background-color: ${r.value}"></span>
+                                            ${r.value}
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-[#1E2738] flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <span>Overlay ID: <strong class="text-slate-200">${pkg.overlay_identifier}</strong></span>
+                        <button onclick="inspectPackage('${pkg.id}'); switchTab('studio');" class="text-cyan-400 hover:underline cursor-pointer">Customize in Studio →</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderMonetView() {
+            const { monet } = APP_STATE;
+            document.getElementById('monet-seed-label').textContent = monet.seed;
+            document.getElementById('monet-style-label').textContent = monet.style;
+
+            const groupsContainer = document.getElementById('monet-groups-container');
+            groupsContainer.innerHTML = Object.entries(monet.groups).map(([groupName, shades]) => `
+                <div class="space-y-1.5">
+                    <div class="font-mono text-xs text-slate-300">android:color/${groupName}_*</div>
+                    <div class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-13 gap-1.5">
+                        ${shades.map(s => `
+                            <div class="rounded-lg overflow-hidden border border-[#1E2738] bg-[#131926]">
+                                <div class="h-10 w-full" style="background-color: ${s.hex}"></div>
+                                <div class="p-1.5 font-mono text-[10px]">
+                                    <div class="text-white font-semibold tabular-nums">${s.shade}</div>
+                                    <div class="text-slate-400">${s.hex}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            const rolesGrid = document.getElementById('monet-roles-grid');
+            rolesGrid.innerHTML = Object.entries(monet.roles_dark).map(([roleName, hexVal]) => `
+                <div class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-md border border-white/15 shrink-0" style="background-color: ${hexVal}"></div>
+                    <div class="min-w-0 font-mono">
+                        <div class="text-[11px] text-white truncate" title="${roleName}">${roleName.replace('system_', '')}</div>
+                        <div class="text-[10px] text-cyan-400">${hexVal}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderCodeSelector() {
+            const sel = document.getElementById('code-pkg-select');
+            const currentVal = sel.value || 'systemui';
+            sel.innerHTML = APP_STATE.packages.map(p =>
+                `<option value="${p.id}" ${p.id === currentVal ? 'selected' : ''}>${p.system_rro_package} → ${p.target_package}</option>`
+            ).join('');
+            renderCodeInspector();
+        }
+
+        function renderCodeInspector() {
+            const pkgId = document.getElementById('code-pkg-select').value || 'systemui';
+            const pkg = APP_STATE.packages.find(p => p.id === pkgId) || APP_STATE.packages[0];
+            if (!pkg) return;
+
+            document.getElementById('code-manifest-box').textContent = pkg.manifest_xml;
+            document.getElementById('code-colors-box').textContent = pkg.colors_xml;
+            document.getElementById('code-drawable-box').textContent = APP_STATE.qs_drawable_xml;
+
+            const shellLines = [
+                `# Privileged Context: ${APP_STATE.privilege.mode} (UID ${APP_STATE.privilege.uid})`,
+                `# Owning Package: ${APP_STATE.privilege.owner_package}`,
+                `# Theme Park Prerequisite: NONE (Direct System RRO Layering)`,
+                ``,
+                ...APP_STATE.packages.filter(p => p.selected).map(p =>
+                    `# ${p.label} (${p.system_rro_package})\n${p.fabricate_command}\n${p.enable_command}\n`
+                )
+            ];
+            document.getElementById('code-shell-box').textContent = shellLines.join('\n');
+        }
+
+        function copyShellCommands() {
+            const text = document.getElementById('code-shell-box').textContent;
+            navigator.clipboard.writeText(text);
+            const btn = document.getElementById('btn-copy-cmd');
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy Script'; }, 1500);
+        }
+
+        fetchState();
+    </script>
+</body>
+</html>

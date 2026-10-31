@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Hexagon Outer Neon Accent -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,22 L82,38 L82,70 L54,86 L26,70 L26,38 Z" />
+    <!-- Hexagon Inner Dark Cutout -->
+    <path
+        android:fillColor="#0B0D14"
+        android:pathData="M54,28 L76,41 L76,67 L54,80 L32,67 L32,41 Z" />
+    <!-- Center Magic Wand / Hex Spark Core -->
+    <path
+        android:fillColor="#7C4DFF"
+        android:pathData="M54,42 L64,48 L64,60 L54,66 L44,60 L44,48 Z" />
+</vector>

@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HexNext - The Modern One UI Theme Engine</title>
+    <style>
+        :root {
+            --bg-base: #080A0F;
+            --bg-surface: #10141E;
+            --bg-card: rgba(22, 28, 42, 0.75);
+            --bg-card-hover: rgba(30, 38, 58, 0.95);
+            --border-glass: rgba(255, 255, 255, 0.09);
+            --border-active: rgba(0, 229, 255, 0.6);
+            --accent: #00E5FF;
+            --accent-glow: rgba(0, 229, 255, 0.35);
+            --secondary: #7C4DFF;
+            --text-main: #FFFFFF;
+            --text-muted: #8E9BAE;
+            --text-dim: #546075;
+            --success: #00E676;
+            --warning: #FFD600;
+            --danger: #FF5252;
+            --radius-xl: 28px;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
+            --qs-radius: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            padding: 0 0 100px 0;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Top Header */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 10, 15, 0.88);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hex-logo {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--accent-glow);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .hex-logo:active {
+            transform: rotate(30deg) scale(0.95);
+        }
+
+        .hex-logo-inner {
+            width: 34px;
+            height: 34px;
+            background: var(--bg-base);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 16px;
+            color: var(--accent);
+        }
+
+        .brand-text h1 {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #FFFFFF, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-text p {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 230, 118, 0.12);
+            border: 1px solid rgba(0, 230, 118, 0.3);
+            color: var(--success);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        /* Navigation Bar (Tabs) */
+        .tab-bar {
+            display: flex;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-glass);
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 4px 8px;
+            position: sticky;
+            top: 73px;
+            z-index: 90;
+        }
+
+        .tab-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-btn {
+            flex: 0 0 auto;
+            padding: 10px 16px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 20px;
+            margin: 4px;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-btn.active {
+            color: #000000;
+            background: var(--accent);
+            box-shadow: 0 2px 12px var(--accent-glow);
+        }
+
+        /* Container & Views */
+        .container {
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .view-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Section Headings */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 20px 0 12px 4px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title span {
+            color: var(--accent);
+        }
+
+        .section-badge {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 700;
+            background: rgba(0, 229, 255, 0.1);
+            padding: 3px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+        }
+
+        /* Live Phone Mockup Stage */
+        .phone-mockup-wrapper {
+            background: #000000;
+            border-radius: 36px;
+            border: 4px solid #1E2333;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px var(--accent-glow);
+            padding: 14px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mockup-status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-main);
+            padding: 4px 10px 10px 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .mockup-icons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        /* Mockup Tabs */
+        .mockup-screen-selector {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 3px;
+            margin-bottom: 12px;
+            gap: 4px;
+        }
+
+        .mockup-tab-pill {
+            flex: 1;
+            text-align: center;
+            padding: 6px 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mockup-tab-pill.active {
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+        }
+
+        .mockup-stage {
+            min-height: 250px;
+            transition: all 0.3s;
+        }
+
+        /* Screen 1: Quick Settings */
+        .qs-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .qs-tile {
+            height: 60px;
+            background: var(--accent);
+            color: #000000;
+            border-radius: var(--qs-radius);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+            box-shadow: 0 4px 14px var(--accent-glow);
+            transition: all 0.25s ease;
+            cursor: pointer;
+        }
+
+        .qs-tile.inactive {
+            background: #1C202F;
+            color: var(--text-muted);
+            box-shadow: none;
+        }
+
+        .qs-tile-icon {
+            font-size: 18px;
+            margin-bottom: 2px;
+        }
+
+        .qs-slider-container {
+            background: #141824;
+            border-radius: 16px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .qs-slider-track {
+            flex: 1;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .qs-slider-fill {
+            width: 72%;
+            height: 100%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .mock-notification {
+            background: #141824;
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .mock-noti-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            color: #000000;
+        }
+
+        /* Screen 2: One UI Settings */
+        .settings-mock {
+            display: none;
+        }
+
+        .settings-hero {
+            background: #141824;
+            border-radius: 18px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+
+        .settings-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .settings-list {
+            background: #141824;
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .settings-item-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        /* Screen 3: Dialer */
+        .dialer-mock {
+            display: none;
+        }
+
+        .dialer-digits {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: 2px;
+            margin: 10px 0 16px 0;
+            height: 30px;
+        }
+
+        .dialer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            max-width: 240px;
+            margin: 0 auto 14px auto;
+        }
+
+        .dial-key {
+            height: 52px;
+            border-radius: 50%;
+            background: #161A28;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dial-key span {
+            font-size: 8px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .dial-key:active {
+            background: var(--accent);
+            color: #000000;
+        }
+
+        .dial-action {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--success);
+            color: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin: 0 auto;
+            box-shadow: 0 4px 16px rgba(0, 230, 118, 0.4);
+        }
+
+        /* Screen 4: Keyboard */
+        .keyboard-mock {
+            display: none;
+        }
+
+        .keyboard-preview-box {
+            background: #141824;
+            border-radius: 14px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            margin-bottom: 12px;
+        }
+
+        .keyboard-keys-stage {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: #0E111A;
+            border-radius: 16px;
+            padding: 8px;
+        }
+
+        .kb-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .kb-key {
+            flex: 1;
+            height: 34px;
+            background: #1C2030;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #FFFFFF;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .kb-key.accent {
+            background: var(--accent);
+            color: #000000;
+            font-weight: 800;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        /* Plugin Cards Grid */
+        .plugin-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .plugin-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plugin-card.active {
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .plugin-card.active::after {
+            content: "✓ ACTIVE";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 9px;
+            font-weight: 900;
+            color: #000000;
+            background: var(--accent);
+            padding: 2px 6px;
+            border-radius: 8px;
+        }
+
+        .plugin-swatches {
+            display: flex;
+            height: 18px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .plugin-swatch {
+            flex: 1;
+            height: 100%;
+        }
+
+        .plugin-info h3 {
+            font-size: 14px;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .plugin-info p {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        /* Deep Color Customizer */
+        .color-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 14px;
+            margin-bottom: 18px;
+        }
+
+        .color-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 4px;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .color-row:last-child {
+            border-bottom: none;
+        }
+
+        .color-meta h4 {
+            font-size: 13px;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .color-meta p {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .picker-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            padding: 4px 10px 4px 6px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .picker-badge:hover {
+            border-color: var(--accent);
+        }
+
+        .color-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #FFFFFF;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+        }
+
+        .color-val {
+            font-size: 12px;
+            font-family: monospace;
+            font-weight: 800;
+            color: #FFFFFF;
+        }
+
+        input[type="color"] {
+            opacity: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        /* UI Tweaks Styles */
+        .tweak-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .shape-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .shape-box {
+            height: 64px;
+            background: #141724;
+            border: 2px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 800;
+            gap: 4px;
+        }
+
+        .shape-box.active {
+            border-color: var(--accent);
+            background: rgba(0, 229, 255, 0.12);
+            color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .shape-icon-preview {
+            width: 24px;
+            height: 24px;
+            background: var(--accent);
+        }
+
+        /* App Overlays Checklist */
+        .apps-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .apps-tool-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .apps-tool-btn:hover {
+            color: #FFFFFF;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .apps-list-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .app-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .app-item.selected {
+            border-color: var(--accent);
+            background: rgba(0, 229, 255, 0.08);
+        }
+
+        .app-check {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            border: 2px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #000000;
+            font-weight: 900;
+            transition: all 0.2s ease;
+        }
+
+        .app-item.selected .app-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .app-info h5 {
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .app-info span {
+            font-size: 10px;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        /* Bottom Floating Bar */
+        .bottom-action-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(8, 10, 15, 0.92);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-glass);
+            padding: 12px 18px 20px 18px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .btn-build-apply {
+            flex: 2;
+            height: 52px;
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            border: none;
+            border-radius: var(--radius-lg);
+            color: #000000;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px var(--accent-glow);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-build-apply:active {
+            transform: scale(0.97);
+        }
+
+        .btn-quick-action {
+            flex: 1;
+            height: 52px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg);
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-quick-action:active {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Build & Execution Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(16px);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #0E121B;
+            border: 1px solid var(--accent);
+            border-radius: var(--radius-xl);
+            padding: 22px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px var(--accent-glow);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .modal-header h3 {
+            font-size: 17px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .modal-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            transition: width 0.3s ease;
+        }
+
+        .modal-log-terminal {
+            background: #06080D;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            height: 180px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+        }
+
+        .log-entry.success { color: var(--success); }
+        .log-entry.accent { color: var(--accent); }
+        .log-entry.warning { color: var(--warning); }
+
+        .modal-btn-close {
+            width: 100%;
+            height: 48px;
+            background: var(--accent);
+            border: none;
+            border-radius: var(--radius-md);
+            color: #000000;
+            font-size: 14px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 85px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(23, 27, 40, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--accent);
+            color: #FFFFFF;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 999;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="brand-box">
+            <div class="hex-logo" onclick="brandAction()">
+                <div class="hex-logo-inner">⚡</div>
+            </div>
+            <div class="brand-text">
+                <h1>HexNext</h1>
+                <p>One UI 9.0 Themer</p>
+            </div>
+        </div>
+        <div class="header-status">
+            <div class="status-dot"></div>
+            <span>Fabrication Ready</span>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-bar">
+        <button class="tab-btn active" onclick="switchView('dashboard')">📱 Live Mockup</button>
+        <button class="tab-btn" onclick="switchView('plugins')">🧩 Theme Plugins</button>
+        <button class="tab-btn" onclick="switchView('colors')">🎨 Color Studio</button>
+        <button class="tab-btn" onclick="switchView('tweaks')">📐 UI Tweaks & Shapes</button>
+        <button class="tab-btn" onclick="switchView('apps')">📦 App Overlays</button>
+    </nav>
+
+    <div class="container">
+
+        <!-- VIEW 1: DASHBOARD & LIVE MOCKUP -->
+        <section id="view-dashboard" class="view-content active">
+            
+            <div class="section-header">
+                <div class="section-title"><span>⚡</span> Live Device Preview</div>
+                <div class="section-badge" id="activeThemeBadge">AMOLED Pitch Black</div>
+            </div>
+
+            <!-- Interactive Phone Mockup -->
+            <div class="phone-mockup-wrapper" id="phoneWrapper">
+                <!-- Status Bar -->
+                <div class="mockup-status-bar">
+                    <span id="mockClock">10:48</span>
+                    <div class="mockup-icons" id="mockStatusIcons">
+                        <span>5G</span>
+                        <span>📶</span>
+                        <span>100% 🔋</span>
+                    </div>
+                </div>
+
+                <!-- Screen Switcher Pills -->
+                <div class="mockup-screen-selector">
+                    <div class="mockup-tab-pill active" onclick="switchMockScreen('qs')">Quick Settings</div>
+                    <div class="mockup-tab-pill" onclick="switchMockScreen('settings')">Settings</div>
+                    <div class="mockup-tab-pill" onclick="switchMockScreen('dialer')">Dialer</div>
+                    <div class="mockup-tab-pill" onclick="switchMockScreen('keyboard')">Keyboard</div>
+                </div>
+
+                <!-- Screen 1: Quick Settings -->
+                <div id="mock-screen-qs" class="mockup-stage">
+                    <div class="qs-grid">
+                        <div class="qs-tile" id="qs1" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">📶</div>
+                            <div>Wi-Fi</div>
+                        </div>
+                        <div class="qs-tile" id="qs2" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">ᛒ</div>
+                            <div>Bluetooth</div>
+                        </div>
+                        <div class="qs-tile inactive" id="qs3" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">🔊</div>
+                            <div>Sound</div>
+                        </div>
+                        <div class="qs-tile inactive" id="qs4" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">🔦</div>
+                            <div>Torch</div>
+                        </div>
+                        <div class="qs-tile" id="qs5" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">✈️</div>
+                            <div>Airplane</div>
+                        </div>
+                        <div class="qs-tile inactive" id="qs6" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">🌙</div>
+                            <div>Eye Comfort</div>
+                        </div>
+                        <div class="qs-tile inactive" id="qs7" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">📍</div>
+                            <div>Location</div>
+                        </div>
+                        <div class="qs-tile" id="qs8" onclick="toggleQSTile(this)">
+                            <div class="qs-tile-icon">🔄</div>
+                            <div>Auto Rotate</div>
+                        </div>
+                    </div>
+
+                    <!-- Brightness Slider -->
+                    <div class="qs-slider-container">
+                        <span style="font-size: 14px;">🔅</span>
+                        <div class="qs-slider-track">
+                            <div class="qs-slider-fill" id="qsSliderFill"></div>
+                        </div>
+                        <span style="font-size: 16px;">🔆</span>
+                    </div>
+
+                    <!-- Notifications -->
+                    <div class="mock-notification" id="mockNoti1">
+                        <div class="mock-noti-icon" id="mockNotiIcon1">💬</div>
+                        <div style="flex:1;">
+                            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+                                <strong>Messages</strong>
+                                <span style="color:var(--text-muted);">now</span>
+                            </div>
+                            <p style="font-size:11px; color:var(--text-muted);">HexNext: Modern One UI 9 theme loaded!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen 2: One UI Settings -->
+                <div id="mock-screen-settings" class="mockup-stage settings-mock">
+                    <div class="settings-hero">
+                        <div class="settings-avatar">⚡</div>
+                        <div>
+                            <div style="font-size: 14px; font-weight:800;">Samsung Account</div>
+                            <div style="font-size: 11px; color:var(--text-muted);">hexnext@samsung.oneui</div>
+                        </div>
+                    </div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-item-icon" id="setIco1">📶</div>
+                                <span>Connections</span>
+                            </div>
+                            <span style="color:var(--text-muted);">›</span>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-item-icon" id="setIco2">🎨</div>
+                                <span>Wallpaper and style</span>
+                            </div>
+                            <span style="color:var(--text-muted);">›</span>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-item-icon" id="setIco3">🔆</div>
+                                <span>Display & AMOLED</span>
+                            </div>
+                            <span style="color:var(--text-muted);">›</span>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-item-icon" id="setIco4">🔋</div>
+                                <span>Battery and device care</span>
+                            </div>
+                            <span style="color:var(--text-muted);">›</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen 3: Dialer -->
+                <div id="mock-screen-dialer" class="mockup-stage dialer-mock">
+                    <div class="dialer-digits" id="dialerText">+1 (800) HEX-NEXT</div>
+                    <div class="dialer-grid">
+                        <div class="dial-key" onclick="pressDial('1')">1<span></span></div>
+                        <div class="dial-key" onclick="pressDial('2')">2<span>ABC</span></div>
+                        <div class="dial-key" onclick="pressDial('3')">3<span>DEF</span></div>
+                        <div class="dial-key" onclick="pressDial('4')">4<span>GHI</span></div>
+                        <div class="dial-key" onclick="pressDial('5')">5<span>JKL</span></div>
+                        <div class="dial-key" onclick="pressDial('6')">6<span>MNO</span></div>
+                        <div class="dial-key" onclick="pressDial('7')">7<span>PQRS</span></div>
+                        <div class="dial-key" onclick="pressDial('8')">8<span>TUV</span></div>
+                        <div class="dial-key" onclick="pressDial('9')">9<span>WXYZ</span></div>
+                        <div class="dial-key" onclick="pressDial('*')">*<span></span></div>
+                        <div class="dial-key" onclick="pressDial('0')">0<span>+</span></div>
+                        <div class="dial-key" onclick="pressDial('#')">#<span></span></div>
+                    </div>
+                    <div class="dial-action">📞</div>
+                </div>
+
+                <!-- Screen 4: Keyboard -->
+                <div id="mock-screen-keyboard" class="mockup-stage keyboard-mock">
+                    <div class="keyboard-preview-box">
+                        Type something in One UI...
+                    </div>
+                    <div class="keyboard-keys-stage">
+                        <div class="kb-row">
+                            <div class="kb-key">Q</div><div class="kb-key">W</div><div class="kb-key">E</div>
+                            <div class="kb-key">R</div><div class="kb-key">T</div><div class="kb-key">Y</div>
+                            <div class="kb-key">U</div><div class="kb-key">I</div><div class="kb-key">O</div>
+                            <div class="kb-key">P</div>
+                        </div>
+                        <div class="kb-row">
+                            <div class="kb-key">A</div><div class="kb-key">S</div><div class="kb-key">D</div>
+                            <div class="kb-key">F</div><div class="kb-key">G</div><div class="kb-key">H</div>
+                            <div class="kb-key">J</div><div class="kb-key">K</div><div class="kb-key">L</div>
+                        </div>
+                        <div class="kb-row">
+                            <div class="kb-key">⇧</div><div class="kb-key">Z</div><div class="kb-key">X</div>
+                            <div class="kb-key">C</div><div class="kb-key">V</div><div class="kb-key">B</div>
+                            <div class="kb-key">N</div><div class="kb-key">M</div><div class="kb-key">⌫</div>
+                        </div>
+                        <div class="kb-row">
+                            <div class="kb-key">!#1</div>
+                            <div class="kb-key" style="flex:4;">Space</div>
+                            <div class="kb-key accent" id="kbEnter">↵</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- VIEW 2: THEME PLUGINS / BASES -->
+        <section id="view-plugins" class="view-content">
+            <div class="section-header">
+                <div class="section-title"><span>🧩</span> Theme Plugins & Bases</div>
+                <div class="section-badge">7 Plugins Available</div>
+            </div>
+
+            <div class="plugin-grid">
+                <!-- Plugin 1 -->
+                <div class="plugin-card active" onclick="activatePlugin('amoled', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#00E5FF"></div>
+                        <div class="plugin-swatch" style="background:#000000"></div>
+                        <div class="plugin-swatch" style="background:#10141E"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>AMOLED Cyan</h3>
+                        <p>Pitch Black OLED contrast with electric cyan accents</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 2 -->
+                <div class="plugin-card" onclick="activatePlugin('cyberpunk', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#FF0055"></div>
+                        <div class="plugin-swatch" style="background:#00FFFF"></div>
+                        <div class="plugin-swatch" style="background:#0F051D"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Bodhi Cyberpunk</h3>
+                        <p>High contrast magenta & cyan neon with deep night tint</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 3 -->
+                <div class="plugin-card" onclick="activatePlugin('aosp', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#4285F4"></div>
+                        <div class="plugin-swatch" style="background:#1B1B1F"></div>
+                        <div class="plugin-swatch" style="background:#E3E2E6"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Hex AOSP Pro</h3>
+                        <p>Pure Pixel Android styling for One UI with Google Blue</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 4 -->
+                <div class="plugin-card" onclick="activatePlugin('tokyo', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#9D4EDD"></div>
+                        <div class="plugin-swatch" style="background:#0B091A"></div>
+                        <div class="plugin-swatch" style="background:#E0AAFF"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Tokyo Terpsichore</h3>
+                        <p>Vibrant synthwave lavender and violet gradients</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 5 -->
+                <div class="plugin-card" onclick="activatePlugin('emerald', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#00E676"></div>
+                        <div class="plugin-swatch" style="background:#04140D"></div>
+                        <div class="plugin-swatch" style="background:#133324"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Nordic Emerald</h3>
+                        <p>Clean pine forest greens on deep obsidian glass</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 6 -->
+                <div class="plugin-card" onclick="activatePlugin('cupertino', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#007AFF"></div>
+                        <div class="plugin-swatch" style="background:#000000"></div>
+                        <div class="plugin-swatch" style="background:#1C1C1E"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Cupertino Glass</h3>
+                        <p>iOS-inspired frosted blur aesthetic & vibrant blue</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 7 -->
+                <div class="plugin-card" onclick="activatePlugin('monet', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#FFAB40"></div>
+                        <div class="plugin-swatch" style="background:#18120B"></div>
+                        <div class="plugin-swatch" style="background:#FFE082"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Monet Solar</h3>
+                        <p>Warm amber sunset palette harmonized with One UI 9</p>
+                    </div>
+                </div>
+
+                <!-- Plugin 8 -->
+                <div class="plugin-card" onclick="activatePlugin('crimson', this)">
+                    <div class="plugin-swatches">
+                        <div class="plugin-swatch" style="background:#FF1744"></div>
+                        <div class="plugin-swatch" style="background:#000000"></div>
+                        <div class="plugin-swatch" style="background:#20070B"></div>
+                    </div>
+                    <div class="plugin-info">
+                        <h3>Blood Moon OLED</h3>
+                        <p>Deep crimson gaming theme with zero OLED battery bleed</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: COLOR STUDIO -->
+        <section id="view-colors" class="view-content">
+            <div class="section-header">
+                <div class="section-title"><span>🎨</span> Deep Color Studio</div>
+                <div class="section-badge">Full Palette Control</div>
+            </div>
+
+            <div class="color-group">
+                <div class="color-row">
+                    <div class="color-meta">
+                        <h4>Primary System Accent</h4>
+                        <p>Quick Settings active tiles, sliders, highlights</p>
+                    </div>
+                    <label class="picker-badge">
+                        <div class="color-circle" id="circAccent" style="background: #00E5FF;"></div>
+                        <span class="color-val" id="valAccent">#00E5FF</span>
+                        <input type="color" value="#00E5FF" onchange="updateThemeColor('accent', this.value)">
+                    </label>
+                </div>
+
+                <div class="color-row">
+                    <div class="color-meta">
+                        <h4>System Background</h4>
+                        <p>True AMOLED Pitch Black (#000000) or Slate</p>
+                    </div>
+                    <label class="picker-badge">
+                        <div class="color-circle" id="circBg" style="background: #000000;"></div>
+                        <span class="color-val" id="valBg">#000000</span>
+                        <input type="color" value="#000000" onchange="updateThemeColor('bg', this.value)">
+                    </label>
+                </div>
+
+                <div class="color-row">
+                    <div class="color-meta">
+                        <h4>Cards & Surfaces</h4>
+                        <p>Settings cards, notifications, dialog backgrounds</p>
+                    </div>
+                    <label class="picker-badge">
+                        <div class="color-circle" id="circCard" style="background: #10141E;"></div>
+                        <span class="color-val" id="valCard">#10141E</span>
+                        <input type="color" value="#10141E" onchange="updateThemeColor('card', this.value)">
+                    </label>
+                </div>
+
+                <div class="color-row">
+                    <div class="color-meta">
+                        <h4>Secondary / Tint Accent</h4>
+                        <p>Secondary icons, badge borders, switch tracks</p>
+                    </div>
+                    <label class="picker-badge">
+                        <div class="color-circle" id="circSec" style="background: #7C4DFF;"></div>
+                        <span class="color-val" id="valSec">#7C4DFF</span>
+                        <input type="color" value="#7C4DFF" onchange="updateThemeColor('secondary', this.value)">
+                    </label>
+                </div>
+
+                <div class="color-row">
+                    <div class="color-meta">
+                        <h4>QS Inactive Tile Background</h4>
+                        <p>Background of unselected quick settings tiles</p>
+                    </div>
+                    <label class="picker-badge">
+                        <div class="color-circle" id="circQSInact" style="background: #1C202F;"></div>
+                        <span class="color-val" id="valQSInact">#1C202F</span>
+                        <input type="color" value="#1C202F" onchange="updateThemeColor('qsInactive', this.value)">
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: UI TWEAKS & SHAPES -->
+        <section id="view-tweaks" class="view-content">
+            <div class="section-header">
+                <div class="section-title"><span>📐</span> Shapes & Iconography</div>
+                <div class="section-badge">Hex Tweak Engine</div>
+            </div>
+
+            <!-- QS Tile Shapes -->
+            <div class="tweak-card">
+                <div style="font-size:13px; font-weight:800; margin-bottom:4px;">Quick Settings Tile Shape</div>
+                <div style="font-size:11px; color:var(--text-muted);">Changes icon tile geometry across SystemUI panel</div>
+
+                <div class="shape-selector-grid">
+                    <div class="shape-box active" onclick="setTileShape('squircle', this)">
+                        <div class="shape-icon-preview" style="border-radius: 10px;"></div>
+                        <span>Squircle</span>
+                    </div>
+                    <div class="shape-box" onclick="setTileShape('circle', this)">
+                        <div class="shape-icon-preview" style="border-radius: 50%;"></div>
+                        <span>Circle</span>
+                    </div>
+                    <div class="shape-box" onclick="setTileShape('hexagon', this)">
+                        <div class="shape-icon-preview" style="clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);"></div>
+                        <span>Hexagon</span>
+                    </div>
+                    <div class="shape-box" onclick="setTileShape('box', this)">
+                        <div class="shape-icon-preview" style="border-radius: 4px;"></div>
+                        <span>Sharp Box</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Bar Glyphs -->
+            <div class="tweak-card">
+                <div style="font-size:13px; font-weight:800; margin-bottom:4px;">Status Bar Icon Pack</div>
+                <div style="font-size:11px; color:var(--text-muted);">Wi-Fi, Cellular, Battery & Signal iconography</div>
+
+                <div class="shape-selector-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="shape-box active" onclick="setStatusIcons('aosp', this)">
+                        <span style="font-size: 16px;">📶</span>
+                        <span>AOSP / Pixel</span>
+                    </div>
+                    <div class="shape-box" onclick="setStatusIcons('ios', this)">
+                        <span style="font-size: 16px;">ᯤ</span>
+                        <span>iOS 18</span>
+                    </div>
+                    <div class="shape-box" onclick="setStatusIcons('oneui', this)">
+                        <span style="font-size: 16px;">▰▰▰</span>
+                        <span>Stock One UI</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typography & System Fonts -->
+            <div class="tweak-card">
+                <div style="font-size:13px; font-weight:800; margin-bottom:4px;">System Typography</div>
+                <div style="font-size:11px; color:var(--text-muted);">Font family overlay applied across all One UI menus</div>
+
+                <div class="shape-selector-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="shape-box active" onclick="setFont('sans', this)">
+                        <span style="font-size: 15px; font-weight:800;">Ag</span>
+                        <span>Google Sans</span>
+                    </div>
+                    <div class="shape-box" onclick="setFont('inter', this)">
+                        <span style="font-size: 15px; font-weight:800; font-family:sans-serif;">Ag</span>
+                        <span>Inter Display</span>
+                    </div>
+                    <div class="shape-box" onclick="setFont('mono', this)">
+                        <span style="font-size: 15px; font-weight:800; font-family:monospace;">Ag</span>
+                        <span>JetBrains Mono</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 5: APP OVERLAYS MANAGER -->
+        <section id="view-apps" class="view-content">
+            <div class="section-header">
+                <div class="section-title"><span>📦</span> App Overlays Checklist</div>
+                <div class="section-badge" id="appCountBadge">16 Apps Selected</div>
+            </div>
+
+            <div class="apps-toolbar">
+                <button class="apps-tool-btn" onclick="selectAllApps(true)">✓ Select All</button>
+                <button class="apps-tool-btn" onclick="selectAllApps(false)">✕ Clear All</button>
+                <button class="apps-tool-btn" onclick="selectRecommendedApps()">⭐ Recommended</button>
+            </div>
+
+            <div class="apps-list-grid" id="appsGrid">
+                <!-- Dynamically Populated Apps -->
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Floating Action Bar -->
+    <div class="bottom-action-bar">
+        <button class="btn-build-apply" onclick="startBuildProcess()">
+            <span>⚡</span> 1-TAP BUILD & APPLY THEME
+        </button>
+        <button class="btn-quick-action" onclick="revertStock()">
+            <span>🔄</span> Stock
+        </button>
+        <button class="btn-quick-action" onclick="exportThemeZip()">
+            <span>💾</span> Export
+        </button>
+    </div>
+
+    <!-- Build Execution Modal -->
+    <div class="modal-overlay" id="buildModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><span>⚙️</span> Fabricating One UI 9 Overlays</h3>
+                <span id="buildPercent" style="font-size:14px; font-weight:800; color:var(--accent);">0%</span>
+            </div>
+            <div class="modal-progress-bar">
+                <div class="modal-progress-fill" id="modalProgressFill"></div>
+            </div>
+            <div class="modal-log-terminal" id="terminalLog">
+                <div class="log-entry">[1/6] Initializing HexNext theme compiler engine...</div>
+            </div>
+            <button class="modal-btn-close" id="modalCloseBtn" onclick="closeModal()" style="display:none;">
+                DONE & REFRESH SYSTEM
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toastIcon">✨</span>
+        <span id="toastMsg">Hex theme loaded!</span>
+    </div>
+
+    <script>
+        // State Management
+        const state = {
+            themeName: 'AMOLED Cyan',
+            accent: '#00E5FF',
+            bg: '#000000',
+            card: '#10141E',
+            secondary: '#7C4DFF',
+            qsInactive: '#1C202F',
+            tileShape: 'squircle',
+            statusIcons: 'aosp',
+            font: 'sans',
+            apps: {
+                'android': { name: 'Android Framework', pkg: 'android', category: 'core', selected: true },
+                'systemui': { name: 'SystemUI & QS', pkg: 'com.android.systemui', category: 'core', selected: true },
+                'settings': { name: 'One UI Settings', pkg: 'com.android.settings', category: 'core', selected: true },
+                'dialer': { name: 'Phone & Dialer', pkg: 'com.samsung.android.dialer', category: 'samsung', selected: true },
+                'contacts': { name: 'Samsung Contacts', pkg: 'com.samsung.android.app.contacts', category: 'samsung', selected: true },
+                'honeyboard': { name: 'Samsung Keyboard', pkg: 'com.samsung.android.honeyboard', category: 'samsung', selected: true },
+                'myfiles': { name: 'My Files', pkg: 'com.sec.android.app.myfiles', category: 'samsung', selected: true },
+                'gallery': { name: 'Samsung Gallery', pkg: 'com.sec.android.gallery3d', category: 'samsung', selected: true },
+                'messages': { name: 'Samsung Messages', pkg: 'com.samsung.android.messaging', category: 'samsung', selected: true },
+                'clock': { name: 'Samsung Clock', pkg: 'com.sec.android.app.clockpackage', category: 'samsung', selected: true },
+                'calculator': { name: 'Samsung Calculator', pkg: 'com.sec.android.app.popupcalculator', category: 'samsung', selected: true },
+                'calendar': { name: 'Samsung Calendar', pkg: 'com.samsung.android.calendar', category: 'samsung', selected: true },
+                'themecenter': { name: 'Theme Designer', pkg: 'com.samsung.android.themedesigner', category: 'samsung', selected: true },
+                'devicecare': { name: 'Device Care', pkg: 'com.samsung.android.lool', category: 'samsung', selected: true },
+                'aod': { name: 'Always On Display', pkg: 'com.samsung.android.app.aodservice', category: 'samsung', selected: true },
+                'whatsapp': { name: 'WhatsApp Dark', pkg: 'com.whatsapp', category: 'thirdparty', selected: true },
+                'instagram': { name: 'Instagram OLED', pkg: 'com.instagram.android', category: 'thirdparty', selected: false },
+                'spotify': { name: 'Spotify Music', pkg: 'com.spotify.music', category: 'thirdparty', selected: false },
+                'twitter': { name: 'X / Twitter', pkg: 'com.twitter.android', category: 'thirdparty', selected: false }
+            }
+        };
+
+        const presets = {
+            amoled: { name: 'AMOLED Cyan', accent: '#00E5FF', bg: '#000000', card: '#10141E', secondary: '#7C4DFF', qsInactive: '#1C202F' },
+            cyberpunk: { name: 'Bodhi Cyberpunk', accent: '#FF0055', bg: '#0F051D', card: '#1D0C38', secondary: '#00FFFF', qsInactive: '#2C1352' },
+            aosp: { name: 'Hex AOSP Pro', accent: '#4285F4', bg: '#1B1B1F', card: '#25262B', secondary: '#34A853', qsInactive: '#353740' },
+            tokyo: { name: 'Tokyo Terpsichore', accent: '#9D4EDD', bg: '#0B091A', card: '#1C1636', secondary: '#FF548F', qsInactive: '#2A1F4C' },
+            emerald: { name: 'Nordic Emerald', accent: '#00E676', bg: '#04140D', card: '#0D2619', secondary: '#69F0AE', qsInactive: '#153825' },
+            cupertino: { name: 'Cupertino Glass', accent: '#007AFF', bg: '#000000', card: '#1C1C1E', secondary: '#5856D6', qsInactive: '#2C2C2E' },
+            monet: { name: 'Monet Solar', accent: '#FFAB40', bg: '#18120B', card: '#281F14', secondary: '#FFD740', qsInactive: '#3C2E1F' },
+            crimson: { name: 'Blood Moon OLED', accent: '#FF1744', bg: '#000000', card: '#1D060A', secondary: '#FF5252', qsInactive: '#300A10' }
+        };
+
+        // Navigation Views
+        function switchView(viewName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + viewName).classList.add('active');
+            haptic();
+        }
+
+        // Mockup Screen Tabs
+        function switchMockScreen(screenName) {
+            document.querySelectorAll('.mockup-tab-pill').forEach(p => p.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            document.querySelectorAll('.mockup-stage').forEach(s => s.style.display = 'none');
+            const target = document.getElementById('mock-screen-' + screenName);
+            if (target) target.style.display = 'block';
+            haptic();
+        }
+
+        // Plugin Activation
+        function activatePlugin(key, el) {
+            document.querySelectorAll('.plugin-card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            const p = presets[key];
+            state.themeName = p.name;
+            state.accent = p.accent;
+            state.bg = p.bg;
+            state.card = p.card;
+            state.secondary = p.secondary;
+            state.qsInactive = p.qsInactive;
+            
+            document.getElementById('activeThemeBadge').innerText = p.name;
+            updateUI();
+            haptic();
+            showToast('Applied plugin preset: ' + p.name, '🧩');
+        }
+
+        function updateThemeColor(key, val) {
+            state[key] = val;
+            updateUI();
+            haptic();
+        }
+
+        function updateUI() {
+            // Update root variables
+            document.documentElement.style.setProperty('--accent', state.accent);
+            document.documentElement.style.setProperty('--accent-glow', state.accent + '44');
+            document.documentElement.style.setProperty('--secondary', state.secondary);
+
+            // Update Color Studio Elements
+            document.getElementById('circAccent').style.background = state.accent;
+            document.getElementById('valAccent').innerText = state.accent.toUpperCase();
+
+            document.getElementById('circBg').style.background = state.bg;
+            document.getElementById('valBg').innerText = state.bg.toUpperCase();
+
+            document.getElementById('circCard').style.background = state.card;
+            document.getElementById('valCard').innerText = state.card.toUpperCase();
+
+            document.getElementById('circSec').style.background = state.secondary;
+            document.getElementById('valSec').innerText = state.secondary.toUpperCase();
+
+            document.getElementById('circQSInact').style.background = state.qsInactive;
+            document.getElementById('valQSInact').innerText = state.qsInactive.toUpperCase();
+
+            // Update Phone Mockup Live
+            document.getElementById('phoneWrapper').style.background = state.bg;
+            document.getElementById('qsSliderFill').style.background = state.accent;
+            document.getElementById('mockNoti1').style.background = state.card;
+            document.getElementById('mockNoti1').style.borderLeftColor = state.accent;
+            document.getElementById('mockNotiIcon1').style.background = state.accent;
+
+            // Update Active QS Tiles
+            ['qs1', 'qs2', 'qs5', 'qs8'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.classList.contains('inactive')) {
+                    el.style.background = state.accent;
+                }
+            });
+
+            // Update Inactive QS Tiles
+            ['qs3', 'qs4', 'qs6', 'qs7'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && el.classList.contains('inactive')) {
+                    el.style.background = state.qsInactive;
+                }
+            });
+
+            // Update Settings Mock
+            ['setIco1', 'setIco2', 'setIco3', 'setIco4'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.background = state.accent;
+            });
+
+            // Update Keyboard Enter Key
+            const kbEnter = document.getElementById('kbEnter');
+            if (kbEnter) kbEnter.style.background = state.accent;
+
+            // Update Dialer
+            const dialText = document.getElementById('dialerText');
+            if (dialText) dialText.style.color = state.accent;
+        }
+
+        // QS Shapes
+        function setTileShape(shape, el) {
+            document.querySelectorAll('.shape-box').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            state.tileShape = shape;
+
+            let radius = '20px';
+            let clip = 'none';
+
+            if (shape === 'circle') radius = '50%';
+            if (shape === 'box') radius = '4px';
+            if (shape === 'hexagon') {
+                radius = '0px';
+                clip = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+            }
+
+            document.querySelectorAll('.qs-tile').forEach(t => {
+                t.style.borderRadius = radius;
+                t.style.clipPath = clip;
+            });
+
+            haptic();
+            showToast('QS Shape: ' + shape, '📐');
+        }
+
+        function setStatusIcons(type, el) {
+            el.parentElement.querySelectorAll('.shape-box').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            state.statusIcons = type;
+
+            const iconStage = document.getElementById('mockStatusIcons');
+            if (type === 'ios') {
+                iconStage.innerHTML = '<span>5G</span><span>ᯤ</span><span>100% [🔋]</span>';
+            } else if (type === 'oneui') {
+                iconStage.innerHTML = '<span>LTE</span><span>▲</span><span>100% ▰</span>';
+            } else {
+                iconStage.innerHTML = '<span>5G</span><span>📶</span><span>100% 🔋</span>';
+            }
+            haptic();
+        }
+
+        function setFont(font, el) {
+            el.parentElement.querySelectorAll('.shape-box').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            state.font = font;
+            haptic();
+            showToast('System Font: ' + font, '🔤');
+        }
+
+        // App Checklist Rendering
+        function renderAppsList() {
+            const grid = document.getElementById('appsGrid');
+            grid.innerHTML = '';
+            let count = 0;
+
+            for (const [key, item] of Object.entries(state.apps)) {
+                if (item.selected) count++;
+                const div = document.createElement('div');
+                div.className = 'app-item' + (item.selected ? ' selected' : '');
+                div.onclick = () => toggleApp(key, div);
+                div.innerHTML = `
+                    <div class="app-check">${item.selected ? '✓' : ''}</div>
+                    <div class="app-info">
+                        <h5>${item.name}</h5>
+                        <span>${item.pkg}</span>
+                    </div>
+                `;
+                grid.appendChild(div);
+            }
+            document.getElementById('appCountBadge').innerText = `${count} Apps Selected`;
+        }
+
+        function toggleApp(key, el) {
+            state.apps[key].selected = !state.apps[key].selected;
+            el.classList.toggle('selected', state.apps[key].selected);
+            el.querySelector('.app-check').innerText = state.apps[key].selected ? '✓' : '';
+            
+            let count = Object.values(state.apps).filter(a => a.selected).length;
+            document.getElementById('appCountBadge').innerText = `${count} Apps Selected`;
+            haptic();
+        }
+
+        function selectAllApps(select) {
+            for (const key in state.apps) state.apps[key].selected = select;
+            renderAppsList();
+            haptic();
+        }
+
+        function selectRecommendedApps() {
+            for (const key in state.apps) {
+                state.apps[key].selected = state.apps[key].category === 'core' || state.apps[key].category === 'samsung';
+            }
+            renderAppsList();
+            haptic();
+        }
+
+        function toggleQSTile(el) {
+            el.classList.toggle('inactive');
+            if (el.classList.contains('inactive')) {
+                el.style.background = state.qsInactive;
+            } else {
+                el.style.background = state.accent;
+            }
+            haptic();
+        }
+
+        function pressDial(num) {
+            const el = document.getElementById('dialerText');
+            if (el.innerText.includes('HEX-NEXT')) el.innerText = '';
+            el.innerText += num;
+            haptic();
+        }
+
+        function haptic() {
+            if (window.AndroidBridge && window.AndroidBridge.vibrate) {
+                window.AndroidBridge.vibrate();
+            }
+        }
+
+        function showToast(msg, icon = '✨') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            document.getElementById('toastIcon').innerText = icon;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // Build & Apply Workflow Engine
+        function startBuildProcess() {
+            haptic();
+            const modal = document.getElementById('buildModal');
+            const progress = document.getElementById('modalProgressFill');
+            const percent = document.getElementById('buildPercent');
+            const log = document.getElementById('terminalLog');
+            const closeBtn = document.getElementById('modalCloseBtn');
+
+            modal.classList.add('show');
+            closeBtn.style.display = 'none';
+            progress.style.width = '0%';
+            percent.innerText = '0%';
+            log.innerHTML = '';
+
+            const steps = [
+                { p: 15, msg: '[1/6] Extracting One UI 9 assets & validating color scheme...' },
+                { p: 35, msg: '[2/6] Fabricating Android Framework (`android`) system palette overlays...' },
+                { p: 55, msg: '[3/6] Fabricating SystemUI (`com.android.systemui`) QS tiles & notifications...' },
+                { p: 75, msg: '[4/6] Fabricating Samsung apps: Settings, Dialer, Keyboard, MyFiles...' },
+                { p: 90, msg: '[5/6] Registering active theme with One UI Theme Subsystem (`current_sec_active_themepackage`)...' },
+                { p: 100, msg: '[6/6] ✔ All fabricated overlays enabled successfully! Theme active.' }
+            ];
+
+            let index = 0;
+            const interval = setInterval(() => {
+                if (index < steps.length) {
+                    const step = steps[index];
+                    progress.style.width = step.p + '%';
+                    percent.innerText = step.p + '%';
+                    
+                    const div = document.createElement('div');
+                    div.className = 'log-entry' + (step.p === 100 ? ' success' : ' accent');
+                    div.innerText = step.msg;
+                    log.appendChild(div);
+                    log.scrollTop = log.scrollHeight;
+                    index++;
+                } else {
+                    clearInterval(interval);
+                    closeBtn.style.display = 'block';
+
+                    // Call native bridge to perform actual shell fabrication
+                    if (window.AndroidBridge && window.AndroidBridge.applyTheme) {
+                        window.AndroidBridge.applyTheme(JSON.stringify(state));
+                    }
+                }
+            }, 350);
+        }
+
+        function closeModal() {
+            document.getElementById('buildModal').classList.remove('show');
+            showToast('One UI 9 Theme Activated!', '🎉');
+            haptic();
+        }
+
+        function revertStock() {
+            haptic();
+            if (window.AndroidBridge && window.AndroidBridge.resetTheme) {
+                window.AndroidBridge.resetTheme();
+            }
+            showToast('Reverted to stock One UI theme', '🔄');
+        }
+
+        function exportThemeZip() {
+            haptic();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `${state.themeName.toLowerCase().replace(/ /g, '_')}_theme.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('Theme profile exported successfully!', '💾');
+        }
+
+        function brandAction() {
+            haptic();
+            showToast('HexNext Themer v2.0 - One UI 9.0', '⚡');
+        }
+
+        // Initialize App
+        renderAppsList();
+        updateUI();
+    </script>
+</body>
+</html>

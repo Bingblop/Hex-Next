@@ -1,0 +1,22 @@
+{
+  "name": "CyberpunkGold",
+  "version": "1.0",
+  "author": "OneUI-Theme-Engine",
+  "description": "High contrast neon gold and cyan palette for One UI",
+  "overlays": {
+    "android": {
+      "colors": {
+        "system_accent1_600": "#FFE600",
+        "system_accent1_100": "#FFFDE7",
+        "system_neutral1_900": "#0A0A0E",
+        "system_neutral1_1000": "#000000"
+      }
+    },
+    "com.android.systemui": {
+      "colors": {
+        "qs_tile_active_color": "#FFE600",
+        "qs_tile_inactive_color": "#181920"
+      }
+    }
+  }
+}
