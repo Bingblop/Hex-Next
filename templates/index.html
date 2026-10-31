@@ -1016,9 +1016,16 @@
             document.getElementById('monet-style-label').textContent = monet.style;
 
             const groupsContainer = document.getElementById('monet-groups-container');
-            groupsContainer.innerHTML = Object.entries(monet.groups).map(([groupName, shades]) => `
+            groupsContainer.innerHTML = Object.entries(monet.groups || {}).map(([groupName, groupData]) => {
+                const shades = Array.isArray(groupData) ? groupData : (groupData?.shades || []);
+                const prefix = groupData?.prefix || groupName.toLowerCase();
+                const label = groupData?.label || groupName;
+                return `
                 <div class="space-y-1.5">
-                    <div class="font-mono text-xs text-slate-300">android:color/${groupName}_*</div>
+                    <div class="flex items-center justify-between">
+                        <span class="font-display font-semibold text-xs text-white">${label}</span>
+                        <span class="font-mono text-xs text-slate-400">android:color/${prefix}_*</span>
+                    </div>
                     <div class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-13 gap-1.5">
                         ${shades.map(s => `
                             <div class="rounded-lg overflow-hidden border border-[#1E2738] bg-[#131926]">
@@ -1031,7 +1038,8 @@
                         `).join('')}
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             const rolesGrid = document.getElementById('monet-roles-grid');
             rolesGrid.innerHTML = Object.entries(monet.roles_dark).map(([roleName, hexVal]) => `
