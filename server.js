@@ -827,8 +827,10 @@ const INITIAL_HIGH_FREQ_FAULTS = {
     failure_history: ["fail", "ok", "fail", "fail", "fail"],
     failure_timestamps: ["19:51:08 UTC", "19:52:19 UTC", "19:53:40 UTC", "19:54:12 UTC"],
     last_failure_at: "19:54:12 UTC",
+    idmap2_timestamp: "2026-10-30 19:54:12.418 UTC",
+    failure_reason: "Overlay Conflict",
     compile_error:
-      "IDMAP2_ERR [4x HIGH-FREQ]: Stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro & unresolved symbol 'color/aod_clock_color'",
+      "IDMAP2_ERR [4x HIGH-FREQ]: Overlay Conflict — Stale /data/resource-cache/com.hexnext.oneui9.rro.aodservice.frro & unresolved symbol 'color/aod_clock_color'",
   },
   messaging: {
     compile_status: "failed",
@@ -838,8 +840,10 @@ const INITIAL_HIGH_FREQ_FAULTS = {
     failure_history: ["ok", "fail", "fail", "fail"],
     failure_timestamps: ["19:52:44 UTC", "19:54:02 UTC", "19:55:04 UTC"],
     last_failure_at: "19:55:04 UTC",
+    idmap2_timestamp: "2026-10-30 19:55:04.192 UTC",
+    failure_reason: "Resource ID Mismatch",
     compile_error:
-      "IDMAP2_ERR [3x HIGH-FREQ]: Unresolved symbol 'color/message_bubble_send_bg' in com.samsung.android.messaging",
+      "IDMAP2_ERR [3x HIGH-FREQ]: Resource ID Mismatch — Unresolved symbol 'color/message_bubble_send_bg' in com.samsung.android.messaging",
   },
 };
 
@@ -890,6 +894,17 @@ function initActiveOverlays() {
         : seedFault
         ? seedFault.compile_error
         : null;
+    const idmap2Timestamp =
+      existing.idmap2_timestamp ||
+      (seedFault ? seedFault.idmap2_timestamp : "2026-10-30 19:50:00.104 UTC");
+    const failureReason =
+      existing.failure_reason !== undefined
+        ? existing.failure_reason
+        : seedFault
+        ? seedFault.failure_reason
+        : compileStatus === "failed"
+        ? "Resource ID Mismatch"
+        : null;
 
     RUNTIME_STATE.active_overlays[item.id] = {
       id: item.id,
@@ -907,6 +922,8 @@ function initActiveOverlays() {
           : "STATE_DISABLED",
       compile_status: compileStatus,
       compile_error: compileError,
+      failure_reason: failureReason,
+      idmap2_timestamp: idmap2Timestamp,
       failure_count: failureCount,
       compile_attempts: compileAttempts,
       failure_rate: Math.round((failureCount / Math.max(1, compileAttempts)) * 100),
@@ -940,6 +957,16 @@ function buildFullState() {
     pkg.fabricated_id = `${owner}:${pkg.fabricated_name}`;
     pkg.compile_status = compileStatus;
     pkg.compile_error = act.compile_error || null;
+    pkg.failure_reason =
+      act.failure_reason ||
+      (compileStatus === "failed" || failureCount >= 2
+        ? (act.compile_error || "").includes("frro") || (act.compile_error || "").includes("Conflict")
+          ? "Overlay Conflict"
+          : "Resource ID Mismatch"
+        : null);
+    pkg.idmap2_timestamp =
+      act.idmap2_timestamp ||
+      (act.last_failure_at ? `2026-10-30 ${act.last_failure_at}` : "2026-10-30 19:50:00.104 UTC");
     pkg.failure_count = failureCount;
     pkg.compile_attempts = compileAttempts;
     pkg.failure_rate = failureRate;
@@ -1143,6 +1170,8 @@ function handleCompile(data) {
           : "STATE_DISABLED",
       compile_status: status,
       compile_error: status === "failed" ? compileError : null,
+      failure_reason: status === "failed" ? (prev.failure_reason || "Resource ID Mismatch") : null,
+      idmap2_timestamp: new Date().toISOString().replace("T", " ").replace("Z", " UTC"),
       failure_count: failureCount,
       compile_attempts: compileAttempts,
       failure_rate: Math.round((failureCount / Math.max(1, compileAttempts)) * 100),
@@ -1336,9 +1365,12 @@ const server = http.createServer(async (req, res) => {
         const ov = RUNTIME_STATE.active_overlays[pkgId];
         const catalogItem = ONEUI9_SYSTEM_RRO_CATALOG.find((it) => it.id === pkgId);
         const semwtTarget = (catalogItem && catalogItem.semwt_target) || "SemWT_*";
+        const fullIsoUtc = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
         ov.enabled = enable;
         ov.compile_status = enable ? "active" : "disabled";
         ov.compile_error = null;
+        ov.failure_reason = null;
+        ov.idmap2_timestamp = fullIsoUtc;
         ov.carrier_state = enable ? "STATE_ENABLED" : "STATE_DISABLED";
         if (enable) {
           ov.failure_count = 0;
@@ -1366,6 +1398,7 @@ const server = http.createServer(async (req, res) => {
       const burst = Math.max(1, Math.min(10, Number(data.burst || 1)));
       const resetTelemetry = data.reset_telemetry !== false;
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      const fullIsoUtc = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
       RUNTIME_STATE.last_build.timestamp = nowUtc;
 
       if (RUNTIME_STATE.active_overlays[pkgId]) {
@@ -1393,9 +1426,12 @@ const server = http.createServer(async (req, res) => {
           for (let b = 0; b < burst; b++) tsList.push(nowUtc);
           ov.failure_timestamps = tsList.slice(-10);
           ov.last_failure_at = nowUtc;
+          ov.idmap2_timestamp = fullIsoUtc;
           ov.high_frequency_failure = ov.failure_count >= 2;
+          const isConflict = ov.failure_count % 2 === 0;
+          ov.failure_reason = isConflict ? "Overlay Conflict" : "Resource ID Mismatch";
           const freqTag = ov.failure_count >= 2 ? ` [${ov.failure_count}x HIGH-FREQ]` : "";
-          ov.compile_error = `IDMAP2_ERR${freqTag}: Unresolved symbol '${legacyRes}' in ${ov.target_package} or stale /data/resource-cache/${ov.system_rro_package}.frro`;
+          ov.compile_error = `IDMAP2_ERR${freqTag}: ${ov.failure_reason} — Unresolved symbol '${legacyRes}' in ${ov.target_package} or stale /data/resource-cache/${ov.system_rro_package}.frro`;
           RUNTIME_STATE.last_build.logs.push(
             `[!] [${nowUtc}] COMPILE_FAILURE${ov.failure_count >= 2 ? ` [HIGH-FREQ FAULT #${ov.failure_count}]` : ""} on ${ov.system_rro_package} (${ov.target_package}) -> ${ov.compile_error}`
           );
@@ -1405,6 +1441,8 @@ const server = http.createServer(async (req, res) => {
           ov.enabled = true;
           ov.carrier_state = "STATE_ENABLED";
           ov.compile_error = null;
+          ov.failure_reason = null;
+          ov.idmap2_timestamp = fullIsoUtc;
           if (resetTelemetry) {
             ov.failure_count = 0;
             ov.compile_attempts = 3;
@@ -1433,15 +1471,17 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/overlays/simulate_high_freq") {
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      const fullIsoUtc = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
       RUNTIME_STATE.last_build.timestamp = nowUtc;
       const targetIds = Array.isArray(data.ids) && data.ids.length > 0
         ? data.ids
         : ["aodservice", "messaging", "honeyboard"];
       const burst = Math.max(2, Math.min(6, Number(data.burst || 3)));
+      const reasonPool = ["Overlay Conflict", "Resource ID Mismatch", "Overlay Conflict (SemWT Lock)"];
 
-      for (const pkgId of targetIds) {
+      targetIds.forEach((pkgId, idx) => {
         const ov = RUNTIME_STATE.active_overlays[pkgId];
-        if (!ov) continue;
+        if (!ov) return;
         const catalogItem = ONEUI9_SYSTEM_RRO_CATALOG.find((it) => it.id === pkgId);
         const legacyRes =
           catalogItem &&
@@ -1462,18 +1502,21 @@ const server = http.createServer(async (req, res) => {
         for (let b = 0; b < burst; b++) tsList.push(nowUtc);
         ov.failure_timestamps = tsList.slice(-10);
         ov.last_failure_at = nowUtc;
+        ov.idmap2_timestamp = fullIsoUtc;
         ov.high_frequency_failure = ov.failure_count >= 2;
-        ov.compile_error = `IDMAP2_ERR [${ov.failure_count}x HIGH-FREQ]: Repeated FRRO lock & unresolved '${legacyRes}' in ${ov.target_package}`;
+        ov.failure_reason = reasonPool[idx % reasonPool.length];
+        ov.compile_error = `IDMAP2_ERR [${ov.failure_count}x HIGH-FREQ]: ${ov.failure_reason} — Repeated FRRO lock & unresolved '${legacyRes}' in ${ov.target_package}`;
         RUNTIME_STATE.last_build.logs.push(
           `[!] [${nowUtc}] COMPILE_FAILURE [HIGH-FREQ FAULT #${ov.failure_count}] on ${ov.system_rro_package} (${ov.target_package}) -> ${ov.compile_error}`
         );
-      }
+      });
       sendJson(res, buildFullState());
       return;
     }
 
     if (pathname === "/api/overlays/repair_batch") {
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      const fullIsoUtc = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
       RUNTIME_STATE.last_build.timestamp = nowUtc;
       const requestedIds = Array.isArray(data.ids) ? data.ids : [];
       const selected = new Set(RUNTIME_STATE.spec.selected_targets || []);
@@ -1511,6 +1554,8 @@ const server = http.createServer(async (req, res) => {
         ov.enabled = true;
         ov.carrier_state = "STATE_ENABLED";
         ov.compile_error = null;
+        ov.failure_reason = null;
+        ov.idmap2_timestamp = fullIsoUtc;
         ov.failure_count = 0;
         ov.compile_attempts = Math.max(4, Number(ov.compile_attempts || 3) + 1);
         ov.failure_rate = 0;
@@ -1560,6 +1605,7 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/overlays/repair_all") {
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+      const fullIsoUtc = new Date().toISOString().replace("T", " ").replace("Z", " UTC");
       RUNTIME_STATE.last_build.timestamp = nowUtc;
       const selected = new Set(RUNTIME_STATE.spec.selected_targets || []);
       const onlyHighFreq = Boolean(data.only_high_freq);
@@ -1580,6 +1626,8 @@ const server = http.createServer(async (req, res) => {
           ov.enabled = true;
           ov.carrier_state = "STATE_ENABLED";
           ov.compile_error = null;
+          ov.failure_reason = null;
+          ov.idmap2_timestamp = fullIsoUtc;
           ov.failure_count = 0;
           ov.compile_attempts = 4;
           ov.failure_rate = 0;
