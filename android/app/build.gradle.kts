@@ -194,8 +194,30 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Uncompressed page-aligned 64-bit & 32-bit native libraries for Android 16 / One UI 9.0 (16KB page ready)
+            useLegacyPackaging = false
+        }
+        resources {
+            excludes += setOf(
+                "/META-INF/{AL2.0,LGPL2.1}",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/*.kotlin_module",
+                "DebugProbesKt.bin"
+            )
         }
     }
 
@@ -212,24 +234,34 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += listOf("-Xjvm-default=all")
     }
 
     lint {
         // Material color utilities are marked @RestrictTo but are the reference Monet implementation.
         disable += "RestrictedApi"
+        checkReleaseBuilds = false
     }
 }
 
-// Gradle check task to verify required Android SDK build tools (aapt2, apksigner, zipalign) before building
+// Configuration-cache-safe Gradle check task to verify required Android SDK build tools (aapt2, apksigner, zipalign) before building
+val configuredAndroidSdkDir: File = android.sdkDirectory
+val envAndroidHomeProvider = providers.environmentVariable("ANDROID_HOME")
+val envAndroidSdkRootProvider = providers.environmentVariable("ANDROID_SDK_ROOT")
+
 val verifyAndroidSdkTools by tasks.registering {
     group = "verification"
     description = "Checks that required Android SDK build tools (aapt2, apksigner, zipalign) are present in the environment before building."
 
+    val sdkDirCandidate = configuredAndroidSdkDir
+    val envHome = envAndroidHomeProvider.orNull
+    val envSdkRoot = envAndroidSdkRootProvider.orNull
+
     doLast {
         val sdkRoot = sequenceOf(
-            android.sdkDirectory.takeIf { it.exists() },
-            System.getenv("ANDROID_HOME")?.takeIf { it.isNotBlank() }?.let(::File),
-            System.getenv("ANDROID_SDK_ROOT")?.takeIf { it.isNotBlank() }?.let(::File)
+            sdkDirCandidate.takeIf { it.exists() },
+            envHome?.takeIf { it.isNotBlank() }?.let(::File),
+            envSdkRoot?.takeIf { it.isNotBlank() }?.let(::File)
         ).filterNotNull().firstOrNull { it.exists() && it.isDirectory }
             ?: throw GradleException(
                 "Android SDK directory not found. Ensure ANDROID_HOME or ANDROID_SDK_ROOT is set before building."

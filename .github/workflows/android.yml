@@ -186,10 +186,12 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Verify 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) & GitHub Secrets Signing Configuration
         run: |
-          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI, SDK 36 & GitHub Secrets signing..."
+          echo "[*] Auditing android/app/build.gradle.kts for 64-bit & 32-bit ABI, SDK 36, R8 optimization & GitHub Secrets signing..."
           grep -q 'compileSdk = 36' app/build.gradle.kts
           grep -q 'targetSdk = 36' app/build.gradle.kts
           grep -q 'minSdk = 34' app/build.gradle.kts
@@ -198,6 +200,8 @@ jobs:
           grep -q 'abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")' app/build.gradle.kts
           grep -q 'isUniversalApk = true' app/build.gradle.kts
+          grep -q 'isMinifyEnabled = true' app/build.gradle.kts
+          grep -q 'isShrinkResources = true' app/build.gradle.kts
           grep -q 'loadGitHubSecretsProperties' app/build.gradle.kts
           grep -q 'resolveSigningSecret' app/build.gradle.kts
           grep -q 'resolveKeystoreFile' app/build.gradle.kts
@@ -208,18 +212,19 @@ jobs:
           grep -q 'enableV2Signing = true' app/build.gradle.kts
           grep -q 'enableV3Signing = true' app/build.gradle.kts
           grep -q 'verifyAndroidSdkTools' app/build.gradle.kts
-          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK & GitHub Secrets V1/V2/V3 Signing in build.gradle.kts"
+          test -f app/proguard-rules.pro
+          echo "[✓] Verified 64-bit (arm64-v8a, x86_64) + 32-bit (armeabi-v7a, x86) + Universal APK, R8 Optimization & GitHub Secrets V1/V2/V3 Signing in build.gradle.kts"
 
       - name: Run Gradle Check Task to Verify Required Android SDK Tools (aapt2, apksigner, zipalign)
         run: |
           echo "[*] Executing Gradle check task (:app:verifyAndroidSdkTools) to verify aapt2, apksigner, and zipalign..."
-          ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools
+          ./gradlew --no-daemon --build-cache --parallel --console=plain :app:verifyAndroidSdkTools
 
       - name: Run Android Unit Tests
-        run: ./gradlew --no-daemon --console=plain testDebugUnitTest
+        run: ./gradlew --no-daemon --build-cache --parallel --console=plain testDebugUnitTest
 
       - name: Assemble & Sign Universal + 64-bit & 32-bit ABI Split APKs (Debug & Release)
-        run: ./gradlew --no-daemon --console=plain assembleDebug assembleRelease
+        run: ./gradlew --no-daemon --build-cache --parallel --console=plain assembleDebug assembleRelease
 
       - name: Clean Up Temporary GitHub Signing Secrets
         if: always()

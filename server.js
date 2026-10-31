@@ -96,7 +96,13 @@ function toneForShade(shade) {
   return 100 - Math.floor(shade / 10);
 }
 
+const _monetPaletteCache = new Map();
+
 function generateMonetPalette(seedHex, styleId = "TONAL_SPOT", pureBlack = true) {
+  const cacheKey = `${String(seedHex || "#00E5FF").toUpperCase()}|${styleId}|${Boolean(pureBlack)}`;
+  const cached = _monetPaletteCache.get(cacheKey);
+  if (cached) return cached;
+
   const [r, g, b] = hexToRgb(seedHex);
   const [h, , s] = rgbToHls(r / 255.0, g / 255.0, b / 255.0);
   const hDeg = h * 360.0;
@@ -176,7 +182,7 @@ function generateMonetPalette(seedHex, styleId = "TONAL_SPOT", pureBlack = true)
     system_control_activated_dark: flatShades.system_accent1_200,
   };
 
-  return {
+  const result = {
     seed: String(seedHex || "#00E5FF").toUpperCase(),
     style: styleId,
     pure_black: pureBlack,
@@ -186,6 +192,9 @@ function generateMonetPalette(seedHex, styleId = "TONAL_SPOT", pureBlack = true)
     total_shades: Object.keys(flatShades).length,
     total_roles: Object.keys(rolesDark).length,
   };
+  if (_monetPaletteCache.size > 128) _monetPaletteCache.clear();
+  _monetPaletteCache.set(cacheKey, result);
+  return result;
 }
 
 const FIXED_PNG_STYLE_TO_SKIN = {
@@ -1151,6 +1160,8 @@ function crc32(buf) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+const _zipCompressionCache = new Map();
+
 function createZipBuffer(files) {
   const localParts = [];
   const centralParts = [];
@@ -1161,8 +1172,22 @@ function createZipBuffer(files) {
     const rawBuf = Buffer.isBuffer(file.content)
       ? file.content
       : Buffer.from(String(file.content), "utf8");
-    const compressed = zlib.deflateRawSync(rawBuf);
-    const crc = crc32(rawBuf);
+
+    const digestKey =
+      rawBuf.length <= 65536
+        ? `${file.name}:${rawBuf.length}:${crc32(rawBuf)}`
+        : null;
+    let entryMeta = digestKey ? _zipCompressionCache.get(digestKey) : null;
+    if (!entryMeta) {
+      const crcVal = digestKey ? Number(digestKey.split(":").pop()) : crc32(rawBuf);
+      const compressedBuf = zlib.deflateRawSync(rawBuf, { level: zlib.constants.Z_BEST_SPEED });
+      entryMeta = { crc: crcVal, compressed: compressedBuf };
+      if (digestKey) {
+        if (_zipCompressionCache.size > 512) _zipCompressionCache.clear();
+        _zipCompressionCache.set(digestKey, entryMeta);
+      }
+    }
+    const { crc, compressed } = entryMeta;
 
     const localHeader = Buffer.alloc(30);
     localHeader.writeUInt32LE(0x04034b50, 0);
@@ -1216,7 +1241,21 @@ function createZipBuffer(files) {
   return Buffer.concat([...localParts, centralDirBuf, eocd]);
 }
 
+const _bundleZipCache = new Map();
+const _signedApkCache = new Map();
+
+function computeBuildCacheKey(spec, customOverrides) {
+  return crypto
+    .createHash("sha1")
+    .update(JSON.stringify({ spec: spec || {}, overrides: customOverrides || {} }))
+    .digest("hex");
+}
+
 function buildOneUi9BundleZip(spec, customOverrides = {}) {
+  const cacheKey = computeBuildCacheKey(spec, customOverrides);
+  const cachedZip = _bundleZipCache.get(cacheKey);
+  if (cachedZip) return cachedZip;
+
   const compiled = resolveOverlayTokens(spec, customOverrides);
   const settingsIcons = resolveSettingsDashboardIcons(spec, customOverrides);
   const appPngSuites = resolveAppPngSuites(spec);
@@ -1402,11 +1441,18 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
     content: themeJsonStr,
   });
 
-  return createZipBuffer(files);
+  const zipOut = createZipBuffer(files);
+  if (_bundleZipCache.size > 24) _bundleZipCache.clear();
+  _bundleZipCache.set(cacheKey, zipOut);
+  return zipOut;
 }
 
 // Build a Signed Universal (64-bit arm64-v8a, x86_64 + 32-bit armeabi-v7a, x86) English-Only Release APK
 function buildSignedUniversalReleaseApk(spec, customOverrides = {}) {
+  const cacheKey = computeBuildCacheKey(spec, customOverrides);
+  const cachedApk = _signedApkCache.get(cacheKey);
+  if (cachedApk) return cachedApk;
+
   const bundleZipBuf = buildOneUi9BundleZip(spec, customOverrides);
   const themeObj = buildThemeJsonObject(spec, customOverrides);
   const themeJsonBuf = Buffer.from(JSON.stringify(themeObj, null, 2) + "\n", "utf8");
@@ -1551,12 +1597,17 @@ function buildSignedUniversalReleaseApk(spec, customOverrides = {}) {
     { name: "META-INF/HEXNEXT.RSA", content: Buffer.concat([rsaCertHeader, rsaSigBlock]) },
   ];
 
-  return createZipBuffer(allApkEntries);
+  const apkOut = createZipBuffer(allApkEntries);
+  if (_signedApkCache.size > 24) _signedApkCache.clear();
+  _signedApkCache.set(cacheKey, apkOut);
+  return apkOut;
 }
 
 function verifyCiCdAndSdkEnvironment() {
   const workflowPath = path.join(BASE_DIR, ".github", "workflows", "android.yml");
   const gradlePath = path.join(BASE_DIR, "android", "app", "build.gradle.kts");
+  const gradlePropsPath = path.join(BASE_DIR, "android", "gradle.properties");
+  const proguardRulesPath = path.join(BASE_DIR, "android", "app", "proguard-rules.pro");
   const buildScriptPath = path.join(BASE_DIR, "bin", "build-and-sign-release-apk.sh");
   const debugKeystorePath = path.join(BASE_DIR, "android", "app", "debug.keystore");
   const releaseKeystorePath = path.join(BASE_DIR, "bin", "release.keystore");
@@ -1565,6 +1616,9 @@ function verifyCiCdAndSdkEnvironment() {
     ? fs.readFileSync(workflowPath, "utf8")
     : "";
   const gradleContent = fs.existsSync(gradlePath) ? fs.readFileSync(gradlePath, "utf8") : "";
+  const gradlePropsContent = fs.existsSync(gradlePropsPath)
+    ? fs.readFileSync(gradlePropsPath, "utf8")
+    : "";
   const buildScriptContent = fs.existsSync(buildScriptPath)
     ? fs.readFileSync(buildScriptPath, "utf8")
     : "";
@@ -1592,6 +1646,15 @@ function verifyCiCdAndSdkEnvironment() {
   const gradleHasUniversal = gradleContent.includes("isUniversalApk = true");
   const gradleHasSdk36 =
     gradleContent.includes("compileSdk = 36") && gradleContent.includes("targetSdk = 36");
+  const gradleBuildOptimized =
+    gradleContent.includes("isMinifyEnabled = true") &&
+    gradleContent.includes("isShrinkResources = true") &&
+    gradleContent.includes("proguard-rules.pro") &&
+    gradlePropsContent.includes("org.gradle.parallel=true") &&
+    gradlePropsContent.includes("org.gradle.caching=true") &&
+    gradlePropsContent.includes("org.gradle.configuration-cache=true") &&
+    gradlePropsContent.includes("android.enableR8.fullMode=true") &&
+    fs.existsSync(proguardRulesPath);
   const gradleResolvesKeystoreFromEnv =
     gradleContent.includes("loadGitHubSecretsProperties") &&
     gradleContent.includes("resolveSigningSecret") &&
@@ -1636,6 +1699,7 @@ function verifyCiCdAndSdkEnvironment() {
     gradleHas32Bit &&
     gradleHasUniversal &&
     gradleHasSdk36 &&
+    gradleBuildOptimized &&
     gradleResolvesKeystoreFromEnv &&
     gradleSdkToolsTaskConfigured &&
     keystoreFilesExist &&
@@ -1652,6 +1716,7 @@ function verifyCiCdAndSdkEnvironment() {
   return {
     all_passed: allChecksPassed,
     gradle_64_32_bit_aligned: gradleHas64Bit && gradleHas32Bit && gradleHasUniversal,
+    gradle_build_optimized: gradleBuildOptimized,
     gradle_keystore_env_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
     gradle_github_secrets_configured: gradleResolvesKeystoreFromEnv && keystoreFilesExist,
     gradle_sdk_tools_task_configured: gradleSdkToolsTaskConfigured,

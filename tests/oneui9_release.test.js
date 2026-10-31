@@ -372,6 +372,7 @@ test('GitHub CI/CD pipeline and Gradle configuration enforce 64-bit & 32-bit arc
 
   assert.equal(audit.all_passed, true, 'Expected all CI/CD, GitHub secrets signing, and SDK environment checks to pass');
   assert.equal(audit.gradle_64_32_bit_aligned, true, 'Expected Gradle 64-bit & 32-bit ABI filters & splits to be aligned');
+  assert.equal(audit.gradle_build_optimized, true, 'Expected Gradle build & R8 minification/resource shrinking optimizations to be enabled');
   assert.equal(audit.gradle_keystore_env_configured, true, 'Expected Gradle build script to resolve keystore credentials');
   assert.equal(audit.gradle_github_secrets_configured, true, 'Expected Gradle build script to pull signing credentials from secure GitHub repository secrets');
   assert.equal(audit.gradle_sdk_tools_task_configured, true, 'Expected Gradle build script to define verifyAndroidSdkTools check task for aapt2, apksigner, and zipalign');
