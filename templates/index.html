@@ -291,13 +291,13 @@
                     </div>
                 </div>
 
-                <!-- Dashboard Settings Icons Style (26 Icons — Includes MIMI Miui 11) -->
+                <!-- Dashboard Settings Icons Style (26 Icons — Includes MIMI Miui 11 & Actual APK .PNG Fixed Preset) -->
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
                                 <h2 class="font-display font-bold text-sm text-white">Settings Dashboard Icons (26)</h2>
-                                <span class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/40 text-[#4C9FFD] font-mono text-[9px] font-bold">MIMI READY</span>
+                                <span id="studio-fixed-state-badge" class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/40 text-[#4C9FFD] font-mono text-[9px] font-bold">MIMI READY</span>
                             </div>
                             <p class="text-xs text-slate-400">Active pack: <code id="studio-settings-icon-pack-label" class="font-mono text-cyan-300">settingsicon-1sett</code></p>
                         </div>
@@ -305,6 +305,19 @@
                             All 26 Icons →
                         </button>
                     </div>
+
+                    <!-- Use Actual APK .PNG Files (Fixed-State Preset) Direct Switch -->
+                    <label id="studio-apk-png-toggle-card" class="p-2.5 rounded-lg bg-[#131B2E] border border-[#4C9FFD]/40 flex items-center justify-between gap-2.5 cursor-pointer transition-all hover:border-[#4C9FFD]">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-semibold text-white">Use Actual APK .PNG Files</span>
+                                <span class="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold">FIXED STATE</span>
+                            </div>
+                            <div class="text-[10px] font-mono text-slate-400 truncate">26 pre-baked 114×114 APK .PNGs (non-alterable preset)</div>
+                        </div>
+                        <input type="checkbox" id="studio-chk-use-apk-png" onchange="toggleUseApkPngIcons(this.checked); setPhoneScreen('settings');" class="w-4 h-4 accent-[#4C9FFD] cursor-pointer shrink-0">
+                    </label>
+
                     <div id="studio-settings-style-list" class="grid grid-cols-2 gap-1.5"></div>
                 </div>
 
@@ -645,19 +658,24 @@
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="text-xs font-mono text-[#4C9FFD] bg-[#4C9FFD]/15 border border-[#4C9FFD]/40 px-2 py-0.5 rounded font-semibold">project.vivid.ui.plugin.miui (MIMI)</span>
+                        <span class="text-xs font-mono text-amber-300 bg-amber-950/50 border border-amber-700/50 px-2 py-0.5 rounded font-semibold">res/drawable-xxhdpi-v4/*.png (Fixed State)</span>
                         <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">project.vivid.ui.plugin.niferpitou</span>
                         <span class="text-xs font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded">com.hexnext.oneui9.rro.settings &gt; SemWT_com.android.settings</span>
                     </div>
-                    <h2 class="font-display font-bold text-lg text-white mt-1.5">One UI 9.0 SecSettings Icons (<code class="font-mono text-[#4C9FFD]">MIMI</code> &amp; <code class="font-mono text-cyan-300">terpsichora_</code>)</h2>
+                    <h2 class="font-display font-bold text-lg text-white mt-1.5">One UI 9.0 SecSettings Icons (<code class="font-mono text-[#4C9FFD]">Actual APK .PNG Presets</code> &amp; <code class="font-mono text-cyan-300">VectorDrawables</code>)</h2>
                     <p class="text-xs text-slate-400 mt-0.5">
-                        Rebuilt from <code class="font-mono text-slate-200">MIMI (anaconda_28 + crocodile_19 + sec_st_ic_*)</code> &amp; <code class="font-mono text-slate-200">settingsicon-*</code> into 26 One UI 9.0 <code class="font-mono text-cyan-300">VectorDrawable</code> XML overlays.
+                        Switch between <strong>Actual APK <code class="font-mono text-amber-300">.PNG</code> Files (Fixed-State Preset — non-alterable 114×114 RGBA bitmaps from MIMI APK)</strong> or customizable One UI 9.0 <code class="font-mono text-cyan-300">VectorDrawable</code> XML overlays.
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2.5">
-                    <button id="btn-use-mimi-settings-icons" onclick="updateTweak({ settings_icon_style: 'mimi_sett' })" class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] hover:opacity-95 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md">
+                    <button id="btn-toggle-apk-png-icons" onclick="toggleUseApkPngIcons()" class="px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        <span id="btn-toggle-apk-png-label">Use Actual APK .PNG Files (Fixed State)</span>
+                    </button>
+                    <button id="btn-use-mimi-settings-icons" onclick="updateTweak({ settings_icon_style: 'mimi_sett', use_apk_png_icons: true })" class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] hover:opacity-95 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md">
                         Use MIMI Dashboard Icons (mimi_sett)
                     </button>
-                    <button onclick="resetPerIconColors()" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-slate-300 cursor-pointer">
+                    <button id="btn-reset-per-icon-colors" onclick="resetPerIconColors()" class="px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-slate-300 cursor-pointer">
                         Reset Custom Icon Colors
                     </button>
                     <button onclick="switchTab('studio'); setPhoneScreen('settings');" class="px-3.5 py-2 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold text-xs cursor-pointer">
@@ -666,15 +684,48 @@
                 </div>
             </div>
 
+            <!-- Fixed-State APK .PNG Preset Showcase & MIMI Preview Screenshot Reference Card -->
+            <div id="apk-png-fixed-banner" class="bg-[#0D111A] border border-amber-500/40 rounded-xl p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-lg shadow-amber-950/10">
+                <div class="space-y-2 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span id="apk-png-state-pill" class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-200 font-mono text-[11px] font-bold flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 text-amber-300" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            <span id="apk-png-state-pill-text">APK .PNG PRESET READY</span>
+                        </span>
+                        <span class="font-mono text-xs text-cyan-300">res/drawable-xxhdpi-v4/sec_ic_settings_*.png (114×114 RGBA)</span>
+                        <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-[#131926] border border-[#263248] text-slate-300">Fixed Bitmap State • Non-Tintable</span>
+                    </div>
+                    <h3 class="font-display font-bold text-sm text-white">
+                        Actual APK <code class="font-mono text-amber-300">.PNG</code> Dashboard Icons (MIMI Preview Reference — Fixed State)
+                    </h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        In the MIMI APK (<code class="font-mono text-cyan-300">project.vivid.ui.plugin.miui</code>), the Settings dashboard icons are compiled as pre-rendered, frameless multi-color <code class="font-mono text-amber-300">.PNG</code> bitmaps (Connections cyan Wi-Fi, Sounds green speaker, Notifications blue badge square, Display yellow sun, Wallpapers pink tulip, Lock screen coral padlock, Biometrics purple fingerprint, Accounts cyan user, 4-color Google 'G'). Because their pixel colors and frameless geometry are baked into the <code class="font-mono text-amber-300">.PNG</code> files, <strong>preset dashboard icon options cannot be altered when Fixed-State <code class="font-mono">.PNG</code> mode is active</strong>.
+                    </p>
+                </div>
+
+                <!-- Attached MIMI Preview Screenshot Reference (/assets/aistudio/Screenshot_20261031_005340_Google_Play_Store_a5583e56.jpg) -->
+                <div class="flex items-center gap-3 bg-[#131926] border border-[#263248] rounded-xl p-2.5 shrink-0">
+                    <img src="/assets/aistudio/Screenshot_20261031_005340_Google_Play_Store_a5583e56.jpg" alt="MIMI APK Settings .PNG Preview" class="w-16 h-28 object-cover object-top rounded-lg border border-white/15 shrink-0">
+                    <div class="space-y-1 max-w-[215px]">
+                        <div class="text-[10px] font-mono text-amber-300 font-semibold uppercase">MIMI APK Preview Screenshot</div>
+                        <div class="text-xs font-semibold text-white">Fixed-State .PNG Glyphs</div>
+                        <div class="text-[10px] text-slate-400 leading-snug">Frameless 114×114 multi-color PNGs directly from APK assets.</div>
+                        <button onclick="updateTweak({ settings_icon_style: 'apk_png_fixed', use_apk_png_icons: true })" class="mt-1 px-2.5 py-1 rounded bg-[#4C9FFD]/20 hover:bg-[#4C9FFD]/30 border border-[#4C9FFD]/50 text-[#6EBAF1] font-mono text-[10px] font-bold cursor-pointer">
+                            Apply Fixed APK .PNGs
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <!-- Left 5 Columns: Settings Icon Style Selector + Dashboard Switches + Extra Preferences -->
                 <div class="lg:col-span-5 space-y-5">
 
-                    <!-- 5 Settings Icon Tint Modes (1sett, 2sett, 3sett, alt_1sett, alt_2sett) -->
+                    <!-- Settings Icon Modes (Includes Fixed-State APK .PNG Presets + 5 Tint Modes) -->
                     <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="font-display font-bold text-sm text-white">Settings Dashboard Icon Tint Mode</h3>
+                                <h3 class="font-display font-bold text-sm text-white">Settings Dashboard Icon Mode</h3>
                                 <p class="text-xs text-slate-400">Active asset pack: <code id="active-settings-folder-label" class="font-mono text-cyan-300">settingsicon-1sett</code></p>
                             </div>
                             <span id="settings-icon-dp-badge" class="font-mono text-xs text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2 py-0.5 rounded">28dp</span>
@@ -686,25 +737,33 @@
                     <div id="niferpitou-categories-container" class="space-y-4"></div>
                 </div>
 
-                <!-- Right 7 Columns: Interactive 26 SecSettings Dashboard Icons Grid + Live VectorDrawable XML Inspector -->
+                <!-- Right 7 Columns: Interactive 26 SecSettings Dashboard Icons Grid + Live Drawable/PNG Inspector -->
                 <div class="lg:col-span-7 space-y-5">
                     <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                             <div>
-                                <h3 class="font-display font-bold text-sm text-white">26 One UI 9.0 SecSettings Dashboard Icons (<code class="font-mono text-cyan-300">com.android.settings:drawable/*</code>)</h3>
-                                <p class="text-xs text-slate-400">Click any icon card to inspect its compiled One UI 9.0 <code class="font-mono text-slate-200">VectorDrawable</code> XML or pick a custom per-icon color override.</p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="font-display font-bold text-sm text-white">26 One UI 9.0 SecSettings Dashboard Icons (<code class="font-mono text-cyan-300">com.android.settings:drawable/*</code>)</h3>
+                                    <span id="settings-grid-lock-badge" class="hidden px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[10px] font-bold">
+                                        🔒 FIXED .PNG PRESET (IMMUTABLE)
+                                    </span>
+                                </div>
+                                <p id="settings-grid-subtitle" class="text-xs text-slate-400 mt-0.5">Click any icon card to inspect its compiled One UI 9.0 <code class="font-mono text-slate-200">VectorDrawable</code> XML or pick a custom per-icon color override.</p>
                             </div>
                         </div>
 
                         <div id="settings-icons-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[540px] overflow-y-auto pr-1"></div>
                     </div>
 
-                    <!-- Selected Settings Icon VectorDrawable XML + RRO Fabrication Inspector -->
+                    <!-- Selected Settings Icon VectorDrawable / Fixed APK .PNG Inspector -->
                     <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-3">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                                <div class="text-[11px] font-mono text-cyan-400" id="insp-setting-icon-drawable">com.android.settings:drawable/sec_ic_settings_connections</div>
-                                <h4 class="font-display font-bold text-sm text-white" id="insp-setting-icon-title">Connections VectorDrawable XML</h4>
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div id="insp-setting-icon-png-box" class="w-11 h-11 rounded-xl bg-[#131926] border border-white/15 flex items-center justify-center p-1.5 shrink-0"></div>
+                                <div>
+                                    <div class="text-[11px] font-mono text-cyan-400" id="insp-setting-icon-drawable">com.android.settings:drawable/sec_ic_settings_connections</div>
+                                    <h4 class="font-display font-bold text-sm text-white" id="insp-setting-icon-title">Connections VectorDrawable XML</h4>
+                                </div>
                             </div>
                             <span id="insp-setting-icon-source" class="font-mono text-[11px] text-slate-400">assets/anaconda_tints/once/base/lxx1/settingsicon-1sett/sec_ic_settings_connections.png</span>
                         </div>
@@ -1339,11 +1398,45 @@
             }
         }
 
+        async function toggleUseApkPngIcons(forceState) {
+            const cur = !!(APP_STATE && APP_STATE.settings_icons && APP_STATE.settings_icons.use_apk_png_icons);
+            const next = typeof forceState === 'boolean' ? forceState : !cur;
+            const nextStyle = next
+                ? ((APP_STATE?.settings_icons?.style_id === 'mimi_sett' || APP_STATE?.settings_icons?.style_id === 'apk_png_fixed')
+                    ? APP_STATE.settings_icons.style_id
+                    : 'apk_png_fixed')
+                : ((APP_STATE?.settings_icons?.style_id === 'apk_png_fixed' || APP_STATE?.settings_icons?.style_id === 'mimi_sett')
+                    ? '1sett'
+                    : (APP_STATE?.settings_icons?.style_id || '1sett'));
+            await updateTweak({ use_apk_png_icons: next, settings_icon_style: nextStyle });
+            showToast(
+                next
+                    ? 'Activated Actual APK .PNG Dashboard Icons (Fixed-State Preset — Non-Alterable)'
+                    : 'Switched to Customizable One UI 9.0 VectorDrawable Icons',
+                next ? 'amber' : 'cyan'
+            );
+        }
+
+        function notifyFixedPresetLocked(iconTitle) {
+            showToast(
+                `Locked: ${iconTitle || 'Dashboard icon'} uses a fixed-state APK .PNG preset and cannot be altered.`,
+                'amber'
+            );
+        }
+
         async function setPerIconColor(iconId, hexColor) {
+            if (APP_STATE && APP_STATE.settings_icons && APP_STATE.settings_icons.fixed_state) {
+                notifyFixedPresetLocked(iconId);
+                return;
+            }
             await updateTweak({ per_icon_color: { id: iconId, color: hexColor } });
         }
 
         async function resetPerIconColors() {
+            if (APP_STATE && APP_STATE.settings_icons && APP_STATE.settings_icons.fixed_state) {
+                notifyFixedPresetLocked('Preset dashboard icons');
+                return;
+            }
             await updateTweak({ reset_per_icon_colors: true });
             showToast('Reset all custom per-icon color overrides.', 'cyan');
         }
@@ -2024,8 +2117,15 @@
                     { key: 'nav_back', label: 'Nav Back', attr: 'ic_sysbar_back', target: 'SystemUI' },
                     { key: 'nav_home', label: 'Nav Home', attr: 'ic_sysbar_home', target: 'SystemUI' },
                     { key: 'nav_recent', label: 'Nav Recents', attr: 'ic_sysbar_recent', target: 'SystemUI' },
-                    { key: 'sec_st_ic_connections', label: 'Settings Wi-Fi', attr: 'sec_st_ic_connections', target: 'SecSettings' },
-                    { key: 'sec_st_ic_sounds', label: 'Settings Sound', attr: 'sec_st_ic_sounds', target: 'SecSettings' },
+                    { key: 'sec_st_ic_connections', label: 'Settings Wi-Fi (.PNG)', attr: 'sec_st_ic_connections', target: 'SecSettings' },
+                    { key: 'sec_st_ic_sounds', label: 'Settings Sound (.PNG)', attr: 'sec_st_ic_sounds', target: 'SecSettings' },
+                    { key: 'sec_st_ic_notifications', label: 'Notifications (.PNG)', attr: 'sec_ic_settings_notifications', target: 'SecSettings' },
+                    { key: 'sec_st_ic_display', label: 'Display Sun (.PNG)', attr: 'ic_settings_display', target: 'SecSettings' },
+                    { key: 'sec_st_ic_wallpaper', label: 'Wallpapers Tulip (.PNG)', attr: 'sec_ic_settings_wallpaper', target: 'SecSettings' },
+                    { key: 'sec_st_ic_lockscreen', label: 'Lock Screen (.PNG)', attr: 'sec_ic_settings_lockscreen', target: 'SecSettings' },
+                    { key: 'sec_st_ic_biometrics', label: 'Biometrics (.PNG)', attr: 'sec_ic_settings_biometrics', target: 'SecSettings' },
+                    { key: 'sec_st_ic_accounts', label: 'Accounts (.PNG)', attr: 'sec_ic_settings_cloud_and_account', target: 'SecSettings' },
+                    { key: 'sec_st_ic_google', label: 'Google 4-Color (.PNG)', attr: 'sec_ic_settings_google', target: 'SecSettings' },
                     { key: 'ic_phone', label: 'Phone App Icon', attr: 'ic_phone', target: 'Launcher' },
                     { key: 'ic_message', label: 'Messages Icon', attr: 'ic_message', target: 'Launcher' },
                     { key: 'ic_contact', label: 'Contacts Icon', attr: 'ic_contact', target: 'Launcher' },
@@ -2176,32 +2276,45 @@
                 el.style.backgroundColor = spec.card;
             });
 
-            // Render Live SecSettings Dashboard inside Phone Simulator
-            // Render Studio Left-Column Settings Dashboard Icons Style Selector (Includes MIMI mimi_sett)
+            // Render Studio Left-Column Settings Dashboard Icons Style Selector (Includes MIMI mimi_sett & APK .PNG Fixed Preset)
             if (settings_icons && APP_STATE.niferpitou_preferences) {
                 const studioPackLbl = document.getElementById('studio-settings-icon-pack-label');
                 if (studioPackLbl) {
                     studioPackLbl.textContent = settings_icons.active_asset_folder;
                 }
+                const studioFixedBadge = document.getElementById('studio-fixed-state-badge');
+                if (studioFixedBadge) {
+                    if (settings_icons.fixed_state) {
+                        studioFixedBadge.textContent = '🔒 FIXED .PNG PRESET';
+                        studioFixedBadge.className = 'px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold';
+                    } else {
+                        studioFixedBadge.textContent = 'MIMI & .PNG READY';
+                        studioFixedBadge.className = 'px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/40 text-[#4C9FFD] font-mono text-[9px] font-bold';
+                    }
+                }
+                const studioChkPng = document.getElementById('studio-chk-use-apk-png');
+                if (studioChkPng) {
+                    studioChkPng.checked = !!settings_icons.use_apk_png_icons;
+                }
                 const studioStyleList = document.getElementById('studio-settings-style-list');
                 if (studioStyleList) {
                     const shortMeta = [
-                        { id: 'mimi_sett', short: 'MIMI (Miui 11)', sub: 'anaconda_28', isMimi: true },
-                        { id: '1sett', short: 'Primary (1sett)', sub: 'Seed Tint', isMimi: false },
-                        { id: '2sett', short: 'Accent (2sett)', sub: 'Secondary', isMimi: false },
-                        { id: '3sett', short: 'Multi-Tone (3sett)', sub: 'OG Palette', isMimi: false },
-                        { id: 'alt_1sett', short: 'Duotone 1', sub: 'alt_1sett', isMimi: false },
-                        { id: 'alt_2sett', short: 'Duotone 2', sub: 'alt_2sett', isMimi: false },
+                        { id: 'apk_png_fixed', short: 'APK .PNG (Fixed)', sub: '26 Fixed .PNGs', isMimi: true, isFixed: true },
+                        { id: 'mimi_sett', short: 'MIMI (Miui 11)', sub: 'anaconda_28 .PNG', isMimi: true, isFixed: true },
+                        { id: '1sett', short: 'Primary (1sett)', sub: 'Seed Tint', isMimi: false, isFixed: false },
+                        { id: '2sett', short: 'Accent (2sett)', sub: 'Secondary', isMimi: false, isFixed: false },
+                        { id: '3sett', short: 'Multi-Tone (3sett)', sub: 'OG Palette', isMimi: false, isFixed: false },
+                        { id: 'alt_1sett', short: 'Duotone 1', sub: 'alt_1sett', isMimi: false, isFixed: false },
                     ];
                     studioStyleList.innerHTML = shortMeta.map(item => {
-                        const active = settings_icons.style_id === item.id;
+                        const active = settings_icons.style_id === item.id || (item.id === 'apk_png_fixed' && settings_icons.use_apk_png_icons && settings_icons.style_id !== 'mimi_sett');
                         return `
-                            <button onclick="updateTweak({ settings_icon_style: '${item.id}' }); setPhoneScreen('settings');" class="p-2 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-1.5 ${active ? (item.isMimi ? 'bg-[#162238] border-[#4C9FFD] ring-1 ring-[#4C9FFD]/50' : 'bg-[#161F30] border-cyan-400') : (item.isMimi ? 'bg-[#131B2E] border-[#4C9FFD]/40 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700')}">
+                            <button onclick="updateTweak({ settings_icon_style: '${item.id}', use_apk_png_icons: ${item.isFixed ? 'true' : 'false'} }); setPhoneScreen('settings');" class="p-2 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-1.5 ${active ? (item.isMimi ? 'bg-[#162238] border-[#4C9FFD] ring-1 ring-[#4C9FFD]/50' : 'bg-[#161F30] border-cyan-400') : (item.isMimi ? 'bg-[#131B2E] border-[#4C9FFD]/40 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700')}">
                                 <div class="min-w-0">
                                     <div class="text-[11px] font-semibold ${item.isMimi ? 'text-[#6EBAF1]' : 'text-white'} truncate">${item.short}</div>
                                     <div class="text-[9px] font-mono text-slate-400 truncate">${item.sub}</div>
                                 </div>
-                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${active ? (item.isMimi ? 'bg-[#4C9FFD] text-slate-950 font-bold' : 'bg-cyan-500/20 text-cyan-300') : 'text-slate-500'}">${active ? 'ON' : 'SET'}</span>
+                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${active ? (item.isMimi ? 'bg-[#4C9FFD] text-slate-950 font-bold' : 'bg-cyan-500/20 text-cyan-300') : 'text-slate-500'}">${active ? (item.isFixed ? 'LOCKED' : 'ON') : 'SET'}</span>
                             </button>
                         `;
                     }).join('');
@@ -2215,7 +2328,7 @@
                 const badgeEl = document.getElementById('prev-hidemail-badge');
                 const logoBanner = document.getElementById('prev-about-logo-banner');
                 const stylePillsEl = document.getElementById('prev-settings-style-pills');
-                const isMimiIcons = settings_icons.style_id === 'mimi_sett';
+                const isMimiIcons = settings_icons.style_id === 'mimi_sett' || settings_icons.use_apk_png_icons;
 
                 if (avatar) avatar.style.backgroundColor = isMimiIcons ? '#4C9FFD' : spec.accent;
                 if (emailEl) {
@@ -2223,10 +2336,14 @@
                     emailEl.style.opacity = settings_icons.hidemail ? '0.25' : '1';
                 }
                 if (badgeEl) {
-                    badgeEl.textContent = isMimiIcons ? 'MIMI (mimi_sett)' : settings_icons.active_asset_folder.replace('settingsicon-', '');
-                    badgeEl.className = isMimiIcons
-                        ? 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#6EBAF1] font-bold shrink-0'
-                        : 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400 shrink-0';
+                    badgeEl.textContent = settings_icons.use_apk_png_icons
+                        ? '🔒 FIXED APK .PNG'
+                        : (isMimiIcons ? 'MIMI (mimi_sett)' : settings_icons.active_asset_folder.replace('settingsicon-', ''));
+                    badgeEl.className = settings_icons.use_apk_png_icons
+                        ? 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-bold shrink-0'
+                        : (isMimiIcons
+                            ? 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#6EBAF1] font-bold shrink-0'
+                            : 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400 shrink-0');
                 }
                 if (logoBanner) {
                     logoBanner.style.display = settings_icons.uselogo ? 'flex' : 'none';
@@ -2234,18 +2351,18 @@
 
                 if (stylePillsEl) {
                     const pillOpts = [
-                        { id: 'mimi_sett', label: 'MIMI' },
-                        { id: '1sett', label: '1sett' },
-                        { id: '2sett', label: '2sett' },
-                        { id: '3sett', label: '3sett' },
-                        { id: 'alt_1sett', label: 'alt_1' },
-                        { id: 'alt_2sett', label: 'alt_2' },
+                        { id: 'apk_png_fixed', label: '.PNG', isFixed: true },
+                        { id: 'mimi_sett', label: 'MIMI', isFixed: true },
+                        { id: '1sett', label: '1sett', isFixed: false },
+                        { id: '2sett', label: '2sett', isFixed: false },
+                        { id: '3sett', label: '3sett', isFixed: false },
+                        { id: 'alt_1sett', label: 'alt_1', isFixed: false },
                     ];
                     stylePillsEl.innerHTML = pillOpts.map(p => {
-                        const isAct = settings_icons.style_id === p.id;
-                        const isMimiBtn = p.id === 'mimi_sett';
+                        const isAct = settings_icons.style_id === p.id || (p.id === 'apk_png_fixed' && settings_icons.use_apk_png_icons && settings_icons.style_id !== 'mimi_sett');
+                        const isMimiBtn = p.isFixed;
                         return `
-                            <button onclick="updateTweak({ settings_icon_style: '${p.id}' })" class="py-1 rounded-lg text-center transition-all cursor-pointer ${isAct ? (isMimiBtn ? 'bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] text-slate-950 font-bold' : 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 font-bold') : (isMimiBtn ? 'text-[#6EBAF1] hover:bg-white/5 font-semibold' : 'text-slate-400 hover:text-white')}">
+                            <button onclick="updateTweak({ settings_icon_style: '${p.id}', use_apk_png_icons: ${p.isFixed ? 'true' : 'false'} })" class="py-1 rounded-lg text-center transition-all cursor-pointer ${isAct ? (isMimiBtn ? 'bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] text-slate-950 font-bold' : 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 font-bold') : (isMimiBtn ? 'text-[#6EBAF1] hover:bg-white/5 font-semibold' : 'text-slate-400 hover:text-white')}">
                                 ${p.label}
                             </button>
                         `;
@@ -2263,8 +2380,9 @@
                         const frameStyle = settings_icons.settframe
                             ? 'background: transparent; border: none;'
                             : `background-color: ${ic.frame_bg}; border: 1px solid ${ic.frame_border}; border-radius: ${ic.is_mimi_style ? '11px' : '10px'};`;
-                        const glyphHtml = ic.mimi_png_uri
-                            ? `<img src="${ic.mimi_png_uri}" alt="${ic.title}" style="width:${svgPx + 4}px; height:${svgPx + 4}px;" class="object-contain">`
+                        const pngSrc = ic.use_apk_png ? (ic.apk_png_uri || ic.mimi_png_uri) : ic.mimi_png_uri;
+                        const glyphHtml = pngSrc
+                            ? `<img src="${pngSrc}" alt="${ic.title}" style="width:${svgPx + 6}px; height:${svgPx + 6}px;" class="object-contain">`
                             : `<svg width="${svgPx}" height="${svgPx}" viewBox="0 0 24 24" fill="none" stroke="${ic.fg_color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${ic.svg_path}"/></svg>`;
                         return `
                             <div onclick="switchTab('settings-icons'); inspectSettingIcon('${ic.id}');" class="py-2 flex items-center gap-2.5 cursor-pointer hover:bg-white/5 px-1 rounded transition-colors" style="${dividerStyle}">
@@ -2274,7 +2392,9 @@
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-1.5">
                                         <span class="text-xs font-medium text-white truncate">${ic.title}</span>
-                                        ${ic.is_mimi_style ? `<span class="text-[8px] font-mono px-1 py-0.2 rounded bg-[#4C9FFD]/15 text-[#6EBAF1] border border-[#4C9FFD]/30">MIMI</span>` : ''}
+                                        ${ic.use_apk_png
+                                            ? `<span class="text-[8px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40" title="Fixed APK .PNG Preset — Cannot be altered">FIXED .PNG</span>`
+                                            : (ic.is_mimi_style ? `<span class="text-[8px] font-mono px-1 py-0.2 rounded bg-[#4C9FFD]/15 text-[#6EBAF1] border border-[#4C9FFD]/30">MIMI</span>` : '')}
                                     </div>
                                     <div class="text-[10px] text-slate-400 truncate">${ic.subtitle}</div>
                                 </div>
@@ -2354,9 +2474,53 @@
             if (!settings_icons || !niferpitou_preferences) return;
             const tweaks = spec.extra_tweaks || {};
             const perIconMap = tweaks.per_icon_colors || {};
+            const isFixedState = !!settings_icons.fixed_state;
 
             document.getElementById('active-settings-folder-label').textContent = settings_icons.active_asset_folder;
-            document.getElementById('settings-icon-dp-badge').textContent = `${settings_icons.icon_size_dp}dp (${settings_icons.settframe ? 'Frameless' : 'Squircle Frame'})`;
+            document.getElementById('settings-icon-dp-badge').textContent = isFixedState
+                ? `${settings_icons.icon_size_dp}dp (Fixed .PNG • Frameless)`
+                : `${settings_icons.icon_size_dp}dp (${settings_icons.settframe ? 'Frameless' : 'Squircle Frame'})`;
+
+            const apkPngTopBtn = document.getElementById('btn-toggle-apk-png-icons');
+            const apkPngTopLbl = document.getElementById('btn-toggle-apk-png-label');
+            if (apkPngTopBtn && apkPngTopLbl) {
+                apkPngTopLbl.textContent = settings_icons.use_apk_png_icons
+                    ? 'Actual APK .PNG Files Active (Fixed State ✓)'
+                    : 'Use Actual APK .PNG Files (Fixed State)';
+                apkPngTopBtn.className = settings_icons.use_apk_png_icons
+                    ? 'px-3.5 py-2 rounded-lg bg-emerald-400 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5'
+                    : 'px-3.5 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md flex items-center gap-1.5';
+            }
+
+            const statePillText = document.getElementById('apk-png-state-pill-text');
+            if (statePillText) {
+                statePillText.textContent = isFixedState
+                    ? 'FIXED .PNG PRESET ACTIVE — ALTERATIONS LOCKED'
+                    : 'APK .PNG PRESET AVAILABLE';
+            }
+
+            const gridLockBadge = document.getElementById('settings-grid-lock-badge');
+            const gridSubtitle = document.getElementById('settings-grid-subtitle');
+            if (gridLockBadge) {
+                if (isFixedState) gridLockBadge.classList.remove('hidden');
+                else gridLockBadge.classList.add('hidden');
+            }
+            if (gridSubtitle) {
+                gridSubtitle.innerHTML = isFixedState
+                    ? 'Preset dashboard icon options are <strong>locked</strong> because actual APK <code class="font-mono text-amber-300">.PNG</code> files (<code class="font-mono text-cyan-300">res/drawable-xxhdpi-v4/*.png</code>) have fixed multi-color bitmap states that cannot be altered.'
+                    : 'Click any icon card to inspect its compiled One UI 9.0 <code class="font-mono text-slate-200">VectorDrawable</code> XML or pick a custom per-icon color override.';
+            }
+
+            const resetBtn = document.getElementById('btn-reset-per-icon-colors');
+            if (resetBtn) {
+                resetBtn.disabled = isFixedState;
+                resetBtn.title = isFixedState
+                    ? 'Locked: Preset dashboard icon options cannot be altered due to their fixed APK .PNG state'
+                    : 'Reset all custom per-icon color overrides';
+                resetBtn.className = isFixedState
+                    ? 'px-3 py-2 rounded-lg bg-[#131926] border border-[#263248] text-xs font-mono text-slate-500 opacity-50 cursor-not-allowed'
+                    : 'px-3 py-2 rounded-lg bg-[#131926] hover:bg-[#1E293B] border border-[#263248] text-xs font-mono text-slate-300 cursor-pointer';
+            }
 
             const mimiTopBtn = document.getElementById('btn-use-mimi-settings-icons');
             if (mimiTopBtn) {
@@ -2367,28 +2531,30 @@
                     : 'px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#4C9FFD] to-[#F16E9A] hover:opacity-95 text-slate-950 font-display font-bold text-xs cursor-pointer shadow-md';
             }
 
-            // 1. Render 6 Settings Icon Tint Style Buttons (Includes MIMI mimi_sett)
+            // 1. Render Settings Icon Style Buttons (Includes Fixed-State APK .PNG Presets & Vector Tint Modes)
             const styleSelector = document.getElementById('settings-style-selector');
             styleSelector.innerHTML = niferpitou_preferences.settings_icon_styles.map(st => {
-                const active = st.id === settings_icons.style_id;
-                const isMimi = st.id === 'mimi_sett';
+                const active = st.id === settings_icons.style_id || (st.id === 'apk_png_fixed' && settings_icons.use_apk_png_icons && settings_icons.style_id !== 'mimi_sett');
+                const isMimi = st.id === 'mimi_sett' || st.id === 'apk_png_fixed';
+                const isFixedPreset = !!st.fixed_state;
                 const folderName = settings_icons.settframe ? st.frameless_folder : st.asset_folder;
                 return `
-                    <button onclick="updateTweak({ settings_icon_style: '${st.id}' })" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${active ? (isMimi ? 'bg-[#162238] border-[#4C9FFD] ring-1 ring-[#4C9FFD]/50' : 'bg-[#161F30] border-cyan-500/60') : (isMimi ? 'bg-[#131B2E] border-[#4C9FFD]/40 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700')}">
+                    <button onclick="updateTweak({ settings_icon_style: '${st.id}', use_apk_png_icons: ${isFixedPreset ? 'true' : 'false'} })" class="w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${active ? (isMimi ? 'bg-[#162238] border-[#4C9FFD] ring-1 ring-[#4C9FFD]/50' : 'bg-[#161F30] border-cyan-500/60') : (isMimi ? 'bg-[#131B2E] border-[#4C9FFD]/40 hover:border-[#4C9FFD]' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700')}">
                         <div class="min-w-0 pr-2">
                             <div class="flex flex-wrap items-center gap-2">
-                                ${isMimi ? `<span class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#4C9FFD] font-mono text-[9px] font-bold">MIMI SKIN</span>` : ''}
+                                ${isFixedPreset ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-amber-300 font-mono text-[9px] font-bold">🔒 FIXED .PNG PRESET</span>` : ''}
+                                ${st.id === 'mimi_sett' ? `<span class="px-1.5 py-0.5 rounded bg-[#4C9FFD]/20 border border-[#4C9FFD]/50 text-[#4C9FFD] font-mono text-[9px] font-bold">MIMI SKIN</span>` : ''}
                                 <span class="text-xs font-semibold text-white">${st.label}</span>
                                 <span class="text-[10px] font-mono text-cyan-400">${folderName}</span>
                             </div>
                             <p class="text-[11px] text-slate-400 mt-0.5">${st.desc}</p>
                         </div>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded shrink-0 ${active ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-500'}">${active ? 'ACTIVE' : 'USE'}</span>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded shrink-0 ${active ? (isFixedPreset ? 'bg-amber-500/20 text-amber-200 border border-amber-400/50 font-bold' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40') : 'text-slate-500'}">${active ? (isFixedPreset ? 'FIXED ACTIVE' : 'ACTIVE') : 'USE'}</span>
                     </button>
                 `;
             }).join('');
 
-            // 2. Render Niferpitou Extra Preferences Categories
+            // 2. Render Niferpitou Extra Preferences Categories (Lock settframe when fixed APK .PNG preset is active)
             const catContainer = document.getElementById('niferpitou-categories-container');
             catContainer.innerHTML = niferpitou_preferences.categories.map(cat => `
                 <div class="bg-[#0D111A] border border-[#1E2738] rounded-xl p-4 space-y-2.5">
@@ -2396,14 +2562,21 @@
                     <div class="space-y-2">
                         ${cat.options.map(opt => {
                             if (opt.type === 'switch') {
-                                const checked = !!tweaks[opt.key];
+                                const isUseApkSwitch = opt.key === 'use_apk_png_icons';
+                                const isLockedByFixedPng = isFixedState && opt.key === 'settframe';
+                                const checked = isUseApkSwitch
+                                    ? !!settings_icons.use_apk_png_icons
+                                    : (isLockedByFixedPng ? true : !!tweaks[opt.key]);
                                 return `
-                                    <label class="p-2.5 rounded-lg bg-[#131926] border border-[#1E2738] flex items-center justify-between gap-3 cursor-pointer">
+                                    <label class="p-2.5 rounded-lg bg-[#131926] border ${isLockedByFixedPng ? 'border-amber-500/30 opacity-60 cursor-not-allowed' : 'border-[#1E2738] cursor-pointer'} flex items-center justify-between gap-3" title="${isLockedByFixedPng ? 'Locked: Preset APK .PNG icons are pre-rendered frameless bitmaps and cannot be altered' : ''}">
                                         <div class="min-w-0">
-                                            <div class="text-xs font-medium text-white">${opt.title} <code class="text-[10px] font-mono text-cyan-300">(${opt.key})</code></div>
+                                            <div class="flex flex-wrap items-center gap-1.5">
+                                                <span class="text-xs font-medium text-white">${opt.title} <code class="text-[10px] font-mono text-cyan-300">(${opt.key})</code></span>
+                                                ${isLockedByFixedPng ? `<span class="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/40 text-amber-300 font-mono text-[9px] font-bold">🔒 FIXED .PNG STATE</span>` : ''}
+                                            </div>
                                             <div class="text-[11px] text-slate-400">${opt.subtitle || ''}</div>
                                         </div>
-                                        <input type="checkbox" ${checked ? 'checked' : ''} onchange="updateTweak({ '${opt.key}': this.checked })" class="w-4 h-4 accent-cyan-400 cursor-pointer shrink-0">
+                                        <input type="checkbox" ${checked ? 'checked' : ''} ${isLockedByFixedPng ? 'disabled' : ''} onchange="${isUseApkSwitch ? 'toggleUseApkPngIcons(this.checked)' : `updateTweak({ '${opt.key}': this.checked })`}" class="w-4 h-4 accent-cyan-400 ${isLockedByFixedPng ? 'cursor-not-allowed' : 'cursor-pointer'} shrink-0">
                                     </label>
                                 `;
                             } else {
@@ -2422,19 +2595,39 @@
                 </div>
             `).join('');
 
-            // 3. Render 26 SecSettings Dashboard Icons Grid
+            // 3. Render 26 SecSettings Dashboard Icons Grid (With Fixed-State Preset Immutability Enforcement)
             const grid = document.getElementById('settings-icons-grid');
             const boxPx = settings_icons.bigsetico ? 42 : 34;
             const svgPx = settings_icons.bigsetico ? 22 : 18;
             grid.innerHTML = settings_icons.icons.map(ic => {
                 const isInspected = ic.id === INSPECTED_SETTING_ICON_ID;
-                const hasCustom = !!perIconMap[ic.id];
+                const hasCustom = !ic.fixed_state && !!perIconMap[ic.id];
                 const frameStyle = settings_icons.settframe
                     ? 'background: transparent; border: 1px dashed rgba(255,255,255,0.12);'
                     : `background-color: ${ic.frame_bg}; border: 1px solid ${ic.frame_border};`;
-                const iconVisual = ic.mimi_png_uri
-                    ? `<img src="${ic.mimi_png_uri}" alt="${ic.title}" style="width:${svgPx + 4}px; height:${svgPx + 4}px;" class="object-contain">`
+                const pngSrc = ic.use_apk_png ? (ic.apk_png_uri || ic.mimi_png_uri) : ic.mimi_png_uri;
+                const iconVisual = pngSrc
+                    ? `<img src="${pngSrc}" alt="${ic.title}" style="width:${svgPx + 6}px; height:${svgPx + 6}px;" class="object-contain">`
                     : `<svg width="${svgPx}" height="${svgPx}" viewBox="0 0 24 24" fill="none" stroke="${ic.fg_color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${ic.svg_path}"/></svg>`;
+
+                const rightControlsHtml = ic.fixed_state
+                    ? `
+                        <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation(); notifyFixedPresetLocked('${ic.title.replace(/'/g, "\\'")}');" title="${ic.immutable_reason || 'Preset dashboard icon option cannot be altered due to its fixed .PNG bitmap state'}">
+                            <span class="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/40 text-amber-300 font-mono text-[9px] font-bold flex items-center gap-1">
+                                <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                <span>FIXED .PNG</span>
+                            </span>
+                            <input type="color" value="${ic.fg_color}" disabled class="w-6 h-6 opacity-35 cursor-not-allowed pointer-events-none" title="Locked: Fixed APK .PNG preset cannot be altered">
+                        </div>
+                    `
+                    : `
+                        <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+                            ${hasCustom ? `<button onclick="setPerIconColor('${ic.id}', null)" title="Reset custom icon color" class="text-[10px] font-mono text-rose-400 hover:underline px-1">×</button>` : ''}
+                            <span class="font-mono text-[10px] text-cyan-300 tabular-nums">${ic.fg_color}</span>
+                            <input type="color" value="${ic.fg_color}" onchange="setPerIconColor('${ic.id}', this.value)" class="w-6 h-6 cursor-pointer" title="Custom color for ${ic.title}">
+                        </div>
+                    `;
+
                 return `
                     <div onclick="inspectSettingIcon('${ic.id}')" class="p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${isInspected ? 'bg-[#161F30] border-cyan-500/60' : 'bg-[#131926] border-[#1E2738] hover:border-slate-700'}">
                         <div class="flex items-center gap-3 min-w-0">
@@ -2444,25 +2637,34 @@
                             <div class="min-w-0">
                                 <div class="flex items-center gap-1.5">
                                     <span class="text-xs font-semibold text-white truncate">${ic.title}</span>
-                                    ${ic.is_mimi_style ? `<span class="px-1.5 py-0.2 rounded bg-[#4C9FFD]/15 border border-[#4C9FFD]/40 text-[#6EBAF1] font-mono text-[9px] font-bold">${ic.mimi_png_uri ? 'MIMI PNG' : 'MIMI'}</span>` : ''}
+                                    ${ic.use_apk_png
+                                        ? `<span class="px-1.5 py-0.2 rounded bg-[#4C9FFD]/15 border border-[#4C9FFD]/40 text-[#6EBAF1] font-mono text-[9px] font-bold">APK .PNG</span>`
+                                        : (ic.is_mimi_style ? `<span class="px-1.5 py-0.2 rounded bg-[#4C9FFD]/15 border border-[#4C9FFD]/40 text-[#6EBAF1] font-mono text-[9px] font-bold">MIMI</span>` : '')}
                                 </div>
-                                <div class="text-[10px] font-mono text-slate-400 truncate">${ic.res_name}</div>
+                                <div class="text-[10px] font-mono text-slate-400 truncate">${ic.use_apk_png ? `${ic.res_name}.png` : ic.res_name}</div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
-                            ${hasCustom ? `<button onclick="setPerIconColor('${ic.id}', null)" title="Reset custom icon color" class="text-[10px] font-mono text-rose-400 hover:underline px-1">×</button>` : ''}
-                            <span class="font-mono text-[10px] text-cyan-300 tabular-nums">${ic.fg_color}</span>
-                            <input type="color" value="${ic.fg_color}" onchange="setPerIconColor('${ic.id}', this.value)" class="w-6 h-6 cursor-pointer" title="Custom color for ${ic.title}">
-                        </div>
+                        ${rightControlsHtml}
                     </div>
                 `;
             }).join('');
 
-            // 4. Populate VectorDrawable XML + RRO Dimens/Fabrication Inspector
+            // 4. Populate VectorDrawable / Fixed APK .PNG Inspector
             const inspectedIcon = settings_icons.icons.find(i => i.id === INSPECTED_SETTING_ICON_ID) || settings_icons.icons[0];
             if (inspectedIcon) {
-                document.getElementById('insp-setting-icon-drawable').textContent = `${inspectedIcon.oneui9_drawable} • @color/${inspectedIcon.token_name || (inspectedIcon.res_name + '_tint')}`;
-                document.getElementById('insp-setting-icon-title').textContent = `${inspectedIcon.title} — One UI 9.0 VectorDrawable XML (${inspectedIcon.size_dp}dp)`;
+                const inspPngBox = document.getElementById('insp-setting-icon-png-box');
+                if (inspPngBox) {
+                    const inspPngSrc = inspectedIcon.apk_png_uri || inspectedIcon.mimi_png_uri;
+                    inspPngBox.innerHTML = inspPngSrc
+                        ? `<img src="${inspPngSrc}" alt="${inspectedIcon.title}" class="w-7 h-7 object-contain">`
+                        : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${inspectedIcon.fg_color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${inspectedIcon.svg_path}"/></svg>`;
+                }
+                document.getElementById('insp-setting-icon-drawable').textContent = inspectedIcon.use_apk_png
+                    ? `${inspectedIcon.oneui9_drawable} • ${inspectedIcon.apk_png_res_path} (FIXED STATE)`
+                    : `${inspectedIcon.oneui9_drawable} • @color/${inspectedIcon.token_name || (inspectedIcon.res_name + '_tint')}`;
+                document.getElementById('insp-setting-icon-title').textContent = inspectedIcon.use_apk_png
+                    ? `${inspectedIcon.title} — Fixed APK .PNG Bitmap (${inspectedIcon.size_dp}dp • Non-Alterable Preset)`
+                    : `${inspectedIcon.title} — One UI 9.0 VectorDrawable XML (${inspectedIcon.size_dp}dp)`;
                 document.getElementById('insp-setting-icon-source').textContent = inspectedIcon.source_asset;
                 document.getElementById('insp-setting-icon-xml').textContent = inspectedIcon.vector_xml;
             }

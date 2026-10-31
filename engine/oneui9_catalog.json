@@ -18,65 +18,65 @@
     {
       "id": "TONAL_SPOT",
       "label": "Tonal Spot",
-      "chroma_mult": 1.0,
-      "sec_shift": 0.0,
-      "tert_shift": 60.0
+      "chroma_mult": 1,
+      "sec_shift": 0,
+      "tert_shift": 60
     },
     {
       "id": "VIBRANT",
       "label": "Vibrant",
       "chroma_mult": 1.35,
-      "sec_shift": 18.0,
-      "tert_shift": 35.0
+      "sec_shift": 18,
+      "tert_shift": 35
     },
     {
       "id": "EXPRESSIVE",
       "label": "Expressive",
       "chroma_mult": 1.25,
-      "sec_shift": 45.0,
-      "tert_shift": 120.0
+      "sec_shift": 45,
+      "tert_shift": 120
     },
     {
       "id": "FIDELITY",
       "label": "Fidelity",
       "chroma_mult": 1.15,
-      "sec_shift": 0.0,
-      "tert_shift": 30.0
+      "sec_shift": 0,
+      "tert_shift": 30
     },
     {
       "id": "CONTENT",
       "label": "Content",
       "chroma_mult": 1.05,
-      "sec_shift": 0.0,
-      "tert_shift": 20.0
+      "sec_shift": 0,
+      "tert_shift": 20
     },
     {
       "id": "NEUTRAL",
       "label": "Neutral (Spritz)",
       "chroma_mult": 0.25,
-      "sec_shift": 0.0,
-      "tert_shift": 0.0
+      "sec_shift": 0,
+      "tert_shift": 0
     },
     {
       "id": "MONOCHROME",
       "label": "Monochrome",
-      "chroma_mult": 0.0,
-      "sec_shift": 0.0,
-      "tert_shift": 0.0
+      "chroma_mult": 0,
+      "sec_shift": 0,
+      "tert_shift": 0
     },
     {
       "id": "RAINBOW",
       "label": "Rainbow",
       "chroma_mult": 1.1,
-      "sec_shift": 60.0,
-      "tert_shift": 120.0
+      "sec_shift": 60,
+      "tert_shift": 120
     },
     {
       "id": "FRUIT_SALAD",
       "label": "Fruit Salad",
       "chroma_mult": 1.2,
-      "sec_shift": -50.0,
-      "tert_shift": 90.0
+      "sec_shift": -50,
+      "tert_shift": 90
     }
   ],
   "HEX_QS_TOGGLE_SHAPES": {
@@ -136,7 +136,7 @@
       "id": "niferpitou_terpsichora",
       "name": "terpsichora_ (Niferpitou)",
       "plugin_pkg": "project.vivid.ui.plugin.niferpitou",
-      "author": "@envy4 \u2022 One UI 9.0 Rebuild",
+      "author": "@envy4 • One UI 9.0 Rebuild",
       "seed": "#7A96AE",
       "secondary": "#B99499",
       "bg": "#15161B",
@@ -152,7 +152,7 @@
       "name": "MIMI (Miui 11)",
       "short_name": "MIMI",
       "plugin_pkg": "project.vivid.ui.plugin.miui",
-      "author": "Rohit_S_Shetty \u2022 One UI 9.0 Rebuild",
+      "author": "Rohit_S_Shetty • One UI 9.0 Rebuild",
       "version_name": "1.3",
       "version_code": 5,
       "hex_config": 1,
@@ -320,7 +320,11 @@
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#6EBAF1",
       "mimi_png_key": "sec_st_ic_connections",
-      "svg_path": "M12 20h.01M8.5 16.5a5 5 0 017 0M5 13a10 10 0 0114 0M2 9.5a15 15 0 0120 0"
+      "svg_path": "M12 20h.01M8.5 16.5a5 5 0 017 0M5 13a10 10 0 0114 0M2 9.5a15 15 0 0120 0",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAMAAAC4A3VPAAACqVBMVEUAAAB2tdt2tdt1tNp1tNp1tNp2tdt1tNp1tNp1tNp1tNp2tdt1tNp1tNp1tNp2tdt1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt1tNp1tNp2tdt1tNp1tNp1tNp1tNp2tdt1tNp1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp2tdt1tNp2tdt1tNp1tNp1tNp1tNp2tdt2tdt1tNp2tdt1tNp1tNp2tdt1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt1tNp2tdt1tNp1tNp1tNp1tNp1tNp2tdt1tNp1tNp2tdt1tNp1tNp1tNp1tNp2tdt1tNp1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdt1tNp2tdt1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp1tNp2tdv2gI2sAAAA4nRSTlMAAgwWISszOD5BQjw3MSkgFQkBOVl2j6S80OHs9/3z6N3LuaKJbE0uChhTh7T79d/Hq4ESRpjO5MJ9KAMLXsPr+PTjpkfF+fw9B7j+roNdJRMZLUhls54nBDafwYxRHwgvaKHN4t5we9rWqHM/EHnlEbLy+sRQkemjZtfYberP7g0qXw/2XAWblDvI5gYaIiwmG5lViLoe0efwyrF4SrXUp3S9amS371tPpWcwOsDcVtNpWkSWd2BFkvF6FIYOqq2Kk75vf5wXrxygccyVdZfSjYKE7XwkySPVcotMqWJYtm5STel0hQAABPVJREFUaN5jYBgFo2AUjIJRMApGwSgYBaNgFIyCUYAHMDIxs7CysXNwcnFxcvPw8vELCArR0DohAWERUTFxCUkpaZlHjx7JyskrKCopq6iqqWvQxkJNLW0dSXndRxhAT9/A0EjNmNr2aZiYmpnrPcIJ5KQsLK2sqWihja2dvcMj/EDW0cmZm5FaNrq4usk+IgK4yyh5UCPJeHJ7ecPM9NaVcTT38fXj8A9gFBLyDAwKDtEOlddzc4fb6hYWHkFpHEZGycCMc9SPjomNw8gS8QmJSckp8HhOTWOhJE6F+NMzoEGqm5mVnZOLS2GgS15oPlSlm5JfAflW8hQWQYwpLhHNYcZfRMSVljlBY6C8IohMC60rqyCR5F1dYyVIuFwK4FGphQZJnRZZaTe+rB6aEE3944mLh4bGCqgjU5vISEXNyi0QGyU9PIkuRYVsWp0gdpqLtJFqY0A7OKV6O3QEkFRsM3Z2QTzaXdpDmo3MZWA/ulf5YURiW0FvH18/Ly9vAusEfs1mDM9MnGQPTkb2k+NJsbFhihzYxqmcqFHSNs3DL6/da/qMmUBTi+v1Z802FZ3MZoyaVgRDJMH+rE0kxZ9zZoI1FaqjBCrTXJV58x3RSjlv6VkLFgqjuEyocxFYyn4x8TY2SYO1JLEgCxYsWZoqg7Vs9V6WOXt5A7LaxlBIfK4g2krOcpCGlciZX2NVXT2est3d3osLKVaFVhuARKUiiS8E2IHeXKqJJLJmrZ43gWrEXiUAKeGqrQN6kpQa1Hr9sg2siHjU2JgPs1DWvaVkyqZIljZr64bwzau2KMq4w6S8FSMRVlhvXWZuRVL28ty2HaG9d4cbtKitNYvZbIOqMneyc8ZOqK0tu3YjnLmnkex2mHWOF9QXmVvm7sVW5LCE7EuF+nQ/LxUaBm3bMiGmSR3IYcJZVgUflIfE6CEPiu1kXKIPDjVdcY69+NQZT+4CJ+hipdWUtmtLq8E2Sh8OJGBSm7oPOMbdFkykzEbWtWC3dzcRri+FBFaC7Sw+YkOJjdZ54Kay9BKiMljPUXAlIhNOUdAe69gJbI4bISWJtty+9WVr9WUeee/MPH7E5UQzkmusTxY/kl2n1UNZyDIdsdcVQ5hRwH3qeD1yoWOftYTVE9GSOOp2ejOlrUoGjcVJ8IadJ8eZaoyCVs/uLD88FCae295Gecb0hKfAvQvPu2ErXusPlcLsZDwWwUBFYHN0GY6iXXbGhR4GGoC982BetN+nmsOyW8BK7WI0rO/n4EyDLqZGNDQWa7cGRjCCs4GQdUTfpcvQNvpBqvvT0xDScJO/glYoBEyCtOgvr7KmspWBoWAr3Xf0ohfCkWvBMbxM1Iba3rxqAakyV6qjiq+RALul+KgA9SNT3RBSa17bjlLsS0JScdh1WiTZE1GQlHJDDV6GWt80h7jjFjNtxkQmJnlDWge3oSklXmUZpGJOY6LVwM+JO+B86K3gAi5jGnbIQbrXd+MZaAaYlSGN9VotQQYhzTPgfou30yZPWo6nNRhBIk8vvfc6sKYCFXZmpW0MNAVt95IhHeV9kIz6yILTmoHGQCjyPnKJvi9BiIH2gG8/vEJx157IQA8g5H8cOrYk86CZTmOyQicKwZll5hINBrqBgjsz3dwUmnoY6AgiHl7Zw8XIQF8gJMQwCkbBKBgFo2AUjIJRMApGwSgYBaNgFIwsAABDZGU04luTDAAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_connections.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "multi_devices",
@@ -330,7 +334,12 @@
       "og_color": "#34D399",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+      "svg_path": "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4",
+      "mimi_png_key": "sec_st_ic_multi_devices",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAEJUlEQVR42u2dXahmUxjHx0ehjBpl5KOMTPmYGtGjcSETYyTUJBeaC8lcoLCMj8nHlCY3ZlDDBRFxMVMIhfBkNUUScYFGmilREoVy/M2QKYy9a506Tee8a+19XnX2en+/ejr1nvW+7+r5vXvv9bXXXrQIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBiMNcKc20219Pp7wqyMjyJZ5rrTXMdnBFvmetisjMskXcdInE6PjDXVWRoOCIfmUNkG5+baz1ZGr7INr4x181kavgi2/jFXJvI1vBFtnHAXA+Z61iyNmyR0/G4uU4mc8MX2cbz5jqL7A1D5LcZma+a6wIyuPBFtq9/kZH5rrnWkMWFL/LqNDAwSubH5rqGTC5gken/q5tT6NsZmV+Z6wayOX8ZlzXdgsdSI2STuU4dl8hU5jxzvZiR+b25bsNGf4lXzHIt22kuG5fIVO4Mcz2TkfmbuR4w15GY6S7yqTmSuqtk0LtUZCp7grkezcj811xbzXU8drqJfG1EUr8014ZxiUzlj25kPWiu/Rmh7Q/sFAyVi3y4YJy0Pd0dMw6RM9630Vw/Zr57C4bKRZ7bNEbeKBiNecJcy8YlMr13g7n2jvhOb35oR2GpXObZBQ2RNl4214VjOiLPaU6dz2a+73VzHY6hbjKXpNmJfZnkvm+udfMRaa5LZlkecmj8Y647MNNf6K3m+jqT5L3Tk8U9GjvrzfVp5vN/Mtd95joCI/OTea25Pswkeyq1Prt0P9oGzneZz93dlLkRC+OTeVGmazKzm5Ab2Tkx9Q0PZD4rNkfrlWR//DKXN534J3vMN84ca11prhcKyu9orpvnk/X/T+bidAqd6irSXJenLsSocn+ncV46/6WEqKUhanWIWhtitxn6pvN+k7n2dBT5WabMD+a6p6RRE6JOD1FrQtSlIeq0SZZ4S4jaFaJ+DVF/hqjdIWpbiFreQea61P0oEZkbtWklX19Q7yUhanOI+iRE7QtRv4eoj0LUvSFq8aRJvDtE7Q9RB2eJnSHqpA4yV5nrpZ7Xzel4x1xrC+p9WIjaPke929g2SRJXhag9I5LRxp0dT7PL0pBdH4ltw2dlYd2vC1F/jKj3VIgTsrogRN2ekdjGKz0aQe0sxv3m+rlQ4F9pgH5ph7pvL6j71kkRuaUgGe+FqON6tmpLlkO2gwAbe9R9R0Hdn+OI5IjkGsk1klYrrVb6kRPej2RkBxhrrUQisx8VSGQ+sgKJrBCoQCJrdgYukFV0FUhkXWsFEllpXolI7v2oRCR3Y1UikvsjKxHJHcsVyWQPAX4E7OpRvUj22alHJDtfVSCSvegqEcnukJWLZL/WgYtkB+UKRLKneQUiecpABSJ57seARPIknkpE8mysimTytDoAAAAAAAAAAAAAAAAAAAAAAAAAAACArvwHhOg65ou4uaIAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_multi_devices.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "modes",
@@ -340,7 +349,12 @@
       "og_color": "#A78BFA",
       "mimi_color": "#B7AEBD",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+      "svg_path": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+      "mimi_png_key": "sec_st_ic_modes",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAEs0lEQVR42u2cT4hVVRzHx1WEBUmrMSJloI3NhIwWhVRiFBNjMWILQzSEIiGEzBqwRI2JYAzOgxZpg/3SNj/a2KEWNUU1G6uFkrXQfiESiQQyU8FhFoE834/3e/TGcd68e++5977pfT/wYxYDj3t/H86558/vnJ4eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwvyE43x+c3x2crwTnTwbnjwfnDwfnR4LztyFDkSGWO4nlIWLZRix7iWWMWCrEMlr7e0cKgSuC86PB+bPB+epNYjY4/0lwfhjZzy5vNbFsN2HfEssVYqla/KL/S9kKVwbnjy4g8Mb4NTi/CzbSCdxgLe77JnHVGyRuzdCdHmlTYrNMtMwEAtcRyzix/LaAQI3LaVuiSdwSnJ9OKLJq3Sy+mYsIXE4se4jlTAuBjRjNOLj5IIXExjdzBLYWlriWWCbaEKjxcZqBTZPEVcH5MylFahyGsZtLHCKWr9qUeIlYnsjYGh8Ozl/NIPI4rM2XuLXNrrQR70aYMz4anP87g8iTMDdX4kgtziWQ+AexPBZB5EBw/mIGkRXY+0/iRmL5IYFEjRORVnFuDc5/lkHkbhisS+wjlk8TStR4KeKS3L6UEnUFqB8W6yKPpJD4O7E8EFFkX3D+ixQiR2GwLlHXSGdSiJwklttjPkttCrI5OP9TAom6nLcCEll6ieXzFBI1JvJ4JpO5WMuctuW8lWiKdZEvp5SoMZbXc1k3u88GQBdtanLVFg10BWgL7M1tjZMZRL6e9zPaaHbA5pm6aLAK5uaL3JFBosYryGJniPwwo8jXkMXyJQ4Qy/mMIt9CJssXuTOjRI33kcnyRY5HEKnTlluQzfIkLiOWUxFEarXA/choeSLvTrhN1Sp2IqPliRy0+poYIo8io+WJ3EQsIZLIC8SyHlktR+QwsVyLJFLjELJajsinI0qsWkXBg8hs8SK1sOrfyDLfQ2aLF/lIyv3HVjFLLC8iu8WKXLNIxXja+JlYnkKGixOpp6emchCp8V2MqrqE73NfN8s8kZNIjW+I5cmC3mO9HunrZpH7cxSpcZZYns/5HZ4hlq+1h+n2ueRszjL/suq8/sjPfg+xvGlHFbq7MNnKPKZyFtmI08TyKrHcm/GZ79KRca0r/bLpt7f3dDvE8nZBIhvxI7G8QyybVUqCgdnjxHLAvr3Nv6eHbVdDZH3N9UrBMhtzztNWanJQq9WJ5TliedZqbF8gljdqvcYxO9Y+XXQV31KUOVGCyGqkvdANMDh30PPnEhQ5DnvzZVaWmETdFF8Hc/NFDra4paMTYw+sLSxzF7H8swQk6jd9OYy1ljnW4RL1ToO1MNXenO1YB38Xh2CpfZl6NdlHHSbxXJbbtLpdZqe0TL3TAJchZexmx0oeAOmdBhthI95otuipyYztmvTBQPx5ZqWgFSA9T7INWc9/OW8ip4X2STsG34tMFyd0k22BTWXcnD5vOyA7ILBcob3WSvdbDdCU7UrMNNXNXrPjCZdtLnjKjvTp+cwBZLFzR7prrG52yCrah60FD9opsGXIFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACiS69z1FX0wzEXXAAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_modes.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "notifications",
@@ -350,7 +364,12 @@
       "og_color": "#FB7185",
       "mimi_color": "#F16E9A",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3A6 6 0 006 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+      "svg_path": "M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-4-5.7V5a2 2 0 10-4 0v.3A6 6 0 006 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9",
+      "mimi_png_key": "sec_st_ic_notifications",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAC/UlEQVR42u3csUscQRSA8bNSCWlMG6tAsAgWMmATEa20C3iBFINip3Aol0ZSWolwRZoUKYJiGULawRBsbAIakGssJMUDGZIuA4GUhgdz5DJZY/T09tb9Pnh/wN2P3dt9e2ylQkRERERERERERERERERERERERERERERERERERFSpWPEDVvyEFb9oxdet+JoVX7XiR/h2igHYZ8XPW/HvrPivVvxZMkdWfMOKH+fb6l3EYSv+pRX/MwMwnQMrfoFv7ZyMC4+NC0vGhXXjwsYNzkyCOGTFv/4PwPYRMP8GnDUubBkXTo0LZzc8OxlH44tLIrYfmZxmI+KqceFLFwBbs5wgjlnxzStC6jRAdKFmXPjeRcRvevpOIJ93gNi6ABopM+K0ceG4i4g6h8aF+wnkdoeQOtUyQ77qMqLOR+PCnTbEQSv+wzVA1sqKOJrD0aiza1wYaIO8a8XvXQNkvayQz3JA1Nk3LtxLTq3vrwFysayQKzlBnhgXHiWQmx0i6gZooqyQ9ZwgdeYSyCdW/I8OIHWdNwBk92cjgey34neuiKjrvPkyX7HmCfnJuPAwwZyy4j9fAVJ3s31A5jdrGWu6p5fE1N3scNk3OnlDNo0LkxmYU/E0+6/fzGbczQ6xmssfUuetceFBBmZ/vADajLcme3FpsB3XeWNsyHsLUudNFmYCq0uDQdR6G7J1ZE6iUnzI1m/mWno1e8FnmAGy9yDbb030HwRzugHSdZ7uZnXRrk9N4j8YlvXhdHo/CmTvzkncze7GpyaH8Xlm5mIByOIOkEACCSSQQAIJJJBAAgkkkEACCSSQQAIJJJBAAgkkkEACCSSQQAIJJJBAAglk1yFrtwByHUgXqrcAcglIF0aMC0cFRjxN39dTZsxGgSG3EPwNOW5cOCggor5ubRbBPzEXjAtSIER93doqcudjFuHI1Bc81RC7+DTb6NELoOP4urVppC53NVuN95n1nGclvqFrFBkiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIioqL3C2wIyrUBbtIUAAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_notifications.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "sound",
@@ -361,7 +380,11 @@
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#F16E9A",
       "mimi_png_key": "sec_st_ic_sounds",
-      "svg_path": "M15.5 8.5a5 5 0 010 7m2.8-9.8a9 9 0 010 12.6M6 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h2l4-4v14l-4-4z"
+      "svg_path": "M15.5 8.5a5 5 0 010 7m2.8-9.8a9 9 0 010 12.6M6 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h2l4-4v14l-4-4z",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAMAAAC4A3VPAAACl1BMVEUAAACag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ahN6ahN6ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ahN6ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ahN6ag92ahN6ag92ag92ag92ag92ag92ahN6ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ahN7otDG/AAAA3HRSTlMAFS84PzobAgtPotjs+vCwZyMtk9+5DDK49/1VO8v7vRSv/uMDaPzq1e/kDiAcCgFAvik9ElK02c15Ftr4ix+P6OtrKMiSIhrz0CwNfnsEidc+X+3eHuFuB/EFCag39tTORZnW+TRI5kpOPKBTULXRbSXuWwZ09CGHpzDpZqbclGKMEA/Bq5Vx9UG6vGEXlycTLkNEVuWpv3pygibMswitpMWjxk2uslG722S3noSIc89pZVdLEW/TpZzDNpYdwEyxcBmb0hiY4n1dWStCqsQqOVQzmlzdR8ckgOcxF0phjgAABMxJREFUaN7tmP9fU1UYxw+JjJKN0EVtItrtRk4aV2WDwomghoPBtEQHm8xCTCyywIUYX6bDL8PEzAQ1a37ri1YqGZSZFWaWFX3Pvt4/pvOcAdvd3Ut5He/uT+fzw+7zOjt3751znvOc5zkIMTExMTExMTExMTExMU1ESXdMSp6colEPmHrnXVPStLr0uzPUIk6dpheJdPdkqkO89z6DOCrjdFWIWTOyxXHNVIM4634uQhQfUIHIP5gDKO6h2SZ4zon6SpP7sDlPeaIwl5C4efPz02OQFmtB4SOPFimOnLwAQLb0FIQWSpHFi0qMorF0sdLjXLIUFtL4WBmKRS6bZieLW14hKEq0pJOFLMgQYpGOSlPYn7KrFB2mczkZyYrHSaCLRjqfWDnmw9WrlEROXw2/aXfVoBikMLd2fNtwLuftuKe7xhOlqfNIwFmThGKQfF2Y6F0Ln0/exsxanqpf1yDGavZ6FIPknw7P6obGjVp4NlIP8Zln7aJcpU0oFlm8gMSjwuc0jqVgbKL1WevzcYCi7QWnDNm8AayWzT7kfhGs1i2Ux8VaLh6yLXJajSN9W43YSnsJz0x+OzR2UBHdnVoZTpvW5Z+F5EhUBytu3OZDqGwmNHbSBbYueNe0fX6gO6KAJGpXeseQmh3QeWc3Qrm7yPHC0yB3t+BXg1W+m3Tp2WPPCb5MzL0AKumF92ByWptpkPvg1fJXbtZFs//VA6+FfzxgA2Yy9tSDfdgwUG2TfviNQxOOIyRIHMbds8DPG45QIyeeZbwO3fvxMhyFZc3ergKyCbq/gWNv0pvgvJ0qIOuIo4YQyjwGkX2TCkgzCfgeHAyOg3VCBWQRiRUYiU6CcUoFZK9KSIHnx86MDOgexEhnJ1g7EoT0VDS+lT8ac3ug+xTssblvg/u8kyDku6cLz5TvCofT90jkwPty2fvYyPkgQcizOCZytZUk0vuhe70boYoTEArOJSjgLQxnCefhBB0A80M84mRIfxoWU4V1OAIHjt4aKeouhFAKOc7XY2f6CDIEwyAN0gUZlPfskLQ018RBijZX98fw1ONyRDgPJ5C9jKpQ/gT+eO3FvdYoNVkrNHKkaPOvgIcfz7DlU5J4Ud0h8JXBOJmP6dJnghwpkmkNDuKlXDIDzMt06VbRGmO8dOvU51IkN15Rf4HzOqGR5KFfUiaV5ovxkMbhkATZsmg0Lctx4S9qSFt7Km3u7LhiisNsqJIg+76qJ0mImAbJR+4ZMK/Sl3t887mv5QXCnGRpUnltK+nTb8ZNB8mqHlCu8MoogOXlhs3SPDawE49TD1vRTeqDAY+CxV7PADC9bUPS1DnvG9O31yHWXiAJ9ne8gkjN930kYe3wSLP1UIcVPOaHami5dE3Rwj10hPhK1wgvuytAKPVHmAPDZp+y1xOOfeAgXPmIIEde0UHDcLHSlzCBn8juLPlZhvxlHfyb9l95pZFoSynZKqt/G9wjQWb+DneJ3Enlr5qQ8Ef4mrJVb5cgawbhNvHGn4m4xAtc9kYFhhuRinTjX3bd9cTcQ//tXxlBXo2qgrPa/hlK0GVl7+F/x4p67X/R29biSNgFaffI6TCzercTqSR+f8chvaGvapUHqSdnyJOX50ZMTExMTExMTExMTExMt9L/x6O2FIWfCrAAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_settings_sound.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "display",
@@ -371,7 +394,12 @@
       "og_color": "#FBBF24",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M12 3v1m0 16v1m9-9h-1M4 12H3m15.4 6.4l-.7-.7M6.3 6.3l-.7-.7m12.8 0l-.7.7M6.3 17.7l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+      "svg_path": "M12 3v1m0 16v1m9-9h-1M4 12H3m15.4 6.4l-.7-.7M6.3 6.3l-.7-.7m12.8 0l-.7.7M6.3 17.7l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z",
+      "mimi_png_key": "sec_st_ic_display",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADjElEQVR42u2dvU7rMBhAYWPgAYJgYL0LA5IfoBtUqtQJeWJhqbgLL8HEC7B26QNchnZlYOAuMHqjDEhISB5YOlm+17pfRG7oX9L0J9Y50qeKqHWc7+DYrpN0awsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZuOMajijbpxRPXltkJX6SWw6o56cUT4T4e8m2amXyG5OYhpdslMfiYkz6nGCyLA9IUv1ELn39xT6e4LIsH2PLCESEAmIrJmAfWdU2xl15ow62kSRoV5Sv1DPfax9T9CpM2rgjHKS8Gdn1OUmiQz1kXp5qWeo7yn2/m+JgzFJf3dG/dwEkaEeUp98eQNa5leS2pmWuLDMqkVOkZi2zDYW/yXqbEKSSsl0Ru04o+4mlBW271QkMY0zLH4NIJ4rlhn6s1GujFGRfndOic+LDMxilHk5R9KKyrxyRt07o17k9apiie9lB2Sxy5w3eZ0CZSbS4pMCn+lU/U+FzPHx4Iw6nFSGt3rXW33srW55q8+91Rfy2pLtu1P2fyjlI3EFMj/zi8Te6m1v9Ym3+tpb3fdWD73VzlvtM+Fke1/eF96/ndt3Q8pH4gpkvjqjVEZiaGldb/VHTtys+JDPtTL7VVI+Elcg81YEHkjLeisoMB9vUs6B7PcWidXL7Eif9SktJST5h/R1vQUF5iOUdxzKl/28yn4figywYPoApJGeTkXir4olphHKPc6cZhvTBlZQEjmd9pYkMdsyD8j2ckVeL1liGtdke3kSWxUMbIoMgFpkvXqJ2zJV8CuMbn6eCYuLPCkxT1w0wv5OyH49+0b6yjmnEoks/E6LnTHfnfbXJLKf/25W1jtnHUMSq8CmXMb/KKv00+Iuuzwk88bhmkQO03nl1tdy290cx/Aox9uMSWJjzA01s2KUrh/KaNWtSaRLR6+yvjkqeBxP0dwFJre0+RIRFoMTWYLya4xz6RLuSx7HTSwieyUTEFb2j2Q9cZ0iL2Rx+qXkcfRokbRI+kj6SEatjFqZR0Y+j+SbHeC7VlY/WP3YVJmsR9JX0jdumkiu2anxlIWr6CKQyHWtEUjkSvOIJXLvRyQSuRsrEoncHxmJRO5Y3nCJPEMgAok81SMSkTxnJxKRPPkqEpE8iy4imTwdMrKWyfNaYfkiAZGASEQisuYi+SWeiGTy21iRiOTX6iKSye9HAgAAAAAAAAAAAAAAAAAAAAAAAAAArJA/vIhD9Ervyi4AAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_settings_display.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "wallpaper",
@@ -381,7 +409,12 @@
       "og_color": "#F472B6",
       "mimi_color": "#F16E9A",
       "mimi_badge": "#6EBAF1",
-      "svg_path": "M4 16l4.6-4.6a2 2 0 012.8 0L16 16m-2-2l1.6-1.6a2 2 0 012.8 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+      "svg_path": "M4 16l4.6-4.6a2 2 0 012.8 0L16 16m-2-2l1.6-1.6a2 2 0 012.8 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z",
+      "mimi_png_key": "sec_st_ic_wallpaper",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADEklEQVR42u3csUtbQRzA8fwF4iB1qCKhW6GIRBACheJg/wEVOgmiLoUDt+rm5FDKCUXo4OTg5A882qmoFCdpdbJ0aS1063AUijd0EKy/cqnxVc17iUVf3vcDR0jiuzvuiw8JmFIJAAAAAAAAAAAAAAAAAAAAAAAAAAAAwPUJ1o0G654F614E65bjoz4f5XTyFbI/WPcpWHdSN/R5P6eTv5jriZDrnEo+Q64kQq5wKvkMuZYIucap5C9iOVj3PhFSn5c5nRvgjXR7I1PeyJo3Us0QcjoRsTamM6xdjevq+t3UaD7ixOlhvvVGTuJ45Y10pIhYCda9uySkvl5JsXZHXK+2tu5jgirZApa9kZfeyHHdQdbGc2+k94qI1Qv+Wk0Ofb96xfq9cZ3k2sdxX9yeU0Qc9EZeX3CI9UPfn/FGBvSWF6y7G6x7GKybC9btN4hYG/vx5/W6u/EWPhDnTbP+ILUuj1jxRrYbHGL9+OqN7Abr9oJ131MGTA69bk/nifOlXVv3WaHaxbezNxkO8u9oMuC50cy6cb+91DsfcrnJw7zJkDqWqXcWcbKFg7zpkDomiWikxxv5kPOQuv+eooecb/EQb0NIHfNF/9TmoE1CHhT205/40ddJm4TUMVXUkLNtFnKWkIQkJCEJSUhCEpKQhCQkIQlJSEISkpCEJCQhCUlIQhKSkIQkJCEJeb0hR9os5EipqLyRjTYJuVEqMm9krE1CjpWKzhtZzXnI1RL+hBzyRj7nNKTue4iKZzFnchpyhnr/xlzIWcgFql0eczEnIRep1TjmnDfy45aG1H3NUSl9zHFvZKvFkNvBuo/Bui/xcbvFkLqfcepkj9kXfzt3M4bcDNY9DdZ1BuvuBevux8fO+PpmxpC7cR99VGktaDn+M6x+XcqON/LNGznyRn55Iz+DdYfBuq3TUEvBuifBujtXzafvx59bitcd6jxxvqM4/05cb5Jv8fg/Ubvit28MeyOPvZFHwboHwbqOZubT6/R6nSfONxzn7+K0AQAAAAAAAAAAAAAAAAAAAAAAAAAAgAZ+A7Hdev7u8Bv1AAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_wallpaper.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "themes",
@@ -391,7 +424,12 @@
       "og_color": "#C084FC",
       "mimi_color": "#B7AEBD",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.3M11 7.3l1.7-1.7a2 2 0 012.8 0l2.8 2.8a2 2 0 010 2.8l-8.5 8.5"
+      "svg_path": "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.3M11 7.3l1.7-1.7a2 2 0 012.8 0l2.8 2.8a2 2 0 010 2.8l-8.5 8.5",
+      "mimi_png_key": "sec_st_ic_themes",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADNUlEQVR42u2cPU8bMRjHEUMn1o5ZWCJl4QNkZmU5dWBguwWGSBmQQLoyoa4eGqRunfIBnAHWqGukSjAx8AkYMnlgS2PVkWiaF5/P5xz27yc9QgJy9+A/tp/n8cveHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHxUlJAtJWRXCZkpIXMlZE8J2Tdfc/N9/fMWrdUs4Q6UkMdKyCsl5FAJOVFCviohZxvs1fze0HxOf/6A1tyNgB3T00bz3jbdItw2m5rn6Od1aN0wAraVkIXpUbMabGKe36a16xFw38xx45oEXLaxed8+re93GB3M57O3QCIu7M28l+HWg4g6ELkPLOCy6fcfo4a7iFmNc6HL3JmhipuITw0RcWFPiFl+OJ00TMT3PZNh1jKwqW1O/P39eaU5zJkEQFtSjEFoER3FHJCarBcyrzPF8Cyk9jNHtdUVm/GuRHQUc0wF6H8hiyqi7EhIbQXq/RvgTKr2rKpCVohiCXyMkH1fw2PAOfK99RHx73riKISQHtOPZRslv55pkv9pKCFXPcdDMDVNvkhgVuhnIYWsya5SF3IYiZDDlEVsla2pNlTERfTaSlXIrsVGKS95ZADTf0c35aWqWUSWpSpkHpmQeapC9iITskdFJw7r0yPD24Mp1J8qIU+UkGdKyFsl5C96ZKA5smKk+mz+gT6v8elQCXnjEk2nPEdmgbdpaBG/WPp27nAUIdmo1TqP9FTR6ZX07xt5pOfKjgchH9YNpxv8O1JCPlLZ8VRr9bS6Xzj694Naq6fVD09Cnjr6d8nqh11DWa1HehhaTxz9u2A90q6hrHYIeBDyzNG/a3YIeK7wVIxYbx19+0lFx76xOmXWJR0LArpic+iQHr2wi65coxUBynI3Jfz5NE9X7tjXWl7IdoBj5TppP7cU8Ss7zavVXus+Xj41FZujDcPpHWc/qglZ62msJXs0yf6lSTGuTWDzojiN5S3wuW/4uiPnI0sUCTixHImY3CEQmZjc6hHRMMs9OxEFQNx8FVFqwl10kVWAuB0ysuGW+1ojEpQblCMVljvNAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgDX8A4V6pYsnxcEUAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_theme.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "homescreen",
@@ -401,7 +439,12 @@
       "og_color": "#60A5FA",
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#6EBAF1",
-      "svg_path": "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+      "svg_path": "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+      "mimi_png_key": "sec_st_ic_homescreen",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACMElEQVR42u3cMUjcUBjAcUddBSdxqeBQ3ERHVxFBXB0d3uKmrg4F6/INrrfV9XArHQrt2LXQgu3YtWvXFgqvPglIaevlLMhL8vvBt4Vc8v6e3iXBmRkAAAAAAAAAAAAAAAAAHlGO9Mw8bGqMOcqRsmk9o5rfmWOBWs249l+x8znSG6HunbI+8134e7mcI70X7K9T1mW5Sx9+1nOkL8L9NmU91rv4SXYrR/om4O2Uddjq8teSfRFvZ78P3zEPBx7xsE8XDE4HGvG0j1d/LgYW8aLPl/IuBxLxsu/XZOdypJc9j1jOb24IF9gXc6R3PY1YzmtxSHdLVnOkTz2LWM5ndYi3vjZzpK89iVjOY3PI9zH3cqTvHY9Yjn/PTelIBx0PeeDRgruYJx2NeKLenzHPOxbxXLXuPy4yUmtyzNofFxmr1C5kzY+LdOMxjYpi7uRIPyuLWI5nR53pQu5W+o7cVUdIIYUUUkghhRSS/w75Okc6ap7c+9ccNdsJWWnIjznSRsv9bzTbC1lhyKspX+NKSCERUkghhRRSSCGFFFJIIYUUUkghEVJIIYUUUkh1plvk7RzpR2Uhy/FsqzPdIq/kSB8qC1mOZ0Wd6WOeVRbyTJWHhVzKkV5MsdBvc6SFlvteaLZvu+9yHEuqPDxmWfDjHOlVjnSdI32eMM9vtl27ebc9vWfWmu0m7eu6ed3jtj8gTA46myM9af4X7GNNeb1Zqw8AAAAAAAAAAAAAAAAAVfkFzUbCChLcOcoAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_homescreen.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "lockscreen",
@@ -411,7 +454,12 @@
       "og_color": "#2DD4BF",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+      "svg_path": "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
+      "mimi_png_key": "sec_st_ic_lockscreen",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADMUlEQVR42u2YPUhcQRCAVVC7WFmJFopYiJ0igp2VhenE60MKtTkhu0QE2U6ZJgcxhVaKYCQEUuaHgJIiTUAhJE1IE1JImrQaEphkyRqC3vvBe09v4ftgeNz7mRnmu1veXksLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQNKq5LxfWpuIFw7GIqcYjrVnG3VdzqH3m7Ku5AxR2ruI/heBDOr4b7uplacwkcVHH3VNwrFXeq4jRHnIb7/XODTPFmBbapuLsq7jCnvKQ4DHnamOr1S+xXcTUVd9agxPM4C/n6me71SRxRcY8LEngxfN4Rply+RP8Gul+SxPPw+QeYdnkS21Xcw5Ilnoev087UyxE5r+J+5ZDwNWwz/BtpJWw1KuHzbrielcPXmWfqxUscVnFvcwx/U8VNZeSaCvdlfSl8vWGmX6zIlYyhf1NxS3mXw7BML4Xn0vKuMP3iJPaquDcpw/6h4qpXzF0Nzyfl9nV7sVCMyLmMX83GVTfz4U+FjYz8c1goRuR6ypA/q7jJBvNPhjxJNdax0LjEVhX3LGXIWwXV2Uqp4eu3YqOxAfeouHcpQ15Qa241HD5Pcg1fvwcbVxFozbhas6rWPE1Z9n6qNQeFhc+XtHz7Pv72M46d/BIX1Zr3ao3+i3oD/v96UZFdx/e1iKVsiX6p/J455DIk5q/j+1vAVrLEUbXmOHPIZUrMX8f3OYq1+iKXr0VScbGMtfoi9yITuYe1yxI71ZoXkYn0/XZiD5GIRCQiEYlIRCISkYhEpDVHas0DteZ+OB4hMj6R+2rN2IUaY+E8IiMR+UGtmUioMxGuIzICkZsZtTYRGYfItYxaa4iMQ+R2Rq1tRMYh8otaM51QZzpcR2Qkb62v1ZqZCzVmwnneWiPbR56oNU/UmkfheMI+kn92EIlIRCISkYhEJCIRiUhrOtSa55GJ9P12YO+yzJ3IRO5grb7IamQiq1irL3JIrTmMRKLvcwhryTIras2nJpfo+6tgK1vmrFrzskkl+r5msZRfZp9ac0etqak1u00QtdBPH3YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABulN8MVyCQtrjlWAAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_lockscreen.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "biometrics",
@@ -421,7 +469,12 @@
       "og_color": "#4ADE80",
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#B7AEBD",
-      "svg_path": "M9 12l2 2 4-4m5.6-4.4A12 12 0 0012 3a12 12 0 00-8.6 4.6A12 12 0 0012 21a12 12 0 008.6-13.4z"
+      "svg_path": "M9 12l2 2 4-4m5.6-4.4A12 12 0 0012 3a12 12 0 00-8.6 4.6A12 12 0 0012 21a12 12 0 008.6-13.4z",
+      "mimi_png_key": "sec_st_ic_biometrics",
+      "apk_png_uri": "data:image/png;base64,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",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_biometrics_and_security.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "location",
@@ -431,7 +484,12 @@
       "og_color": "#38BDF8",
       "mimi_color": "#F16E9A",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M17.7 16.7L13.4 21a2 2 0 01-2.8 0l-4.2-4.3a8 8 0 1111.3 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"
+      "svg_path": "M17.7 16.7L13.4 21a2 2 0 01-2.8 0l-4.2-4.3a8 8 0 1111.3 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z",
+      "mimi_png_key": "sec_st_ic_location",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAC1UlEQVR42u3ZMUtbURTAcRcXP4BfoIN18O6CS9BB0qUizeLi4tRFexwKIgSK4OhnEBwKFkRxbHFwLthyinNXuySuwqkX3oNXKTXnvZf3wu3/B5dAEvPC/RM5uZmaAgAAAAAAAAAAAAAAAAAAAAAAAAAAAFCPoDIdVF4GlU5QeR1U3mS3nez+aXZpcuPNBJVXQeVDUDkPKj+CyiCoWGENsvvPs+fF58+we5MTcDOofPpLuOfWIPu7TYK2GzH+qzwOKg/OgE/XQ/Y6HXa1+YhbQeVbxYBPV3y9LXa3uYi7QeVXzRHzFV93l10ef8TtoDIcU8R8xdffZrfHF7EXVH6OOWK+4nV67Hr9EeeDyueGIuYrXm+e3a835EHDEfN1wO7XF3ExqNy2FDJed5EK9YTsl4lgZstm9tbM3me3yyVj9qlQPeJsUPniDLhiZseP8e7sT3fZ/SvOkPH6s9SoFnI1qNw7Iq6Z2Vf7t/j4miNkvP4qNaqF3HF+Gq9sNFfOT+UONaqFPHJE3DOfPUfII2pUC3niCHnhDHnhCHlCDX+8F4V15gh54wx54wh5VnxfVBot5HpQ0cKahJDF97NOpdFjnpb43njpDHlZ4jvlKXV8IedKhNx3htwvEXKOOg2c6Dx+2b8eMeI1JzzNxrx1huyZ2fdnIsbHe94zV2pUH3y8n8qumX00s+GTgMPs/m6JTyMDThuDTyHoOzPrZ7fdkofmDDg1hVxq6SesfC1Rob6Yhy1FPGT36w250MKPy/F6C+x+/TE3Gg65wa5P2ODDgJPAiU/JxQnOJJ74cIKTyIkPJzgJnfhwgvP/DD4MOIkMPgw4CQw+DDgJDD4MOIkMPgw4CQw+DDiJDD4MOAkMPgw4CQw+DDiJDD4MOAkMPgw4iQw+DDgJDD4MOAkMPgw4iQw+DDgJDD4MOIkMPgw4KQw+7AIAAAAAAAAAAAAAAAAAAAAAAACASn4DyaQ+fLkegbkAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_settings_location.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "emergency",
@@ -441,7 +499,12 @@
       "og_color": "#F87171",
       "mimi_color": "#F16E9A",
       "mimi_badge": "#6EBAF1",
-      "svg_path": "M12 9v2m0 4h.01m-6.9 4h13.8c1.5 0 2.5-1.7 1.7-3L13.7 4c-.8-1.3-2.7-1.3-3.5 0L3.3 16c-.8 1.3.2 3 1.8 3z"
+      "svg_path": "M12 9v2m0 4h.01m-6.9 4h13.8c1.5 0 2.5-1.7 1.7-3L13.7 4c-.8-1.3-2.7-1.3-3.5 0L3.3 16c-.8 1.3.2 3 1.8 3z",
+      "mimi_png_key": "sec_st_ic_emergency",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAABUElEQVR42u3csY3CMBSAYaQswA5kj2SfV6XLbpmBkj1ggfOddUYUVE6QDOH7pFdGQv4LJNvy4QAAAAAAAAAAAAAAAAAAQDMp4pgiThVztGrvFbBLEVOKWFLEpWKW8l1nFd8j5JwiflJEWjH5u9kqto/Yp4jzyoj3yd/3VrNtyCFFXDeGzN8PVrNtyPHvf+62MWT+frSaQiIkQgoppJAIiZBCCikkQorSl73TsXJeErJyBhvtzwG7chR1LhvYtxWzNWTtXMvvnZ1nPkJOG84TW0/+3ZOI/9czlg+NeJ/l66+NlLszlw8PmX//SUghhRRSSCGFFFJIIYUUUkghhRRSSCHttdprdfrh9MN5pPPIp6BuCHxxfHd2hBRSSIRESCGFFBIhEVJIIYWkaUgvX+0kpLfodhTT65A7Cem91p0F9YIyAAAAAAAAAAAAAAAAAOzfL2Z3W5ntBAZ7AAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_emergency.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "accounts",
@@ -451,7 +514,12 @@
       "og_color": "#60A5FA",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+      "svg_path": "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+      "mimi_png_key": "sec_st_ic_accounts",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAC+ElEQVR42u3cvUscQRiAccU62mil3RUygt2AaCGojUVELQRtLPSvsFCwMBBSRqwOQrBRsIjNTBMCSiIGEghJJCFNwCSksJBBmNbcy80img9z3t7ODjw/eDnRu3V4H1jws60NAAAAAAAAAAAAAAAAAAAAAAAAAAAAQP6U8feU8T3yyDbSizeqjF9Rxm/X3n6hjD8Kj9vh/aNsqdwBh5Txj5Xxp8r4y3/MaXjeEFsrX8R5ZfzxLQFvjjx/nu2VJ+KCMv5LgxGzkdctsMX4EYeV8a/vGDEbef0w24wbcqvJiNlssc14EceV8T9yCinXGWercUKu5hQxm1W2Gifkbs4hd9lq8RG7lfEvcw4p1+tmu8WG7FPGv805pFyvj+0WG1K+f/oq55ByvR62W3zMvZxD7rHVOCHXcw65zlbjhJxUxp/lFFGuM8lW48Ws5hSyyjbjhhxTxr9vMqK8foxtxo+5pIz/fseI8roltliemMvK+A8NRpTnL7O98sWcUMY/Ucaf3xLwPDxvgq2VN2aHMv6+Mv6BMn6/9vYbZfzH8Lgf3i8f72BbaUXtVcZXwiPxAABAerR17dq6niamnS3Gi9eprZvW1j3S1h1o646amINwHbleJ9stJuCAtm5FW3eorbtswRyG6w+w7dYErGjr1rR1Jy0KeHNOwuersP38Ii6G299lhJHPu0iF5gL2auseausuIkXM5iKco5cqjUcc1NY9jRzw5sh5BqnTWMSdkkXMZoeY/387rZY0YjZVbrO3h1wrecRs1qj194jyBfnnRELKOaep9nvErgRuqX+6xXZR73rIGW3d18RCynlnqHc95EZiEbPZoN5VxD5t3bNEQ8q5+QuuEHKkdot6l2hIOfcIFeshp7R13xINKeeeomI95Jy27izRkHLuOSrWQ85q634mGlLOPUvFeshxbd2nREPKufm3LiFkv7bueaIh5dz9VLz65anN8FP51GaTX966HrOS6lAPAAAAAAAAAAAAAAAAAAAAAAAAAIBC/QIV+19HTRjnnwAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_cloud_and_account.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "google",
@@ -461,7 +529,12 @@
       "og_color": "#93C5FD",
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M21 12a9 9 0 11-3.2-6.9M21 12h-9"
+      "svg_path": "M21 12a9 9 0 11-3.2-6.9M21 12h-9",
+      "mimi_png_key": "sec_st_ic_google",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAD+0lEQVR42u2csWrjShRAt3jCW7lK81pDviCa9NGkc5Vogz/CkMKdm9cYfYIfhl1wYQyCdFulEPEfBNy58gdM5UKN0YM8D1zvZoM30SiSrCXnwEVEGY3MHK7ujCT70ycAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBpGq1OjVddo1TdajYxWY6PV1Gg1k+1Y9vel3Smj1hx5Z0arW5G1NFptjVZPOWIr7Wdy/BmjeRyBXcmwVU5xb8VK+usyuvUIvDBaTYxWpiSBL8NI/xeMdjUCT3aXw2GJGZgnQ+35Thj98iSeSy17OkLY855joZxauDiSxH0sqJ3vk3httHo8ssR92M9xjRVHssTrZonXFIk/ZGLGTeJ5lniLLPGebDRFJGbcJJ5kiTfbS2yKTMy4ixy+lFhQ5kbu3DwYre5lu5T9SKxY4kWWeKvficwh00q6M1oNjFaXRquO0apttGrJtiP7B9Jug8RqRE5ek/iGzPku466stJwz4pa0nyOx/FmqySPyhcy1ZFi74BKnLcevkViOyHFeic9k2prXK2nN2pP+kPgOiWdv1cYDsc4Sr8foNUvkrWs2Zok3YOSaJ3LmKHGeJV6bkWuWxNMs8ZYOEje79leMXDNnq1sHkXdZ4rXy9h9E6V9BlLaqCgz+FNmvqjYGUXoVROn3IErvK4x/gyj9G5GJN3K8rF46iPwaROlTDfEFkW7rR1tLOw4iv9Uk8gaRiTd1EPngMlutUaSNKUuP/CLvHSc6dYqckZFkJDWyQSLHzFqrm7XWKXLEOrK6dWSdIvvc2anozk4Qpf8EUfpfDRK3QZR2P7rIyu61BlH6We7u3BSIjYPIZRClfEWvSU8/giht76TMWXoUE+n8PNKPw0FFIgcFLq23WCzwhoAfhzbWfhz2SpbYC6J07ShxFUQpX5J1WU+KwOexLEum7cf2x/qxnNmrcZD4PDMHfhy2Cwpsy/HrfZ8OEs2Hn63+RubEQeDLmO8y6sqPw1ZOgS1pPz/UX06RE6wdFvnLm+YOEvex8ePwTjLs0o/DjmRcS7Yd2T+QdpvX+stRG/l6+isyhwUlHpJqa+iDH4f3sl2+Jc9B5hBbr1/yTvw4nJUgsrQ4tG4MopTfFsgh89yPw0VDZS6CKOU3BRxkdv04fGyYzEdmqcVkXjdIpv0c/IbAOzPz2JdZe34ysaSaeawJkD0vNbHk2ezQj8NVTQJXcj5mpxUJvfDjcOLHoalIoJH+WezXWDvHJWboSvqjFh5J6Jkfh7dSy+ydm21OcVtpP5PjeRTVIKmnkql9Pw5HkmFTkTWVv0fyf9uO1zMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+PP4HmXEqZlhpw6UAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_google.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "advanced",
@@ -471,7 +544,12 @@
       "og_color": "#FBBF24",
       "mimi_color": "#B7AEBD",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.3 6.9L21 12l-5.7 2.1L13 21l-2.3-6.9L5 12l5.7-2.1L13 3z"
+      "svg_path": "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.3 6.9L21 12l-5.7 2.1L13 21l-2.3-6.9L5 12l5.7-2.1L13 3z",
+      "mimi_png_key": "sec_st_ic_advanced",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACm0lEQVR42u3cv0sjQRjGcdFWYqNFwEpQ3toytb1wlSBXmcYqtuEOwcbCQhsL7++QYKmFIr5ccfU1BwfaWGphde9l4BUlKtmdGVkcvx8YgiaZGd6H/ZndnZgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBjMZXQvpjKrqkcmcqeqXw1lbnI/ub8+3ve3673T7HfMcSZYTswlTtTsZF2ayr7prJQsa8F//ztK33d+TgzVP19gtx+peij7d5UvpvK9Bt9TPv79xX62qbq+UNcNJU/FYr/2H6ZyqapLA2XvJa/bvr/q/YRxluk+nmD7NYI4Hn7bSqn/hrz/S7VzxvkYWQQqe2Q6ucN8rihII+pft4gzxsK8pzq5w3yqqEgr6h+3iAvGwrykurnDfKioSAvqH6+EKdM5WdDQYZxp0ghT5DLpnLdUJBh3GVSyBPkTmQIN76TdOqvN5H97JBCWoCTpvLNVB5qFn5gKj1T6ZhK20/Rtf3vnr9fp78Hn8ckqdQPccVUTiKWwH4IbUzfbf9c3SU0zGeFdKoFOD8s9I/I1Wi35ljdyNVtmN88ab1d2DVT+Ru5HetHjtmPHC/Mc43UXhZ0K2HPcjBudTpmNTtIGHuL9J6KuW4q/xKK2Uscv5cwdpj3OiGqzJrKWUIhwzaukziHTsKhifn8Zz97kKupJ7VjV6sjq9fUk/Krnz3IjcQChoP9VuIcWt5Pyjw2WCJZItlGso1kr5W9Vo4jOY7kzA7nWjnX+lED5dePgsLk98jCAuUKgUKC5JqdQoLkKrqCwuS61kKC5ErzQoLk3o9CguRurEKC5P7IQoLkjuVCguQZAoUEyVM9CgqT5+wUEiRPviooTJ5FBwAAAAAAAAAAAAAAAAAAAAAAAAAAAABZ/Qe45mos6c5eAAAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_advanced_feature.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "wellbeing",
@@ -481,7 +559,12 @@
       "og_color": "#34D399",
       "mimi_color": "#F16E9A",
       "mimi_badge": "#6EBAF1",
-      "svg_path": "M4.3 6.3a4.5 4.5 0 016.4 0L12 7.6l1.3-1.3a4.5 4.5 0 116.4 6.4L12 20.4l-7.7-7.7a4.5 4.5 0 010-6.4z"
+      "svg_path": "M4.3 6.3a4.5 4.5 0 016.4 0L12 7.6l1.3-1.3a4.5 4.5 0 116.4 6.4L12 20.4l-7.7-7.7a4.5 4.5 0 010-6.4z",
+      "mimi_png_key": "sec_st_ic_wellbeing",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADFklEQVR42u3cP0hVcRTAcdFAwUEcHQShUTygg5CgOIiCg4Pi4FIahoNOHhwEEUHBQRCHCoQnOEZDQ60NQVMNQcNZqiFwCJoKKRqE6uC9SOl9f+977/7e+37gR6Sv3/298+Vl75K2tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAClEtNWMb0jpg/EdE9MH4tpTkwfiumOmN4V08ES9xyM/txOtE8u2ncvuo5fr5XppxOwW0zvi+kTMT0T09951gcxPRHTeTFtS9ivLfr8SfT4fPudRdf163dTo/yI02L6tMCwb1rn0atr5L/9RqKPn5exp59jmiqlR1wr4hVTaL0R04Vov4Xo95Xs5+dZo07xEVVMv1U49Hh9EtN70a9p7OfnUioVjrgkpl9TGnq8LOX9/HxL1EqOOPz369DblIdereXnHKbazSGPAokYryOqXY84JqafAwvp5x2j3r8htwOLGK9t6l1FbBfTF4GG9HO3U/Ey5ICYfgw0pJ97gIqXISfF9GegIf3ck80U63aeNRdoxHjN5Xt+jfo+0RJWyCGTntNwI78yp6pw5yZry5/fVDP8Nes3sC8aNOJFfKO+Wb5mrjZoyNVm/NfqVoNF3Grmtx6HDRLxkPeRpqeBRzzlbsBlyC4xfR5oRD93FxWvYvaJ6evAIvp5+6h3PeZQQDcH/JxDVEuOOSGmXzIe0c83Qa3CMf3/nf7KaEQ/1zyVio+5ktGQK9QpPeZmxiJuUqX8mAcZiXhAjcpj5uocMUeFdEJ2iumzOkX063ZSIb2YvWL6qsYR/Xq9TD/9mCKm72sU0a8jTL16MceL+D7JSpfvP860qx9zVkx/VCmi7zvLlGsXc7lKIZeZbu1jbqQccYOp1i/mfkoR95lm/WMeVxjxmClmI2RHmT80Iv4hDx1MMTsxe8T0ZYkR/fE9TC97MfvF9F2REf1x/UwtuzFHi/jOZ//8KNPKfswZMf2eENE/PsOUwom5mBBykemEF3P9v4jrTCXcmLtRxF2mEX7MR0yhMULeYgoAAAAAAAAAAAAAAAAAAAAAAAColz9soYS+7b4JTgAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_digitalwellbeing.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "devicecare",
@@ -491,7 +574,12 @@
       "og_color": "#2DD4BF",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+      "svg_path": "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
+      "mimi_png_key": "sec_st_ic_devicecare",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAEzklEQVR42u2dT2glRRCHV8xt4R08yOqC4CHjIUtELZEIghcxkCCC4iHkIEEU0cAmYrxESEtERIOeXDAEZEUweNGLFY16WNBT8KIoamgUJEpwkRJECMg6gy1mH+9N97zMZHXe90HxQjJ/ivrR3dXV/TonTgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwJCReXcy8248824q824u824x8245824lfC6G30+F604Stf+OeKOZd7OZd2uZd1v5z7uZdweZd5dK7CBctxXuK+4fJZpXRsDJIMJORLRU2wnPmyS6xyNg0S1uZN7t1yRgt+2H508R7WYEHA8tZq8hAbttL7xvnOjXJ2Ixhl04JgG7rXjvLCocPQtdbrAbrdLdLpPlDibiqcy7V6+wgN1W+HMKdaqJeG7AYP+YebedebeeebeaebeUebcQPlfD77fDdYM8/xxipnenVVvixcy7zfxzPvNuIvOuE3lHJ1w3H+67OEDLpJuNBHm5QkAttLDpvLWNDPi+kXD/enhe6ruXUas8O01NbIrucabm98+E56YmQGSzfeaJqVOM1zLvxhryYyw8P3VqwjyzK4BricFbjY2BNfjSCe9J8WcN9S4vu+0lijhyTD6NJIq5Rznv36BtJHannWP2q5PYzW4g4t+rGPsJic1Y076IWkfUTvcYM7cTEp/JYRdyLWGKMdOwgIWdFbUPRW1H1M6L2r1d2awxVvYXcTRhPXH9GFriU6J2IGqXDtlnonbbIV/XE9YzR4dVyNmEis10wyI+JGo/dIn4jz19yNfphArQLN1qb9tsMkvNu9I7Re3TPiIW9nxXFrtJ99q7proVCcx8gyLeIGpvl4hY2MNdPs9H/N0auhpsqOTsRlYxJhoS8SpRezki4utFFtvl80Rk1WR36Co9oQhwEJlydBoS8myP5OawvS9qZ/rMK7cju/Omhk3IuaNmq6J2o6jdVFHEB0TNl4j4hahNlvgdy17nhk3IxVg5LjK+vSRqn4va16L2pqjdnSDiHaJ2oUTEX0XtkYjfsbLd4rAJGVt3XCoR5JUeInyc210l95wWtbci46JL8HuJdcrLA7ISCchCH0HOiNo3fYTQotX1ue/FiIgbonZNgt8LEb9XaJEJLTJ0jz+VCPJebrd03fOkqP1Rcs8HonZzot+0yDrGyKLVhKyyrHW9k9tYuP5+Ufuu5NqvRG2qgt+MkXVlraL2YG5fRsQsxkMRtU9Krvktb92PVfSbrLXOeaSozeT2bUTM85G/r1b0mXlkE5WdooSW2/cRsfrZG6J2bUWfqew0VWsVtUdz26so4keidusAPlNr7ROYWlY/Qlb6S6KIxdTlvgF8ZfWjJDi1rUeK2kJIXspE/F3UnhjQV9YjS4JT6w6BfK74TGS++MIRfGWHwBG710p7dkTt2dz+7CFiUY+9bkAf2bOTEKRad9GJ2tWi9pyo/XxIxHdF7fYB/WMXXYVg1b6vVdTuEbXHw3zz+gH9Yl/rAMUBdpoPyVjJdz/+R5Uevo3Vonkl349siZh8Y7lFNVjOEGiJmJzq0TIxOWenRd0sJ1+1LJvlLLoWzTM5HbJl5TzOa22RoJyg3DJBOdO8pVku/2UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOrnL8cxgDjg48odAAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_devicecare.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "apps",
@@ -501,7 +589,12 @@
       "og_color": "#818CF8",
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+      "svg_path": "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
+      "mimi_png_key": "sec_st_ic_apps",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACoUlEQVR42u3cIY6zQBiA4TUtF4BroBhT2QTZ03APEJUYroBh0A1U1dLMNUiwk+4/+admtyxMGdW8T/LJBvEmDOVL+PoCAAAAAAAAAAAAAAAAAAAAAAAAAAAAgI+TyHGXyDFwmP0714mHbB8PWeAwO+qsC3hI5JgncmwSObYOIxM5nhM5HlcGPMZDdo6HTMZD1jpMEw9ZHg/ZgVp/R7wkcnxsmFsix3QhYhoP2S0esseGuRBzPmS+MeJzyoWQ5caIz8mp9vpMbDyF7BI5hjMRw3jIOk8hG87M3yEDe9b5CHlN5BjNhIziIbt6CmnOzIB6hCQkIQlJSEISkpCEJCQhCUlIQhKSkIT8jJB7u4ryEbJfeNfaewppVmB76v2OefYUslrYflSeQp6p9jrk0e4Tt0S8J3I8LYQ8xUN23xjR7DOPVJuPmZp9ol1FXR3G3E6rpYg/Ylb2Nnt1mM7uM1NqrQsamgcWhwnfuY49MyOHCakDAACA/7QSoVYicpi3nianog6noo4chqfWlQFTrUSplei0EleH6bUSlVbitDLgaSrqairqfirqq8N0U1GX/37H/8g/Ih61EjetxGPD3Jdi2oj3qagfG+Y2FTVvdmZCnjdGfE61ELLaGPE5vGt9EXGvlZCeQvZzZ6Y9E3tPIeVU1Gw/foQMtBKtp5DmzIxmQkb2rPMRsp2Kmn0kIQlJSEISkpCEJCQhCUlIQhKSkIQkJCE/JOROK9F4CtktvGvtPIVspqLmqx4vYuaeQpYL24/SU0i+szMT8qCVuGyMaPaZ6ULI1O4Tt0S8TEXNl68WYub2Nts6jLT7zFXLXrMUNvtEu4pqHcbcTnMiup2ZgcO8tRc0+0TzwOIwnIkAAAAAAAAAAAAAAAAAAAAAAAAAAADA0zcSOFPkx5qsigAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_settings_applications.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "general",
@@ -511,7 +604,12 @@
       "og_color": "#94A3B8",
       "mimi_color": "#B7AEBD",
       "mimi_badge": "#6EBAF1",
-      "svg_path": "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+      "svg_path": "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4",
+      "mimi_png_key": "sec_st_ic_general",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACrklEQVR42u3cP2jUcBjG8Vqwg3s7dLKIS4tixS4iKohOgojcIrqUDOLg4OSkCA46vSC46SIoCiI80GziInZTUBcHEVwcRJDCQ0BBqtFID6G5XEmTi34/8K4hvA+X/PL7c2NjAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALXFowqEjDiUOnXPohEPTdKZbIR516J5Dnx1aLeqbQ08cWqRD3QjxuEMv+gL8u744dJFOtShJs9kkzQ6XlUNLJSH+qfcOHRt0rRprlvTWQlxI0ux5kmYrZVUhxF816Do1V37fC6T4O8hekmarVapCiG1UjxSHDLIszJZCJEh+kf9ekDNJmt1N0my5rBxyxXfkcoOV3/cMKa6FOZ6k2WRZOXSnQpB54PODrlVjjZPe8N+R8w49LgnxpUM85joS5o6foV1x6JlDn4pJgFcO3XLoEB3qXqDTDu136KBDO+kIAIzSI3qieESfKpbDdtOV7oV40qEHDn3sG/m+deimQ/voUDdCTIqVkvU+ZZ4yCt7YhMBUkmZzTZRDBxx6XWFy4WGF602R3lqIeUOWkjR711RVXBL7XuFa+X3PkeIGVj/qqhon4JlNajPIGpfECJJfJO9I3pGMWhm18h0JZnbAXCsAtPSI3ObQXofyowV7HNpKV7oV4JZiBCqHPji0UoxGHzl0lg51Z6By3aGv63xC5KFeplPNTgiMD7un1KELFT7q803Ni+xrbSbESjvN19l93vbOc3aa9wXZ26yJ74bOgzBpPlbD6scIHOohyM3+RRJks0FWOrG80VPMnFhuNszZYc/vO3St4rriJf5DYLS/I7c7dH9AiLcdmqRbox9mfjrrRrH81B/gG4eu8kdK3Qs0n2c949B5h047tIuuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+Iz8AMjrZmxVs+FoAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_general_device_management.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "accessibility",
@@ -521,7 +619,12 @@
       "og_color": "#4ADE80",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14v7m-4-5l4-2 4 2"
+      "svg_path": "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14v7m-4-5l4-2 4 2",
+      "mimi_png_key": "sec_st_ic_accessibility",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADXUlEQVR42u2cT0gUURzH9apeFARvIsrvkIrgQQ0vmhKEkCB4EiFCELslCIIgepQ8Jl4EiahfUCB0sOgadBKiY2Ueg7oIUoJB/NoHT4ih+bM2u/t29/OBx7A7b97Ofj/u25mfO9PQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALWAqQyZyl1Tue+XQ6RSXQJ7TOWBqRybiv3Vjv3zPaQUvsROU3kaERhtbn0naYUtcjNF4mXbJK2wp9SjjCKPmGLDFTllKr8yinT9pkgtTJGzGSVetllSC1PkuKmcZpTo+o2TWpgi20zlVUaRrl8bqYUrc8FUfqZIdOsXSCt8mesJU6x7fp2UqkfmnKk8M5WPpvLdL93jOdKpPpmNpnLNVK77ZSOpAFTwE9nhzy3v+WUHqVSfxAlTeRk50HGPJ0indKE3m8oNU7mdYzuMOWo9zPl13H43I1Fl0FSeFFGRCa2d+v0frHeRe1UqMNr26llir6l8qhGR7n301qvIvsIJ+ucaEeneR189fyr3a0Tkfr1/Rw4XpqTnpnJepQLP/f4Pc+Sq0moqt/xJex5tNSX81Rxfy+13KyeRpfnDSBVJSogERAIiEYlIRAIiAZGASERCgBLbTeVFiki3vp20wha5nLHYvUxa4UocMZX3GUW6fiOkFqbInSL/BbVDauFJdJcInBUp8oxLCMKS2FWYJl8nCHucsM5t10WKYYhcTxD1xVRu+mVcH67OCkDiZMoPuDZ8v42UH05NkmblJDYVpsVHCYLeFKbVbt+32z+O6+vGaSLVyohcNJXfMWJ+FKbT+Uj/ef/8v/q7cRZJtfwS+03lbcInbDd6PaS/XnI3YRs3Xj/pllfkVoKQD6YyGrPdqF8ft+0W6ZZP4rSpfE2QsZKy/UrCtm7caVIuvcS0ovhB2gWt/gLYA4rqlRWZVBT/ZiozGceZ8f0pqldAYlpRfLvI8bYpqldGZFJR/F1huhwocrwBvx1F9TJKHEuZCpeuOO5SylQ9Rvr5ipxNKYq3XHHclpSiOneQLMH340lcUfw/x44rqp/wPVkama7wfRG5OeBaTmOvRW5GeHFZcIf8RboS2x1/0PMwWkvNYfx5P+6Ofx1ueQYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJXkDzIxOBaawCXiAAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_settings_accessibility.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "software_update",
@@ -531,7 +634,12 @@
       "og_color": "#38BDF8",
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#6EBAF1",
-      "svg_path": "M4 4v5h.6m15.4 2A8 8 0 004.6 9m0 0H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"
+      "svg_path": "M4 4v5h.6m15.4 2A8 8 0 004.6 9m0 0H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15",
+      "mimi_png_key": "sec_st_ic_software_update",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADVUlEQVR42u3bvYrqQBTA8S2tLOxS5QG2nWbxFba2kK3uE0gQzBOkC2GLfQIfQILFdPY2voDlFtYDqQTZy8CRu9e7bs5oPhbu/weDIHFmOCeZnHz48AAAAAAAAAAAAAAAAAAAAAAAAAAAAADgPsa6kbHuyVg3NdbNjXWZse7VWPcmn5l8P5XtRkTt5yQvMtZNjHW5sW5jrDsY6z4U7SDb5/L7iGj2k8BHY91CknFSJu9aO0k/vr9HotvdEeiXx+2dybvWttI/R2iLSXw21q1aSuBl8+M8E/VmE+jbzFi37yiJ57aXcUlCA0kcSrV57DiJ53aU8Ydk474k5j0l8LLlJPP25TS7IeDvxrq1BD4x1v0y1r3IZyLfr2W70L4zltnwRM4Cl1N/+ZAa68bGukFN3wPZLpXfhSyzM7ITVp1qC5udHGnxjWPF8vtdQAFENau8TtReYiz9kdXQuGPpT3tpwnVmTUDnAcVH1MJOpC2u5mTr+9tu2z4ryIBKecvtvOtBXCiX06jleUTKZXZB1r4O3kZR2Iw7ms9YUQBtOFf+G7iJ4ilG0vGcEsVTkwnZ+ztouWLvjzueU6xYJXKy9ydgI0XA0p7mlip2MN40AAAAAAAAANC7qihHVVFuqqL8+KalPc0trZmXnzf3Wj8FLFcELO54TrFiB+Ppx0XQJlVRnmqClnQ8p6RmPn6+PI+8CFqk2Pt3VVGOO5rPWMarWyV4Q+CL4C1qAufbsu3gyU61VMyFd3auBPCxKsqtIoD+fDpsaQ5Dxfn6Q+bJW3TfBHKuCOI5mVELR2KuHJ/3WhXBXCmDuWzqnCnnxKVy3BXnRl1Qn6ui3CuDupPqMr5xrFh+v1OO5+fFfz8CAjyrivKoDO65gkzlyBrU9D2Q7VJFpfy5+fnwb6zARPqWBQT53N6rolzLuc4fab+qonyRz0S+X8t2oX37+ZCcFivILlprlfL/lMwscJltsh1lfJLY0DI7CyiAmmp7GZcktFDNrjpK4orqtP3rzLnyDtAtbSv9c53Y4e28hVw+nO5M3kn6WXDbrd8jdCJVpU/GQZm8g2yfy+85An9QUv2bBk9VUU5lefTV5mtVlG/ymcn3U9mOJ/sAAAAAAAAAAAAAAAAAAAAAAAAAAAA9+Q1HmAtudfYBaAAAAABJRU5ErkJggg==",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_software_update.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "remotesupport",
@@ -541,7 +649,12 @@
       "og_color": "#FBBF24",
       "mimi_color": "#F16E9A",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M8.2 9c.5-1.2 1.8-2 3.3-2 2 0 3.5 1.3 3.5 3 0 1.4-1 2.2-2.2 2.7-.7.3-1.3.8-1.3 1.6V15m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      "svg_path": "M8.2 9c.5-1.2 1.8-2 3.3-2 2 0 3.5 1.3 3.5 3 0 1.4-1 2.2-2.2 2.7-.7.3-1.3.8-1.3 1.6V15m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+      "mimi_png_key": "sec_st_ic_remotesupport",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACi0lEQVR42u3cPUscURSAYbfT1kawsBN/wQEtBIstrLYRBf+B2PiBVYRAKkFTDDamEZHFwsav/xCERVKlOBHSGEi6iOUUB+OFO41Eg3PvzL2B94GDoLMzcF4WRpl1aAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4JnKiKmIqSybyqapfDCVHf9103/f/XyEbeUZcNpU3pnKlancmcrjK3Pnj3PHT7O9PAK6d9dHU7n9R7yX5ta/XthmmoAdU1k1lZuaAZ/PjT9fh+22F3HMVPZMpYwUsZrSn3eMLTcfcdxUPkUO+Hzc+cfZdnMRh02laDhiNe46w2y9mZBbLUWsZoutx4/Yffod8FvLId31umw/7h3qYcsRqznkTjZeyJ6p/E4U0l23R4U4IfcTRaxmnwrhESef3hFfEod015+kRljIxcQRq1mkRljI7UxCblMjLORBJiEPqBEW8jSTkKfUCAt5mUnIS2qEhTzLJOQZNcJCHmcS8pgaYSF3Mwm5S42wkCuZhFyhRljIWVP5lTiiu/4sNcJCuscbLxKHvODxyTgx1xOHXKdCnJBTpvI5UUR33SkqxIu5lijkGtuPG3LUVE5ajuiuN8r2m7mDvW4p4jV3qs3GXDCVrw1HdOdfYNvNx1yK+FGBv310YIkttxfTPR55HjniOY8/pok5YSrvTeUhMOCDP88EW00Xcy5SyDm2SUgQEoQkJCEJCULi9ZAzpvIzMKR7/QzbTB/T/QOH+5oR3ev22GIeITv+T3a9GtPlg6wZKQblRjEovxeD8scbxh2/wfbyCtkvBuVjjemzPUKCkHgp5FHNkEdsL6+Q8z5m/w3jjp9newAAAAAAAAAAAAAAAAAAAAAAAAAA/Ff+AJeAmvOoUSP1AAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_remotesupport.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "coverscreen",
@@ -551,7 +664,12 @@
       "og_color": "#A78BFA",
       "mimi_color": "#B7AEBD",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4m6-18h4a2 2 0 012 2v14a2 2 0 01-2 2h-4m-6-18v18m6-18v18"
+      "svg_path": "M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h4m6-18h4a2 2 0 012 2v14a2 2 0 01-2 2h-4m-6-18v18m6-18v18",
+      "mimi_png_key": "sec_st_ic_coverscreen",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAABcUlEQVR42u3cPWoCQQCGYW080Zwhhb29dS5g0ohYxELSBEth2rnB3GWqFGIZGIKdYH5QSJUs7hIWeR742m3eamZhBgMAAAAAAAAAAAAAAAAAAICbE3IdhlwnIddlyHV1xeYh1/HPb8ZUxjGVeUxldcWWMZVJTGWoTvOIo5DrOuR6CLmeWmwfcp2dI85iKvuYyqnFDjGVdUxlpFKzkNOQ67FlxMt2MZW7mMquZcTLjjGVqUrNQm46ivi9mMpDRxEv26jULOS245CLjkNuVRJSSCGFFFJIIYUU8l9Cvn8dI/64zXn+PDO+CtnvkI3OgjGVRyH7HXLVMOS9kEIKKaSQQgoppJAIKaSQQgoppJA9C/nSMORMyH6HfDtfii9+2VNMpQjZ75B+YwkppJBCCimkkEIKKSRCCimkkEIKiZBCCimkkEIKKaSQQgoppJBCdhLSOzs3EtLLVzcS0lt0NxTT65AAAAAAAAAAAAAAAAAAANB3H+Lul6QDQvUnAAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_coverscreen.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "battery",
@@ -561,17 +679,27 @@
       "og_color": "#4ADE80",
       "mimi_color": "#6EBAF1",
       "mimi_badge": "#4C9FFD",
-      "svg_path": "M13 10V3L4 14h7v7l9-11h-7z"
+      "svg_path": "M13 10V3L4 14h7v7l9-11h-7z",
+      "mimi_png_key": "sec_st_ic_battery",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACz0lEQVR42u3dMWuTQRzH8b6B7qV9B5beJkU6Fa06VEEQXCro1CoSjDeJmQRdRAehZAni1GIdJLgU2kGK6VIEO5wuVpwCCiLooJLh5/PA00G9Z+jzJHnuwvcD/zE5uC998uTStGNjAAAAAAAAAAAAAAAAAAAAAAAA4TLOjhtnjxWYcXYvnIjTyTw3zn4oMOnjptnFMELWjLMqMTV2MYyQ9ZIh6+wiIUFIEHJEQ84ZZ3eMs78KTPq4OXZx+NEmjbPHjbMnPHOmwPieJ33+SXZ7MAFnjLP3jbMd42zXOPtlgNPN1knXm2H3+xdxPrn8bZV8HSw66brzVCgfcco4264o4uGk609Ro1zIlYojHs4KNcqFbAUSskWNciHbgYRsU4OQ6FdISWclrUvalbRKyHhDbulvq4SMLKSkh/rfLiEjCinpiqTvnpDrhIwr5GtPxI+SFgkZSUhJTfnd5mYnkpCSrknq9eGSSsiKQ77xRHSSThIykpCSnuZcUm9yIBBJyOQO9VZOxCec7EQSMrlDPSXpnSfiHkd0cYV85on4W9L1nFkkZGAhkzvUOzq6r0d4K0LIIYXcVzH7hAwr5EHBkAeEDCtks2DIJiHDu9lJXydbOeP7ie1wsxPJoXkW+IUn4g9JVwkZSUhJd3MuqY94HxlJSEkXJXU9Ebc5EIgr5KYn4mdJlwgZSUhJD3Iuqfc4ooskZHKHelnSN0/El5y1xhVyxxPxk6TzhIwkpKTHOZfUBp9+xBWy44m4wcdY8YXc+Cfi+yTuAiHjC3lO0itJP7Pf0bnBdz/ifvtxmi/xjNhZKyEJSUhCgpCEJCQhCTnwkGuBhFyjRrmQjUBCNqhRLuSscfZtxRHT9WepUT7mcvaH/qqImK67TIX+xVwyzm4aZ3tDCtjL1lti9/sfc8I4eyH7rwL1AU4tW2eCXQcAAAAAAAAAAAAAAAAAAAAAAACAUfIHe5hYflQMf9sAAAAASUVORK5CYII=",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/sec_ic_settings_battery.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     },
     {
       "id": "about",
       "res_name": "ic_settings_about",
       "title": "About phone",
-      "subtitle": "SM-S938U \u2022 One UI 9.0 \u2022 Android 16",
+      "subtitle": "SM-S938U • One UI 9.0 • Android 16",
       "og_color": "#94A3B8",
       "mimi_color": "#4C9FFD",
       "mimi_badge": "#F16E9A",
-      "svg_path": "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      "svg_path": "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+      "mimi_png_key": "sec_st_ic_about",
+      "apk_png_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAABrUlEQVR42u3csUrDUBSAYV+gu1OX7oKFPkD3SxffQnDwGdw7dyjcSRA6uTmJs+Dm1k03946XI4EUNKNNUxO+Dy7ZciD/kHToOTsDAAAAAAAAAAAAAAAAAP6jlMso5ZJSLjcpl9sjnpt6zshTbz/iPOXykHLZpVyig7Or5809/fYizlIuLx0FbJ5q7kyFdkIuTxRxf5YqHB5xnHJ5PXHIav5YjcNCXqZcPk4cspp/qcZhIacpl88Th6zmT9U4XsjqQ+SxxfMiZPch71Iu5y3POq/vK2RHIbcpl4sjzbuo7y9kByHfUy6TI82b1PcXUkiEFFJIIYUUko5CRsR9RLxVVyF7GjIiNvHbRsh+htw2Qm6F7GfIp0bIJyH7GfIqIp4j4qu+Xgnpq1VIIWnj58f1/gjZ33fkqvGxsxKynyHXjZBrIYUUUkiEFFJIIYUUEiGFFFJIIYWky5CLiFj+OAshexjyj/OEFBIhhRRSSCGFpJ2Q/rE8kJB2CAwopK0eAwppz06PQtp8NZCQdtENKKbtkAMJaV/rgGLaoDygmHaaAwAAAAAAAAAAAAAAAHCAbwwycxxVaFM7AAAAAElFTkSuQmCC",
+      "apk_png_res_path": "res/drawable-xxhdpi-v4/ic_settings_about.png",
+      "fixed_preset": true,
+      "fixed_state_reason": "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
     }
   ],
   "NIFERPITOU_EXTRA_PREFERENCES": {
@@ -581,10 +709,21 @@
     "settings_icon_styles": [
       {
         "id": "mimi_sett",
-        "label": "MIMI (Miui 11 Dashboard Icons)",
+        "label": "MIMI APK .PNG Preset (Fixed State — Non-Alterable)",
         "asset_folder": "mimi-anaconda_28_crocodile_19",
         "frameless_folder": "mimi-anaconda_28_frameless",
-        "desc": "Ported from MIMI (#Hex Miui 11 Plugin v1.3: anaconda_28 + crocodile_19 + sec_st_ic_*): MIUI 11 Sky Blue (#4C9FFD), Coral Rose (#F16E9A), Ice Cyan (#6EBAF1) & Soft Lavender (#B7AEBD) squircle dashboard icons."
+        "desc": "Uses actual 114×114 .PNG bitmap files from the MIMI APK (res/drawable/sec_st_ic_*.png & anaconda_28). Fixed-state preset: colors & frameless glyphs are baked into the PNGs and cannot be altered.",
+        "fixed_state": true,
+        "uses_apk_png": true
+      },
+      {
+        "id": "apk_png_fixed",
+        "label": "Actual APK .PNG Files (Fixed-State Preset)",
+        "asset_folder": "apk-drawable-xxhdpi-png",
+        "frameless_folder": "apk-drawable-xxhdpi-png",
+        "fixed_state": true,
+        "uses_apk_png": true,
+        "desc": "Replaces VectorDrawable XMLs with the raw .PNG bitmap files from the APKs (Connections cyan Wi-Fi, Sounds green speaker, Notifications blue badge, Display yellow sun, Wallpapers pink tulip, Lock coral padlock, Biometrics purple fingerprint, Accounts cyan user, 4-color Google G). Cannot be altered due to fixed bitmap state."
       },
       {
         "id": "1sett",
@@ -628,10 +767,21 @@
         "title": "Settings Icons & Dashboard Tweaks (MIMI + anaconda_tints/settingsicon-*)",
         "options": [
           {
+            "key": "use_apk_png_icons",
+            "type": "switch",
+            "title": "Use Actual APK .PNG Files (Fixed-State Preset)",
+            "subtitle": "Injects raw 114×114 .PNG files from the APK into res/drawable-xxhdpi-v4/*.png instead of tintable VectorDrawables. Locks color & frame alterations.",
+            "default": true
+          },
+          {
             "key": "settings_icon_style",
             "type": "select",
             "title": "Settings Dashboard Icon Pack",
             "choices": [
+              {
+                "value": "apk_png_fixed",
+                "label": "Actual APK .PNG Files (Fixed State)"
+              },
               {
                 "value": "mimi_sett",
                 "label": "MIMI (Miui 11 Dashboard Icons — mimi_sett)"
@@ -2177,7 +2327,31 @@
       "sec_st_ic_connections": "data:image/png;base64,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",
       "sec_st_ic_sounds": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAMAAAC4A3VPAAACl1BMVEUAAACag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ahN6ahN6ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ahN6ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ahN6ag92ahN6ag92ag92ag92ag92ag92ahN6ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ag92ahN6ag92ag92ag92ag92ahN6ag92ag92ag92ag92ag92ag92ahN6ag92ag92ahN7otDG/AAAA3HRSTlMAFS84PzobAgtPotjs+vCwZyMtk9+5DDK49/1VO8v7vRSv/uMDaPzq1e/kDiAcCgFAvik9ElK02c15Ftr4ix+P6OtrKMiSIhrz0CwNfnsEidc+X+3eHuFuB/EFCag39tTORZnW+TRI5kpOPKBTULXRbSXuWwZ09CGHpzDpZqbclGKMEA/Bq5Vx9UG6vGEXlycTLkNEVuWpv3pygibMswitpMWjxk2uslG722S3noSIc89pZVdLEW/TpZzDNpYdwEyxcBmb0hiY4n1dWStCqsQqOVQzmlzdR8ckgOcxF0phjgAABMxJREFUaN7tmP9fU1UYxw+JjJKN0EVtItrtRk4aV2WDwomghoPBtEQHm8xCTCyywIUYX6bDL8PEzAQ1a37ri1YqGZSZFWaWFX3Pvt4/pvOcAdvd3Ut5He/uT+fzw+7zOjt3751znvOc5zkIMTExMTExMTExMTExMU1ESXdMSp6colEPmHrnXVPStLr0uzPUIk6dpheJdPdkqkO89z6DOCrjdFWIWTOyxXHNVIM4634uQhQfUIHIP5gDKO6h2SZ4zon6SpP7sDlPeaIwl5C4efPz02OQFmtB4SOPFimOnLwAQLb0FIQWSpHFi0qMorF0sdLjXLIUFtL4WBmKRS6bZieLW14hKEq0pJOFLMgQYpGOSlPYn7KrFB2mczkZyYrHSaCLRjqfWDnmw9WrlEROXw2/aXfVoBikMLd2fNtwLuftuKe7xhOlqfNIwFmThGKQfF2Y6F0Ln0/exsxanqpf1yDGavZ6FIPknw7P6obGjVp4NlIP8Zln7aJcpU0oFlm8gMSjwuc0jqVgbKL1WevzcYCi7QWnDNm8AayWzT7kfhGs1i2Ux8VaLh6yLXJajSN9W43YSnsJz0x+OzR2UBHdnVoZTpvW5Z+F5EhUBytu3OZDqGwmNHbSBbYueNe0fX6gO6KAJGpXeseQmh3QeWc3Qrm7yPHC0yB3t+BXg1W+m3Tp2WPPCb5MzL0AKumF92ByWptpkPvg1fJXbtZFs//VA6+FfzxgA2Yy9tSDfdgwUG2TfviNQxOOIyRIHMbds8DPG45QIyeeZbwO3fvxMhyFZc3ergKyCbq/gWNv0pvgvJ0qIOuIo4YQyjwGkX2TCkgzCfgeHAyOg3VCBWQRiRUYiU6CcUoFZK9KSIHnx86MDOgexEhnJ1g7EoT0VDS+lT8ac3ug+xTssblvg/u8kyDku6cLz5TvCofT90jkwPty2fvYyPkgQcizOCZytZUk0vuhe70boYoTEArOJSjgLQxnCefhBB0A80M84mRIfxoWU4V1OAIHjt4aKeouhFAKOc7XY2f6CDIEwyAN0gUZlPfskLQ018RBijZX98fw1ONyRDgPJ5C9jKpQ/gT+eO3FvdYoNVkrNHKkaPOvgIcfz7DlU5J4Ud0h8JXBOJmP6dJnghwpkmkNDuKlXDIDzMt06VbRGmO8dOvU51IkN15Rf4HzOqGR5KFfUiaV5ovxkMbhkATZsmg0Lctx4S9qSFt7Km3u7LhiisNsqJIg+76qJ0mImAbJR+4ZMK/Sl3t887mv5QXCnGRpUnltK+nTb8ZNB8mqHlCu8MoogOXlhs3SPDawE49TD1vRTeqDAY+CxV7PADC9bUPS1DnvG9O31yHWXiAJ9ne8gkjN930kYe3wSLP1UIcVPOaHami5dE3Rwj10hPhK1wgvuytAKPVHmAPDZp+y1xOOfeAgXPmIIEde0UHDcLHSlzCBn8juLPlZhvxlHfyb9l95pZFoSynZKqt/G9wjQWb+DneJ3Enlr5qQ8Ef4mrJVb5cgawbhNvHGn4m4xAtc9kYFhhuRinTjX3bd9cTcQ//tXxlBXo2qgrPa/hlK0GVl7+F/x4p67X/R29biSNgFaffI6TCzercTqSR+f8chvaGvapUHqSdnyJOX50ZMTExMTExMTExMTExMt9L/x6O2FIWfCrAAAAAASUVORK5CYII=",
       "dial_btn_left": "data:image/png;base64,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",
-      "dial_btn_right": "data:image/png;base64,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"
+      "dial_btn_right": "data:image/png;base64,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",
+      "sec_st_ic_multi_devices": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAEJUlEQVR42u2dXahmUxjHx0ehjBpl5KOMTPmYGtGjcSETYyTUJBeaC8lcoLCMj8nHlCY3ZlDDBRFxMVMIhfBkNUUScYFGmilREoVy/M2QKYy9a506Tee8a+19XnX2en+/ejr1nvW+7+r5vXvv9bXXXrQIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGBiMNcKc20219Pp7wqyMjyJZ5rrTXMdnBFvmetisjMskXcdInE6PjDXVWRoOCIfmUNkG5+baz1ZGr7INr4x181kavgi2/jFXJvI1vBFtnHAXA+Z61iyNmyR0/G4uU4mc8MX2cbz5jqL7A1D5LcZma+a6wIyuPBFtq9/kZH5rrnWkMWFL/LqNDAwSubH5rqGTC5gken/q5tT6NsZmV+Z6wayOX8ZlzXdgsdSI2STuU4dl8hU5jxzvZiR+b25bsNGf4lXzHIt22kuG5fIVO4Mcz2TkfmbuR4w15GY6S7yqTmSuqtk0LtUZCp7grkezcj811xbzXU8drqJfG1EUr8014ZxiUzlj25kPWiu/Rmh7Q/sFAyVi3y4YJy0Pd0dMw6RM9630Vw/Zr57C4bKRZ7bNEbeKBiNecJcy8YlMr13g7n2jvhOb35oR2GpXObZBQ2RNl4214VjOiLPaU6dz2a+73VzHY6hbjKXpNmJfZnkvm+udfMRaa5LZlkecmj8Y647MNNf6K3m+jqT5L3Tk8U9GjvrzfVp5vN/Mtd95joCI/OTea25Pswkeyq1Prt0P9oGzneZz93dlLkRC+OTeVGmazKzm5Ab2Tkx9Q0PZD4rNkfrlWR//DKXN534J3vMN84ca11prhcKyu9orpvnk/X/T+bidAqd6irSXJenLsSocn+ncV46/6WEqKUhanWIWhtitxn6pvN+k7n2dBT5WabMD+a6p6RRE6JOD1FrQtSlIeq0SZZ4S4jaFaJ+DVF/hqjdIWpbiFreQea61P0oEZkbtWklX19Q7yUhanOI+iRE7QtRv4eoj0LUvSFq8aRJvDtE7Q9RB2eJnSHqpA4yV5nrpZ7Xzel4x1xrC+p9WIjaPke929g2SRJXhag9I5LRxp0dT7PL0pBdH4ltw2dlYd2vC1F/jKj3VIgTsrogRN2ekdjGKz0aQe0sxv3m+rlQ4F9pgH5ph7pvL6j71kkRuaUgGe+FqON6tmpLlkO2gwAbe9R9R0Hdn+OI5IjkGsk1klYrrVb6kRPej2RkBxhrrUQisx8VSGQ+sgKJrBCoQCJrdgYukFV0FUhkXWsFEllpXolI7v2oRCR3Y1UikvsjKxHJHcsVyWQPAX4E7OpRvUj22alHJDtfVSCSvegqEcnukJWLZL/WgYtkB+UKRLKneQUiecpABSJ57seARPIknkpE8mysimTytDoAAAAAAAAAAAAAAAAAAAAAAAAAAACArvwHhOg65ou4uaIAAAAASUVORK5CYII=",
+      "sec_st_ic_modes": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAEs0lEQVR42u2cT4hVVRzHx1WEBUmrMSJloI3NhIwWhVRiFBNjMWILQzSEIiGEzBqwRI2JYAzOgxZpg/3SNj/a2KEWNUU1G6uFkrXQfiESiQQyU8FhFoE834/3e/TGcd68e++5977pfT/wYxYDj3t/H86558/vnJ4eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwvyE43x+c3x2crwTnTwbnjwfnDwfnR4LztyFDkSGWO4nlIWLZRix7iWWMWCrEMlr7e0cKgSuC86PB+bPB+epNYjY4/0lwfhjZzy5vNbFsN2HfEssVYqla/KL/S9kKVwbnjy4g8Mb4NTi/CzbSCdxgLe77JnHVGyRuzdCdHmlTYrNMtMwEAtcRyzix/LaAQI3LaVuiSdwSnJ9OKLJq3Sy+mYsIXE4se4jlTAuBjRjNOLj5IIXExjdzBLYWlriWWCbaEKjxcZqBTZPEVcH5MylFahyGsZtLHCKWr9qUeIlYnsjYGh8Ozl/NIPI4rM2XuLXNrrQR70aYMz4anP87g8iTMDdX4kgtziWQ+AexPBZB5EBw/mIGkRXY+0/iRmL5IYFEjRORVnFuDc5/lkHkbhisS+wjlk8TStR4KeKS3L6UEnUFqB8W6yKPpJD4O7E8EFFkX3D+ixQiR2GwLlHXSGdSiJwklttjPkttCrI5OP9TAom6nLcCEll6ieXzFBI1JvJ4JpO5WMuctuW8lWiKdZEvp5SoMZbXc1k3u88GQBdtanLVFg10BWgL7M1tjZMZRL6e9zPaaHbA5pm6aLAK5uaL3JFBosYryGJniPwwo8jXkMXyJQ4Qy/mMIt9CJssXuTOjRI33kcnyRY5HEKnTlluQzfIkLiOWUxFEarXA/choeSLvTrhN1Sp2IqPliRy0+poYIo8io+WJ3EQsIZLIC8SyHlktR+QwsVyLJFLjELJajsinI0qsWkXBg8hs8SK1sOrfyDLfQ2aLF/lIyv3HVjFLLC8iu8WKXLNIxXja+JlYnkKGixOpp6emchCp8V2MqrqE73NfN8s8kZNIjW+I5cmC3mO9HunrZpH7cxSpcZZYns/5HZ4hlq+1h+n2ueRszjL/suq8/sjPfg+xvGlHFbq7MNnKPKZyFtmI08TyKrHcm/GZ79KRca0r/bLpt7f3dDvE8nZBIhvxI7G8QyybVUqCgdnjxHLAvr3Nv6eHbVdDZH3N9UrBMhtzztNWanJQq9WJ5TliedZqbF8gljdqvcYxO9Y+XXQV31KUOVGCyGqkvdANMDh30PPnEhQ5DnvzZVaWmETdFF8Hc/NFDra4paMTYw+sLSxzF7H8swQk6jd9OYy1ljnW4RL1ToO1MNXenO1YB38Xh2CpfZl6NdlHHSbxXJbbtLpdZqe0TL3TAJchZexmx0oeAOmdBhthI95otuipyYztmvTBQPx5ZqWgFSA9T7INWc9/OW8ip4X2STsG34tMFyd0k22BTWXcnD5vOyA7ILBcob3WSvdbDdCU7UrMNNXNXrPjCZdtLnjKjvTp+cwBZLFzR7prrG52yCrah60FD9opsGXIFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACiS69z1FX0wzEXXAAAAAElFTkSuQmCC",
+      "sec_st_ic_notifications": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAC/UlEQVR42u3csUscQRSA8bNSCWlMG6tAsAgWMmATEa20C3iBFINip3Aol0ZSWolwRZoUKYJiGULawRBsbAIakGssJMUDGZIuA4GUhgdz5DJZY/T09tb9Pnh/wN2P3dt9e2ylQkRERERERERERERERERERERERERERERERERERFSpWPEDVvyEFb9oxdet+JoVX7XiR/h2igHYZ8XPW/HvrPivVvxZMkdWfMOKH+fb6l3EYSv+pRX/MwMwnQMrfoFv7ZyMC4+NC0vGhXXjwsYNzkyCOGTFv/4PwPYRMP8GnDUubBkXTo0LZzc8OxlH44tLIrYfmZxmI+KqceFLFwBbs5wgjlnxzStC6jRAdKFmXPjeRcRvevpOIJ93gNi6ABopM+K0ceG4i4g6h8aF+wnkdoeQOtUyQ77qMqLOR+PCnTbEQSv+wzVA1sqKOJrD0aiza1wYaIO8a8XvXQNkvayQz3JA1Nk3LtxLTq3vrwFysayQKzlBnhgXHiWQmx0i6gZooqyQ9ZwgdeYSyCdW/I8OIHWdNwBk92cjgey34neuiKjrvPkyX7HmCfnJuPAwwZyy4j9fAVJ3s31A5jdrGWu6p5fE1N3scNk3OnlDNo0LkxmYU/E0+6/fzGbczQ6xmssfUuetceFBBmZ/vADajLcme3FpsB3XeWNsyHsLUudNFmYCq0uDQdR6G7J1ZE6iUnzI1m/mWno1e8FnmAGy9yDbb030HwRzugHSdZ7uZnXRrk9N4j8YlvXhdHo/CmTvzkncze7GpyaH8Xlm5mIByOIOkEACCSSQQAIJJJBAAgkkkEACCSSQQAIJJJBAAgkkkEACCSSQQAIJJJBAAglk1yFrtwByHUgXqrcAcglIF0aMC0cFRjxN39dTZsxGgSG3EPwNOW5cOCggor5ubRbBPzEXjAtSIER93doqcudjFuHI1Bc81RC7+DTb6NELoOP4urVppC53NVuN95n1nGclvqFrFBkiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIioqL3C2wIyrUBbtIUAAAAAElFTkSuQmCC",
+      "sec_st_ic_display": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADjElEQVR42u2dvU7rMBhAYWPgAYJgYL0LA5IfoBtUqtQJeWJhqbgLL8HEC7B26QNchnZlYOAuMHqjDEhISB5YOlm+17pfRG7oX9L0J9Y50qeKqHWc7+DYrpN0awsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZuOMajijbpxRPXltkJX6SWw6o56cUT4T4e8m2amXyG5OYhpdslMfiYkz6nGCyLA9IUv1ELn39xT6e4LIsH2PLCESEAmIrJmAfWdU2xl15ow62kSRoV5Sv1DPfax9T9CpM2rgjHKS8Gdn1OUmiQz1kXp5qWeo7yn2/m+JgzFJf3dG/dwEkaEeUp98eQNa5leS2pmWuLDMqkVOkZi2zDYW/yXqbEKSSsl0Ru04o+4mlBW271QkMY0zLH4NIJ4rlhn6s1GujFGRfndOic+LDMxilHk5R9KKyrxyRt07o17k9apiie9lB2Sxy5w3eZ0CZSbS4pMCn+lU/U+FzPHx4Iw6nFSGt3rXW33srW55q8+91Rfy2pLtu1P2fyjlI3EFMj/zi8Te6m1v9Ym3+tpb3fdWD73VzlvtM+Fke1/eF96/ndt3Q8pH4gpkvjqjVEZiaGldb/VHTtys+JDPtTL7VVI+Elcg81YEHkjLeisoMB9vUs6B7PcWidXL7Eif9SktJST5h/R1vQUF5iOUdxzKl/28yn4figywYPoApJGeTkXir4olphHKPc6cZhvTBlZQEjmd9pYkMdsyD8j2ckVeL1liGtdke3kSWxUMbIoMgFpkvXqJ2zJV8CuMbn6eCYuLPCkxT1w0wv5OyH49+0b6yjmnEoks/E6LnTHfnfbXJLKf/25W1jtnHUMSq8CmXMb/KKv00+Iuuzwk88bhmkQO03nl1tdy290cx/Aox9uMSWJjzA01s2KUrh/KaNWtSaRLR6+yvjkqeBxP0dwFJre0+RIRFoMTWYLya4xz6RLuSx7HTSwieyUTEFb2j2Q9cZ0iL2Rx+qXkcfRokbRI+kj6SEatjFqZR0Y+j+SbHeC7VlY/WP3YVJmsR9JX0jdumkiu2anxlIWr6CKQyHWtEUjkSvOIJXLvRyQSuRsrEoncHxmJRO5Y3nCJPEMgAok81SMSkTxnJxKRPPkqEpE8iy4imTwdMrKWyfNaYfkiAZGASEQisuYi+SWeiGTy21iRiOTX6iKSye9HAgAAAAAAAAAAAAAAAAAAAAAAAAAArJA/vIhD9Ervyi4AAAAASUVORK5CYII=",
+      "sec_st_ic_wallpaper": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADEklEQVR42u3csUtbQRzA8fwF4iB1qCKhW6GIRBACheJg/wEVOgmiLoUDt+rm5FDKCUXo4OTg5A882qmoFCdpdbJ0aS1063AUijd0EKy/cqnxVc17iUVf3vcDR0jiuzvuiw8JmFIJAAAAAAAAAAAAAAAAAAAAAAAAAAAAwPUJ1o0G654F614E65bjoz4f5XTyFbI/WPcpWHdSN/R5P6eTv5jriZDrnEo+Q64kQq5wKvkMuZYIucap5C9iOVj3PhFSn5c5nRvgjXR7I1PeyJo3Us0QcjoRsTamM6xdjevq+t3UaD7ixOlhvvVGTuJ45Y10pIhYCda9uySkvl5JsXZHXK+2tu5jgirZApa9kZfeyHHdQdbGc2+k94qI1Qv+Wk0Ofb96xfq9cZ3k2sdxX9yeU0Qc9EZeX3CI9UPfn/FGBvSWF6y7G6x7GKybC9btN4hYG/vx5/W6u/EWPhDnTbP+ILUuj1jxRrYbHGL9+OqN7Abr9oJ131MGTA69bk/nifOlXVv3WaHaxbezNxkO8u9oMuC50cy6cb+91DsfcrnJw7zJkDqWqXcWcbKFg7zpkDomiWikxxv5kPOQuv+eooecb/EQb0NIHfNF/9TmoE1CHhT205/40ddJm4TUMVXUkLNtFnKWkIQkJCEJSUhCEpKQhCQkIQlJSEISkpCEJCQhCUlIQhKSkIQkJCEJeb0hR9os5EipqLyRjTYJuVEqMm9krE1CjpWKzhtZzXnI1RL+hBzyRj7nNKTue4iKZzFnchpyhnr/xlzIWcgFql0eczEnIRep1TjmnDfy45aG1H3NUSl9zHFvZKvFkNvBuo/Bui/xcbvFkLqfcepkj9kXfzt3M4bcDNY9DdZ1BuvuBevux8fO+PpmxpC7cR99VGktaDn+M6x+XcqON/LNGznyRn55Iz+DdYfBuq3TUEvBuifBujtXzafvx59bitcd6jxxvqM4/05cb5Jv8fg/Ubvit28MeyOPvZFHwboHwbqOZubT6/R6nSfONxzn7+K0AQAAAAAAAAAAAAAAAAAAAAAAAAAAgAZ+A7Hdev7u8Bv1AAAAAElFTkSuQmCC",
+      "sec_st_ic_themes": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADNUlEQVR42u2cPU8bMRjHEUMn1o5ZWCJl4QNkZmU5dWBguwWGSBmQQLoyoa4eGqRunfIBnAHWqGukSjAx8AkYMnlgS2PVkWiaF5/P5xz27yc9QgJy9+A/tp/n8cveHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHxUlJAtJWRXCZkpIXMlZE8J2Tdfc/N9/fMWrdUs4Q6UkMdKyCsl5FAJOVFCviohZxvs1fze0HxOf/6A1tyNgB3T00bz3jbdItw2m5rn6Od1aN0wAraVkIXpUbMabGKe36a16xFw38xx45oEXLaxed8+re93GB3M57O3QCIu7M28l+HWg4g6ELkPLOCy6fcfo4a7iFmNc6HL3JmhipuITw0RcWFPiFl+OJ00TMT3PZNh1jKwqW1O/P39eaU5zJkEQFtSjEFoER3FHJCarBcyrzPF8Cyk9jNHtdUVm/GuRHQUc0wF6H8hiyqi7EhIbQXq/RvgTKr2rKpCVohiCXyMkH1fw2PAOfK99RHx73riKISQHtOPZRslv55pkv9pKCFXPcdDMDVNvkhgVuhnIYWsya5SF3IYiZDDlEVsla2pNlTERfTaSlXIrsVGKS95ZADTf0c35aWqWUSWpSpkHpmQeapC9iITskdFJw7r0yPD24Mp1J8qIU+UkGdKyFsl5C96ZKA5smKk+mz+gT6v8elQCXnjEk2nPEdmgbdpaBG/WPp27nAUIdmo1TqP9FTR6ZX07xt5pOfKjgchH9YNpxv8O1JCPlLZ8VRr9bS6Xzj694Naq6fVD09Cnjr6d8nqh11DWa1HehhaTxz9u2A90q6hrHYIeBDyzNG/a3YIeK7wVIxYbx19+0lFx76xOmXWJR0LArpic+iQHr2wi65coxUBynI3Jfz5NE9X7tjXWl7IdoBj5TppP7cU8Ss7zavVXus+Xj41FZujDcPpHWc/qglZ62msJXs0yf6lSTGuTWDzojiN5S3wuW/4uiPnI0sUCTixHImY3CEQmZjc6hHRMMs9OxEFQNx8FVFqwl10kVWAuB0ysuGW+1ojEpQblCMVljvNAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgDX8A4V6pYsnxcEUAAAAASUVORK5CYII=",
+      "sec_st_ic_homescreen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACMElEQVR42u3cMUjcUBjAcUddBSdxqeBQ3ERHVxFBXB0d3uKmrg4F6/INrrfV9XArHQrt2LXQgu3YtWvXFgqvPglIaevlLMhL8vvBt4Vc8v6e3iXBmRkAAAAAAAAAAAAAAAAAHlGO9Mw8bGqMOcqRsmk9o5rfmWOBWs249l+x8znSG6HunbI+8134e7mcI70X7K9T1mW5Sx9+1nOkL8L9NmU91rv4SXYrR/om4O2Uddjq8teSfRFvZ78P3zEPBx7xsE8XDE4HGvG0j1d/LgYW8aLPl/IuBxLxsu/XZOdypJc9j1jOb24IF9gXc6R3PY1YzmtxSHdLVnOkTz2LWM5ndYi3vjZzpK89iVjOY3PI9zH3cqTvHY9Yjn/PTelIBx0PeeDRgruYJx2NeKLenzHPOxbxXLXuPy4yUmtyzNofFxmr1C5kzY+LdOMxjYpi7uRIPyuLWI5nR53pQu5W+o7cVUdIIYUUUkghhRSS/w75Okc6ap7c+9ccNdsJWWnIjznSRsv9bzTbC1lhyKspX+NKSCERUkghhRRSSCGFFFJIIYUUUkghEVJIIYUUUkh1plvk7RzpR2Uhy/FsqzPdIq/kSB8qC1mOZ0Wd6WOeVRbyTJWHhVzKkV5MsdBvc6SFlvteaLZvu+9yHEuqPDxmWfDjHOlVjnSdI32eMM9vtl27ebc9vWfWmu0m7eu6ed3jtj8gTA46myM9af4X7GNNeb1Zqw8AAAAAAAAAAAAAAAAAVfkFzUbCChLcOcoAAAAASUVORK5CYII=",
+      "sec_st_ic_lockscreen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADMUlEQVR42u2YPUhcQRCAVVC7WFmJFopYiJ0igp2VhenE60MKtTkhu0QE2U6ZJgcxhVaKYCQEUuaHgJIiTUAhJE1IE1JImrQaEphkyRqC3vvBe09v4ftgeNz7mRnmu1veXksLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADQNKq5LxfWpuIFw7GIqcYjrVnG3VdzqH3m7Ku5AxR2ruI/heBDOr4b7uplacwkcVHH3VNwrFXeq4jRHnIb7/XODTPFmBbapuLsq7jCnvKQ4DHnamOr1S+xXcTUVd9agxPM4C/n6me71SRxRcY8LEngxfN4Rply+RP8Gul+SxPPw+QeYdnkS21Xcw5Ilnoev087UyxE5r+J+5ZDwNWwz/BtpJWw1KuHzbrielcPXmWfqxUscVnFvcwx/U8VNZeSaCvdlfSl8vWGmX6zIlYyhf1NxS3mXw7BML4Xn0vKuMP3iJPaquDcpw/6h4qpXzF0Nzyfl9nV7sVCMyLmMX83GVTfz4U+FjYz8c1goRuR6ypA/q7jJBvNPhjxJNdax0LjEVhX3LGXIWwXV2Uqp4eu3YqOxAfeouHcpQ15Qa241HD5Pcg1fvwcbVxFozbhas6rWPE1Z9n6qNQeFhc+XtHz7Pv72M46d/BIX1Zr3ao3+i3oD/v96UZFdx/e1iKVsiX6p/J455DIk5q/j+1vAVrLEUbXmOHPIZUrMX8f3OYq1+iKXr0VScbGMtfoi9yITuYe1yxI71ZoXkYn0/XZiD5GIRCQiEYlIRCISkYhEpDVHas0DteZ+OB4hMj6R+2rN2IUaY+E8IiMR+UGtmUioMxGuIzICkZsZtTYRGYfItYxaa4iMQ+R2Rq1tRMYh8otaM51QZzpcR2Qkb62v1ZqZCzVmwnneWiPbR56oNU/UmkfheMI+kn92EIlIRCISkYhEJCIRiUhrOtSa55GJ9P12YO+yzJ3IRO5grb7IamQiq1irL3JIrTmMRKLvcwhryTIras2nJpfo+6tgK1vmrFrzskkl+r5msZRfZp9ac0etqak1u00QtdBPH3YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABulN8MVyCQtrjlWAAAAABJRU5ErkJggg==",
+      "sec_st_ic_biometrics": "data:image/png;base64,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",
+      "sec_st_ic_location": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAC1UlEQVR42u3ZMUtbURTAcRcXP4BfoIN18O6CS9BB0qUizeLi4tRFexwKIgSK4OhnEBwKFkRxbHFwLthyinNXuySuwqkX3oNXKTXnvZf3wu3/B5dAEvPC/RM5uZmaAgAAAAAAAAAAAAAAAAAAAAAAAAAAAFCPoDIdVF4GlU5QeR1U3mS3nez+aXZpcuPNBJVXQeVDUDkPKj+CyiCoWGENsvvPs+fF58+we5MTcDOofPpLuOfWIPu7TYK2GzH+qzwOKg/OgE/XQ/Y6HXa1+YhbQeVbxYBPV3y9LXa3uYi7QeVXzRHzFV93l10ef8TtoDIcU8R8xdffZrfHF7EXVH6OOWK+4nV67Hr9EeeDyueGIuYrXm+e3a835EHDEfN1wO7XF3ExqNy2FDJed5EK9YTsl4lgZstm9tbM3me3yyVj9qlQPeJsUPniDLhiZseP8e7sT3fZ/SvOkPH6s9SoFnI1qNw7Iq6Z2Vf7t/j4miNkvP4qNaqF3HF+Gq9sNFfOT+UONaqFPHJE3DOfPUfII2pUC3niCHnhDHnhCHlCDX+8F4V15gh54wx54wh5VnxfVBot5HpQ0cKahJDF97NOpdFjnpb43njpDHlZ4jvlKXV8IedKhNx3htwvEXKOOg2c6Dx+2b8eMeI1JzzNxrx1huyZ2fdnIsbHe94zV2pUH3y8n8qumX00s+GTgMPs/m6JTyMDThuDTyHoOzPrZ7fdkofmDDg1hVxq6SesfC1Rob6Yhy1FPGT36w250MKPy/F6C+x+/TE3Gg65wa5P2ODDgJPAiU/JxQnOJJ74cIKTyIkPJzgJnfhwgvP/DD4MOIkMPgw4CQw+DDgJDD4MOIkMPgw4CQw+DDiJDD4MOAkMPgw4CQw+DDiJDD4MOAkMPgw4iQw+DDgJDD4MOAkMPgw4iQw+DDgJDD4MOIkMPgw4KQw+7AIAAAAAAAAAAAAAAAAAAAAAAACASn4DyaQ+fLkegbkAAAAASUVORK5CYII=",
+      "sec_st_ic_emergency": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAABUElEQVR42u3csY3CMBSAYaQswA5kj2SfV6XLbpmBkj1ggfOddUYUVE6QDOH7pFdGQv4LJNvy4QAAAAAAAAAAAAAAAAAAQDMp4pgiThVztGrvFbBLEVOKWFLEpWKW8l1nFd8j5JwiflJEWjH5u9kqto/Yp4jzyoj3yd/3VrNtyCFFXDeGzN8PVrNtyPHvf+62MWT+frSaQiIkQgoppJAIiZBCCikkQorSl73TsXJeErJyBhvtzwG7chR1LhvYtxWzNWTtXMvvnZ1nPkJOG84TW0/+3ZOI/9czlg+NeJ/l66+NlLszlw8PmX//SUghhRRSSCGFFFJIIYUUUkghhRRSSCHttdprdfrh9MN5pPPIp6BuCHxxfHd2hBRSSIRESCGFFBIhEVJIIYWkaUgvX+0kpLfodhTT65A7Cem91p0F9YIyAAAAAAAAAAAAAAAAAOzfL2Z3W5ntBAZ7AAAAAElFTkSuQmCC",
+      "sec_st_ic_accounts": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAC+ElEQVR42u3cvUscQRiAccU62mil3RUygt2AaCGojUVELQRtLPSvsFCwMBBSRqwOQrBRsIjNTBMCSiIGEghJJCFNwCSksJBBmNbcy80img9z3t7ODjw/eDnRu3V4H1jws60NAAAAAAAAAAAAAAAAAAAAAAAAAAAAQP6U8feU8T3yyDbSizeqjF9Rxm/X3n6hjD8Kj9vh/aNsqdwBh5Txj5Xxp8r4y3/MaXjeEFsrX8R5ZfzxLQFvjjx/nu2VJ+KCMv5LgxGzkdctsMX4EYeV8a/vGDEbef0w24wbcqvJiNlssc14EceV8T9yCinXGWercUKu5hQxm1W2Gifkbs4hd9lq8RG7lfEvcw4p1+tmu8WG7FPGv805pFyvj+0WG1K+f/oq55ByvR62W3zMvZxD7rHVOCHXcw65zlbjhJxUxp/lFFGuM8lW48Ws5hSyyjbjhhxTxr9vMqK8foxtxo+5pIz/fseI8roltliemMvK+A8NRpTnL7O98sWcUMY/Ucaf3xLwPDxvgq2VN2aHMv6+Mv6BMn6/9vYbZfzH8Lgf3i8f72BbaUXtVcZXwiPxAABAerR17dq6niamnS3Gi9eprZvW1j3S1h1o646amINwHbleJ9stJuCAtm5FW3eorbtswRyG6w+w7dYErGjr1rR1Jy0KeHNOwuersP38Ii6G299lhJHPu0iF5gL2auseausuIkXM5iKco5cqjUcc1NY9jRzw5sh5BqnTWMSdkkXMZoeY/387rZY0YjZVbrO3h1wrecRs1qj194jyBfnnRELKOaep9nvErgRuqX+6xXZR73rIGW3d18RCynlnqHc95EZiEbPZoN5VxD5t3bNEQ8q5+QuuEHKkdot6l2hIOfcIFeshp7R13xINKeeeomI95Jy27izRkHLuOSrWQ85q634mGlLOPUvFeshxbd2nREPKufm3LiFkv7bueaIh5dz9VLz65anN8FP51GaTX966HrOS6lAPAAAAAAAAAAAAAAAAAAAAAAAAAIBC/QIV+19HTRjnnwAAAABJRU5ErkJggg==",
+      "sec_st_ic_google": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAD+0lEQVR42u2csWrjShRAt3jCW7lK81pDviCa9NGkc5Vogz/CkMKdm9cYfYIfhl1wYQyCdFulEPEfBNy58gdM5UKN0YM8D1zvZoM30SiSrCXnwEVEGY3MHK7ujCT70ycAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBpGq1OjVddo1TdajYxWY6PV1Gg1k+1Y9vel3Smj1hx5Z0arW5G1NFptjVZPOWIr7Wdy/BmjeRyBXcmwVU5xb8VK+usyuvUIvDBaTYxWpiSBL8NI/xeMdjUCT3aXw2GJGZgnQ+35Thj98iSeSy17OkLY855joZxauDiSxH0sqJ3vk3httHo8ssR92M9xjRVHssTrZonXFIk/ZGLGTeJ5lniLLPGebDRFJGbcJJ5kiTfbS2yKTMy4ixy+lFhQ5kbu3DwYre5lu5T9SKxY4kWWeKvficwh00q6M1oNjFaXRquO0apttGrJtiP7B9Jug8RqRE5ek/iGzPku466stJwz4pa0nyOx/FmqySPyhcy1ZFi74BKnLcevkViOyHFeic9k2prXK2nN2pP+kPgOiWdv1cYDsc4Sr8foNUvkrWs2Zok3YOSaJ3LmKHGeJV6bkWuWxNMs8ZYOEje79leMXDNnq1sHkXdZ4rXy9h9E6V9BlLaqCgz+FNmvqjYGUXoVROn3IErvK4x/gyj9G5GJN3K8rF46iPwaROlTDfEFkW7rR1tLOw4iv9Uk8gaRiTd1EPngMlutUaSNKUuP/CLvHSc6dYqckZFkJDWyQSLHzFqrm7XWKXLEOrK6dWSdIvvc2anozk4Qpf8EUfpfDRK3QZR2P7rIyu61BlH6We7u3BSIjYPIZRClfEWvSU8/giht76TMWXoUE+n8PNKPw0FFIgcFLq23WCzwhoAfhzbWfhz2SpbYC6J07ShxFUQpX5J1WU+KwOexLEum7cf2x/qxnNmrcZD4PDMHfhy2Cwpsy/HrfZ8OEs2Hn63+RubEQeDLmO8y6sqPw1ZOgS1pPz/UX06RE6wdFvnLm+YOEvex8ePwTjLs0o/DjmRcS7Yd2T+QdpvX+stRG/l6+isyhwUlHpJqa+iDH4f3sl2+Jc9B5hBbr1/yTvw4nJUgsrQ4tG4MopTfFsgh89yPw0VDZS6CKOU3BRxkdv04fGyYzEdmqcVkXjdIpv0c/IbAOzPz2JdZe34ysaSaeawJkD0vNbHk2ezQj8NVTQJXcj5mpxUJvfDjcOLHoalIoJH+WezXWDvHJWboSvqjFh5J6Jkfh7dSy+ydm21OcVtpP5PjeRTVIKmnkql9Pw5HkmFTkTWVv0fyf9uO1zMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+PP4HmXEqZlhpw6UAAAAASUVORK5CYII=",
+      "sec_st_ic_advanced": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACm0lEQVR42u3cv0sjQRjGcdFWYqNFwEpQ3toytb1wlSBXmcYqtuEOwcbCQhsL7++QYKmFIr5ccfU1BwfaWGphde9l4BUlKtmdGVkcvx8YgiaZGd6H/ZndnZgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBjMZXQvpjKrqkcmcqeqXw1lbnI/ub8+3ve3673T7HfMcSZYTswlTtTsZF2ayr7prJQsa8F//ztK33d+TgzVP19gtx+peij7d5UvpvK9Bt9TPv79xX62qbq+UNcNJU/FYr/2H6ZyqapLA2XvJa/bvr/q/YRxluk+nmD7NYI4Hn7bSqn/hrz/S7VzxvkYWQQqe2Q6ucN8rihII+pft4gzxsK8pzq5w3yqqEgr6h+3iAvGwrykurnDfKioSAvqH6+EKdM5WdDQYZxp0ghT5DLpnLdUJBh3GVSyBPkTmQIN76TdOqvN5H97JBCWoCTpvLNVB5qFn5gKj1T6ZhK20/Rtf3vnr9fp78Hn8ckqdQPccVUTiKWwH4IbUzfbf9c3SU0zGeFdKoFOD8s9I/I1Wi35ljdyNVtmN88ab1d2DVT+Ru5HetHjtmPHC/Mc43UXhZ0K2HPcjBudTpmNTtIGHuL9J6KuW4q/xKK2Uscv5cwdpj3OiGqzJrKWUIhwzaukziHTsKhifn8Zz97kKupJ7VjV6sjq9fUk/Krnz3IjcQChoP9VuIcWt5Pyjw2WCJZItlGso1kr5W9Vo4jOY7kzA7nWjnX+lED5dePgsLk98jCAuUKgUKC5JqdQoLkKrqCwuS61kKC5ErzQoLk3o9CguRurEKC5P7IQoLkjuVCguQZAoUEyVM9CgqT5+wUEiRPviooTJ5FBwAAAAAAAAAAAAAAAAAAAAAAAAAAAABZ/Qe45mos6c5eAAAAAABJRU5ErkJggg==",
+      "sec_st_ic_wellbeing": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADFklEQVR42u3cP0hVcRTAcdFAwUEcHQShUTygg5CgOIiCg4Pi4FIahoNOHhwEEUHBQRCHCoQnOEZDQ60NQVMNQcNZqiFwCJoKKRqE6uC9SOl9f+977/7e+37gR6Sv3/298+Vl75K2tAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAClEtNWMb0jpg/EdE9MH4tpTkwfiumOmN4V08ES9xyM/txOtE8u2ncvuo5fr5XppxOwW0zvi+kTMT0T09951gcxPRHTeTFtS9ivLfr8SfT4fPudRdf163dTo/yI02L6tMCwb1rn0atr5L/9RqKPn5exp59jmiqlR1wr4hVTaL0R04Vov4Xo95Xs5+dZo07xEVVMv1U49Hh9EtN70a9p7OfnUioVjrgkpl9TGnq8LOX9/HxL1EqOOPz369DblIdereXnHKbazSGPAokYryOqXY84JqafAwvp5x2j3r8htwOLGK9t6l1FbBfTF4GG9HO3U/Ey5ICYfgw0pJ97gIqXISfF9GegIf3ck80U63aeNRdoxHjN5Xt+jfo+0RJWyCGTntNwI78yp6pw5yZry5/fVDP8Nes3sC8aNOJFfKO+Wb5mrjZoyNVm/NfqVoNF3Grmtx6HDRLxkPeRpqeBRzzlbsBlyC4xfR5oRD93FxWvYvaJ6evAIvp5+6h3PeZQQDcH/JxDVEuOOSGmXzIe0c83Qa3CMf3/nf7KaEQ/1zyVio+5ktGQK9QpPeZmxiJuUqX8mAcZiXhAjcpj5uocMUeFdEJ2iumzOkX063ZSIb2YvWL6qsYR/Xq9TD/9mCKm72sU0a8jTL16MceL+D7JSpfvP860qx9zVkx/VCmi7zvLlGsXc7lKIZeZbu1jbqQccYOp1i/mfkoR95lm/WMeVxjxmClmI2RHmT80Iv4hDx1MMTsxe8T0ZYkR/fE9TC97MfvF9F2REf1x/UwtuzFHi/jOZ//8KNPKfswZMf2eENE/PsOUwom5mBBykemEF3P9v4jrTCXcmLtRxF2mEX7MR0yhMULeYgoAAAAAAAAAAAAAAAAAAAAAAAColz9soYS+7b4JTgAAAABJRU5ErkJggg==",
+      "sec_st_ic_devicecare": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAAEzklEQVR42u2dT2glRRCHV8xt4R08yOqC4CHjIUtELZEIghcxkCCC4iHkIEEU0cAmYrxESEtERIOeXDAEZEUweNGLFY16WNBT8KIoamgUJEpwkRJECMg6gy1mH+9N97zMZHXe90HxQjJ/ivrR3dXV/TonTgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwJCReXcy8248824q824u824x8245824lfC6G30+F604Stf+OeKOZd7OZd2uZd1v5z7uZdweZd5dK7CBctxXuK+4fJZpXRsDJIMJORLRU2wnPmyS6xyNg0S1uZN7t1yRgt+2H508R7WYEHA8tZq8hAbttL7xvnOjXJ2Ixhl04JgG7rXjvLCocPQtdbrAbrdLdLpPlDibiqcy7V6+wgN1W+HMKdaqJeG7AYP+YebedebeeebeaebeUebcQPlfD77fDdYM8/xxipnenVVvixcy7zfxzPvNuIvOuE3lHJ1w3H+67OEDLpJuNBHm5QkAttLDpvLWNDPi+kXD/enhe6ruXUas8O01NbIrucabm98+E56YmQGSzfeaJqVOM1zLvxhryYyw8P3VqwjyzK4BricFbjY2BNfjSCe9J8WcN9S4vu+0lijhyTD6NJIq5Rznv36BtJHannWP2q5PYzW4g4t+rGPsJic1Y076IWkfUTvcYM7cTEp/JYRdyLWGKMdOwgIWdFbUPRW1H1M6L2r1d2awxVvYXcTRhPXH9GFriU6J2IGqXDtlnonbbIV/XE9YzR4dVyNmEis10wyI+JGo/dIn4jz19yNfphArQLN1qb9tsMkvNu9I7Re3TPiIW9nxXFrtJ99q7proVCcx8gyLeIGpvl4hY2MNdPs9H/N0auhpsqOTsRlYxJhoS8SpRezki4utFFtvl80Rk1WR36Co9oQhwEJlydBoS8myP5OawvS9qZ/rMK7cju/Omhk3IuaNmq6J2o6jdVFHEB0TNl4j4hahNlvgdy17nhk3IxVg5LjK+vSRqn4va16L2pqjdnSDiHaJ2oUTEX0XtkYjfsbLd4rAJGVt3XCoR5JUeInyc210l95wWtbci46JL8HuJdcrLA7ISCchCH0HOiNo3fYTQotX1ue/FiIgbonZNgt8LEb9XaJEJLTJ0jz+VCPJebrd03fOkqP1Rcs8HonZzot+0yDrGyKLVhKyyrHW9k9tYuP5+Ufuu5NqvRG2qgt+MkXVlraL2YG5fRsQsxkMRtU9Krvktb92PVfSbrLXOeaSozeT2bUTM85G/r1b0mXlkE5WdooSW2/cRsfrZG6J2bUWfqew0VWsVtUdz26so4keidusAPlNr7ROYWlY/Qlb6S6KIxdTlvgF8ZfWjJDi1rUeK2kJIXspE/F3UnhjQV9YjS4JT6w6BfK74TGS++MIRfGWHwBG710p7dkTt2dz+7CFiUY+9bkAf2bOTEKRad9GJ2tWi9pyo/XxIxHdF7fYB/WMXXYVg1b6vVdTuEbXHw3zz+gH9Yl/rAMUBdpoPyVjJdz/+R5Uevo3Vonkl349siZh8Y7lFNVjOEGiJmJzq0TIxOWenRd0sJ1+1LJvlLLoWzTM5HbJl5TzOa22RoJyg3DJBOdO8pVku/2UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOrnL8cxgDjg48odAAAAAElFTkSuQmCC",
+      "sec_st_ic_apps": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACoUlEQVR42u3cIY6zQBiA4TUtF4BroBhT2QTZ03APEJUYroBh0A1U1dLMNUiwk+4/+admtyxMGdW8T/LJBvEmDOVL+PoCAAAAAAAAAAAAAAAAAAAAAAAAAAAAgI+TyHGXyDFwmP0714mHbB8PWeAwO+qsC3hI5JgncmwSObYOIxM5nhM5HlcGPMZDdo6HTMZD1jpMEw9ZHg/ZgVp/R7wkcnxsmFsix3QhYhoP2S0esseGuRBzPmS+MeJzyoWQ5caIz8mp9vpMbDyF7BI5hjMRw3jIOk8hG87M3yEDe9b5CHlN5BjNhIziIbt6CmnOzIB6hCQkIQlJSEISkpCEJCQhCUlIQhKSkIT8jJB7u4ryEbJfeNfaewppVmB76v2OefYUslrYflSeQp6p9jrk0e4Tt0S8J3I8LYQ8xUN23xjR7DOPVJuPmZp9ol1FXR3G3E6rpYg/Ylb2Nnt1mM7uM1NqrQsamgcWhwnfuY49MyOHCakDAACA/7QSoVYicpi3nianog6noo4chqfWlQFTrUSplei0EleH6bUSlVbitDLgaSrqairqfirqq8N0U1GX/37H/8g/Ih61EjetxGPD3Jdi2oj3qagfG+Y2FTVvdmZCnjdGfE61ELLaGPE5vGt9EXGvlZCeQvZzZ6Y9E3tPIeVU1Gw/foQMtBKtp5DmzIxmQkb2rPMRsp2Kmn0kIQlJSEISkpCEJCQhCUlIQhKSkIQkJCE/JOROK9F4CtktvGvtPIVspqLmqx4vYuaeQpYL24/SU0i+szMT8qCVuGyMaPaZ6ULI1O4Tt0S8TEXNl68WYub2Nts6jLT7zFXLXrMUNvtEu4pqHcbcTnMiup2ZgcO8tRc0+0TzwOIwnIkAAAAAAAAAAAAAAAAAAAAAAAAAAADA0zcSOFPkx5qsigAAAABJRU5ErkJggg==",
+      "sec_st_ic_general": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACrklEQVR42u3cP2jUcBjG8Vqwg3s7dLKIS4tixS4iKohOgojcIrqUDOLg4OSkCA46vSC46SIoCiI80GziInZTUBcHEVwcRJDCQ0BBqtFID6G5XEmTi34/8K4hvA+X/PL7c2NjAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALXFowqEjDiUOnXPohEPTdKZbIR516J5Dnx1aLeqbQ08cWqRD3QjxuEMv+gL8u744dJFOtShJs9kkzQ6XlUNLJSH+qfcOHRt0rRprlvTWQlxI0ux5kmYrZVUhxF816Do1V37fC6T4O8hekmarVapCiG1UjxSHDLIszJZCJEh+kf9ekDNJmt1N0my5rBxyxXfkcoOV3/cMKa6FOZ6k2WRZOXSnQpB54PODrlVjjZPe8N+R8w49LgnxpUM85joS5o6foV1x6JlDn4pJgFcO3XLoEB3qXqDTDu136KBDO+kIAIzSI3qieESfKpbDdtOV7oV40qEHDn3sG/m+deimQ/voUDdCTIqVkvU+ZZ4yCt7YhMBUkmZzTZRDBxx6XWFy4WGF602R3lqIeUOWkjR711RVXBL7XuFa+X3PkeIGVj/qqhon4JlNajPIGpfECJJfJO9I3pGMWhm18h0JZnbAXCsAtPSI3ObQXofyowV7HNpKV7oV4JZiBCqHPji0UoxGHzl0lg51Z6By3aGv63xC5KFeplPNTgiMD7un1KELFT7q803Ni+xrbSbESjvN19l93vbOc3aa9wXZ26yJ74bOgzBpPlbD6scIHOohyM3+RRJks0FWOrG80VPMnFhuNszZYc/vO3St4rriJf5DYLS/I7c7dH9AiLcdmqRbox9mfjrrRrH81B/gG4eu8kdK3Qs0n2c949B5h047tIuuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+Iz8AMjrZmxVs+FoAAAAASUVORK5CYII=",
+      "sec_st_ic_accessibility": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADXUlEQVR42u2cT0gUURzH9apeFARvIsrvkIrgQQ0vmhKEkCB4EiFCELslCIIgepQ8Jl4EiahfUCB0sOgadBKiY2Ueg7oIUoJB/NoHT4ih+bM2u/t29/OBx7A7b97Ofj/u25mfO9PQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALWAqQyZyl1Tue+XQ6RSXQJ7TOWBqRybiv3Vjv3zPaQUvsROU3kaERhtbn0naYUtcjNF4mXbJK2wp9SjjCKPmGLDFTllKr8yinT9pkgtTJGzGSVetllSC1PkuKmcZpTo+o2TWpgi20zlVUaRrl8bqYUrc8FUfqZIdOsXSCt8mesJU6x7fp2UqkfmnKk8M5WPpvLdL93jOdKpPpmNpnLNVK77ZSOpAFTwE9nhzy3v+WUHqVSfxAlTeRk50HGPJ0indKE3m8oNU7mdYzuMOWo9zPl13H43I1Fl0FSeFFGRCa2d+v0frHeRe1UqMNr26llir6l8qhGR7n301qvIvsIJ+ucaEeneR189fyr3a0Tkfr1/Rw4XpqTnpnJepQLP/f4Pc+Sq0moqt/xJex5tNSX81Rxfy+13KyeRpfnDSBVJSogERAIiEYlIRAIiAZGASERCgBLbTeVFiki3vp20wha5nLHYvUxa4UocMZX3GUW6fiOkFqbInSL/BbVDauFJdJcInBUp8oxLCMKS2FWYJl8nCHucsM5t10WKYYhcTxD1xVRu+mVcH67OCkDiZMoPuDZ8v42UH05NkmblJDYVpsVHCYLeFKbVbt+32z+O6+vGaSLVyohcNJXfMWJ+FKbT+Uj/ef/8v/q7cRZJtfwS+03lbcInbDd6PaS/XnI3YRs3Xj/pllfkVoKQD6YyGrPdqF8ft+0W6ZZP4rSpfE2QsZKy/UrCtm7caVIuvcS0ovhB2gWt/gLYA4rqlRWZVBT/ZiozGceZ8f0pqldAYlpRfLvI8bYpqldGZFJR/F1huhwocrwBvx1F9TJKHEuZCpeuOO5SylQ9Rvr5ipxNKYq3XHHclpSiOneQLMH340lcUfw/x44rqp/wPVkama7wfRG5OeBaTmOvRW5GeHFZcIf8RboS2x1/0PMwWkvNYfx5P+6Ofx1ueQYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJXkDzIxOBaawCXiAAAAAElFTkSuQmCC",
+      "sec_st_ic_software_update": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAADVUlEQVR42u3bvYrqQBTA8S2tLOxS5QG2nWbxFba2kK3uE0gQzBOkC2GLfQIfQILFdPY2voDlFtYDqQTZy8CRu9e7bs5oPhbu/weDIHFmOCeZnHz48AAAAAAAAAAAAAAAAAAAAAAAAAAAAADgPsa6kbHuyVg3NdbNjXWZse7VWPcmn5l8P5XtRkTt5yQvMtZNjHW5sW5jrDsY6z4U7SDb5/L7iGj2k8BHY91CknFSJu9aO0k/vr9HotvdEeiXx+2dybvWttI/R2iLSXw21q1aSuBl8+M8E/VmE+jbzFi37yiJ57aXcUlCA0kcSrV57DiJ53aU8Ydk474k5j0l8LLlJPP25TS7IeDvxrq1BD4x1v0y1r3IZyLfr2W70L4zltnwRM4Cl1N/+ZAa68bGukFN3wPZLpXfhSyzM7ITVp1qC5udHGnxjWPF8vtdQAFENau8TtReYiz9kdXQuGPpT3tpwnVmTUDnAcVH1MJOpC2u5mTr+9tu2z4ryIBKecvtvOtBXCiX06jleUTKZXZB1r4O3kZR2Iw7ms9YUQBtOFf+G7iJ4ilG0vGcEsVTkwnZ+ztouWLvjzueU6xYJXKy9ydgI0XA0p7mlip2MN40AAAAAAAAANC7qihHVVFuqqL8+KalPc0trZmXnzf3Wj8FLFcELO54TrFiB+Ppx0XQJlVRnmqClnQ8p6RmPn6+PI+8CFqk2Pt3VVGOO5rPWMarWyV4Q+CL4C1qAufbsu3gyU61VMyFd3auBPCxKsqtIoD+fDpsaQ5Dxfn6Q+bJW3TfBHKuCOI5mVELR2KuHJ/3WhXBXCmDuWzqnCnnxKVy3BXnRl1Qn6ui3CuDupPqMr5xrFh+v1OO5+fFfz8CAjyrivKoDO65gkzlyBrU9D2Q7VJFpfy5+fnwb6zARPqWBQT53N6rolzLuc4fab+qonyRz0S+X8t2oX37+ZCcFivILlprlfL/lMwscJltsh1lfJLY0DI7CyiAmmp7GZcktFDNrjpK4orqtP3rzLnyDtAtbSv9c53Y4e28hVw+nO5M3kn6WXDbrd8jdCJVpU/GQZm8g2yfy+85An9QUv2bBk9VUU5lefTV5mtVlG/ymcn3U9mOJ/sAAAAAAAAAAAAAAAAAAAAAAAAAAAA9+Q1HmAtudfYBaAAAAABJRU5ErkJggg==",
+      "sec_st_ic_remotesupport": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACi0lEQVR42u3cPUscURSAYbfT1kawsBN/wQEtBIstrLYRBf+B2PiBVYRAKkFTDDamEZHFwsav/xCERVKlOBHSGEi6iOUUB+OFO41Eg3PvzL2B94GDoLMzcF4WRpl1aAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4JnKiKmIqSybyqapfDCVHf9103/f/XyEbeUZcNpU3pnKlancmcrjK3Pnj3PHT7O9PAK6d9dHU7n9R7yX5ta/XthmmoAdU1k1lZuaAZ/PjT9fh+22F3HMVPZMpYwUsZrSn3eMLTcfcdxUPkUO+Hzc+cfZdnMRh02laDhiNe46w2y9mZBbLUWsZoutx4/Yffod8FvLId31umw/7h3qYcsRqznkTjZeyJ6p/E4U0l23R4U4IfcTRaxmnwrhESef3hFfEod015+kRljIxcQRq1mkRljI7UxCblMjLORBJiEPqBEW8jSTkKfUCAt5mUnIS2qEhTzLJOQZNcJCHmcS8pgaYSF3Mwm5S42wkCuZhFyhRljIWVP5lTiiu/4sNcJCuscbLxKHvODxyTgx1xOHXKdCnJBTpvI5UUR33SkqxIu5lijkGtuPG3LUVE5ajuiuN8r2m7mDvW4p4jV3qs3GXDCVrw1HdOdfYNvNx1yK+FGBv310YIkttxfTPR55HjniOY8/pok5YSrvTeUhMOCDP88EW00Xcy5SyDm2SUgQEoQkJCEJCULi9ZAzpvIzMKR7/QzbTB/T/QOH+5oR3ev22GIeITv+T3a9GtPlg6wZKQblRjEovxeD8scbxh2/wfbyCtkvBuVjjemzPUKCkHgp5FHNkEdsL6+Q8z5m/w3jjp9newAAAAAAAAAAAAAAAAAAAAAAAAAA/Ff+AJeAmvOoUSP1AAAAAElFTkSuQmCC",
+      "sec_st_ic_coverscreen": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAABcUlEQVR42u3cPWoCQQCGYW080Zwhhb29dS5g0ohYxELSBEth2rnB3GWqFGIZGIKdYH5QSJUs7hIWeR742m3eamZhBgMAAAAAAAAAAAAAAAAAAICbE3IdhlwnIddlyHV1xeYh1/HPb8ZUxjGVeUxldcWWMZVJTGWoTvOIo5DrOuR6CLmeWmwfcp2dI85iKvuYyqnFDjGVdUxlpFKzkNOQ67FlxMt2MZW7mMquZcTLjjGVqUrNQm46ivi9mMpDRxEv26jULOS245CLjkNuVRJSSCGFFFJIIYUU8l9Cvn8dI/64zXn+PDO+CtnvkI3OgjGVRyH7HXLVMOS9kEIKKaSQQgoppJAIKaSQQgoppJA9C/nSMORMyH6HfDtfii9+2VNMpQjZ75B+YwkppJBCCimkkEIKKSRCCimkkEIKiZBCCimkkEIKKaSQQgoppJBCdhLSOzs3EtLLVzcS0lt0NxTT65AAAAAAAAAAAAAAAAAAANB3H+Lul6QDQvUnAAAAAElFTkSuQmCC",
+      "sec_st_ic_battery": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAACz0lEQVR42u3dMWuTQRzH8b6B7qV9B5beJkU6Fa06VEEQXCro1CoSjDeJmQRdRAehZAni1GIdJLgU2kGK6VIEO5wuVpwCCiLooJLh5/PA00G9Z+jzJHnuwvcD/zE5uC998uTStGNjAAAAAAAAAAAAAAAAAAAAAAAA4TLOjhtnjxWYcXYvnIjTyTw3zn4oMOnjptnFMELWjLMqMTV2MYyQ9ZIh6+wiIUFIEHJEQ84ZZ3eMs78KTPq4OXZx+NEmjbPHjbMnPHOmwPieJ33+SXZ7MAFnjLP3jbMd42zXOPtlgNPN1knXm2H3+xdxPrn8bZV8HSw66brzVCgfcco4264o4uGk609Ro1zIlYojHs4KNcqFbAUSskWNciHbgYRsU4OQ6FdISWclrUvalbRKyHhDbulvq4SMLKSkh/rfLiEjCinpiqTvnpDrhIwr5GtPxI+SFgkZSUhJTfnd5mYnkpCSrknq9eGSSsiKQ77xRHSSThIykpCSnuZcUm9yIBBJyOQO9VZOxCec7EQSMrlDPSXpnSfiHkd0cYV85on4W9L1nFkkZGAhkzvUOzq6r0d4K0LIIYXcVzH7hAwr5EHBkAeEDCtks2DIJiHDu9lJXydbOeP7ie1wsxPJoXkW+IUn4g9JVwkZSUhJd3MuqY94HxlJSEkXJXU9Ebc5EIgr5KYn4mdJlwgZSUhJD3Iuqfc4ooskZHKHelnSN0/El5y1xhVyxxPxk6TzhIwkpKTHOZfUBp9+xBWy44m4wcdY8YXc+Cfi+yTuAiHjC3lO0itJP7Pf0bnBdz/ifvtxmi/xjNhZKyEJSUhCgpCEJCQhCTnwkGuBhFyjRrmQjUBCNqhRLuSscfZtxRHT9WepUT7mcvaH/qqImK67TIX+xVwyzm4aZ3tDCtjL1lti9/sfc8I4eyH7rwL1AU4tW2eCXQcAAAAAAAAAAAAAAAAAAAAAAACAUfIHe5hYflQMf9sAAAAASUVORK5CYII=",
+      "sec_st_ic_about": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHIAAAByCAYAAACP3YV9AAABrUlEQVR42u3csUrDUBSAYV+gu1OX7oKFPkD3SxffQnDwGdw7dyjcSRA6uTmJs+Dm1k03946XI4EUNKNNUxO+Dy7ZciD/kHToOTsDAAAAAAAAAAAAAAAAAP6jlMso5ZJSLjcpl9sjnpt6zshTbz/iPOXykHLZpVyig7Or5809/fYizlIuLx0FbJ5q7kyFdkIuTxRxf5YqHB5xnHJ5PXHIav5YjcNCXqZcPk4cspp/qcZhIacpl88Th6zmT9U4XsjqQ+SxxfMiZPch71Iu5y3POq/vK2RHIbcpl4sjzbuo7y9kByHfUy6TI82b1PcXUkiEFFJIIYUUko5CRsR9RLxVVyF7GjIiNvHbRsh+htw2Qm6F7GfIp0bIJyH7GfIqIp4j4qu+Xgnpq1VIIWnj58f1/gjZ33fkqvGxsxKynyHXjZBrIYUUUkiEFFJIIYUUEiGFFFJIIYWky5CLiFj+OAshexjyj/OEFBIhhRRSSCGFpJ2Q/rE8kJB2CAwopK0eAwppz06PQtp8NZCQdtENKKbtkAMJaV/rgGLaoDygmHaaAwAAAAAAAAAAAAAAAHCAbwwycxxVaFM7AAAAAElFTkSuQmCC"
     },
     "anaconda_overlays": [
       {

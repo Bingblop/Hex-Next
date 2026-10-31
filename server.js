@@ -192,7 +192,16 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
 
   const tweaks = spec.extra_tweaks || {};
   const iconStyle = tweaks.settings_icon_style || "1sett";
-  const settframe = Boolean(tweaks.settframe);
+  const isMimiStyle = iconStyle === "mimi_sett";
+  const isApkPngPresetStyle = iconStyle === "apk_png_fixed";
+  const useApkPngIcons =
+    tweaks.use_apk_png_icons !== undefined
+      ? Boolean(tweaks.use_apk_png_icons)
+      : isApkPngPresetStyle || isMimiStyle;
+  const fixedState = Boolean(useApkPngIcons || isApkPngPresetStyle || isMimiStyle);
+
+  // Fixed-state APK .PNG presets have pre-baked frameless RGBA bitmaps that cannot be altered
+  const settframe = fixedState ? true : Boolean(tweaks.settframe);
   const bigsetico = Boolean(tweaks.bigsetico);
   const hidemail = Boolean(tweaks.hidemail);
   const uselogo = tweaks.uselogo !== undefined ? Boolean(tweaks.uselogo) : true;
@@ -201,19 +210,27 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
 
   const styleMeta =
     SETTINGS_ICON_STYLES.find((s) => s.id === iconStyle) || SETTINGS_ICON_STYLES[0];
-  const activeFolder = settframe ? styleMeta.frameless_folder : styleMeta.asset_folder;
+  const activeFolder = useApkPngIcons
+    ? "res/drawable-xxhdpi-v4/*.png (Fixed APK .PNG Preset)"
+    : settframe
+    ? styleMeta.frameless_folder
+    : styleMeta.asset_folder;
   const iconDp = bigsetico ? 36 : 28;
-  const isMimiStyle = iconStyle === "mimi_sett";
-  const isDuotone = iconStyle === "alt_1sett" || iconStyle === "alt_2sett" || isMimiStyle;
+  const isDuotone =
+    iconStyle === "alt_1sett" || iconStyle === "alt_2sett" || isMimiStyle || isApkPngPresetStyle;
   const mimiDrawables = (MIMI_SKIN_MANIFEST && MIMI_SKIN_MANIFEST.drawables) || {};
 
   const resolvedIcons = SETTINGS_DASHBOARD_ICONS.map((ic) => {
     const tokenName = `${ic.res_name}_tint`;
     const overrideKey = `com.android.settings:${tokenName}`;
-    const customHex = perIconColors[ic.id] || customOverrides[overrideKey];
+    // When fixedState is active (APK .PNG Preset), custom color overrides are locked out
+    const customHex = fixedState ? null : perIconColors[ic.id] || customOverrides[overrideKey];
     let fgColor;
     let badgeColor;
-    if (customHex) {
+    if (fixedState) {
+      fgColor = String(ic.mimi_color || ic.og_color || "#4C9FFD").toUpperCase();
+      badgeColor = String(ic.mimi_badge || "#F16E9A").toUpperCase();
+    } else if (customHex) {
       fgColor = String(customHex).toUpperCase();
       badgeColor = isMimiStyle ? String(ic.mimi_badge || "#F16E9A").toUpperCase() : secondary;
     } else if (isMimiStyle) {
@@ -238,53 +255,81 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
 
     const cleanFg = fgColor.replace(/^#/, "");
     const cleanBadge = badgeColor.replace(/^#/, "");
-    const frameBg = settframe ? "transparent" : isMimiStyle ? `#29${cleanFg}` : `#1F${cleanFg}`;
-    const frameBorder = settframe ? "transparent" : isMimiStyle ? `#66${cleanBadge}` : `#4D${cleanFg}`;
-    const mimiPngUri = isMimiStyle && ic.mimi_png_key ? mimiDrawables[ic.mimi_png_key] || null : null;
-    const sourceAsset = isMimiStyle
-      ? ic.mimi_png_key
-        ? `res/drawable/${ic.mimi_png_key}.png (project.vivid.ui.plugin.miui + anaconda_28)`
-        : `assets/anaconda_28 + assets/crocodile_19/${ic.res_name}.xml (MIMI Miui 11)`
+    const frameBg = settframe
+      ? "transparent"
+      : isMimiStyle
+      ? `#29${cleanFg}`
+      : `#1F${cleanFg}`;
+    const frameBorder = settframe
+      ? "transparent"
+      : isMimiStyle
+      ? `#66${cleanBadge}`
+      : `#4D${cleanFg}`;
+
+    const pngKey = ic.mimi_png_key || `sec_st_ic_${ic.id}`;
+    const apkPngUri = ic.apk_png_uri || mimiDrawables[pngKey] || null;
+    const activePngUri = useApkPngIcons ? apkPngUri : isMimiStyle ? apkPngUri : null;
+    const apkPngResPath = ic.apk_png_res_path || `res/drawable-xxhdpi-v4/${ic.res_name}.png`;
+
+    const sourceAsset = useApkPngIcons
+      ? `${apkPngResPath} (project.vivid.ui.plugin.miui APK • 114×114 Fixed RGBA .PNG)`
+      : isMimiStyle
+      ? `res/drawable/${pngKey}.png (project.vivid.ui.plugin.miui + anaconda_28)`
       : `assets/anaconda_tints/once/base/lxx1/${activeFolder}/${ic.res_name}.png`;
 
-    let vectorXml =
-      '<?xml version="1.0" encoding="utf-8"?>\n' +
-      (isMimiStyle
-        ? `<!-- Ported from MIMI (#Hex Miui 11 Plugin v1.3: ${sourceAsset}) for One UI 9.0 (precedence > SemWT_Settings) -->\n`
-        : `<!-- Rebuilt from project.vivid.ui.plugin.niferpitou (${activeFolder}/${ic.res_name}.png) for One UI 9.0 -->\n`) +
-      `<!-- Target: com.android.settings:drawable/${ic.res_name} | Tint Token: @color/${tokenName} (${fgColor}) -->\n` +
-      '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n' +
-      `    android:width="${iconDp}dp"\n` +
-      `    android:height="${iconDp}dp"\n` +
-      '    android:viewportWidth="24"\n' +
-      '    android:viewportHeight="24">\n';
+    let vectorXml;
+    if (useApkPngIcons) {
+      vectorXml =
+        '<?xml version="1.0" encoding="utf-8"?>\n' +
+        `<!-- FIXED-STATE APK .PNG PRESET (IMMUTABLE): Extracted from project.vivid.ui.plugin.miui (MIMI v1.3) -->\n` +
+        `<!-- Binary Raster Asset: ${apkPngResPath} (114x114 RGBA .PNG) | Target: com.android.settings:drawable/${ic.res_name} -->\n` +
+        `<!-- NOTE: Preset dashboard icon options cannot be altered (tintable=false, fixed_state=true) -->\n` +
+        '<bitmap xmlns:android="http://schemas.android.com/apk/res/android"\n' +
+        `    android:src="@drawable/${ic.res_name}"\n` +
+        '    android:antialias="true"\n' +
+        '    android:filter="true"\n' +
+        '    android:dither="true"\n' +
+        '    android:gravity="center" />\n';
+    } else {
+      vectorXml =
+        '<?xml version="1.0" encoding="utf-8"?>\n' +
+        (isMimiStyle
+          ? `<!-- Ported from MIMI (#Hex Miui 11 Plugin v1.3: ${sourceAsset}) for One UI 9.0 (precedence > SemWT_Settings) -->\n`
+          : `<!-- Rebuilt from project.vivid.ui.plugin.niferpitou (${activeFolder}/${ic.res_name}.png) for One UI 9.0 -->\n`) +
+        `<!-- Target: com.android.settings:drawable/${ic.res_name} | Tint Token: @color/${tokenName} (${fgColor}) -->\n` +
+        '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n' +
+        `    android:width="${iconDp}dp"\n` +
+        `    android:height="${iconDp}dp"\n` +
+        '    android:viewportWidth="24"\n' +
+        '    android:viewportHeight="24">\n';
 
-    if (!settframe) {
+      if (!settframe) {
+        vectorXml +=
+          "    <path\n" +
+          `        android:name="${isMimiStyle ? "miui11_squircle_container" : "squircle_container"}"\n` +
+          `        android:fillColor="#${isMimiStyle ? "2E" : "26"}${isDuotone ? cleanBadge : cleanFg}"\n` +
+          `        android:strokeColor="#${isMimiStyle ? "66" : "4D"}${isDuotone ? cleanBadge : cleanFg}"\n` +
+          `        android:strokeWidth="${isMimiStyle ? "0.9" : "0.75"}"\n` +
+          '        android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />\n';
+      }
+      if (isDuotone) {
+        vectorXml +=
+          "    <path\n" +
+          `        android:name="${isMimiStyle ? "mimi_miui11_inner_glow" : "duotone_accent_glow"}"\n` +
+          `        android:fillColor="#${isMimiStyle ? "3D" : "33"}${cleanBadge}"\n` +
+          '        android:pathData="M12,6a6,6 0 1,0 0,12a6,6 0 1,0 0,-12z" />\n';
+      }
       vectorXml +=
         "    <path\n" +
-        `        android:name="${isMimiStyle ? "miui11_squircle_container" : "squircle_container"}"\n` +
-        `        android:fillColor="#${isMimiStyle ? "2E" : "26"}${isDuotone ? cleanBadge : cleanFg}"\n` +
-        `        android:strokeColor="#${isMimiStyle ? "66" : "4D"}${isDuotone ? cleanBadge : cleanFg}"\n` +
-        `        android:strokeWidth="${isMimiStyle ? "0.9" : "0.75"}"\n` +
-        '        android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />\n';
+        '        android:name="icon_glyph"\n' +
+        '        android:strokeWidth="2.0"\n' +
+        '        android:strokeLineCap="round"\n' +
+        '        android:strokeLineJoin="round"\n' +
+        `        android:strokeColor="${fgColor}"\n` +
+        '        android:fillColor="#00000000"\n' +
+        `        android:pathData="${ic.svg_path}" />\n` +
+        "</vector>\n";
     }
-    if (isDuotone) {
-      vectorXml +=
-        "    <path\n" +
-        `        android:name="${isMimiStyle ? "mimi_miui11_inner_glow" : "duotone_accent_glow"}"\n` +
-        `        android:fillColor="#${isMimiStyle ? "3D" : "33"}${cleanBadge}"\n` +
-        '        android:pathData="M12,6a6,6 0 1,0 0,12a6,6 0 1,0 0,-12z" />\n';
-    }
-    vectorXml +=
-      "    <path\n" +
-      '        android:name="icon_glyph"\n' +
-      '        android:strokeWidth="2.0"\n' +
-      '        android:strokeLineCap="round"\n' +
-      '        android:strokeLineJoin="round"\n' +
-      `        android:strokeColor="${fgColor}"\n` +
-      '        android:fillColor="#00000000"\n' +
-      `        android:pathData="${ic.svg_path}" />\n` +
-      "</vector>\n";
 
     return {
       ...ic,
@@ -295,8 +340,16 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
       frame_border: frameBorder,
       frameless: settframe,
       size_dp: iconDp,
-      is_mimi_style: isMimiStyle,
-      mimi_png_uri: mimiPngUri,
+      is_mimi_style: isMimiStyle || useApkPngIcons,
+      use_apk_png: useApkPngIcons,
+      fixed_state: fixedState,
+      immutable_reason: fixedState
+        ? ic.fixed_state_reason ||
+          "Fixed APK .PNG Bitmap (114×114 RGBA) — Pre-baked multi-color raster asset; color tokens & frames cannot be altered."
+        : null,
+      apk_png_uri: apkPngUri,
+      apk_png_res_path: apkPngResPath,
+      mimi_png_uri: activePngUri,
       source_asset: sourceAsset,
       oneui9_drawable: `com.android.settings:drawable/${ic.res_name}`,
       vector_xml: vectorXml,
@@ -319,6 +372,7 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
     `    <bool name="sec_settings_show_custom_about_logo">${uselogo ? "true" : "false"}</bool>\n` +
     `    <bool name="sec_settings_hide_account_email">${hidemail ? "true" : "false"}</bool>\n` +
     `    <bool name="sec_settings_frameless_dashboard_icons">${settframe ? "true" : "false"}</bool>\n` +
+    `    <bool name="sec_settings_use_fixed_apk_png_drawables">${useApkPngIcons ? "true" : "false"}</bool>\n` +
     "</resources>\n";
 
   const owner = (spec.privilege_uid ?? 1000) === 1000 ? "android" : "com.android.shell";
@@ -326,17 +380,27 @@ function resolveSettingsDashboardIcons(spec, customOverrides = {}) {
     const argbHex = "0xff" + ic.fg_color.replace(/^#/, "").toLowerCase();
     return `com.android.settings:color/${ic.token_name} 0x1c ${argbHex}`;
   });
-  const fabricateIconsCmd =
-    `cmd overlay fabricate --target com.android.settings --name HexNextSettingsIcons26 ` +
-    iconFabArgs.join(" ");
+  const fabricateIconsCmd = useApkPngIcons
+    ? `# [FIXED .PNG PRESET MODE] 26 pre-rendered 114x114 APK .PNG bitmaps packaged in com.hexnext.oneui9.rro.settings/res/drawable-xxhdpi-v4/*.png (non-tintable fixed state)\n` +
+      `cmd overlay enable --user 0 com.hexnext.oneui9.rro.settings && cmd overlay set-priority --user 0 com.hexnext.oneui9.rro.settings highest`
+    : `cmd overlay fabricate --target com.android.settings --name HexNextSettingsIcons26 ` +
+      iconFabArgs.join(" ");
   const enableIconsCmd =
     `cmd overlay enable --user 0 ${owner}:HexNextSettingsIcons26 && ` +
     `cmd overlay set-priority --user 0 ${owner}:HexNextSettingsIcons26 highest`;
 
   return {
     style_id: iconStyle,
-    style_label: styleMeta.label,
+    style_label: useApkPngIcons && !isApkPngPresetStyle && !isMimiStyle
+      ? `${styleMeta.label} [APK .PNG Fixed Preset Override]`
+      : styleMeta.label,
     active_asset_folder: activeFolder,
+    use_apk_png_icons: useApkPngIcons,
+    fixed_state: fixedState,
+    immutable_notice: fixedState
+      ? "Preset dashboard icon options are locked because actual APK .PNG bitmap files have fixed pixel states and cannot be altered."
+      : null,
+    mimi_preview_screenshot: "/assets/aistudio/Screenshot_20261031_005340_Google_Play_Store_a5583e56.jpg",
     settframe,
     bigsetico,
     hidemail,
@@ -653,13 +717,21 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
       files.push({ name: `${folder}/res/values/bools.xml`, content: settingsIcons.bools_xml });
       for (const ic of settingsIcons.icons) {
         files.push({ name: `${folder}/res/drawable/${ic.res_name}.xml`, content: ic.vector_xml });
-        if (ic.mimi_png_uri && ic.mimi_png_key) {
-          const base64Part = String(ic.mimi_png_uri).split(",")[1];
+        const pngUri = ic.apk_png_uri || ic.mimi_png_uri;
+        if (pngUri) {
+          const base64Part = String(pngUri).split(",")[1];
           if (base64Part) {
+            const pngBuf = Buffer.from(base64Part, "base64");
             files.push({
-              name: `${folder}/res/drawable/${ic.mimi_png_key}.png`,
-              content: Buffer.from(base64Part, "base64"),
+              name: `${folder}/res/drawable-xxhdpi-v4/${ic.res_name}.png`,
+              content: pngBuf,
             });
+            if (ic.mimi_png_key) {
+              files.push({
+                name: `${folder}/res/drawable/${ic.mimi_png_key}.png`,
+                content: pngBuf,
+              });
+            }
           }
         }
       }
@@ -712,6 +784,8 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
         spec,
         settings_icons_customization: {
           style_id: settingsIcons.style_id,
+          use_apk_png_icons: settingsIcons.use_apk_png_icons,
+          fixed_state: settingsIcons.fixed_state,
           settframe: settingsIcons.settframe,
           bigsetico: settingsIcons.bigsetico,
           hidemail: settingsIcons.hidemail,
@@ -777,6 +851,7 @@ const RUNTIME_STATE = {
     selected_targets: ONEUI9_SYSTEM_RRO_CATALOG.filter((i) => i.selected).map((i) => i.id),
     extra_tweaks: {
       settings_icon_style: "1sett",
+      use_apk_png_icons: false,
       settframe: false,
       bigsetico: false,
       hidemail: false,
@@ -1093,7 +1168,11 @@ function handleCompile(data) {
     spec.extra_tweaks = { ...(spec.extra_tweaks || {}), ...data.extra_tweaks };
   }
   if (data.plugin_id === "mimi_miui11" && !(data.extra_tweaks && data.extra_tweaks.settings_icon_style)) {
-    spec.extra_tweaks = { ...(spec.extra_tweaks || {}), settings_icon_style: "mimi_sett" };
+    spec.extra_tweaks = {
+      ...(spec.extra_tweaks || {}),
+      settings_icon_style: "mimi_sett",
+      use_apk_png_icons: true,
+    };
   }
   if (data.custom_overrides && typeof data.custom_overrides === "object") {
     RUNTIME_STATE.custom_overrides = data.custom_overrides;
@@ -1267,6 +1346,33 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname.startsWith("/assets/") || pathname.startsWith("/public/")) {
+      const relPath = pathname.startsWith("/public/")
+        ? pathname.slice("/public/".length)
+        : pathname.slice(1);
+      const safePath = path.normalize(relPath).replace(/^(\.\.(\/|\\|$))+/, "");
+      const diskPath = path.join(__dirname, "public", safePath);
+      if (fs.existsSync(diskPath) && fs.statSync(diskPath).isFile()) {
+        const ext = path.extname(diskPath).toLowerCase();
+        const mimeMap = {
+          ".jpg": "image/jpeg",
+          ".jpeg": "image/jpeg",
+          ".png": "image/png",
+          ".webp": "image/webp",
+          ".svg": "image/svg+xml",
+          ".json": "application/json",
+        };
+        const fileBytes = fs.readFileSync(diskPath);
+        res.writeHead(200, {
+          "Content-Type": mimeMap[ext] || "application/octet-stream",
+          "Content-Length": fileBytes.length,
+          "Cache-Control": "public, max-age=3600",
+        });
+        res.end(fileBytes);
+        return;
+      }
+    }
+
     res.writeHead(404);
     res.end();
     return;
@@ -1287,7 +1393,21 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/tweaks") {
       const tweaks = RUNTIME_STATE.spec.extra_tweaks || (RUNTIME_STATE.spec.extra_tweaks = {});
+      const isCurrentlyFixed =
+        Boolean(tweaks.use_apk_png_icons) ||
+        tweaks.settings_icon_style === "apk_png_fixed" ||
+        tweaks.settings_icon_style === "mimi_sett";
+
       if (data.per_icon_color && typeof data.per_icon_color === "object") {
+        if (isCurrentlyFixed) {
+          const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
+          RUNTIME_STATE.last_build.timestamp = nowUtc;
+          RUNTIME_STATE.last_build.logs.push(
+            `[!] [${nowUtc}] FIXED-STATE PRESET LOCKED: Cannot alter '${data.per_icon_color.id}' color — Actual APK .PNG files (res/drawable-xxhdpi-v4/*.png) have fixed RGBA bitmap states.`
+          );
+          sendJson(res, buildFullState());
+          return;
+        }
         const icId = data.per_icon_color.id;
         const icHex = data.per_icon_color.color;
         const perMap = tweaks.per_icon_colors || (tweaks.per_icon_colors = {});
@@ -1316,12 +1436,20 @@ const server = http.createServer(async (req, res) => {
         if (data.setticons_style && !data.settings_icon_style) {
           tweaks.settings_icon_style = data.setticons_style;
         }
+        const incomingStyle = data.settings_icon_style || data.setticons_style;
+        if (incomingStyle && data.use_apk_png_icons === undefined) {
+          if (incomingStyle === "apk_png_fixed" || incomingStyle === "mimi_sett") {
+            tweaks.use_apk_png_icons = true;
+          } else {
+            tweaks.use_apk_png_icons = false;
+          }
+        }
       }
       const nowUtc = new Date().toISOString().slice(11, 19) + " UTC";
       RUNTIME_STATE.last_build.timestamp = nowUtc;
       const settingsIcons = resolveSettingsDashboardIcons(RUNTIME_STATE.spec, RUNTIME_STATE.custom_overrides);
       RUNTIME_STATE.last_build.logs.push(
-        `[✓] [${nowUtc}] Rebuilt com.hexnext.oneui9.rro.settings + 26 SecSettings Icons -> ${settingsIcons.active_asset_folder} (size=${settingsIcons.icon_size_dp}dp, settframe=${settingsIcons.settframe}, hidemail=${settingsIcons.hidemail}, uidivider=${settingsIcons.uidivider})`
+        `[✓] [${nowUtc}] Rebuilt com.hexnext.oneui9.rro.settings + 26 SecSettings Icons -> ${settingsIcons.active_asset_folder} (use_apk_png=${settingsIcons.use_apk_png_icons}, fixed_state=${settingsIcons.fixed_state}, size=${settingsIcons.icon_size_dp}dp, settframe=${settingsIcons.settframe})`
       );
       sendJson(res, buildFullState());
       return;
