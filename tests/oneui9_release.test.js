@@ -374,6 +374,17 @@ test('Release configuration uses native Gradle builds and external signing witho
   assert.equal(legacyBuilder.includes('libhexnext_rro_bridge.so'), false);
 });
 
+test('Obsolete HexBridge and Theme Park compatibility stub are absent and not advertised', () => {
+  const root = path.join(__dirname, '..');
+  for (const directory of ['apps/hex-bridge', 'apps/dummy-themepark']) {
+    assert.equal(fs.existsSync(path.join(root, directory)), false);
+  }
+  const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /HexBridge|Hex Bridge|Theme Park Stub|compatibility stub/i);
+  const research = fs.readFileSync(path.join(root, 'docs', 'HEX_INSTALLER_REVERSE_ENGINEERING.md'), 'utf8');
+  assert.doesNotMatch(research, /compatibility stub|deploy a dummy/i);
+});
+
 test('Recent Logs widget classifies and isolates IDMAP2 Conflicts, SystemUI Resource Mismatches, and Permission Denied compilation failures', () => {
   const {
     classifyRecentLogFailureType,
@@ -526,7 +537,6 @@ test('Compiler Console progress bar uses non-linear cubic-bezier CSS transitions
   assert.ok(html.includes('.compiler-progress-phase-sweep'));
   assert.ok(html.includes('.compiler-progress-phase-commit'));
 });
-
 
 
 

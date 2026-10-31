@@ -30,10 +30,9 @@ public static boolean isThemeParkThemeApplied(boolean z) {
 }
 ```
 
-### Check 2: Theme Park Installation Verification
-Hex Installer checks if `com.samsung.android.themepark` is installed on device. On One UI 9.0, Theme Park was refactored into `com.samsung.android.themedesigner`, causing Hex Installer to mark the prerequisite missing.
-
-**Resolution:** Deploy a dummy, zero-overhead compatibility stub APK registered as `com.samsung.android.themepark`.
+These checks describe the original Hex Installer, not the native HexNext application. HexNext
+does not run these legacy setup checks or install compatibility applications; it applies overlays
+directly through its privileged service.
 
 ---
 

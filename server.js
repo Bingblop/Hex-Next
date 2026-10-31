@@ -1448,13 +1448,18 @@ function buildOneUi9BundleZip(spec, customOverrides = {}) {
 
 function verifyCiCdAndSdkEnvironment() {
   const workflowPath = path.join(BASE_DIR, ".github", "workflows", "android.yml");
+  const releaseWorkflowPath = path.join(BASE_DIR, ".github", "workflows", "release.yml");
   const gradlePath = path.join(BASE_DIR, "android", "app", "build.gradle.kts");
   const gradlePropsPath = path.join(BASE_DIR, "android", "gradle.properties");
   const proguardRulesPath = path.join(BASE_DIR, "android", "app", "proguard-rules.pro");
   const buildScriptPath = path.join(BASE_DIR, "bin", "build-and-sign-release-apk.sh");
-  const workflowContent = fs.existsSync(workflowPath)
+  const ciWorkflowContent = fs.existsSync(workflowPath)
     ? fs.readFileSync(workflowPath, "utf8")
     : "";
+  const releaseWorkflowContent = fs.existsSync(releaseWorkflowPath)
+    ? fs.readFileSync(releaseWorkflowPath, "utf8")
+    : "";
+  const workflowContent = `${ciWorkflowContent}\n${releaseWorkflowContent}`;
   const gradleContent = fs.existsSync(gradlePath) ? fs.readFileSync(gradlePath, "utf8") : "";
   const gradlePropsContent = fs.existsSync(gradlePropsPath)
     ? fs.readFileSync(gradlePropsPath, "utf8")
@@ -1634,6 +1639,7 @@ function buildReleaseReadinessReport(specInput) {
     ],
     ci_cd_github: {
       workflow_path: ".github/workflows/android.yml",
+      release_workflow_path: ".github/workflows/release.yml",
       pr_template_path: ".github/PULL_REQUEST_TEMPLATE.md",
       copilot_watch_ready: true,
       sdk_tools_verified: ciSdkAudit.sdk_tools_check_present,
