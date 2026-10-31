@@ -369,6 +369,9 @@ test('Release configuration uses native Gradle builds and external signing witho
   assert.ok(audit.keystore_env_vars.includes('HEXNEXT_KEYSTORE_BASE64'));
   assert.equal(fs.existsSync(path.join(__dirname, '..', 'android', 'app', 'debug.keystore')), false);
   assert.equal(fs.existsSync(path.join(__dirname, '..', 'bin', 'release.keystore')), false);
+  const legacyBuilder = fs.readFileSync(path.join(__dirname, '..', 'apps', 'hex-next', 'compile.sh'), 'utf8');
+  assert.match(legacyBuilder, /exec .*bin\/build-and-sign-release-apk\.sh/);
+  assert.equal(legacyBuilder.includes('libhexnext_rro_bridge.so'), false);
 });
 
 test('Recent Logs widget classifies and isolates IDMAP2 Conflicts, SystemUI Resource Mismatches, and Permission Denied compilation failures', () => {
@@ -523,7 +526,6 @@ test('Compiler Console progress bar uses non-linear cubic-bezier CSS transitions
   assert.ok(html.includes('.compiler-progress-phase-sweep'));
   assert.ok(html.includes('.compiler-progress-phase-commit'));
 });
-
 
 
 
