@@ -166,8 +166,47 @@
         .compiler-log-line {
             animation: compilerLineSlideIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
+        /* Non-Linear Compiler Progress Bar Transitions Matching Perceived RRO Build Speed */
         .compiler-progress-smooth {
-            transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1), background-color 280ms ease;
+            --compiler-progress-duration: 280ms;
+            --compiler-progress-easing: cubic-bezier(0.22, 1, 0.36, 1);
+            transition:
+                width var(--compiler-progress-duration, 280ms) var(--compiler-progress-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+                background-color 320ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 320ms cubic-bezier(0.22, 1, 0.36, 1),
+                filter 280ms ease;
+            will-change: width, background-color, box-shadow;
+        }
+        .compiler-progress-reset {
+            transition: none !important;
+        }
+        .compiler-progress-phase-bootstrap {
+            --compiler-progress-duration: 220ms;
+            --compiler-progress-easing: cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.45);
+        }
+        .compiler-progress-phase-heavy {
+            --compiler-progress-duration: 340ms;
+            --compiler-progress-easing: cubic-bezier(0.25, 0.88, 0.32, 1);
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.58);
+        }
+        .compiler-progress-phase-sweep {
+            --compiler-progress-duration: 195ms;
+            --compiler-progress-easing: cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+        }
+        .compiler-progress-phase-commit {
+            --compiler-progress-duration: 380ms;
+            --compiler-progress-easing: cubic-bezier(0.34, 1.25, 0.64, 1);
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.65);
+        }
+        @keyframes compilerProgressShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .compiler-progress-active-shimmer {
+            background-size: 200% 100%;
+            animation: compilerProgressShimmer 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
     </style>
 </head>
@@ -1080,15 +1119,20 @@
 
                     <!-- Real-Time Build Progress Bar & Active Package Ticker -->
                     <div class="bg-[#090D15] border border-[#1E2738] rounded-lg p-2.5 space-y-2">
-                        <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono">
                             <div class="flex items-center gap-1.5 min-w-0">
                                 <span class="text-slate-400 shrink-0">Pipeline:</span>
                                 <span id="compiler-current-pkg-label" class="text-cyan-300 font-semibold truncate">All 26 One UI 9.0 RRO targets synchronized</span>
                             </div>
-                            <span id="compiler-progress-counter" class="text-slate-300 tabular-nums shrink-0">26/26 (100%)</span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <span id="compiler-progress-phase-badge" class="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] text-cyan-300 font-semibold tabular-nums" title="Non-linear cubic-bezier progression curve matched to perceived RRO build speed">
+                                    NON-LINEAR • cubic-bezier(0.22, 1, 0.36, 1)
+                                </span>
+                                <span id="compiler-progress-counter" class="text-slate-300 tabular-nums shrink-0">26/26 (100%)</span>
+                            </div>
                         </div>
-                        <div class="w-full h-1.5 rounded-full bg-[#131926] overflow-hidden">
-                            <div id="compiler-progress-bar" class="h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-emerald-400 to-emerald-500" style="width: 100%"></div>
+                        <div id="compiler-progress-track" class="w-full h-2 rounded-full bg-[#131926] border border-[#1E2738]/80 overflow-hidden p-[1px]">
+                            <div id="compiler-progress-bar" data-progress-phase="commit" data-progress-easing="cubic-bezier(0.22, 1, 0.36, 1)" class="h-full rounded-full compiler-progress-smooth compiler-progress-phase-commit bg-gradient-to-r from-cyan-400 via-emerald-400 to-emerald-500" style="width: 100%; --compiler-progress-duration: 280ms; --compiler-progress-easing: cubic-bezier(0.22, 1, 0.36, 1);"></div>
                         </div>
 
                         <!-- 26-Package Smooth Transition Status Indicator Strip -->
@@ -4666,6 +4710,91 @@
             }
         }
 
+        const CLIENT_HEAVY_RRO_IDS = new Set([
+            'framework',
+            'systemui',
+            'settings',
+            'aodservice',
+            'honeyboard',
+            'dialer',
+            'messaging'
+        ]);
+
+        function getClientCompilerProgressSteps(pkgs, serverCurve) {
+            if (serverCurve && Array.isArray(serverCurve.steps) && serverCurve.steps.length === pkgs.length) {
+                return serverCurve.steps;
+            }
+            const total = pkgs.length || 26;
+            const rawWeights = pkgs.map((pkg, idx) => {
+                const id = String(pkg.id || '');
+                const tokenCount = Array.isArray(pkg.resolved_resources) ? pkg.resolved_resources.length : 8;
+                const isHeavy = CLIENT_HEAVY_RRO_IDS.has(id) || tokenCount >= 12;
+                if (idx <= 1) return 1.35 + tokenCount * 0.04;
+                if (idx === total - 1) return 1.25;
+                if (isHeavy) return 1.65 + tokenCount * 0.05;
+                return 0.72 + tokenCount * 0.02;
+            });
+            const weightSum = rawWeights.reduce((a, b) => a + b, 0) || 1;
+            let cumWeight = 0;
+            let prevPct = 4;
+            return pkgs.map((pkg, idx) => {
+                const id = String(pkg.id || '');
+                const tokenCount = Array.isArray(pkg.resolved_resources) ? pkg.resolved_resources.length : 8;
+                const isHeavy = CLIENT_HEAVY_RRO_IDS.has(id) || tokenCount >= 12;
+                cumWeight += rawWeights[idx];
+                const norm = cumWeight / weightSum;
+                const easeOut = 1 - Math.pow(1 - norm, 1.58);
+                const blended = 0.62 * easeOut + 0.38 * norm;
+                const nonLinearPct = idx === total - 1
+                    ? 100
+                    : Math.min(98, Math.max(prevPct + 1, Math.round(6 + blended * 92)));
+                prevPct = nonLinearPct;
+
+                if (idx <= 1) {
+                    return {
+                        phase: 'bootstrap',
+                        phase_label: 'BOOTSTRAP',
+                        css_class: 'compiler-progress-phase-bootstrap',
+                        css_easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                        transition_duration_ms: 220,
+                        step_delay_ms: 28,
+                        non_linear_pct: nonLinearPct
+                    };
+                }
+                if (idx === total - 1) {
+                    return {
+                        phase: 'commit',
+                        phase_label: 'COMMIT',
+                        css_class: 'compiler-progress-phase-commit',
+                        css_easing: 'cubic-bezier(0.34, 1.25, 0.64, 1)',
+                        transition_duration_ms: 380,
+                        step_delay_ms: 36,
+                        non_linear_pct: 100
+                    };
+                }
+                if (isHeavy) {
+                    return {
+                        phase: 'heavy',
+                        phase_label: 'HEAVY IDMAP2',
+                        css_class: 'compiler-progress-phase-heavy',
+                        css_easing: 'cubic-bezier(0.25, 0.88, 0.32, 1)',
+                        transition_duration_ms: 340,
+                        step_delay_ms: 38,
+                        non_linear_pct: nonLinearPct
+                    };
+                }
+                return {
+                    phase: 'sweep',
+                    phase_label: 'FAST SWEEP',
+                    css_class: 'compiler-progress-phase-sweep',
+                    css_easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                    transition_duration_ms: 195,
+                    step_delay_ms: 20,
+                    non_linear_pct: nonLinearPct
+                };
+            });
+        }
+
         async function runLiveCompilerStream(stateSnapshot) {
             const state = stateSnapshot || APP_STATE;
             if (!state || !Array.isArray(state.packages)) return;
@@ -4676,10 +4805,12 @@
             const pkgs = state.packages;
             const total = pkgs.length;
             const lb = state.last_build || {};
+            const curveSteps = getClientCompilerProgressSteps(pkgs, state.compiler_progress_curve);
             const cardEl = document.getElementById('compiler-console-card');
             const dotEl = document.getElementById('compiler-status-dot');
             const badgeEl = document.getElementById('compiler-status-badge');
             const pkgLabelEl = document.getElementById('compiler-current-pkg-label');
+            const phaseBadgeEl = document.getElementById('compiler-progress-phase-badge');
             const counterEl = document.getElementById('compiler-progress-counter');
             const progressBarEl = document.getElementById('compiler-progress-bar');
             const logBox = document.getElementById('compiler-log-box');
@@ -4695,9 +4826,15 @@
                 badgeEl.className = 'rro-status-pill px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/60 font-mono text-[10px] font-semibold text-cyan-200';
                 badgeEl.textContent = 'COMPILING RROS...';
             }
+            if (phaseBadgeEl) {
+                phaseBadgeEl.className = 'px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-[9px] text-cyan-200 font-semibold tabular-nums';
+                phaseBadgeEl.textContent = 'BOOTSTRAP • cubic-bezier(0.16, 1, 0.3, 1)';
+            }
             if (progressBarEl) {
+                progressBarEl.className = 'h-full rounded-full compiler-progress-reset bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400';
                 progressBarEl.style.width = '4%';
-                progressBarEl.className = 'h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400';
+                void progressBarEl.offsetWidth;
+                progressBarEl.className = 'h-full rounded-full compiler-progress-smooth compiler-progress-phase-bootstrap compiler-progress-active-shimmer bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400';
             }
             if (logBox) {
                 logBox.innerHTML = '';
@@ -4714,7 +4851,16 @@
                 if (runId !== COMPILER_STREAM_RUN_ID) return;
                 const pkg = pkgs[i];
                 const stepNum = String(i + 1).padStart(2, '0');
-                const pct = Math.round(((i + 1) / total) * 100);
+                const stepCurve = curveSteps[i] || {
+                    phase: 'sweep',
+                    phase_label: 'FAST SWEEP',
+                    css_class: 'compiler-progress-phase-sweep',
+                    css_easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                    transition_duration_ms: 220,
+                    step_delay_ms: 24,
+                    non_linear_pct: Math.round(((i + 1) / total) * 100)
+                };
+                const pct = stepCurve.non_linear_pct;
 
                 // Transition current package indicator to PROCESSING
                 setPackageIndicatorPhase(pkg, 'processing');
@@ -4724,14 +4870,26 @@
                 if (counterEl) {
                     counterEl.textContent = `${i + 1}/${total} (${pct}%)`;
                 }
+                if (phaseBadgeEl) {
+                    const isHeavyPhase = stepCurve.phase === 'heavy';
+                    phaseBadgeEl.className = isHeavyPhase
+                        ? 'px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-[9px] text-amber-200 font-semibold tabular-nums'
+                        : 'px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-400/40 text-[9px] text-cyan-200 font-semibold tabular-nums';
+                    phaseBadgeEl.textContent = `${stepCurve.phase.toUpperCase()} • ${stepCurve.transition_duration_ms}ms`;
+                }
                 if (badgeEl) {
                     badgeEl.textContent = `BUILDING ${stepNum}/${total} • ${pkg.id.toUpperCase()}`;
                 }
                 if (progressBarEl) {
+                    progressBarEl.style.setProperty('--compiler-progress-duration', `${stepCurve.transition_duration_ms}ms`);
+                    progressBarEl.style.setProperty('--compiler-progress-easing', stepCurve.css_easing);
+                    progressBarEl.setAttribute('data-progress-phase', stepCurve.phase);
+                    progressBarEl.setAttribute('data-progress-easing', stepCurve.css_easing);
+                    progressBarEl.className = `h-full rounded-full compiler-progress-smooth ${stepCurve.css_class} compiler-progress-active-shimmer bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400`;
                     progressBarEl.style.width = `${pct}%`;
                 }
 
-                await new Promise(r => setTimeout(r, 22));
+                await new Promise(r => setTimeout(r, stepCurve.step_delay_ms || 24));
                 if (runId !== COMPILER_STREAM_RUN_ID) return;
 
                 // Transition current package indicator smoothly to settled state (COMPILED / FAULT / SKIPPED)
@@ -4758,6 +4916,10 @@
             const failedCount = pkgs.filter(p => p.compile_status === 'failed').length;
 
             if (cardEl) cardEl.classList.remove('border-cyan-500/60', 'shadow-lg', 'shadow-cyan-950/20');
+            if (phaseBadgeEl) {
+                phaseBadgeEl.className = 'px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/35 text-[9px] text-emerald-300 font-semibold tabular-nums';
+                phaseBadgeEl.textContent = 'NON-LINEAR • cubic-bezier(0.34, 1.25, 0.64, 1)';
+            }
             if (failedCount > 0) {
                 if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse transition-all duration-300';
                 if (badgeEl) {
@@ -4765,7 +4927,12 @@
                     badgeEl.textContent = `${activeCount}/${total} ACTIVE • ${failedCount} FAULT${failedCount === 1 ? '' : 'S'}`;
                 }
                 if (progressBarEl) {
-                    progressBarEl.className = 'h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-emerald-400 to-amber-400';
+                    progressBarEl.setAttribute('data-progress-phase', 'commit');
+                    progressBarEl.setAttribute('data-progress-easing', 'cubic-bezier(0.34, 1.25, 0.64, 1)');
+                    progressBarEl.style.setProperty('--compiler-progress-duration', '380ms');
+                    progressBarEl.style.setProperty('--compiler-progress-easing', 'cubic-bezier(0.34, 1.25, 0.64, 1)');
+                    progressBarEl.className = 'h-full rounded-full compiler-progress-smooth compiler-progress-phase-commit bg-gradient-to-r from-cyan-400 via-emerald-400 to-amber-400';
+                    progressBarEl.style.width = '100%';
                 }
             } else {
                 if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 transition-all duration-300';
@@ -4774,7 +4941,12 @@
                     badgeEl.textContent = `COMPLETE • ${activeCount}/${total} ACTIVE`;
                 }
                 if (progressBarEl) {
-                    progressBarEl.className = 'h-full compiler-progress-smooth bg-gradient-to-r from-cyan-400 via-emerald-400 to-emerald-500';
+                    progressBarEl.setAttribute('data-progress-phase', 'commit');
+                    progressBarEl.setAttribute('data-progress-easing', 'cubic-bezier(0.34, 1.25, 0.64, 1)');
+                    progressBarEl.style.setProperty('--compiler-progress-duration', '380ms');
+                    progressBarEl.style.setProperty('--compiler-progress-easing', 'cubic-bezier(0.34, 1.25, 0.64, 1)');
+                    progressBarEl.className = 'h-full rounded-full compiler-progress-smooth compiler-progress-phase-commit bg-gradient-to-r from-cyan-400 via-emerald-400 to-emerald-500';
+                    progressBarEl.style.width = '100%';
                 }
             }
             if (pkgLabelEl) {
@@ -4801,10 +4973,19 @@
                 const dotEl = document.getElementById('compiler-status-dot');
                 const badgeEl = document.getElementById('compiler-status-badge');
                 const pkgLabelEl = document.getElementById('compiler-current-pkg-label');
+                const phaseBadgeEl = document.getElementById('compiler-progress-phase-badge');
                 const counterEl = document.getElementById('compiler-progress-counter');
+                const progressBarEl = document.getElementById('compiler-progress-bar');
 
                 if (counterEl) counterEl.textContent = `${total}/${total} (100%)`;
                 if (pkgLabelEl) pkgLabelEl.textContent = `Processed ${total}/${total} RRO packages (${activeCount} active, ${failedCount} failed)`;
+                if (phaseBadgeEl) {
+                    phaseBadgeEl.className = 'px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-[9px] text-cyan-300 font-semibold tabular-nums';
+                    phaseBadgeEl.textContent = 'NON-LINEAR • cubic-bezier(0.22, 1, 0.36, 1)';
+                }
+                if (progressBarEl) {
+                    progressBarEl.style.width = '100%';
+                }
                 if (badgeEl && dotEl) {
                     if (failedCount > 0) {
                         dotEl.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse transition-all duration-300';

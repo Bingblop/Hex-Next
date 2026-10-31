@@ -2332,6 +2332,7 @@ function buildFullState() {
       total_tokens: totalTokens,
     },
     safe_mode_watchdog: RUNTIME_STATE.safe_mode_watchdog,
+    compiler_progress_curve: computeCompilerProgressCurve(compiledPackages),
     last_build: {
       ...RUNTIME_STATE.last_build,
       total_packages: compiledPackages.filter((p) => p.selected).length,
@@ -4160,6 +4161,120 @@ function getCachedPluginVerificationReport() {
   return _cachedVerificationReport;
 }
 
+const HEAVY_RRO_PACKAGE_IDS = new Set([
+  "framework",
+  "systemui",
+  "settings",
+  "aodservice",
+  "honeyboard",
+  "dialer",
+  "messaging",
+]);
+
+function computeCompilerProgressCurve(packages) {
+  const pkgList =
+    Array.isArray(packages) && packages.length > 0 ? packages : ONEUI9_SYSTEM_RRO_CATALOG;
+  const total = pkgList.length;
+
+  const rawWeights = pkgList.map((pkg, idx) => {
+    const id = String(pkg.id || "");
+    const tokenCount = Array.isArray(pkg.resolved_resources)
+      ? pkg.resolved_resources.length
+      : Object.keys(pkg.resources || {}).length || 8;
+    const isHeavy = HEAVY_RRO_PACKAGE_IDS.has(id) || tokenCount >= 12;
+    if (idx === 0 || idx === 1) {
+      return 1.35 + tokenCount * 0.04;
+    }
+    if (idx === total - 1) {
+      return 1.25;
+    }
+    if (isHeavy) {
+      return 1.65 + tokenCount * 0.05;
+    }
+    return 0.72 + tokenCount * 0.02;
+  });
+
+  const weightSum = rawWeights.reduce((acc, w) => acc + w, 0) || 1;
+  let cumulativeWeight = 0;
+  let prevPct = 4;
+
+  const steps = pkgList.map((pkg, idx) => {
+    const id = String(pkg.id || `pkg_${idx + 1}`);
+    const tokenCount = Array.isArray(pkg.resolved_resources)
+      ? pkg.resolved_resources.length
+      : Object.keys(pkg.resources || {}).length || 8;
+    const isHeavy = HEAVY_RRO_PACKAGE_IDS.has(id) || tokenCount >= 12;
+
+    cumulativeWeight += rawWeights[idx];
+    const normalizedProgress = cumulativeWeight / weightSum;
+    const linearPct = Math.round(((idx + 1) / total) * 100);
+
+    // Non-linear ease-out + S-curve blend matching perceived RRO build speed
+    const easeOutCurve = 1 - Math.pow(1 - normalizedProgress, 1.58);
+    const blendedRatio = 0.62 * easeOutCurve + 0.38 * normalizedProgress;
+    let nonLinearPct =
+      idx === total - 1
+        ? 100
+        : Math.min(98, Math.max(prevPct + 1, Math.round(6 + blendedRatio * 92)));
+    prevPct = nonLinearPct;
+
+    let phase = "sweep";
+    let phaseLabel = "FAST APP RRO SWEEP";
+    let cssClass = "compiler-progress-phase-sweep";
+    let cssEasing = "cubic-bezier(0.22, 1, 0.36, 1)";
+    let transitionDurationMs = 195;
+    let stepDelayMs = 20;
+
+    if (idx <= 1) {
+      phase = "bootstrap";
+      phaseLabel = "MONET & FRAMEWORK BOOTSTRAP";
+      cssClass = "compiler-progress-phase-bootstrap";
+      cssEasing = "cubic-bezier(0.16, 1, 0.3, 1)";
+      transitionDurationMs = 220;
+      stepDelayMs = 28;
+    } else if (idx === total - 1) {
+      phase = "commit";
+      phaseLabel = "IOVERLAYMANAGER TRANSACTION COMMIT";
+      cssClass = "compiler-progress-phase-commit";
+      cssEasing = "cubic-bezier(0.34, 1.25, 0.64, 1)";
+      transitionDurationMs = 380;
+      stepDelayMs = 36;
+    } else if (isHeavy) {
+      phase = "heavy";
+      phaseLabel = "HEAVY IDMAP2 & DRAWABLE LINK";
+      cssClass = "compiler-progress-phase-heavy";
+      cssEasing = "cubic-bezier(0.25, 0.88, 0.32, 1)";
+      transitionDurationMs = 340;
+      stepDelayMs = 38;
+    }
+
+    return {
+      index: idx,
+      step_number: idx + 1,
+      package_id: id,
+      system_rro_package: pkg.system_rro_package || `com.hexnext.oneui9.rro.${id}`,
+      target_package: pkg.target_package || "android",
+      token_count: tokenCount,
+      phase,
+      phase_label: phaseLabel,
+      css_class: cssClass,
+      css_easing: cssEasing,
+      transition_duration_ms: transitionDurationMs,
+      step_delay_ms: stepDelayMs,
+      linear_pct: linearPct,
+      non_linear_pct: nonLinearPct,
+    };
+  });
+
+  return {
+    mode: "non-linear-perceived-rro-speed",
+    default_easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    default_duration_ms: 280,
+    total_steps: total,
+    steps,
+  };
+}
+
 const PORT = Number(process.env.PORT) || 3000;
 if (require.main === module) {
   server.listen(PORT, "0.0.0.0", () => {
@@ -4194,4 +4309,5 @@ module.exports = {
   evaluateSystemCrashForSafeMode,
   executeAutomaticSafeModeFallback,
   restoreFromSafeModeFallback,
+  computeCompilerProgressCurve,
 };

@@ -495,6 +495,55 @@ test('Automatic Safe Mode Fallback on System Crash intercepts SystemUI/system_se
   assert.ok(restoredAll.spec.selected_targets.includes('systemui'));
 });
 
+test('Compiler Console progress bar uses non-linear cubic-bezier CSS transitions and phase-weighted progression matching perceived RRO build speed', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { computeCompilerProgressCurve, buildFullState } = require('../server.js');
+
+  const fullState = buildFullState();
+  const curve = fullState.compiler_progress_curve || computeCompilerProgressCurve(fullState.packages);
+
+  assert.equal(curve.mode, 'non-linear-perceived-rro-speed');
+  assert.equal(curve.total_steps, 26);
+  assert.equal(curve.steps.length, 26);
+
+  // Verify strictly monotonic non-linear progression ending at 100%
+  for (let i = 0; i < curve.steps.length; i++) {
+    const step = curve.steps[i];
+    assert.ok(step.non_linear_pct > 0 && step.non_linear_pct <= 100);
+    assert.ok(step.css_easing.startsWith('cubic-bezier('));
+    assert.ok(step.transition_duration_ms >= 180 && step.transition_duration_ms <= 450);
+    if (i > 0) {
+      assert.ok(
+        step.non_linear_pct > curve.steps[i - 1].non_linear_pct,
+        `Expected step ${i + 1} non_linear_pct (${step.non_linear_pct}) > step ${i} (${curve.steps[i - 1].non_linear_pct})`
+      );
+    }
+  }
+  assert.equal(curve.steps[curve.steps.length - 1].non_linear_pct, 100);
+  assert.equal(curve.steps[curve.steps.length - 1].phase, 'commit');
+
+  // Verify non-linearity compared to uniform linear progression
+  const hasNonLinearStep = curve.steps.some(s => s.non_linear_pct !== s.linear_pct);
+  assert.equal(hasNonLinearStep, true, 'Expected non-linear progress curve to differ from uniform linear steps');
+
+  // Verify heavy RRO targets (e.g. systemui, settings, aodservice) use heavy phase transition
+  const heavySteps = curve.steps.filter(s => s.phase === 'heavy');
+  assert.ok(heavySteps.length >= 4, 'Expected heavy RRO targets to use heavy idmap2 build phase');
+  assert.ok(heavySteps.every(s => s.css_class === 'compiler-progress-phase-heavy' && s.transition_duration_ms === 340));
+
+  // Verify CSS classes exist in templates/index.html
+  const html = fs.readFileSync(path.join(__dirname, '..', 'templates', 'index.html'), 'utf8');
+  assert.ok(html.includes('.compiler-progress-smooth'));
+  assert.ok(html.includes('--compiler-progress-duration'));
+  assert.ok(html.includes('--compiler-progress-easing'));
+  assert.ok(html.includes('.compiler-progress-phase-bootstrap'));
+  assert.ok(html.includes('.compiler-progress-phase-heavy'));
+  assert.ok(html.includes('.compiler-progress-phase-sweep'));
+  assert.ok(html.includes('.compiler-progress-phase-commit'));
+});
+
+
 
 
 
