@@ -1149,14 +1149,20 @@ def generate_monet_palette(seed_hex: str, style_id: str = "TONAL_SPOT", pure_bla
     }
 
 
-def resolve_settings_dashboard_icons(spec: Dict[str, Any]) -> Dict[str, Any]:
+def resolve_settings_dashboard_icons(
+    spec: Dict[str, Any],
+    custom_overrides: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     """
     Computes the One UI 9.0 SecSettings Dashboard Icon customization state and generates
-    Android VectorDrawable XMLs for all 26 dashboard icons from project.vivid.ui.plugin.niferpitou.
+    Android VectorDrawable XMLs, dimens.xml, bools.xml, and HexNextSettingsIcons26 fabrication
+    commands for all 26 dashboard icons from project.vivid.ui.plugin.niferpitou.
     """
+    custom_overrides = custom_overrides or {}
     seed = spec.get("accent", "#00E5FF").upper()
     secondary = spec.get("secondary", "#7C4DFF").upper()
     card = spec.get("card", "#121724").upper()
+    owner = "android" if spec.get("privilege_uid", 1000) == 1000 else "com.android.shell"
 
     tweaks = spec.get("extra_tweaks", {}) or {}
     icon_style = tweaks.get("settings_icon_style", "1sett")
@@ -1175,8 +1181,11 @@ def resolve_settings_dashboard_icons(spec: Dict[str, Any]) -> Dict[str, Any]:
     icon_dp = 36 if bigsetico else 28
 
     resolved_icons = []
+    fab_icon_args = []
     for ic in SETTINGS_DASHBOARD_ICONS:
-        custom_hex = per_icon_colors.get(ic["id"])
+        token_name = f"{ic['res_name']}_tint"
+        override_key = f"com.android.settings:{token_name}"
+        custom_hex = per_icon_colors.get(ic["id"]) or custom_overrides.get(override_key)
         if custom_hex:
             fg_color = custom_hex.upper()
             badge_color = secondary
@@ -1198,10 +1207,13 @@ def resolve_settings_dashboard_icons(spec: Dict[str, Any]) -> Dict[str, Any]:
 
         frame_bg = "transparent" if settframe else ("#1F" + fg_color.lstrip("#"))
         frame_border = "transparent" if settframe else ("#4D" + fg_color.lstrip("#"))
+        argb_hex = "0xff" + fg_color.lstrip("#").lower()
+        fab_icon_args.append(f"com.android.settings:color/{token_name} 0x1c {argb_hex}")
 
+        is_duotone = icon_style in ("alt_1sett", "alt_2sett")
         vector_xml = (
             '<?xml version="1.0" encoding="utf-8"?>\n'
-            f'<!-- Rebuilt from project.vivid.ui.plugin.niferpitou ({active_folder}/{ic["res_name"]}.png) for One UI 9.0 -->\n'
+            f'<!-- Rebuilt from project.vivid.ui.plugin.niferpitou ({active_folder}/{ic["res_name"]}.png) for One UI 9.0 (precedence > SemWT_Settings) -->\n'
             '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'
             f'    android:width="{icon_dp}dp"\n'
             f'    android:height="{icon_dp}dp"\n'
@@ -1212,7 +1224,19 @@ def resolve_settings_dashboard_icons(spec: Dict[str, Any]) -> Dict[str, Any]:
             vector_xml += (
                 '    <path\n'
                 f'        android:fillColor="#26{fg_color.lstrip("#")}"\n'
+                f'        android:strokeColor="#4D{badge_color.lstrip("#") if is_duotone else fg_color.lstrip("#")}"\n'
+                '        android:strokeWidth="0.75"\n'
                 '        android:pathData="M7,2h10c2.76,0 5,2.24 5,5v10c0,2.76 -2.24,5 -5,5H7c-2.76,0 -5,-2.24 -5,-5V7c0,-2.76 2.24,-5 5,-5z" />\n'
+            )
+        if is_duotone:
+            vector_xml += (
+                '    <path\n'
+                '        android:strokeWidth="3.2"\n'
+                '        android:strokeLineCap="round"\n'
+                '        android:strokeLineJoin="round"\n'
+                f'        android:strokeColor="#38{badge_color.lstrip("#")}"\n'
+                '        android:fillColor="#00000000"\n'
+                f'        android:pathData="{ic["svg_path"]}" />\n'
             )
         vector_xml += (
             '    <path\n'
@@ -1227,24 +1251,47 @@ def resolve_settings_dashboard_icons(spec: Dict[str, Any]) -> Dict[str, Any]:
 
         resolved_icons.append({
             **ic,
+            "token_name": token_name,
             "fg_color": fg_color,
             "badge_color": badge_color,
+            "argb": argb_hex,
             "frame_bg": frame_bg,
             "frame_border": frame_border,
             "frameless": settframe,
             "size_dp": icon_dp,
             "source_asset": f"assets/anaconda_tints/once/base/lxx1/{active_folder}/{ic['res_name']}.png",
             "oneui9_drawable": f"com.android.settings:drawable/{ic['res_name']}",
+            "oneui9_color_token": f"com.android.settings:color/{token_name}",
             "vector_xml": vector_xml,
         })
 
     dimens_xml = (
         '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<!-- One UI 9.0 SecSettings Dashboard Dimensions (HexNext > SemWT_Settings) -->\n'
         '<resources>\n'
         f'    <dimen name="sec_dashboard_tile_image_size">{icon_dp}.0dip</dimen>\n'
         f'    <dimen name="sec_dashboard_tile_image_padding">{"0.0dip" if settframe else "6.0dip"}</dimen>\n'
         f'    <dimen name="sec_widget_list_divider_height">{"1.0dip" if uidivider else "0.0dip"}</dimen>\n'
         '</resources>\n'
+    )
+
+    bools_xml = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<!-- One UI 9.0 SecSettings Feature Flags (Niferpitou / Terpsichora Port) -->\n'
+        '<resources>\n'
+        f'    <bool name="sec_use_about_phone_hexxed_logo">{"true" if uselogo else "false"}</bool>\n'
+        f'    <bool name="sec_hide_samsung_account_email">{"true" if hidemail else "false"}</bool>\n'
+        f'    <bool name="sec_dashboard_frameless_icons">{"true" if settframe else "false"}</bool>\n'
+        '</resources>\n'
+    )
+
+    fabricate_command = (
+        "cmd overlay fabricate --target com.android.settings --name HexNextSettingsIcons26 "
+        + " ".join(fab_icon_args)
+    )
+    enable_command = (
+        f"cmd overlay enable --user 0 {owner}:HexNextSettingsIcons26 && "
+        f"cmd overlay set-priority --user 0 {owner}:HexNextSettingsIcons26 highest"
     )
 
     return {
@@ -1258,7 +1305,11 @@ def resolve_settings_dashboard_icons(spec: Dict[str, Any]) -> Dict[str, Any]:
         "uidivider": uidivider,
         "icon_size_dp": icon_dp,
         "dimens_xml": dimens_xml,
+        "bools_xml": bools_xml,
         "card_bg": card,
+        "fabricate_command": fabricate_command,
+        "enable_command": enable_command,
+        "overlay_identifier": f"{owner}:HexNextSettingsIcons26",
         "icons": resolved_icons,
     }
 
@@ -1311,6 +1362,7 @@ def resolve_overlay_tokens(
         "settings_email": settings_email,
     }
 
+    settings_dashboard = resolve_settings_dashboard_icons(spec, custom_overrides)
     selected_ids = set(spec.get("selected_targets", [item["id"] for item in ONEUI9_SYSTEM_RRO_CATALOG if item["selected"]]))
     owner = "android" if spec.get("privilege_uid", 1000) == 1000 else "com.android.shell"
 
@@ -1333,6 +1385,19 @@ def resolve_overlay_tokens(
                 "argb": argb_hex,
             })
             fab_args.append(f"{item['target_package']}:color/{res['name']} {res['type']} {argb_hex}")
+
+        if item["id"] == "settings":
+            for ic in settings_dashboard["icons"]:
+                resolved_resources.append({
+                    "name": ic["token_name"],
+                    "full_name": f"com.android.settings:color/{ic['token_name']}",
+                    "type": "0x1c",
+                    "role": "settings_icon_tint",
+                    "desc": f"SecSettings Dashboard Icon ({ic['label']}) — {ic['res_name']}",
+                    "value": ic["fg_color"],
+                    "argb": ic["argb"],
+                })
+                fab_args.append(f"com.android.settings:color/{ic['token_name']} 0x1c {ic['argb']}")
 
         fab_cmd = (
             f"cmd overlay fabricate --target {item['target_package']} "
@@ -1368,8 +1433,20 @@ def resolve_overlay_tokens(
         colors_lines.append("</resources>\n")
         colors_xml = "\n".join(colors_lines)
 
+        extra_meta = {}
+        if item["id"] == "settings":
+            extra_meta = {
+                "dimens_xml": settings_dashboard["dimens_xml"],
+                "bools_xml": settings_dashboard["bools_xml"],
+                "drawable_count": len(settings_dashboard["icons"]),
+                "settings_icons_fabricate_command": settings_dashboard["fabricate_command"],
+                "settings_icons_enable_command": settings_dashboard["enable_command"],
+                "settings_icons_overlay_identifier": settings_dashboard["overlay_identifier"],
+            }
+
         compiled_packages.append({
             **item,
+            **extra_meta,
             "anaconda_archive": item["anaconda_asset"],
             "selected": is_selected,
             "owner_package": owner,
@@ -1392,7 +1469,7 @@ def build_oneui9_bundle_zip(spec: Dict[str, Any], custom_overrides: Optional[Dic
     above Samsung's modern SemWT_* overlays into a downloadable ZIP archive.
     """
     compiled = resolve_overlay_tokens(spec, custom_overrides)
-    settings_icons = resolve_settings_dashboard_icons(spec)
+    settings_icons = resolve_settings_dashboard_icons(spec, custom_overrides)
     monet = generate_monet_palette(
         spec.get("accent", "#00E5FF"),
         spec.get("style", "VIBRANT"),
@@ -1453,12 +1530,17 @@ def build_oneui9_bundle_zip(spec: Dict[str, Any], custom_overrides: Optional[Dic
                 zf.writestr(f"{folder}/res/drawable/sec_qs_tile_bg.xml", qs_drawable_xml)
             if pkg["id"] == "settings":
                 zf.writestr(f"{folder}/res/values/dimens.xml", settings_icons["dimens_xml"])
+                zf.writestr(f"{folder}/res/values/bools.xml", settings_icons["bools_xml"])
                 for ic in settings_icons["icons"]:
                     zf.writestr(f"{folder}/res/drawable/{ic['res_name']}.xml", ic["vector_xml"])
 
             script_lines.append(f"# --- Target: {pkg['target_package']} ({pkg['system_rro_package']} > {pkg.get('semwt_target', 'SemWT_*')}) ---")
             script_lines.append(pkg["fabricate_command"])
             script_lines.append(pkg["enable_command"])
+            if pkg["id"] == "settings":
+                script_lines.append("# --- Dedicated 26 SecSettings Dashboard Icons Overlay (HexNextSettingsIcons26 > SemWT_Settings) ---")
+                script_lines.append(settings_icons["fabricate_command"])
+                script_lines.append(settings_icons["enable_command"])
             script_lines.append(f"cmd overlay enable --user 0 {pkg['system_rro_package']} 2>/dev/null || true")
             script_lines.append(f"cmd overlay set-priority --user 0 {pkg['system_rro_package']} highest 2>/dev/null || true")
             script_lines.append("")
@@ -1477,12 +1559,28 @@ def build_oneui9_bundle_zip(spec: Dict[str, Any], custom_overrides: Optional[Dic
                     "spec": spec,
                     "settings_icons_customization": {
                         "style_id": settings_icons["style_id"],
+                        "style_label": settings_icons["style_label"],
+                        "active_asset_folder": settings_icons["active_asset_folder"],
                         "settframe": settings_icons["settframe"],
                         "bigsetico": settings_icons["bigsetico"],
                         "hidemail": settings_icons["hidemail"],
                         "uselogo": settings_icons["uselogo"],
                         "uidivider": settings_icons["uidivider"],
+                        "icon_size_dp": settings_icons["icon_size_dp"],
+                        "overlay_identifier": settings_icons["overlay_identifier"],
                         "icon_count": len(settings_icons["icons"]),
+                        "icons": [
+                            {
+                                "id": ic["id"],
+                                "res_name": ic["res_name"],
+                                "token_name": ic["token_name"],
+                                "fg_color": ic["fg_color"],
+                                "badge_color": ic["badge_color"],
+                                "frameless": ic["frameless"],
+                                "size_dp": ic["size_dp"],
+                            }
+                            for ic in settings_icons["icons"]
+                        ],
                     },
                     "monet_palette": monet,
                     "overlays": [
@@ -1502,3 +1600,4 @@ def build_oneui9_bundle_zip(spec: Dict[str, Any], custom_overrides: Optional[Dic
         )
 
     return buf.getvalue()
+

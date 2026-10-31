@@ -18,8 +18,9 @@ import kotlin.system.exitProcess
  * Privileged One UI 9.0 System RRO user service.
  *
  * Operates under UID 0 (root / SU) or UID 1000 (`android.uid.system`) to fabricate and commit
- * overlays directly on top of Samsung's System RRO stack (`com.samsung.High_contrast_theme_II.*`)
- * without requiring Samsung Theme Park (`com.samsung.android.themepark`).
+ * from-scratch overlays (`com.hexnext.oneui9.rro.*` and `HexNextSettingsIcons26`) at highest
+ * priority above Samsung's modern `SemWT_*` overlays without using High Contrast Theme overlays
+ * or Samsung Theme Park (`com.samsung.android.themepark`).
  */
 @Keep
 class ThemeService() : IThemeService.Stub() {
