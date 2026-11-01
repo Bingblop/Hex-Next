@@ -24,7 +24,15 @@ if command -v unzip >/dev/null 2>&1 && ! unzip -l "$FILE" 2>/dev/null | grep -q 
   echo "$FILE has no pack.json; not a Hex Next pack"; exit 2
 fi
 NAME=$(basename "$FILE")
-su -c "mkdir -p $DEST && cp '$FILE' /data/local/tmp/$NAME && mv /data/local/tmp/$NAME $DEST/$NAME && \
-  uid=\$(stat -c %u /data/data/$PKG) && chown \$uid:\$uid $DEST/$NAME && chmod 600 $DEST/$NAME && \
-  restorecon -R $DEST && ls -l $DEST"
+# The name and path are interpolated into a root shell: allow only plain file-name characters,
+# and refuse a source path with a single quote (it would end the quoted expansion).
+case "$NAME" in
+  *[!A-Za-z0-9._-]*|'') echo "pack file name '$NAME' may only contain letters, digits, '.', '_' and '-'; rename it"; exit 1 ;;
+esac
+case "$FILE" in
+  *"'"*) echo "the path '$FILE' contains a quote; move the file to a plain path first"; exit 1 ;;
+esac
+su -c "mkdir -p '$DEST' && cp '$FILE' '/data/local/tmp/$NAME' && mv '/data/local/tmp/$NAME' '$DEST/$NAME' && \
+  uid=\$(stat -c %u '/data/data/$PKG') && chown \"\$uid:\$uid\" '$DEST/$NAME' && chmod 600 '$DEST/$NAME' && \
+  restorecon -R '$DEST' && ls -l '$DEST'"
 echo "Done. Open Hex Next: the pack is listed under Theme pack; pick it and tap Apply theme."
