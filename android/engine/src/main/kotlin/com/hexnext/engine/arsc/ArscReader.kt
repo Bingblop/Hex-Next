@@ -1,6 +1,9 @@
 package com.hexnext.engine.arsc
 
 import java.io.File
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 
 /**
  * Parser for binary Android resource tables (`resources.arsc`).
@@ -16,6 +19,11 @@ import java.io.File
  * * library (0x0203) and staged-alias (0x0206) chunks and any unknown chunk are skipped.
  *
  * All reads are bounds-checked; malformed input throws [ArscFormatException].
+ *
+ * [ArscReadOptions] selects a lean read: type chunks of unwanted types are skipped by their chunk
+ * size without decoding their configuration, keys or values, and "names only" types keep one
+ * placeholder value per distinct density instead of every configured value. The overloads
+ * without options read everything, as before.
  */
 public object ArscReader {
     private const val RES_TABLE_TYPE = 0x0002
@@ -49,15 +57,47 @@ public object ArscReader {
     private const val TYPE_INT_COLOR_RGB4 = 0x1f
 
     /** Reads the first package of the table in [file]. */
-    public fun read(file: File): ResourceTable = read(file.readBytes())
+    public fun read(file: File): ResourceTable = read(file, ArscReadOptions.FULL)
+
+    /**
+     * Reads the first package of the table in [file] with [options]. The file is memory-mapped,
+     * so its bytes are never copied onto the heap; the mapping is released once the returned
+     * table no longer references it (it never does).
+     */
+    public fun read(file: File, options: ArscReadOptions): ResourceTable =
+        first(readAll(file, options))
+
+    /** Reads every package of the table in [file] with [options], memory-mapping the file. */
+    public fun readAll(file: File, options: ArscReadOptions = ArscReadOptions.FULL): List<ResourceTable> =
+        readAll(map(file), options)
 
     /** Reads the first package of the table in [bytes]. */
-    public fun read(bytes: ByteArray): ResourceTable =
-        readAll(bytes).firstOrNull() ?: throw ArscFormatException("resource table has no package")
+    public fun read(bytes: ByteArray): ResourceTable = read(bytes, ArscReadOptions.FULL)
+
+    /** Reads the first package of the table in [bytes] with [options]. */
+    public fun read(bytes: ByteArray, options: ArscReadOptions): ResourceTable = first(readAll(bytes, options))
 
     /** Reads every package of the table in [bytes]. */
-    public fun readAll(bytes: ByteArray): List<ResourceTable> {
-        val data = LeBytes(bytes)
+    public fun readAll(bytes: ByteArray): List<ResourceTable> = readAll(bytes, ArscReadOptions.FULL)
+
+    /** Reads every package of the table in [bytes] with [options]. */
+    public fun readAll(bytes: ByteArray, options: ArscReadOptions): List<ResourceTable> = readAll(LeBytes(bytes), options)
+
+    /** Reads every package of the table in [buffer] (from index 0 to its limit) with [options]. */
+    public fun readAll(buffer: ByteBuffer, options: ArscReadOptions = ArscReadOptions.FULL): List<ResourceTable> =
+        readAll(LeBytes.of(buffer), options)
+
+    private fun first(tables: List<ResourceTable>): ResourceTable =
+        tables.firstOrNull() ?: throw ArscFormatException("resource table has no package")
+
+    private fun map(file: File): ByteBuffer =
+        RandomAccessFile(file, "r").use { raf ->
+            val length = raf.length()
+            if (length > Int.MAX_VALUE) throw ArscFormatException("resource table too large: $length bytes")
+            raf.channel.map(FileChannel.MapMode.READ_ONLY, 0, length)
+        }
+
+    private fun readAll(data: LeBytes, options: ArscReadOptions): List<ResourceTable> {
         if (data.size < 12) throw ArscFormatException("file too small for a resource table")
         if (data.u16(0) != RES_TABLE_TYPE) throw ArscFormatException("not a resource table (type 0x%04x)".format(data.u16(0)))
         val headerSize = data.u16(2)
@@ -70,7 +110,7 @@ public object ArscReader {
                 ResStringPool.TYPE -> if (globalPool == null) globalPool = ResStringPool.parse(data, start)
                 RES_TABLE_PACKAGE_TYPE -> {
                     val pool = globalPool ?: throw ArscFormatException("package chunk before global string pool")
-                    packages += readPackage(data, start, pool)
+                    packages += readPackage(data, start, pool, options)
                 }
             }
         }
@@ -96,7 +136,7 @@ public object ArscReader {
         val names = HashMap<Int, String>()
     }
 
-    private fun readPackage(data: LeBytes, start: Int, globalPool: ResStringPool): ResourceTable {
+    private fun readPackage(data: LeBytes, start: Int, globalPool: ResStringPool, options: ArscReadOptions): ResourceTable {
         val headerSize = data.u16(start + 2)
         val size = data.i32(start + 4)
         val end = start + size
@@ -112,8 +152,8 @@ public object ArscReader {
         val overlayable = mutableListOf<OverlayableGroup>()
         forEachChunk(data, start + headerSize, end) { type, chunk, chunkSize ->
             when (type) {
-                RES_TABLE_TYPE_TYPE -> readType(data, chunk, keyStrings, globalPool, typeStrings, typeIdOffset, types)
-                RES_TABLE_OVERLAYABLE_TYPE -> overlayable += readOverlayable(data, chunk, chunkSize)
+                RES_TABLE_TYPE_TYPE -> readType(data, chunk, keyStrings, globalPool, typeStrings, typeIdOffset, types, options)
+                RES_TABLE_OVERLAYABLE_TYPE -> if (options.overlayable) overlayable += readOverlayable(data, chunk, chunkSize)
                 RES_TABLE_TYPE_SPEC_TYPE -> Unit // flags only; entry names come from type chunks
                 else -> Unit // string pools (already parsed), library, staged alias, unknown
             }
@@ -138,17 +178,25 @@ public object ArscReader {
         typeStrings: ResStringPool,
         typeIdOffset: Int,
         types: MutableMap<Int, TypeAccumulator>,
+        options: ArscReadOptions,
     ) {
         val headerSize = data.u16(start + 2)
         val size = data.i32(start + 4)
         val typeId = data.u8(start + 8)
         val flags = data.u8(start + 9)
+        val typeName = typeStrings.getOrNull(typeId - 1 - typeIdOffset) ?: ""
+        // Unwanted types: the caller advances by the chunk size; nothing is decoded or allocated.
+        if (!options.keeps(typeName)) return
+        val namesOnly = options.isNamesOnly(typeName)
         val entryCount = data.i32(start + 12)
         val entriesStart = data.i32(start + 16)
         val configSize = data.i32(start + 20)
         val configBytes = data.slice(start + 20, minOf(configSize, headerSize - 20).coerceAtLeast(0))
         val config = ResConfig.decode(configBytes)
-        val typeName = typeStrings.getOrNull(typeId - 1 - typeIdOffset) ?: ""
+        val qualifiers = config.qualifiers
+        val density = config.densityQualifier
+        // One shared, immutable value per chunk for names-only entries.
+        val placeholder = if (namesOnly) ConfiguredValue(qualifiers, ResourceValue.NOT_READ, config) else null
         val acc = types.getOrPut(typeId) { TypeAccumulator() }
         val offsetsStart = start + headerSize
         val base = start + entriesStart
@@ -158,9 +206,19 @@ public object ArscReader {
         fun visit(index: Int, entryOffset: Int) {
             val at = base + entryOffset
             if (at < base || at + 8 > chunkEnd) throw ArscFormatException("entry $index outside type chunk")
+            if (placeholder != null) {
+                // Key only; the value (a file path string for drawables) is never decoded.
+                val keyIndex = if (data.u16(at + 2) and ENTRY_FLAG_COMPACT != 0) data.u16(at) else data.i32(at + 4)
+                acc.names.getOrPut(index) { keys[keyIndex] }
+                val values = acc.values.getOrPut(index) { ArrayList(1) }
+                if (values.none { it.resConfig.densityQualifier == density }) {
+                    values += placeholder
+                }
+                return
+            }
             val (keyIndex, value) = readEntry(data, at, chunkEnd, globalPool, typeName)
             acc.names.getOrPut(index) { keys[keyIndex] }
-            acc.values.getOrPut(index) { mutableListOf() } += ConfiguredValue(config.qualifiers, value, config)
+            acc.values.getOrPut(index) { mutableListOf() } += ConfiguredValue(qualifiers, value, config)
         }
 
         when {
@@ -240,5 +298,44 @@ public object ArscReader {
             }
         }
         return groups
+    }
+}
+
+/**
+ * What [ArscReader] keeps.
+ *
+ * @property types resource types to read (`color`, `drawable` …); null reads every type. Type
+ *   chunks of other types are skipped by their chunk size.
+ * @property namesOnly types (among [types]) whose values are not decoded: each entry keeps its
+ *   type, name and id plus one [ConfiguredValue] per distinct density (the first configuration
+ *   seen with that density) holding [ResourceValue.NOT_READ]. That is what [com.hexnext.engine.map.ResourceMapper]
+ *   needs for drawables (the densities to render for).
+ * @property overlayable whether `<overlayable>` declarations are read.
+ */
+public data class ArscReadOptions(
+    val types: Set<String>? = null,
+    val namesOnly: Set<String> = emptySet(),
+    val overlayable: Boolean = true,
+) {
+    /** True when type chunks of [type] are read. */
+    public fun keeps(type: String): Boolean = types == null || type in types
+
+    /** True when [type] is read without values. */
+    public fun isNamesOnly(type: String): Boolean = type in namesOnly
+
+    public companion object {
+        /** Everything: every type, every configured value, overlayable declarations. */
+        public val FULL: ArscReadOptions = ArscReadOptions()
+
+        /**
+         * What theme compilation consumes from a target table: colours with all their values (the
+         * compiler looks colours up by name; values are kept so diagnostics stay exact), drawable
+         * and mipmap names, ids and densities. No strings, styles, layouts, dimens or overlayable.
+         */
+        public val THEME: ArscReadOptions = ArscReadOptions(
+            types = setOf("color", "drawable", "mipmap"),
+            namesOnly = setOf("drawable", "mipmap"),
+            overlayable = false,
+        )
     }
 }

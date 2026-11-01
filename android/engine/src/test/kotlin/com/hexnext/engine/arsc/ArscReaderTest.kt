@@ -156,4 +156,79 @@ class ArscReaderTest {
         val corrupt = good.copyOf().also { it[4] = 0x7f; it[5] = 0x7f } // table size beyond file
         assertFailsWith<ArscFormatException> { ArscReader.read(corrupt) }
     }
+
+    private val deluxeBytes: ByteArray by lazy { javaClass.getResourceAsStream("/deluxe_resources.arsc")!!.readBytes() }
+
+    @Test
+    fun `theme read keeps exactly the colour entries of the full read`() {
+        val lean = ArscReader.read(deluxeBytes, ArscReadOptions.THEME)
+        assertEquals(deluxe.packageName, lean.packageName)
+        assertEquals(deluxe.packageId, lean.packageId)
+        val fullColors = deluxe.entries.filter { it.type == "color" }
+        assertTrue(fullColors.isNotEmpty())
+        assertEquals(fullColors, lean.entries.filter { it.type == "color" })
+        assertTrue(lean.entries.all { it.type in setOf("color", "drawable", "mipmap") })
+        assertNull(lean.find("string/plugin_name"))
+        assertNull(lean.find("style/IconTheme.Default"))
+        assertNull(lean.find("bool/has_lvl"))
+        assertTrue(lean.overlayable.isEmpty())
+    }
+
+    @Test
+    fun `theme read keeps drawable names ids and densities but no values`() {
+        val lean = ArscReader.read(deluxeBytes, ArscReadOptions.THEME)
+        for (type in listOf("drawable", "mipmap")) {
+            val full = deluxe.entries.filter { it.type == type }
+            val slim = lean.entries.filter { it.type == type }
+            assertTrue(full.isNotEmpty())
+            assertEquals(full.map { Triple(it.type, it.name, it.id) }, slim.map { Triple(it.type, it.name, it.id) })
+            for ((f, l) in full.zip(slim)) {
+                assertEquals(f.values.map { it.resConfig.densityQualifier }.distinct(), l.values.map { it.resConfig.densityQualifier })
+                assertTrue(l.values.all { it.value == ResourceValue.NOT_READ })
+            }
+        }
+        assertEquals("xxhdpi", lean.find("mipmap/qlogo")!!.values.single().config)
+    }
+
+    @Test
+    fun `skipped types are never decoded`() {
+        // A string value pointing outside the global pool: decoding it throws, skipping it does not.
+        val b = ArscTestBuilder("com.android.settings")
+        b.typeNames += listOf("color", "string", "drawable")
+        val accent = b.key("accent")
+        val label = b.key("label")
+        val icon = b.key("icon")
+        b.typeSpec(1, 1)
+        b.type(1, 1, b.config(), mapOf(0 to Entry.Simple(accent, 0x1c, 0xFF112233.toInt())))
+        b.typeSpec(2, 1)
+        b.type(2, 1, b.config(), mapOf(0 to Entry.Simple(label, 0x03, 9999)))
+        b.typeSpec(3, 1)
+        b.type(3, 1, b.config(density = 480), mapOf(0 to Entry.Simple(icon, 0x03, 9999)))
+        b.type(3, 1, b.config(density = 480, uiMode = 0x20), mapOf(0 to Entry.Simple(icon, 0x03, 9999)))
+        b.type(3, 1, b.config(density = 640), mapOf(0 to Entry.Simple(icon, 0x03, 9999)))
+        val bytes = b.build()
+        assertFailsWith<ArscFormatException> { ArscReader.read(bytes) }
+
+        val lean = ArscReader.read(bytes, ArscReadOptions.THEME)
+        assertEquals(listOf("color/accent", "drawable/icon"), lean.entries.map { it.key })
+        assertEquals(ResourceValue.Color(0xFF112233.toInt()), lean.find("color/accent")!!.values.single().value)
+        assertEquals(0x7f030000, lean.find("drawable/icon")!!.id)
+        assertEquals(listOf("xxhdpi", "xxxhdpi"), lean.find("drawable/icon")!!.values.map { it.config })
+
+        val colorsOnly = ArscReader.read(bytes, ArscReadOptions(types = setOf("color")))
+        assertEquals(listOf("color/accent"), colorsOnly.entries.map { it.key })
+    }
+
+    @Test
+    fun `file reads are memory-mapped and equal byte reads`() {
+        val file = kotlin.io.path.createTempFile("deluxe", ".arsc").toFile()
+        try {
+            file.writeBytes(deluxeBytes)
+            assertEquals(deluxe, ArscReader.read(file))
+            assertEquals(ArscReader.read(deluxeBytes, ArscReadOptions.THEME), ArscReader.read(file, ArscReadOptions.THEME))
+            assertEquals(listOf(deluxe), ArscReader.readAll(file))
+        } finally {
+            file.delete()
+        }
+    }
 }

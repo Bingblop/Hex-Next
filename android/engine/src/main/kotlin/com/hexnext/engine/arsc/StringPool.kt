@@ -4,38 +4,49 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** Little-endian bounds-checked view over a byte array; every failure is an [ArscFormatException]. */
-internal class LeBytes(val bytes: ByteArray) {
-    val size: Int get() = bytes.size
+/**
+ * Little-endian bounds-checked view over a byte array or a (possibly memory-mapped) [ByteBuffer];
+ * every failure is an [ArscFormatException]. Reads use absolute positions, so the buffer's own
+ * position and limit are never changed.
+ */
+internal class LeBytes private constructor(private val buf: ByteBuffer) {
+    constructor(bytes: ByteArray) : this(ByteBuffer.wrap(bytes))
+
+    val size: Int = buf.limit()
 
     fun check(offset: Int, length: Int, what: String) {
-        if (offset < 0 || length < 0 || offset.toLong() + length > bytes.size) {
-            throw ArscFormatException("$what out of bounds (offset=$offset length=$length size=${bytes.size})")
+        if (offset < 0 || length < 0 || offset.toLong() + length > size) {
+            throw ArscFormatException("$what out of bounds (offset=$offset length=$length size=$size)")
         }
     }
 
     fun u8(offset: Int): Int {
         check(offset, 1, "u8")
-        return bytes[offset].toInt() and 0xFF
+        return buf.get(offset).toInt() and 0xFF
     }
 
     fun u16(offset: Int): Int {
         check(offset, 2, "u16")
-        return (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
+        return (buf.get(offset).toInt() and 0xFF) or ((buf.get(offset + 1).toInt() and 0xFF) shl 8)
     }
 
     fun i32(offset: Int): Int {
         check(offset, 4, "u32")
-        return (bytes[offset].toInt() and 0xFF) or
-            ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
-            ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
-            ((bytes[offset + 3].toInt() and 0xFF) shl 24)
+        return (buf.get(offset).toInt() and 0xFF) or
+            ((buf.get(offset + 1).toInt() and 0xFF) shl 8) or
+            ((buf.get(offset + 2).toInt() and 0xFF) shl 16) or
+            ((buf.get(offset + 3).toInt() and 0xFF) shl 24)
     }
 
     fun slice(offset: Int, length: Int): ByteArray {
         check(offset, length, "slice")
-        return bytes.copyOfRange(offset, offset + length)
+        val out = ByteArray(length)
+        for (i in 0 until length) out[i] = buf.get(offset + i)
+        return out
     }
+
+    /** Decodes [length] bytes at [offset] as UTF-8. */
+    fun utf8(offset: Int, length: Int): String = String(slice(offset, length), Charsets.UTF_8)
 
     /** Reads a NUL-terminated UTF-16 string of at most [maxChars] code units. */
     fun utf16Fixed(offset: Int, maxChars: Int): String {
@@ -46,6 +57,11 @@ internal class LeBytes(val bytes: ByteArray) {
             sb.append(c.toChar())
         }
         return sb.toString()
+    }
+
+    companion object {
+        /** A view over [buffer] from index 0 to its limit (its byte order is ignored). */
+        fun of(buffer: ByteBuffer): LeBytes = LeBytes(buffer.duplicate().also { it.position(0) })
     }
 }
 
@@ -80,7 +96,7 @@ internal class ResStringPool private constructor(
             val (_, n1) = utf8Len(p); p += n1 // UTF-16 length, unused
             val (byteLen, n2) = utf8Len(p); p += n2
             if (p + byteLen > chunkEnd) throw ArscFormatException("UTF-8 string overruns pool")
-            String(data.bytes, p, byteLen, Charsets.UTF_8)
+            data.utf8(p, byteLen)
         } else {
             var p = at
             var len = data.u16(p); p += 2

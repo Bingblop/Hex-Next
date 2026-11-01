@@ -108,6 +108,11 @@ public sealed class ResourceValue {
 
     /** Any other `Res_value` (floats, fractions, null …) left undecoded. */
     public data class Other(val dataType: Int, val data: Int) : ResourceValue()
+
+    public companion object {
+        /** Placeholder of a value [ArscReader] did not decode ([ArscReadOptions.namesOnly]). */
+        public val NOT_READ: ResourceValue = Other(-1, 0)
+    }
 }
 
 /**
