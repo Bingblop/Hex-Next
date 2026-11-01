@@ -11,7 +11,9 @@ RUN_ID="${RUN_ID:-41343388106}"
 APK_URL="${APK_URL:-https://nightly.link/Bingblop/Hex-Next/actions/runs/$RUN_ID/HexNext-Debug-Test-Installable.zip}"
 APK_ZIP_SHA256="${APK_ZIP_SHA256:-0005fdcfef255dfa41170744df44ef931a72517b6dd29c4e664bb5805162fb9a}"
 PKG=com.hexnext.themer
-WORK="${TMPDIR:-$PWD}/hexnext-apk"
+# Download into the home directory: Termux's $TMPDIR can be small or unwritable
+# (curl error 23 "client returned ERROR on write" means exactly that).
+WORK="${HOME:-$PWD}/hexnext-apk"
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
@@ -20,10 +22,12 @@ sha256_file() {
   else echo "no-sha256-tool"; fi
 }
 
-mkdir -p "$WORK"
-echo "Downloading run $RUN_ID ..."
-if ! curl -fsSL -o "$WORK/hexnext-debug.zip" "$APK_URL"; then
-  echo "download failed: $APK_URL"; exit 1
+rm -rf "$WORK"; mkdir -p "$WORK" || { echo "cannot create $WORK"; exit 1; }
+echo "Downloading run $RUN_ID to $WORK ..."
+if ! curl -fL --retry 3 -o "$WORK/hexnext-debug.zip" "$APK_URL"; then
+  echo "download failed: $APK_URL"
+  echo "free space:"; df -h "$WORK" 2>/dev/null || df "$WORK"
+  exit 1
 fi
 got=$(sha256_file "$WORK/hexnext-debug.zip")
 echo "zip sha256: $got"
