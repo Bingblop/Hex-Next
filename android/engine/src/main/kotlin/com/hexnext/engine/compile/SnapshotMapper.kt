@@ -16,8 +16,10 @@ import com.hexnext.engine.frro.FrroEntry
  * [TargetSnapshot] by [SnapshotMapper].
  *
  * @property installed true when `pm list packages` lists the package for the current user.
- * @property debloated true when the package is on the system image but removed for the user
- *   (`pm list packages -u` only).
+ * @property debloated true when the device scan found traces of a package that is not installed
+ *   for the current user: listed by `pm list packages -u` only, or an APK still on `/system` or
+ *   `/product`. [SnapshotMapper.isDebloated] also treats a SemWT `STATE_MISSING_TARGET` as
+ *   debloated.
  * @property semwtState `mState` of `android:SemWT_<pkg>` when it was recorded without a dump.
  * @property dump the parsed `cmd overlay dump android:SemWT_<pkg>`, null when there is none.
  * @property table the target's `resources.arsc`, null when it could not be extracted or parsed.
@@ -58,8 +60,9 @@ public enum class TargetAvailability {
  * values). Samsung's overlay is rebuilt from the dump's colour mappings (`0x1c` entries, the
  * second value as `night`), or taken from the copied `.frro` when the dump has none.
  *
- * Debloated targets keep `installed = true` with `debloated = true` so that the compiler skips
- * them with [ThemeCompiler.REASON_DEBLOATED] and the UI can show them greyed out.
+ * A debloated target becomes `installed = false, debloated = true` (see [TargetSnapshot]): it
+ * cannot be themed for the user, the compiler skips it with [ThemeCompiler.REASON_DEBLOATED]
+ * rather than "not installed", and the UI shows it greyed out as debloated.
  */
 public object SnapshotMapper {
     /** `Res_value::TYPE_INT_COLOR_ARGB8`. */
@@ -83,7 +86,7 @@ public object SnapshotMapper {
         val arsc = scan.table?.takeIf { it.packageName == scan.packageName }
         return TargetSnapshot(
             packageName = scan.packageName,
-            installed = scan.installed || debloated,
+            installed = scan.installed && !debloated,
             debloated = debloated,
             table = merge(arsc, dumpTable),
             semwt = semwt,

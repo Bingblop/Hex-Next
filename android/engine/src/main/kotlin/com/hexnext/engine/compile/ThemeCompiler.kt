@@ -192,8 +192,8 @@ public object ThemeCompiler {
                 pkg in rules.deprecated -> REASON_DEPRECATED
                 !spec.isTargetEnabled(pkg) -> REASON_DISABLED
                 snapshot == null -> REASON_NOT_SCANNED
-                !snapshot.installed -> REASON_NOT_INSTALLED
                 snapshot.debloated -> REASON_DEBLOATED
+                !snapshot.installed -> REASON_NOT_INSTALLED
                 snapshot.table == null -> REASON_NO_TABLE
                 else -> null
             }

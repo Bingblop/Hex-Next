@@ -3,6 +3,13 @@ package com.hexnext.engine.compile
 import com.hexnext.engine.compile.Fixtures.ref
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayDump
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -97,7 +104,7 @@ class SnapshotMapperTest {
         )
         val snapshot = SnapshotMapper.snapshot(Fixtures.profile9, scans, Fixtures.reference)
         val notes = snapshot.targets.getValue("com.samsung.android.app.notes")
-        assertTrue(notes.installed && notes.debloated)
+        assertTrue(!notes.installed && notes.debloated)
         assertEquals(TargetAvailability.DEBLOATED, SnapshotMapper.availability(notes))
         assertEquals(TargetAvailability.DEBLOATED, SnapshotMapper.availability(snapshot.targets.getValue("com.samsung.android.calendar")))
         assertEquals(TargetAvailability.NOT_INSTALLED, SnapshotMapper.availability(snapshot.targets.getValue("com.sec.android.app.clockpackage")))
@@ -148,5 +155,50 @@ class SnapshotMapperTest {
         assertEquals(frro, snapshot.semwt)
         val entry = assertNotNull(snapshot.table?.find("color/accent_text"))
         assertEquals(listOf("", "night"), entry.values.map { it.config })
+    }
+
+    @Test
+    fun `real SM-S948U1 scan marks removed apps with a missing-target SemWT as debloated`() {
+        val report = Json.parseToJsonElement(
+            checkNotNull(javaClass.getResourceAsStream("/app_scan_report_sm_s948u1_trimmed.json")) { "fixture missing" }
+                .use { it.readBytes().toString(Charsets.UTF_8) },
+        ).jsonObject
+        fun JsonObject.str(key: String) = this[key]?.jsonPrimitive?.contentOrNull
+        val semwtState = report.getValue("semWt").jsonArray.map { it.jsonObject }
+            .associate { it.str("target").orEmpty() to it.str("state") }
+        val scans = report.getValue("packages").jsonArray.map { it.jsonObject }.map { p ->
+            val pkg = p.str("pkg").orEmpty()
+            TargetScan(
+                packageName = pkg,
+                installed = p.getValue("installed").jsonPrimitive.boolean,
+                debloated = p.getValue("debloated").jsonPrimitive.boolean,
+                semwtState = p.str("semwtState") ?: semwtState[pkg],
+            )
+        }
+        val snapshot = SnapshotMapper.snapshot(Fixtures.profile9, scans, Fixtures.reference)
+        val removed = listOf(
+            "com.sec.android.app.clockpackage",
+            "com.sec.android.app.popupcalculator",
+            "com.samsung.android.calendar",
+            "com.samsung.android.messaging",
+        )
+        for (pkg in removed) {
+            val t = snapshot.targets.getValue(pkg)
+            assertFalse(t.installed, pkg)
+            assertTrue(t.debloated, pkg)
+            assertEquals(TargetAvailability.DEBLOATED, SnapshotMapper.availability(t), pkg)
+        }
+        // Notes left no trace in this report (its SemWT dump failed and nothing else listed it):
+        // the scanner's pm -u / system APK checks decide; the mapper alone sees "not installed".
+        assertEquals(TargetAvailability.NOT_INSTALLED, SnapshotMapper.availability(snapshot.targets.getValue("com.samsung.android.app.notes")))
+        assertTrue(snapshot.targets.getValue("com.android.settings").installed)
+        assertFalse(snapshot.targets.getValue("com.android.settings").debloated)
+
+        val compiled = ThemeCompiler.compile(ThemeSpec.default(), snapshot, InMemoryPackResolver(emptyList()), clock = { 1L })
+        val outcomes = ApplyReport.skippedOutcomes(compiled).associateBy { it.target }
+        // Messaging is deprecated on One UI 9, which wins over debloated.
+        for (pkg in removed - "com.samsung.android.messaging") {
+            assertEquals(TargetResult.SKIPPED_DEBLOATED, outcomes.getValue(pkg).result, pkg)
+        }
     }
 }

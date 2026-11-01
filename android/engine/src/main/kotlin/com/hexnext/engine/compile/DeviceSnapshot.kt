@@ -7,8 +7,12 @@ import com.hexnext.engine.frro.FabricatedOverlayFile
 /**
  * What the device scan found for one target package.
  *
- * @property installed false when the package is absent.
- * @property debloated true when the package is installed but disabled or removed for the user.
+ * @property installed true only when the package is installed for the current user and can be
+ *   themed.
+ * @property debloated true when the package is not installed for the current user but the
+ *   system still has traces of it (uninstalled for the user, APK left on the system image, or
+ *   Samsung's SemWT overlay reporting `STATE_MISSING_TARGET`). A debloated target always has
+ *   `installed = false`; the pair `installed = false, debloated = false` means absent.
  * @property table the target's parsed `resources.arsc`, null when it could not be read.
  * @property semwt Samsung's `SemWT_<pkg>` fabricated overlay, null when there is none.
  * @property versionCode installed version code, null when unknown.

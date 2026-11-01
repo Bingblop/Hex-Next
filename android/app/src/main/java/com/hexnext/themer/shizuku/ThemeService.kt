@@ -60,7 +60,38 @@ class ThemeService() : IThemeService.Stub() {
         return if (Process.myUid() == 1000) SYSTEM_OWNER else SHELL_OWNER
     }
 
-    override fun exec(command: String): Bundle = try {
+    /**
+     * Binder entry point for [shell]. Output longer than [EXEC_INLINE_LIMIT] characters (a full
+     * `cmd overlay dump` can exceed the binder buffer, "Transaction failed on small parcel") is
+     * written to a world-readable file under the state directory instead: the Bundle then carries
+     * its path in [KEY_OUTPUT_PATH], the length in [KEY_OUTPUT_LENGTH] and only the head of the
+     * text in [KEY_OUTPUT]. Read it back with `openFile` (see `ExecOutput.fullText`).
+     */
+    override fun exec(command: String): Bundle = spillLargeOutput(shell(command))
+
+    private fun spillLargeOutput(bundle: Bundle): Bundle {
+        val output = bundle.getString(KEY_OUTPUT).orEmpty()
+        if (output.length <= EXEC_INLINE_LIMIT) return bundle
+        return try {
+            val file = File(MonitorScript.DIR, "exec/out-${System.currentTimeMillis()}-${Process.myPid()}-${spillCounter++}.txt")
+            writeRootFile(file, output)
+            bundle.apply {
+                putString(KEY_OUTPUT_PATH, file.path)
+                putInt(KEY_OUTPUT_LENGTH, output.length)
+                putString(KEY_OUTPUT, output.take(EXEC_HEAD_CHARS) + "\n… (${output.length} characters; full output in ${file.path})")
+            }
+        } catch (t: Throwable) {
+            bundle.apply {
+                putInt(KEY_OUTPUT_LENGTH, output.length)
+                putString(KEY_OUTPUT, output.take(EXEC_INLINE_LIMIT) + "\n… (truncated from ${output.length} characters: ${describe(t)})")
+            }
+        }
+    }
+
+    @Volatile private var spillCounter = 0
+
+    /** Runs [command] as the service uid (or through `su`) and returns the whole output. */
+    private fun shell(command: String): Bundle = try {
         val cmdArray = if (Process.myUid() == 0 || Process.myUid() == 1000) {
             arrayOf("sh", "-c", command)
         } else {
@@ -106,7 +137,7 @@ class ThemeService() : IThemeService.Stub() {
                 val args = resourceNames.indices.joinToString(" ") { i ->
                     "${resourceNames[i]} 0x1c 0x${Integer.toUnsignedString(colors[i], 16)}"
                 }
-                val fab = exec("cmd overlay fabricate --target $targetPackage --name $name $args")
+                val fab = shell("cmd overlay fabricate --target $targetPackage --name $name $args")
                 if (fab.getInt(KEY_CODE) != 0) return fab
             }
 
@@ -126,7 +157,7 @@ class ThemeService() : IThemeService.Stub() {
         return try {
             val owner = activeOwnerPackage()
             val id = "$owner:$name"
-            exec("cmd overlay disable --user current $id")
+            shell("cmd overlay disable --user current $id")
             if (isPrivilegedUid()) {
                 val unregister = OverlayManagerTransaction.newInstance()
                 unregister.unregisterFabricatedOverlay(newOverlay(name, "android", owner).identifier)
@@ -157,7 +188,7 @@ class ThemeService() : IThemeService.Stub() {
                 val seqLabel = "[SEQ ${index + 1}/$total]"
 
                 // Step 1: Disable stale overlay & purge idmap2/frro cache files under UID 0 / Shizuku
-                exec(
+                shell(
                     "cmd overlay disable --user current $id 2>/dev/null; " +
                         "rm -f /data/resource-cache/*${name}*.idmap /data/resource-cache/*${name}*.frro"
                 )
@@ -168,7 +199,7 @@ class ThemeService() : IThemeService.Stub() {
                     tx.registerFabricatedOverlay(newOverlay(name, target, owner))
                     commit(tx)
                 } else {
-                    exec("cmd overlay fabricate --target $target --name $name")
+                    shell("cmd overlay fabricate --target $target --name $name")
                 }
 
                 // Step 3: Re-enable; the enable lands it above Samsung SemWT_* on One UI 9
@@ -193,7 +224,7 @@ class ThemeService() : IThemeService.Stub() {
             logs.appendLine("[*] [UID ${Process.myUid()}] Executing emergency rollback: cmd overlay disable-all --user current")
 
             // 1. Disable all overlays for the current user and purge any corrupted HexNext idmap2/frro files
-            val disableRes = exec(
+            val disableRes = shell(
                 "cmd overlay disable-all --user current 2>/dev/null; " +
                     "rm -f /data/resource-cache/*HexNext*.idmap /data/resource-cache/*HexNext*.frro " +
                     "/data/resource-cache/*hexnext*.idmap /data/resource-cache/*hexnext*.frro"
@@ -213,7 +244,7 @@ class ThemeService() : IThemeService.Stub() {
 
     override fun listOverlays(): Bundle {
         return try {
-            val list = exec("cmd overlay list --user current")
+            val list = shell("cmd overlay list --user current")
             val overlays = parseOverlayList(list.getString(KEY_OUTPUT).orEmpty())
             val json = JSONArray()
             overlays.forEach { o ->
@@ -225,7 +256,7 @@ class ThemeService() : IThemeService.Stub() {
                         .put("isSamsungWallpaperTheme", o.isSamsungWallpaperTheme)
                 )
             }
-            val find = exec("find $FRRO_SEARCH_DIRS -name '*.frro' 2>/dev/null")
+            val find = shell("find $FRRO_SEARCH_DIRS -name '*.frro' 2>/dev/null")
             val frroPaths = find.getString(KEY_OUTPUT).orEmpty().lineSequence()
                 .map { it.trim() }
                 .filter { it.startsWith("/") && it.endsWith(".frro") }
@@ -262,7 +293,7 @@ class ThemeService() : IThemeService.Stub() {
 
     /** Streams `su -c cat '<path>'` into the write end of a pipe and returns the read end. */
     private fun openThroughSu(path: String): ParcelFileDescriptor? {
-        if (exec("[ -f '$path' ] && [ -r '$path' ]").getInt(KEY_CODE) != 0) return null
+        if (shell("[ -f '$path' ] && [ -r '$path' ]").getInt(KEY_CODE) != 0) return null
         val pipe = ParcelFileDescriptor.createPipe()
         val process = try {
             ProcessBuilder("su", "-c", "cat '$path' 2>/dev/null").start()
@@ -302,23 +333,31 @@ class ThemeService() : IThemeService.Stub() {
                     )
                     return@forEach
                 }
-                val apk = exec("pm path $pkg").getString(KEY_OUTPUT).orEmpty().lineSequence()
+                val apk = shell("pm path $pkg").getString(KEY_OUTPUT).orEmpty().lineSequence()
                     .map { it.trim() }
                     .firstOrNull { it.startsWith("package:") }
                     ?.removePrefix("package:")
                     ?.trim()
                     ?.takeIf { it.isNotEmpty() }
+                val isInstalled = pkg in installed
+                // Debloated: not installed for the current user, but the system still knows it.
+                val reason = when {
+                    isInstalled -> null
+                    pkg in everything -> "pm list packages -u"
+                    else -> systemCodePath(pkg)?.let { "APK on system image: $it" }
+                }
                 json.put(
                     entry.put("apkPath", apk ?: JSONObject.NULL)
-                        .put("installed", pkg in installed)
-                        .put("debloated", pkg in everything && pkg !in installed)
+                        .put("installed", isInstalled)
+                        .put("debloated", reason != null)
+                        .put("debloatReason", reason ?: JSONObject.NULL)
                 )
             }
             result(0, "Checked ${json.length()} packages (${installed.size} installed for the current user)").apply {
                 putString(KEY_JSON, json.toString())
                 putInt(KEY_UID, Process.myUid())
                 DEVICE_PROPS.forEach { prop ->
-                    putString(prop, exec("getprop $prop").getString(KEY_OUTPUT).orEmpty().trim())
+                    putString(prop, shell("getprop $prop").getString(KEY_OUTPUT).orEmpty().trim())
                 }
             }
         } catch (t: Throwable) {
@@ -326,8 +365,20 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
+    /**
+     * The `/system`, `/product`, `/system_ext` or `/vendor` code path `dumpsys package` still
+     * reports for [pkg] (a package removed for every user keeps its preinstalled APK), or null.
+     */
+    private fun systemCodePath(pkg: String): String? =
+        shell("dumpsys package $pkg | grep -m 3 'codePath='").getString(KEY_OUTPUT).orEmpty()
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.startsWith("codePath=") }
+            .map { it.removePrefix("codePath=").trim() }
+            .firstOrNull { path -> SYSTEM_PARTITIONS.any { path.startsWith(it) } }
+
     private fun listPackages(command: String): Set<String> =
-        exec(command).getString(KEY_OUTPUT).orEmpty().lineSequence()
+        shell(command).getString(KEY_OUTPUT).orEmpty().lineSequence()
             .map { it.trim() }
             .filter { it.startsWith("package:") }
             .map { it.removePrefix("package:").trim() }
@@ -724,7 +775,7 @@ class ThemeService() : IThemeService.Stub() {
 
     private fun lookup(target: String, resource: String?): String {
         if (resource == null || !RESOURCE_NAME.matches(resource) || !PACKAGE_NAME.matches(target)) return ""
-        val r = exec("cmd overlay lookup --user current $target $resource")
+        val r = shell("cmd overlay lookup --user current $target $resource")
         return r.getString(KEY_OUTPUT).orEmpty()
     }
 
@@ -741,7 +792,7 @@ class ThemeService() : IThemeService.Stub() {
 
     override fun disableHexOverlays(): Bundle {
         return try {
-            val list = exec("cmd overlay list --user current")
+            val list = shell("cmd overlay list --user current")
             val hex = parseOverlayList(list.getString(KEY_OUTPUT).orEmpty())
                 .filter { it.name.startsWith(HEX_PREFIX) }
             val json = JSONArray()
@@ -753,7 +804,7 @@ class ThemeService() : IThemeService.Stub() {
                     json.put(entry.put("disabled", false).put("unregistered", false).put("message", "unexpected id format"))
                     return@forEach
                 }
-                val disable = exec("cmd overlay disable --user current ${o.overlayId}")
+                val disable = shell("cmd overlay disable --user current ${o.overlayId}")
                 val disabled = disable.getInt(KEY_CODE) == 0
                 var unregistered = false
                 var message = disable.getString(KEY_OUTPUT).orEmpty()
@@ -814,7 +865,7 @@ class ThemeService() : IThemeService.Stub() {
             val settle = if (previous.startsWith("Stopped")) "sleep 1; " else ""
             writeRootFile(File(MonitorScript.PATH), MonitorScript.text)
             val script = MonitorScript.PATH
-            val launch = exec(
+            val launch = shell(
                 settle + "chmod 755 $script; rm -f ${MonitorScript.SAFE_MODE_FILE}; " +
                     "if command -v setsid >/dev/null 2>&1; then " +
                     "nohup setsid sh $script $window >/dev/null 2>&1 & " +
@@ -823,7 +874,7 @@ class ThemeService() : IThemeService.Stub() {
             if (launch.getInt(KEY_CODE) != 0) {
                 return result(launch.getInt(KEY_CODE), "Could not start the monitor: ${launch.getString(KEY_OUTPUT)}")
             }
-            val pid = exec("sleep 1; cat ${MonitorScript.PID_FILE} 2>/dev/null").getString(KEY_OUTPUT).orEmpty().trim()
+            val pid = shell("sleep 1; cat ${MonitorScript.PID_FILE} 2>/dev/null").getString(KEY_OUTPUT).orEmpty().trim()
             val pidValue = pid.toIntOrNull()
             if (pidValue == null) {
                 result(1, "Monitor launched but ${MonitorScript.PID_FILE} is missing: $pid")
@@ -849,7 +900,7 @@ class ThemeService() : IThemeService.Stub() {
     /** Kills the monitor named by the pid file, but only if that pid is still running monitor.sh. */
     private fun stopMonitorProcess(): String {
         val pidFile = MonitorScript.PID_FILE
-        val r = exec(
+        val r = shell(
             "P=\$(cat $pidFile 2>/dev/null); " +
                 "if [ -n \"\$P\" ]; then " +
                 "case \"\$(tr '\\0' ' ' < /proc/\$P/cmdline 2>/dev/null)\" in " +
@@ -900,7 +951,7 @@ class ThemeService() : IThemeService.Stub() {
         if (isPrivilegedUid()) {
             return if (file.isFile) file.readText() else null
         }
-        val r = exec("[ -f '${file.path}' ] && cat '${file.path}'")
+        val r = shell("[ -f '${file.path}' ] && cat '${file.path}'")
         return if (r.getInt(KEY_CODE) == 0) r.getString(KEY_OUTPUT).orEmpty() else null
     }
 
@@ -923,11 +974,11 @@ class ThemeService() : IThemeService.Stub() {
      */
     private fun enableOnTop(id: String, name: String, target: String, owner: String): EnableResult {
         val log = StringBuilder()
-        val enable = exec("cmd overlay enable --user current $id")
+        val enable = shell("cmd overlay enable --user current $id")
         val code = enable.getInt(KEY_CODE)
         if (code != 0) return EnableResult(code, enable.getString(KEY_OUTPUT).orEmpty().ifEmpty { "exit $code" })
 
-        val priority = exec("cmd overlay set-priority --user current $id highest")
+        val priority = shell("cmd overlay set-priority --user current $id highest")
         val priorityCode = priority.getInt(KEY_CODE)
         log.append("set-priority highest (best-effort): exit $priorityCode")
         priority.getString(KEY_OUTPUT).orEmpty().trim().takeIf { it.isNotEmpty() }?.let { log.append(" ").append(it) }
@@ -936,8 +987,8 @@ class ThemeService() : IThemeService.Stub() {
         val need = raiseNeed(id, target)
         if (need == RaiseNeed.RAISE) {
             val how = raiseWithTransaction(name, target, owner) ?: run {
-                val off = exec("cmd overlay disable --user current $id")
-                val on = exec("cmd overlay enable --user current $id")
+                val off = shell("cmd overlay disable --user current $id")
+                val on = shell("cmd overlay enable --user current $id")
                 "shell disable/enable (exit ${off.getInt(KEY_CODE)}/${on.getInt(KEY_CODE)})"
             }
             log.appendLine("Another overlay of $target was above $id; re-raised via $how.")
@@ -950,7 +1001,7 @@ class ThemeService() : IThemeService.Stub() {
     }
 
     private fun raiseNeed(id: String, target: String): RaiseNeed {
-        val list = exec("cmd overlay list --user current")
+        val list = shell("cmd overlay list --user current")
         if (list.getInt(KEY_CODE) != 0) return RaiseNeed.NONE
         return SemWtPlanner.raiseNeed(OverlayList.parse(list.getString(KEY_OUTPUT).orEmpty()), target, id)
     }
@@ -982,7 +1033,7 @@ class ThemeService() : IThemeService.Stub() {
     }
 
     private fun currentUserId(): Int =
-        exec("am get-current-user").getString(KEY_OUTPUT).orEmpty().trim().toIntOrNull() ?: 0
+        shell("am get-current-user").getString(KEY_OUTPUT).orEmpty().trim().toIntOrNull() ?: 0
 
     private fun newOverlay(name: String, target: String, owner: String): FabricatedOverlay {
         val overlay = FabricatedOverlay(name, target)
@@ -1013,6 +1064,12 @@ class ThemeService() : IThemeService.Stub() {
     companion object {
         const val KEY_CODE = "code"
         const val KEY_OUTPUT = "output"
+        const val KEY_OUTPUT_PATH = "outputPath"
+        const val KEY_OUTPUT_LENGTH = "outputLength"
+
+        /** Characters of exec output returned inline; ~400 KB as UTF-16 in the parcel. */
+        const val EXEC_INLINE_LIMIT = 200_000
+        private const val EXEC_HEAD_CHARS = 4_000
         const val KEY_JSON = "json"
         const val KEY_FRRO_PATHS = "frroPaths"
         const val KEY_RESOURCE_COUNT = "resourceCount"
@@ -1024,6 +1081,9 @@ class ThemeService() : IThemeService.Stub() {
         const val SHELL_OWNER = "com.android.shell"
         const val SYSTEM_OWNER = "android"
         const val HEX_PREFIX = "HexNext"
+
+        /** Read-only partitions whose APKs survive a per-user uninstall. */
+        val SYSTEM_PARTITIONS = listOf("/system/", "/product/", "/system_ext/", "/vendor/")
 
         /** /data/overlays is where One UI keeps SemWT_* frros; AOSP keeps fabricated overlays in /data/resource-cache. */
         const val FRRO_SEARCH_DIRS = "/data/overlays /data/resource-cache"

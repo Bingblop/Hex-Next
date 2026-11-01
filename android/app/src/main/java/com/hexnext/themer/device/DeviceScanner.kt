@@ -8,6 +8,7 @@ import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayDump
 import com.hexnext.engine.frro.FrroReader
 import com.hexnext.themer.IThemeService
+import com.hexnext.themer.shizuku.ExecOutput
 import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.SnapshotBuilder
 import kotlinx.coroutines.Dispatchers
@@ -77,10 +78,13 @@ class DeviceScanner(context: Context) {
         val packages = basePackages.map { base ->
             val semWtCount = overlays.count { it.target == base.pkg && it.isSamsungWallpaperTheme }
             val dumped = semWtByTarget[base.pkg]?.takeIf { it.found }
+            val missingTarget = dumped?.state?.let { OneUi9Facts.isDebloated(it) } == true
             val status = base.copy(
                 semWtOverlays = semWtCount,
                 semwtPriority = dumped?.priority,
                 semwtState = dumped?.state,
+                // Not installed for the user but Samsung still ships its SemWT overlay: debloated.
+                debloated = base.debloated || (!base.installed && missingTarget),
             )
             if (!status.installed || status.apkPath == null) {
                 status
@@ -233,14 +237,26 @@ class DeviceScanner(context: Context) {
         dumpFile.delete()
         mappingFile.delete()
 
-        val dump: OverlayDump? = runCatching {
-            val r = service.exec("cmd overlay dump $overlayId")
-            val text = r.output()
-            dumpFile.writeText(text)
-            val parsed = OverlayDump.parseAll(text).firstOrNull { it.overlayId == overlayId }
-            if (r.code() != 0) problems.add("dump exit ${r.code()}")
-            parsed
-        }.onFailure { problems.add("dump: ${it.message}") }.getOrNull()
+        // A binder failure ("Transaction failed on small parcel …") is retried once after a short
+        // pause; the service spills long output to a file, read back by ExecOutput.
+        var dumpError: String? = null
+        var dump: OverlayDump? = null
+        for (attempt in 0 until DUMP_ATTEMPTS) {
+            if (attempt > 0) Thread.sleep(DUMP_RETRY_DELAY_MS)
+            val outcome = runCatching {
+                val r = service.exec("cmd overlay dump $overlayId")
+                val text = ExecOutput.fullText(service, r)
+                dumpFile.writeText(text)
+                r.code() to OverlayDump.parseAll(text).firstOrNull { it.overlayId == overlayId }
+            }
+            val value = outcome.getOrNull()
+            if (value != null) {
+                dumpError = if (value.first != 0) "dump exit ${value.first}" else null
+                dump = value.second
+                break
+            }
+            dumpError = "dump: ${outcome.exceptionOrNull()?.message}" + if (attempt > 0) " (after retry)" else ""
+        }
 
         var source = SemWtStatus.SOURCE_NONE
         var resourceCount = 0
@@ -264,6 +280,9 @@ class DeviceScanner(context: Context) {
                 }.onFailure { problems.add("frro ${copy.substringAfterLast('/')}: ${it.message}") }
             }
         }
+
+        // A dump failure only counts as an error when the .frro fallback did not cover it.
+        dumpError?.let { problems.add(0, if (source == SemWtStatus.SOURCE_FRRO) "$it; used the copied .frro" else it) }
 
         return SemWtStatus(
             target = target,
@@ -394,6 +413,8 @@ class DeviceScanner(context: Context) {
         private const val MAX_FRRO_BYTES = 16L * 1024 * 1024
         private const val HEADER_SCAN_BYTES = 64 * 1024
         private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*")
+        private const val DUMP_ATTEMPTS = 2
+        private const val DUMP_RETRY_DELAY_MS = 750L
 
         /** One UI targets the scan always checks. */
         val TARGETS = listOf(

@@ -8,6 +8,7 @@ import com.hexnext.engine.device.SemWtGuardScript
 import com.hexnext.engine.device.SemWtPlanner
 import com.hexnext.engine.device.SemWtState
 import com.hexnext.themer.IThemeService
+import com.hexnext.themer.shizuku.ExecOutput
 import com.hexnext.themer.shizuku.ThemeService
 
 /**
@@ -37,9 +38,9 @@ object SemWtController {
 
     /** `cmd overlay list --user current`, parsed; empty when the command failed. */
     fun listOverlays(service: IThemeService): List<OverlayListEntry> {
-        val bundle = service.exec("cmd overlay list --user current")
-        if (bundle.code() != 0) return emptyList()
-        return OverlayList.parse(bundle.output())
+        val (code, text) = ExecOutput.exec(service, "cmd overlay list --user current")
+        if (code != 0) return emptyList()
+        return OverlayList.parse(text)
     }
 
     /**

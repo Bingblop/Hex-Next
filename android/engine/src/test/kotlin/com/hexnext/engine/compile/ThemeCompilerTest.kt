@@ -56,7 +56,7 @@ class ThemeCompilerTest {
         mapOf(
             sysui to TargetSnapshot(sysui, installed = true, table = sysuiTable, semwt = sysuiSemwt, versionCode = 36),
             settings to TargetSnapshot(settings, installed = true, table = settingsTable, semwt = settingsSemwt),
-            "com.sec.android.gallery3d" to TargetSnapshot("com.sec.android.gallery3d", installed = true, debloated = true, table = settingsTable),
+            "com.sec.android.gallery3d" to TargetSnapshot("com.sec.android.gallery3d", installed = false, debloated = true, table = settingsTable),
             "com.samsung.android.calendar" to TargetSnapshot("com.samsung.android.calendar", installed = false),
             "com.samsung.android.lool" to TargetSnapshot("com.samsung.android.lool", installed = true, table = null),
             "com.samsung.android.messaging" to TargetSnapshot("com.samsung.android.messaging", installed = true, table = settingsTable),
