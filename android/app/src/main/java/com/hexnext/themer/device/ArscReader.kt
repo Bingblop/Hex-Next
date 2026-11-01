@@ -1,8 +1,10 @@
 package com.hexnext.themer.device
 
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.FileChannel
 
 /**
  * Minimal, self-contained `resources.arsc` reader that lists resource NAMES only.
@@ -18,6 +20,10 @@ import java.nio.ByteOrder
  * - Obfuscated (shortened) key names are reported as they are stored.
  * - Malformed chunks stop the walk of the current package; what was read so far is returned
  *   along with a warning.
+ *
+ * Pass `types` to keep only those resource types: type chunks of other types are skipped by
+ * their chunk size, so a framework table (5 MB, mostly translated strings) costs a few thousand
+ * entries instead of every name. Files are memory-mapped, never copied onto the heap.
  */
 object ArscReader {
 
@@ -35,18 +41,28 @@ object ArscReader {
         fun countOf(type: String): Int = entries.count { it.type == type }
     }
 
-    fun read(file: File): Result = read(file.readBytes())
+    /** Resource types the theme and the scan report use. */
+    val THEME_TYPES: Set<String> = setOf("color", "drawable", "mipmap")
 
-    fun read(bytes: ByteArray): Result {
-        val b = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+    fun read(file: File, types: Set<String>? = null): Result {
+        val mapped = RandomAccessFile(file, "r").use { raf ->
+            raf.channel.map(FileChannel.MapMode.READ_ONLY, 0, raf.length())
+        }
+        return read(mapped, types)
+    }
+
+    fun read(bytes: ByteArray, types: Set<String>? = null): Result = read(ByteBuffer.wrap(bytes), types)
+
+    private fun read(buffer: ByteBuffer, types: Set<String>?): Result {
+        val b = buffer.order(ByteOrder.LITTLE_ENDIAN)
         val warnings = ArrayList<String>()
         val packages = ArrayList<String>()
         val entries = LinkedHashSet<Entry>()
-        if (bytes.size < 12 || u16(b, 0) != RES_TABLE_TYPE) {
+        if (b.limit() < 12 || u16(b, 0) != RES_TABLE_TYPE) {
             return Result(emptyList(), emptyList(), listOf("Not a resources.arsc (bad RES_TABLE header)"))
         }
         val headerSize = u16(b, 2)
-        val end = minOf(u32(b, 4), bytes.size.toLong()).toInt()
+        val end = minOf(u32(b, 4), b.limit().toLong()).toInt()
         var pos = headerSize
         while (pos + 8 <= end) {
             val type = u16(b, pos)
@@ -57,7 +73,7 @@ object ArscReader {
             }
             if (type == RES_TABLE_PACKAGE_TYPE) {
                 try {
-                    readPackage(b, pos, size.toInt(), packages, entries, warnings)
+                    readPackage(b, pos, size.toInt(), types, packages, entries, warnings)
                 } catch (t: Throwable) {
                     warnings.add("Package at $pos: ${t.javaClass.simpleName}: ${t.message}")
                 }
@@ -71,6 +87,7 @@ object ArscReader {
         b: ByteBuffer,
         start: Int,
         size: Int,
+        types: Set<String>?,
         packages: MutableList<String>,
         entries: MutableSet<Entry>,
         warnings: MutableList<String>,
@@ -98,7 +115,7 @@ object ArscReader {
                 return
             }
             if (type == RES_TABLE_TYPE_TYPE) {
-                readType(b, pos, chunkHeader, chunkSize.toInt(), name, typeStrings, keyStrings, entries)
+                readType(b, pos, chunkHeader, chunkSize.toInt(), name, typeStrings, keyStrings, types, entries)
             }
             pos += chunkSize.toInt()
         }
@@ -112,14 +129,16 @@ object ArscReader {
         packageName: String,
         typeStrings: StringPool,
         keyStrings: StringPool,
+        types: Set<String>?,
         entries: MutableSet<Entry>,
     ) {
         val end = start + size
         val typeId = u8(b, start + 8)
         val flags = u8(b, start + 9)
+        val typeName = typeStrings[typeId - 1] ?: return
+        if (types != null && typeName !in types) return
         val entryCount = u32(b, start + 12).toInt()
         val entriesStart = start + u32(b, start + 16).toInt()
-        val typeName = typeStrings[typeId - 1] ?: return
         val offsets = start + headerSize
 
         fun addEntryAt(relative: Int) {

@@ -57,7 +57,7 @@ class SettingsTestOverlay(context: Context) {
     fun plan(log: (String) -> Unit): Plan? {
         val arsc = DeviceScanner.arscFile(appContext, TARGET)
         val parsed = if (arsc.isFile) {
-            runCatching { ArscReader.read(arsc) }.onFailure { log("Could not read ${arsc.path}: ${it.message}") }.getOrNull()
+            runCatching { ArscReader.read(arsc, ArscReader.THEME_TYPES) }.onFailure { log("Could not read ${arsc.path}: ${it.message}") }.getOrNull()
         } else {
             log("No arsc of $TARGET yet (${arsc.path} missing).")
             null

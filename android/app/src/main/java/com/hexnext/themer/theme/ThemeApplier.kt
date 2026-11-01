@@ -9,6 +9,7 @@ import com.hexnext.engine.compile.OverlayLookup
 import com.hexnext.engine.compile.TargetOutcome
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.engine.compile.ThemeCompiler
+import com.hexnext.engine.device.LegacyOverlays
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayListEntry
 import com.hexnext.engine.device.SemWtPlanner
@@ -32,17 +33,23 @@ import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
  * [apply]: build the [com.hexnext.engine.compile.DeviceSnapshot] from the last scan
  * ([SnapshotBuilder]), compile with [ThemeCompiler] against the packs in `files/packs`
  * ([DirectoryPackResolver]; colour-only themes compile without packs), clean up the legacy
- * `HexNextMonetShades` overlay, arm the boot-loop guard and the 120 s stability monitor, then per
- * compiled target: render its drawables ([DrawableRenderer]), fabricate `HexNext_<target>` through
- * [OverlayBuilder] (build log + saved request for repair), disable `android:SemWT_<target>` and,
- * only when `cmd overlay list` shows the Hex overlay below another enabled overlay, raise it with a
- * disable/enable cycle ([SemWtPlanner.takeover]; One UI 9 puts an overlay on top on every enable),
- * then verify with `cmd overlay lookup` that the first plain colour resolves to the value set
- * (a mismatch makes the target PARTIAL). A failing target is recorded and the next one is built. The SemWT state is saved and the re-assert guard started; the [ApplyReport] is
- * saved to `files/reports/apply-last.json`.
+ * overlays of older builds ([LegacyOverlays]), arm the boot-loop guard and the 120 s stability
+ * monitor, then per compiled target: render its drawables ([DrawableRenderer], one at a time),
+ * fabricate `HexNext_<target>` through [OverlayBuilder] (build log + saved request for repair),
+ * disable `android:SemWT_<target>` and, only when `cmd overlay list` shows the Hex overlay below
+ * another enabled overlay, raise it with a disable/enable cycle ([SemWtPlanner.takeover]; One UI 9
+ * puts an overlay on top on every enable), then verify with `cmd overlay lookup` that the first
+ * plain colour resolves to the value set (a mismatch makes the target PARTIAL). A failing target
+ * is recorded and the next one is built. A final pass disables any SemWT overlay of a themed
+ * target that is still enabled. The SemWT state is saved and the re-assert guard started.
+ *
+ * The [ApplyReport] in `files/reports/apply-last.json` is written when the apply starts (status
+ * `started`, then with the compiled target list), after every target (`running`, with the
+ * targets still pending) and at the end (`finished`). Any throwable, OutOfMemoryError included,
+ * aborts the apply and is recorded (`aborted`, with the error) in the report and the build log.
  *
  * [remove]: stop the guard, disable (and when privileged unregister) every HexNext overlay,
- * re-enable the SemWT overlays Hex Next disabled, and remove the legacy overlay.
+ * re-enable the SemWT overlays Hex Next disabled, and clean up the legacy overlays.
  */
 class ThemeApplier(context: Context) {
 
@@ -56,6 +63,9 @@ class ThemeApplier(context: Context) {
         val started = System.currentTimeMillis()
         val buildLog = BuildLog(appContext)
         val notes = ArrayList<String>()
+        val outcomes = ArrayList<TargetOutcome>()
+        var pending: List<String> = emptyList()
+        var semwt = SemWtState()
         fun say(level: LogLevel, text: String, data: Map<String, Any?> = emptyMap()) {
             log(LogLine(level, text))
             buildLog.write(level.name, "", text, data)
@@ -64,16 +74,23 @@ class ThemeApplier(context: Context) {
             notes += text
             say(level, text)
         }
-        fun finish(outcomes: List<TargetOutcome>): ApplyReport {
-            val report = ApplyReport(
-                themeId = spec.id,
-                themeName = spec.name,
-                startedAt = started,
-                finishedAt = System.currentTimeMillis(),
-                outcomes = outcomes,
-                logFile = buildLog.file.absolutePath,
-                notes = notes.toList(),
-            )
+        fun currentReport(status: String, error: String = ""): ApplyReport = ApplyReport(
+            themeId = spec.id,
+            themeName = spec.name,
+            startedAt = started,
+            finishedAt = System.currentTimeMillis(),
+            outcomes = outcomes.toList(),
+            logFile = buildLog.file.absolutePath,
+            notes = notes.toList(),
+            status = status,
+            pendingTargets = pending,
+            error = error,
+        )
+        // Saved before every step that can take long or die: a crash still leaves this file.
+        fun progress(status: String) = saveReport(currentReport(status))
+        fun finish(): ApplyReport {
+            pending = emptyList()
+            val report = currentReport(ApplyReport.STATUS_FINISHED)
             saveReport(report)
             buildLog.write(
                 if (report.failedCount == 0) "OK" else "WARN", "", "theme apply finished",
@@ -84,73 +101,136 @@ class ThemeApplier(context: Context) {
             return report
         }
 
-        say(LogLevel.INFO, "Applying theme \"${spec.name}\" (${spec.id})")
-        val built = runCatching { snapshots.build() }.getOrElse {
-            note(LogLevel.ERROR, "Reading the device scan failed: ${it.javaClass.simpleName}: ${it.message}")
-            return finish(emptyList())
-        }
-        if (built == null) {
-            note(LogLevel.ERROR, "No device scan yet. Open Diagnostics and run the scan first.")
-            return finish(emptyList())
-        }
-        built.warnings.forEach { note(LogLevel.WARN, it) }
-        val oneUi = built.snapshot.oneUi.version?.toString() ?: "unknown One UI"
-        say(LogLevel.INFO, "Device snapshot: $oneUi, ${built.snapshot.targets.size} targets, ${built.snapshot.systemShades.size} system shades")
-
-        val packs = DirectoryPackResolver(packsDir(appContext))
-        val compiled: CompiledTheme = try {
-            ThemeCompiler.compile(spec, built.snapshot, packs)
+        progress(ApplyReport.STATUS_STARTED)
+        return try {
+            applyAll(service, spec, buildLog, log, ::say, ::note, notes, outcomes, { status, left -> pending = left; progress(status) }) { semwt = it }
+            finish()
         } catch (t: Throwable) {
-            note(LogLevel.ERROR, "Compile failed: ${t.javaClass.simpleName}: ${t.message}")
-            return finish(emptyList())
+            // OutOfMemoryError included: the snapshot, compiled theme and bitmaps are only
+            // referenced from applyAll's frame, which is gone here, so there is room to record it.
+            val error = "${t.javaClass.simpleName}: ${t.message}"
+            val report = currentReport(ApplyReport.STATUS_ABORTED, error)
+            saveReport(report)
+            runCatching { buildLog.write("ERROR", "", "theme apply aborted", mapOf("error" to error, "pending" to pending.size)) }
+            log(LogLine(LogLevel.ERROR, "Theme apply aborted: $error"))
+            if (t is OutOfMemoryError) {
+                log(LogLine(LogLevel.ERROR, "Out of memory (max heap ${Runtime.getRuntime().maxMemory() / MIB} MiB). Remove theme, then report the build log."))
+            }
+            // Keep removal able to restore the SemWT overlays taken over before the failure.
+            if (semwt.records.isNotEmpty()) {
+                runCatching {
+                    SemWtController.writeState(service, semwt)
+                    setTakeoverActive(appContext, true)
+                }
+            }
+            report
         }
+    }
+
+    /**
+     * The apply proper. Everything large (snapshot, compiled theme, rendered PNGs) lives only in
+     * this frame so that [apply] can still record a failure after it unwinds.
+     */
+    private fun applyAll(
+        service: IThemeService,
+        spec: EngineThemeSpec,
+        buildLog: BuildLog,
+        log: (LogLine) -> Unit,
+        say: (LogLevel, String, Map<String, Any?>) -> Unit,
+        note: (LogLevel, String) -> Unit,
+        notes: MutableList<String>,
+        outcomes: MutableList<TargetOutcome>,
+        onProgress: (status: String, pending: List<String>) -> Unit,
+        onSemWt: (SemWtState) -> Unit,
+    ) {
+        say(LogLevel.INFO, "Applying theme \"${spec.name}\" (${spec.id})", emptyMap())
+        val packs = DirectoryPackResolver(packsDir(appContext))
+        // The device snapshot (every target's resource table) is unreachable once this returns.
+        val compiled = compileFromScan(spec, packs, say, note) ?: return
         compiled.events.forEach { e -> buildLog.write(e.level.name, e.target, e.message, e.data) }
         packs.errors.forEach { (file, why) -> note(LogLevel.WARN, "Pack $file unreadable: $why") }
         say(
             LogLevel.INFO,
             "Compiled ${compiled.targets.size} targets (${compiled.targets.sumOf { it.colors.size }} colours, " +
                 "${compiled.targets.sumOf { it.drawables.size }} drawables); ${compiled.skippedTargets.size} skipped",
+            emptyMap(),
         )
+        onProgress(ApplyReport.STATUS_STARTED, compiled.targets.map { it.packageName })
 
-        cleanupLegacy(service) { level, text -> say(level, text) }?.let { notes += it }
+        cleanupLegacy(service) { level, text -> say(level, text, emptyMap()) }?.let { notes += it }
 
         guard.recordApply()
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
-        say(LogLevel.INFO, "Stability monitor: ${monitor.output()}")
+        say(LogLevel.INFO, "Stability monitor: ${monitor.output()}", emptyMap())
 
-        val privileged = runCatching { service.uid }.getOrDefault(-1).let { it == 0 || it == 1000 }
-        val owner = if (runCatching { service.uid }.getOrDefault(-1) == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
+        val uid = runCatching { service.uid }.getOrDefault(-1)
+        val privileged = uid == 0 || uid == 1000
+        val owner = if (uid == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
         if (!privileged) {
             note(LogLevel.WARN, "The service is not privileged (uid 0/1000): drawables and night colours are skipped, day colours go through `cmd overlay fabricate`.")
         }
 
         var semwt = SemWtController.readState(service, log)
+        onSemWt(semwt)
         val before = SemWtController.listOverlays(service)
-        val outcomes = ArrayList<TargetOutcome>()
         DrawableRenderer(packs).use { renderer ->
-            for (target in compiled.targets) {
+            compiled.targets.forEachIndexed { index, target ->
                 val outcome = try {
                     applyTarget(service, target, renderer, privileged, owner, before, buildLog, log) { pkg, hexId, enabledBefore ->
                         semwt = semwt.withTakeover(pkg, hexId, enabledBefore, System.currentTimeMillis())
+                        onSemWt(semwt)
                     }
-                } catch (t: Throwable) {
+                } catch (t: Exception) {
                     val message = "${t.javaClass.simpleName}: ${t.message}"
                     buildLog.write("ERROR", target.packageName, "target failed", mapOf("error" to message))
                     log(LogLine(LogLevel.ERROR, "${target.packageName}: $message"))
                     TargetOutcome(target.packageName, TargetResult.FAILED, target.overlayName, message = message)
                 }
                 outcomes += outcome
+                onProgress(ApplyReport.STATUS_RUNNING, compiled.targets.drop(index + 1).map { it.packageName })
             }
         }
+
+        ensureSemWtDisabled(service, outcomes, owner, before, log) { pkg, hexId, enabledBefore ->
+            semwt = semwt.withTakeover(pkg, hexId, enabledBefore, System.currentTimeMillis())
+            onSemWt(semwt)
+        }?.let { note(LogLevel.WARN, it) }
 
         if (!SemWtController.writeState(service, semwt)) {
             note(LogLevel.WARN, "Could not save ${SemWtState.FILE_NAME}; removal cannot restore SemWT overlays automatically.")
         }
-        SemWtController.startGuard(service, semwt) { say(it.level, it.text) }
+        SemWtController.startGuard(service, semwt) { say(it.level, it.text, emptyMap()) }
         setTakeoverActive(appContext, semwt.records.isNotEmpty())
 
         outcomes += ApplyReport.skippedOutcomes(compiled)
-        return finish(outcomes)
+    }
+
+    /** Builds the snapshot from the last scan and compiles [spec]; null (with a note) when either fails. */
+    private fun compileFromScan(
+        spec: EngineThemeSpec,
+        packs: DirectoryPackResolver,
+        say: (LogLevel, String, Map<String, Any?>) -> Unit,
+        note: (LogLevel, String) -> Unit,
+    ): CompiledTheme? {
+        val built = try {
+            snapshots.build()
+        } catch (e: Exception) {
+            note(LogLevel.ERROR, "Reading the device scan failed: ${e.javaClass.simpleName}: ${e.message}")
+            return null
+        }
+        if (built == null) {
+            note(LogLevel.ERROR, "No device scan yet. Open Diagnostics and run the scan first.")
+            return null
+        }
+        built.warnings.forEach { note(LogLevel.WARN, it) }
+        val oneUi = built.snapshot.oneUi.version?.toString() ?: "unknown One UI"
+        say(LogLevel.INFO, "Device snapshot: $oneUi, ${built.snapshot.targets.size} targets, ${built.snapshot.systemShades.size} system shades", emptyMap())
+        return try {
+            ThemeCompiler.compile(spec, built.snapshot, packs)
+        } catch (e: Exception) {
+            note(LogLevel.ERROR, "Compile failed: ${e.javaClass.simpleName}: ${e.message}")
+            null
+        }
     }
 
     private fun applyTarget(
@@ -212,14 +292,18 @@ class ThemeApplier(context: Context) {
             .firstOrNull { it.overlayId.substringAfter(':') == target.overlayName && it.target == pkg }?.overlayId
             ?: "$owner:${target.overlayName}"
         val semwtId = OneUi9Facts.semWtOverlayId(pkg)
-        val semwtRow = before.firstOrNull { it.overlayId == semwtId }
+        // The list from before the apply tells whether SemWT was on; when that list was empty
+        // (listing failed) the current one still lets the takeover happen.
+        val semwtRow = before.firstOrNull { it.overlayId == semwtId } ?: after.firstOrNull { it.overlayId == semwtId }
         var semwtDisabled = false
         if (semwtRow != null && semwtRow.marker != MARKER_NOT_APPLICABLE) {
             // Disable SemWT; raise ours (disable/enable cycle) only when the list shows it below another overlay.
             val commands = SemWtPlanner.takeover(pkg, hexId, after)
-            val ok = SemWtController.run(service, commands, log)
-            semwtDisabled = commands.isNotEmpty() && ok >= 1
+            val disableOk = SemWtController.run(service, commands.take(1), log)
+            val raiseOk = SemWtController.run(service, commands.drop(1), log)
+            semwtDisabled = commands.isNotEmpty() && disableOk == 1
             if (semwtDisabled) recordTakeover(pkg, hexId, semwtRow.enabled)
+            val ok = disableOk + raiseOk
             buildLog.write(
                 if (ok == commands.size) "INFO" else "WARN", pkg, "SemWT takeover",
                 mapOf("semwt" to semwtId, "wasEnabled" to semwtRow.enabled, "hexOverlay" to hexId, "commandsOk" to ok, "commands" to commands.size),
@@ -293,34 +377,78 @@ class ThemeApplier(context: Context) {
     }
 
     /**
-     * One-time cleanup of the old skeleton's `com.android.shell:HexNextMonetShades` overlay
-     * (Monet shades on `android`, which skews the system palette Hex Next infers roles from):
-     * disable it, unregister it when the service runs as root, and delete its stale `.frro`
-     * copies. Runs again whenever the overlay is still listed. Returns a note when it acted.
+     * After all targets: every themed target (OK or PARTIAL) must have its
+     * `android:SemWT_<target>` disabled. Any SemWT overlay still listed as enabled (a failed
+     * disable, or Samsung re-enabled it meanwhile) gets one more disable, and the takeover is
+     * recorded so removal restores it. Returns a note naming what is still enabled, or null.
+     */
+    private fun ensureSemWtDisabled(
+        service: IThemeService,
+        outcomes: List<TargetOutcome>,
+        owner: String,
+        before: List<OverlayListEntry>,
+        log: (LogLine) -> Unit,
+        recordTakeover: (target: String, hexOverlayId: String, semwtEnabledBefore: Boolean) -> Unit,
+    ): String? {
+        val themed = outcomes.filter { it.result == TargetResult.OK || it.result == TargetResult.PARTIAL }
+        if (themed.isEmpty()) return null
+        val now = SemWtController.listOverlays(service)
+        val stillOn = ArrayList<String>()
+        for (outcome in themed) {
+            val semwtId = OneUi9Facts.semWtOverlayId(outcome.target)
+            if (now.none { it.overlayId == semwtId && it.enabled }) continue
+            if (!SemWtPlanner.isSafeId(semwtId)) continue
+            val ok = SemWtController.run(service, listOf(SemWtPlanner.disable(semwtId)), log) == 1
+            if (ok) {
+                val hexId = now.firstOrNull { it.target == outcome.target && it.overlayId.substringAfter(':') == outcome.overlay }?.overlayId
+                    ?: "$owner:${outcome.overlay}"
+                recordTakeover(outcome.target, hexId, before.firstOrNull { it.overlayId == semwtId }?.enabled ?: true)
+                log(LogLine(LogLevel.INFO, "${outcome.target}: $semwtId was still enabled; disabled"))
+            } else {
+                stillOn += semwtId
+            }
+        }
+        return if (stillOn.isEmpty()) null else "Still enabled after the apply: ${stillOn.joinToString()}"
+    }
+
+    /**
+     * Cleanup of the overlays older Hex Next builds left behind ([LegacyOverlays]: the
+     * `com.android.shell:HexNextOneUI9_*` per-app overlays of the old "Build & Apply" path,
+     * `HexNextMonetShades` (Monet shades on `android`, which skews the system palette Hex Next
+     * infers roles from), `HexNextMonetRoles`, `HexNextSettingsIcons26` and `HexNext_probe`):
+     * disable each listed one, unregister it when the service runs as root (its owner package is
+     * then com.android.shell, matching the legacy owner), and delete its stale `.frro` copies.
+     * Runs on every apply and remove while any is still listed. Returns a note when it acted.
      */
     private fun cleanupLegacy(service: IThemeService, say: (LogLevel, String) -> Unit): String? {
-        val present = SemWtController.listOverlays(service).any { it.overlayId == LEGACY_SHADES_ID }
-        if (!present) {
+        val legacy = LegacyOverlays.find(SemWtController.listOverlays(service))
+        if (legacy.isEmpty()) {
             if (!prefs.getBoolean(KEY_LEGACY_DONE, false)) {
-                say(LogLevel.INFO, "Legacy $LEGACY_SHADES_ID not present")
+                say(LogLevel.INFO, "No legacy Hex Next overlays present")
                 prefs.edit().putBoolean(KEY_LEGACY_DONE, true).apply()
             }
             return null
         }
-        val disable = service.exec(SemWtPlanner.disable(LEGACY_SHADES_ID))
-        say(LogLevel.INFO, "Legacy $LEGACY_SHADES_ID disable: exit ${disable.code()}")
-        val uid = runCatching { service.uid }.getOrDefault(-1)
-        if (uid == 0) {
-            // As root the service's owner package is com.android.shell, matching the legacy id.
-            val removed = service.removeOverlay(SnapshotBuilder.LEGACY_SHADES_NAME)
-            say(LogLevel.INFO, "Legacy overlay unregister: ${removed.output()}")
+        say(LogLevel.INFO, "Cleaning up ${legacy.size} legacy overlays: ${legacy.joinToString { it.overlayId }}")
+        val asRoot = runCatching { service.uid }.getOrDefault(-1) == 0
+        for (overlay in legacy) {
+            val name = overlay.overlayId.substringAfter(':')
+            val disable = service.exec(SemWtPlanner.disable(overlay.overlayId))
+            val unregister = if (asRoot) {
+                val removed = service.removeOverlay(name)
+                if (removed.code() == 0) "unregistered" else "unregister failed: ${removed.output().lineSequence().firstOrNull().orEmpty()}"
+            } else {
+                "not unregistered (needs root)"
+            }
+            val purge = LegacyOverlays.purgeCommand(name)?.let { service.exec(it).code() }
+            say(LogLevel.INFO, "Legacy ${overlay.overlayId}: disable exit ${disable.code()}, $unregister, .frro purge exit $purge")
         }
-        val purge = service.exec("rm -f /data/resource-cache/com.android.shell-${SnapshotBuilder.LEGACY_SHADES_NAME}-*.frro")
-        val stillListed = SemWtController.listOverlays(service).firstOrNull { it.overlayId == LEGACY_SHADES_ID }
-        val text = "Legacy $LEGACY_SHADES_ID cleaned up: " +
-            (if (stillListed == null) "unregistered" else if (stillListed.enabled) "STILL ENABLED" else "disabled") +
-            ", stale .frro purge exit ${purge.code()}"
-        say(if (stillListed?.enabled == true) LogLevel.WARN else LogLevel.OK, text)
+        val remaining = LegacyOverlays.find(SemWtController.listOverlays(service))
+        val enabled = remaining.filter { it.enabled }
+        val text = "Legacy overlays cleaned up: ${legacy.size - remaining.size} unregistered, " +
+            "${remaining.size - enabled.size} disabled" +
+            if (enabled.isEmpty()) "" else ", STILL ENABLED: ${enabled.joinToString { it.overlayId }}"
+        say(if (enabled.isEmpty()) LogLevel.OK else LogLevel.WARN, text)
         prefs.edit().putBoolean(KEY_LEGACY_DONE, true).apply()
         return text
     }
@@ -338,7 +466,7 @@ class ThemeApplier(context: Context) {
 
     companion object {
         const val MONITOR_SECONDS = 120
-        const val LEGACY_SHADES_ID = "${ThemeService.SHELL_OWNER}:${SnapshotBuilder.LEGACY_SHADES_NAME}"
+        private const val MIB = 1024 * 1024
         private const val PREFS = "hexnext_theme_applier"
         private const val KEY_LEGACY_DONE = "legacyShadesCleaned"
         private const val KEY_TAKEOVER_ACTIVE = "semwtTakeoverActive"

@@ -197,7 +197,8 @@ class DeviceScanner(context: Context) {
         }
 
         return runCatching {
-            val parsed = ArscReader.read(out)
+            // Only the counted types: skipping strings, styles and layouts keeps the per-package scan small.
+            val parsed = ArscReader.read(out, ArscReader.THEME_TYPES)
             status.copy(
                 arscPath = out.absolutePath,
                 arscBytes = out.length(),

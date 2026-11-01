@@ -248,7 +248,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun log(line: LogLine) = _ui.update { it.copy(log = it.log + line) }
+    /** Keeps the on-screen log bounded: the full record is the build log file. */
+    private fun log(line: LogLine) {
+        val text = if (line.text.length > MAX_LOG_CHARS) line.text.take(MAX_LOG_CHARS) + " …" else line.text
+        val bounded = if (text === line.text) line else line.copy(text = text)
+        _ui.update { it.copy(log = (it.log + bounded).takeLast(MAX_LOG_LINES)) }
+    }
 
     private suspend fun loadDeviceInfo() {
         if (_ui.value.oneUiVersion != null) return
@@ -273,6 +278,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val PREF_USELOGO = "uselogo"
         private const val PREF_UIDIVIDER = "uidivider"
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
+        private const val MAX_LOG_LINES = 400
+        private const val MAX_LOG_CHARS = 2000
         private const val SAFE_MODE_TEXT = "Safe mode: Hex overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =
             "Safe mode: the device restarted repeatedly, but Hex overlays could not be turned off automatically"

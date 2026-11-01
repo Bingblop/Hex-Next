@@ -4,8 +4,10 @@
     <!-- BootReceiver records each boot id for the boot-loop safe mode (safety/ApplyGuard). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->
     <application
         android:allowBackup="true"
+        android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
