@@ -89,6 +89,8 @@ data class BuildResult(
     /** `cmd overlay lookup` read-back of the first resource. */
     val lookup: String,
     val logFile: File,
+    /** PNG drawables the service embedded through the root `.frro` rewrite and verified. */
+    val drawablesApplied: Int = 0,
 ) {
     val ok: Boolean get() = code == 0
     val skippedCount: Int get() = runCatching { JSONArray(skipped).length() }.getOrDefault(0)
@@ -186,13 +188,17 @@ class OverlayBuilder(context: Context) {
                 mapOf(
                     "code" to result.code,
                     "resourceCount" to result.resourceCount,
+                    "drawablesApplied" to result.drawablesApplied,
                     "skipped" to runCatching { JSONArray(result.skipped) }.getOrDefault(JSONArray()),
                     "serviceMillis" to result.millis,
                     "lookup" to result.lookup,
                     "output" to result.output,
                 )
             )
-            log("applyOverlay code=${result.code}, ${result.resourceCount} resources, ${result.skippedCount} skipped, ${result.millis} ms")
+            log(
+                "applyOverlay code=${result.code}, ${result.resourceCount} resources " +
+                    "(${result.drawablesApplied}/${request.drawables.size} drawables), ${result.skippedCount} skipped, ${result.millis} ms"
+            )
             result.output.lines().filter { it.isNotBlank() }.forEach { log("  $it") }
             if (result.lookup.isNotBlank()) log("Lookup: ${result.lookup}")
             return result
@@ -251,6 +257,7 @@ class OverlayBuilder(context: Context) {
         millis = bundle.getLong(ThemeService.KEY_MILLIS, fallbackMillis),
         lookup = bundle.getString(ThemeService.KEY_LOOKUP).orEmpty(),
         logFile = logFile,
+        drawablesApplied = bundle.getInt(ThemeService.KEY_DRAWABLES_APPLIED, 0),
     )
 
     private fun Bundle.code() = getInt(ThemeService.KEY_CODE, -1)

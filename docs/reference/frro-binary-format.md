@@ -101,7 +101,7 @@ until then nine-patch entries are reported as unsupported.
 1. Register `<owner>:<name>` through OverlayManager with the colours only
    (works on One UI 9).
 2. Find its `.frro` path. Record owner, mode and SELinux label of the existing
-   file (expected `root:root 0644 u:object_r:resourcecache_data_file:s0`).
+   file (observed on One UI 9: `system:system 0644 u:object_r:resourcecache_data_file:s0`, written by idmap2d running as `system`).
 3. Build the full file with `FrroWriter`: colours plus PNG payloads with
    `frro:/<path>?offset=&size=` strings, correct CRC.
 4. Write to `<path>.hexnext.tmp` in the same directory, chmod/chown/chcon to

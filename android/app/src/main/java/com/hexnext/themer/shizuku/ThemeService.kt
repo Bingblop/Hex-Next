@@ -15,13 +15,20 @@ import androidx.annotation.Keep
 import com.hexnext.engine.device.OverlayList
 import com.hexnext.engine.device.RaiseNeed
 import com.hexnext.engine.device.SemWtPlanner
+import com.hexnext.engine.frro.FrroBinary
+import com.hexnext.engine.frro.FrroColor
+import com.hexnext.engine.frro.FrroFormat
+import com.hexnext.engine.frro.FrroReader
+import com.hexnext.engine.frro.FrroSpec
+import com.hexnext.engine.frro.FrroWriter
 import com.hexnext.themer.IThemeService
 import org.json.JSONArray
 import org.json.JSONObject
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.io.File
+import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.lang.reflect.InvocationTargetException
-import java.lang.reflect.Method
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
@@ -397,7 +404,28 @@ class ThemeService() : IThemeService.Stub() {
 
     private data class ColorInput(val name: String, val argb: Int, val config: String?)
 
-    private class Outcome(val resourceCount: Int, val drawablesApplied: Int, val skipped: JSONArray)
+    /** Colours that went into the committed FabricatedOverlay, and those it rejected. */
+    private class Outcome(val committed: List<ColorInput>, val skipped: JSONArray)
+
+    /** A PNG read from the caller's descriptor, ready to embed in the rewritten `.frro`. */
+    private class PngInput(val input: DrawableInput, val resource: String, val bytes: ByteArray)
+
+    /** Owner, group, permission bits and SELinux label of a file. */
+    private data class FileMeta(val uid: Int, val gid: Int, val mode: Int, val label: String?) {
+        override fun toString(): String =
+            "uid=$uid gid=$gid mode=0${Integer.toOctalString(mode)} label=${label ?: "(unknown)"}"
+    }
+
+    /** What [rewriteFrro] replaced: enough to verify the new file or put the old one back. */
+    private class Rewrite(
+        val path: String,
+        val original: ByteArray,
+        val meta: FileMeta,
+        val crc: Int,
+        val pngs: List<PngInput>,
+    )
+
+    private class DrawableOutcome(val enable: EnableResult, val applied: Int)
 
     override fun applyOverlay(
         name: String?,
@@ -526,67 +554,38 @@ class ThemeService() : IThemeService.Stub() {
             val log = StringBuilder()
             log.appendLine("[UID ${Process.myUid()}] $id -> $target: ${colorList.size} colours, ${drawables.size} drawables")
 
-            var outcome: Outcome? = null
-            var failure: Throwable? = null
-            var partial = false
-
-            try {
-                outcome = buildAndCommit(name, target, owner, colorList, drawables, log)
-                log.appendLine("Committed with the caller's file descriptors.")
+            // Step 1: commit the colours through OverlayManager. PNG descriptors are never sent:
+            // SELinux makes idmap2d reject them (FAILED_TRANSACTION, see frro-binary-format.md).
+            val done = try {
+                commitColors(name, target, owner, colorList)
             } catch (t: Throwable) {
-                failure = t
-                log.appendLine("Commit with caller descriptors failed: ${describe(t)}")
+                log.appendLine("Colour commit failed: ${describe(t)}")
+                return finish(result(-1, log.toString()), 0, "")
             }
-
-            if (outcome == null && drawables.isNotEmpty()) {
-                val staged = stageDrawables(name, drawables, log)
-                if (staged != null) {
-                    try {
-                        outcome = buildAndCommit(name, target, owner, colorList, staged, log)
-                        log.appendLine("Committed with PNGs re-staged under ${MonitorScript.DIR}/stage.")
-                    } catch (t: Throwable) {
-                        failure = t
-                        log.appendLine("Commit with staged PNGs failed: ${describe(t)}")
-                    } finally {
-                        staged.forEach { runCatching { it.fd.close() } }
-                    }
-                }
-            }
-
-            if (outcome == null && drawables.isNotEmpty() && colorList.isNotEmpty()) {
-                try {
-                    val colourOnly = buildAndCommit(name, target, owner, colorList, emptyList(), log)
-                    val reason = "drawable commit failed: ${describe(failure)}"
-                    drawables.forEach { skip(colourOnly.skipped, it.name, reason) }
-                    outcome = colourOnly
-                    partial = true
-                    log.appendLine("Committed colours only; every drawable was dropped.")
-                } catch (t: Throwable) {
-                    failure = t
-                    log.appendLine("Colour-only commit failed too: ${describe(t)}")
-                }
-            }
-
-            val done = outcome ?: return finish(result(-1, log.toString() + describe(failure)), 0, "")
             for (i in 0 until done.skipped.length()) skipped.put(done.skipped.get(i))
-            if (drawables.isNotEmpty() && done.drawablesApplied == 0 && !partial) {
-                log.appendLine("No drawable was applied (see skipped).")
-            }
+            log.appendLine("Committed ${done.committed.size} colours through OverlayManager.")
 
-            val top = enableOnTop(id, name, target, owner)
-            val enableCode = top.code
-            if (enableCode == 0) {
-                log.appendLine("Registered ${done.resourceCount} resources, enabled.")
+            // Steps 2-4: PNGs are added by rewriting the registered .frro as root.
+            val drawn = if (drawables.isEmpty()) {
+                DrawableOutcome(enableOnTop(id, name, target, owner), 0)
+            } else {
+                applyDrawablesByRewrite(id, name, target, owner, done.committed, drawables, skipped, log)
+            }
+            val top = drawn.enable
+            if (top.code == 0) {
+                log.appendLine("Enabled ${done.committed.size} colours and ${drawn.applied}/${drawables.size} drawables.")
                 log.appendLine(top.log)
             } else {
                 log.appendLine("Enable failed: ${top.log}")
             }
             val code = when {
-                enableCode != 0 -> enableCode
-                partial -> 3
+                top.code != 0 -> top.code
+                drawn.applied < drawables.size -> 3
                 else -> 0
             }
-            return finish(result(code, log.toString()), done.resourceCount, lookup(target, firstResource))
+            return finish(result(code, log.toString()), done.committed.size + drawn.applied, lookup(target, firstResource)).apply {
+                putInt(KEY_DRAWABLES_APPLIED, drawn.applied)
+            }
         } catch (t: Throwable) {
             return finish(result(-1, describe(t)), 0, "")
         } finally {
@@ -594,87 +593,34 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
-    /** Builds one FabricatedOverlay with every colour and drawable, then registers it. Throws on commit failure. */
-    private fun buildAndCommit(
-        name: String,
-        target: String,
-        owner: String,
-        colors: List<ColorInput>,
-        drawables: List<DrawableInput>,
-        log: StringBuilder,
-    ): Outcome {
+    /** Registers one FabricatedOverlay holding [colors]. Throws when the commit fails. */
+    private fun commitColors(name: String, target: String, owner: String, colors: List<ColorInput>): Outcome {
         val skipped = JSONArray()
-        val pfdType = ParcelFileDescriptor::class.java
-        val stringType = String::class.java
-        val overlayClass = FabricatedOverlay::class.java
-        val directPng = findMethod(overlayClass, "setResourceValue", stringType, pfdType, stringType)
-        val directNine = findMethod(overlayClass, "setNinePatchResourceValue", stringType, pfdType, stringType)
-
-        var count = 0
-        var drawn = 0
-        val overlay: FabricatedOverlay
-
-        val viaBuilder = if (drawables.isNotEmpty() && directPng == null && directNine == null) {
-            log.appendLine("FabricatedOverlay has no PFD setters; trying FabricatedOverlay.Builder.")
-            buildWithBuilder(name, target, owner, colors, drawables, skipped, log)
-        } else {
-            null
-        }
-
-        if (viaBuilder != null) {
-            overlay = viaBuilder.overlay
-            count = viaBuilder.count
-            drawn = viaBuilder.drawn
-        } else {
-            overlay = newOverlay(name, target, owner)
-            colors.forEach { c ->
-                try {
-                    overlay.setResourceValue(c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb, c.config)
-                    count++
-                } catch (t: Throwable) {
-                    skip(skipped, c.name, describe(t))
-                }
-            }
-            if (drawables.isNotEmpty() && directPng == null && directNine == null) {
-                drawables.forEach {
-                    skip(skipped, it.name, "this Android build has no FabricatedOverlay drawable API (setResourceValue(String, ParcelFileDescriptor, String))")
-                }
-                log.appendLine("Skipped ${drawables.size} drawables: no FabricatedOverlay drawable API on this build.")
-            } else {
-                drawables.forEach { d ->
-                    val setter = pickDrawableSetter(d, directPng, directNine, log)
-                    if (setter == null) {
-                        skip(skipped, d.name, "no matching drawable setter")
-                        return@forEach
-                    }
-                    try {
-                        setter.invoke(overlay, d.name, d.fd, d.config)
-                        count++
-                        drawn++
-                    } catch (t: Throwable) {
-                        skip(skipped, d.name, describe(t))
-                    }
-                }
+        val committed = ArrayList<ColorInput>()
+        val overlay = newOverlay(name, target, owner)
+        colors.forEach { c ->
+            try {
+                overlay.setResourceValue(c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb, c.config)
+                committed.add(c)
+            } catch (t: Throwable) {
+                skip(skipped, c.name, describe(t))
             }
         }
-
         val register = OverlayManagerTransaction.newInstance()
         register.registerFabricatedOverlay(overlay)
         commit(register)
-        return Outcome(count, drawn, skipped)
+        return Outcome(committed, skipped)
     }
 
-    private fun pickDrawableSetter(d: DrawableInput, png: Method?, nine: Method?, log: StringBuilder): Method? {
-        if (!d.ninePatch) return png
-        if (nine != null) return nine
-        if (png != null) log.appendLine("${d.name}: setNinePatchResourceValue is missing, applied as a plain PNG.")
-        return png
-    }
-
-    private class BuilderResult(val overlay: FabricatedOverlay, val count: Int, val drawn: Int)
-
-    /** Hidden `FabricatedOverlay.Builder(owner, name, target)` path, only used when the direct setters are missing. */
-    private fun buildWithBuilder(
+    /**
+     * Adds the PNGs to the colour overlay that was just committed: rewrites its `.frro` as root
+     * with [FrroWriter] (payloads plus `frro:/` URIs for the registered path), disables and
+     * re-enables it so OverlayManager regenerates the idmap, then verifies the idmap, the
+     * `cmd overlay lookup` result and the file itself. Any failure keeps (or restores) the
+     * colour-only file and reports the drawables as skipped with the reason.
+     */
+    private fun applyDrawablesByRewrite(
+        id: String,
         name: String,
         target: String,
         owner: String,
@@ -682,80 +628,282 @@ class ThemeService() : IThemeService.Stub() {
         drawables: List<DrawableInput>,
         skipped: JSONArray,
         log: StringBuilder,
-    ): BuilderResult? {
-        return try {
-            val builderClass = Class.forName("android.content.om.FabricatedOverlay\$Builder")
-            val stringType = String::class.java
-            val intType = Integer.TYPE
-            val pfdType = ParcelFileDescriptor::class.java
-            val builder = builderClass.getConstructor(stringType, stringType, stringType).newInstance(owner, name, target)
-            val color4 = findMethod(builderClass, "setResourceValue", stringType, intType, intType, stringType)
-            val color3 = findMethod(builderClass, "setResourceValue", stringType, intType, intType)
-            val png = findMethod(builderClass, "setResourceValue", stringType, pfdType, stringType)
-            val nine = findMethod(builderClass, "setNinePatchResourceValue", stringType, pfdType, stringType)
-            if (png == null && nine == null) {
-                log.appendLine("FabricatedOverlay.Builder has no PFD setters either.")
-                return null
+    ): DrawableOutcome {
+        val pngs = ArrayList<PngInput>()
+        drawables.forEach { d ->
+            if (d.ninePatch) {
+                skip(skipped, d.name, FrroWriter.NINE_PATCH_UNSUPPORTED)
+                return@forEach
             }
-            var count = 0
-            var drawn = 0
-            colors.forEach { c ->
-                try {
-                    when {
-                        color4 != null -> color4.invoke(builder, c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb, c.config)
-                        color3 != null && c.config == null -> color3.invoke(builder, c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb)
-                        color3 != null -> error("Builder has no configured colour setter")
-                        else -> error("Builder has no colour setter")
-                    }
-                    count++
-                } catch (t: Throwable) {
-                    skip(skipped, c.name, describe(t))
-                }
+            try {
+                pngs.add(PngInput(d, qualified(d.name, target), readAll(d.fd)))
+            } catch (t: Throwable) {
+                skip(skipped, d.name, "cannot read PNG: ${describe(t)}")
             }
-            drawables.forEach { d ->
-                val setter = pickDrawableSetter(d, png, nine, log)
-                if (setter == null) {
-                    skip(skipped, d.name, "no matching Builder drawable setter")
-                    return@forEach
-                }
-                try {
-                    setter.invoke(builder, d.name, d.fd, d.config)
-                    count++
-                    drawn++
-                } catch (t: Throwable) {
-                    skip(skipped, d.name, describe(t))
-                }
-            }
-            val overlay = builderClass.getMethod("build").invoke(builder) as FabricatedOverlay
-            log.appendLine("Built through FabricatedOverlay.Builder.")
-            BuilderResult(overlay, count, drawn)
+        }
+        val nine = drawables.count { it.ninePatch }
+        if (nine > 0) log.appendLine("Skipped $nine nine-patch drawables: ${FrroWriter.NINE_PATCH_UNSUPPORTED}.")
+        if (pngs.isEmpty()) {
+            log.appendLine("No PNG left to embed; keeping the colour-only overlay.")
+            return DrawableOutcome(enableOnTop(id, name, target, owner), 0)
+        }
+
+        // Steps 2 + 3: locate the registered file and replace it with colours + PNGs.
+        val rewrite = try {
+            rewriteFrro(id, name, target, owner, colors, pngs, log)
         } catch (t: Throwable) {
-            log.appendLine("FabricatedOverlay.Builder unavailable: ${describe(t)}")
-            null
+            log.appendLine("Root rewrite failed: ${describe(t)}. Keeping the colour-only overlay.")
+            pngs.forEach { skip(skipped, it.input.name, "root .frro rewrite failed: ${describe(t)}") }
+            return DrawableOutcome(enableOnTop(id, name, target, owner), 0)
+        }
+
+        // Step 4: disable + enable makes OverlayManager see the new CRC and recreate the idmap;
+        // the enable also lands the overlay above Samsung's SemWT_*.
+        val off = shell("cmd overlay disable --user current $id")
+        log.appendLine("Disabled $id to regenerate its idmap (exit ${off.getInt(KEY_CODE)}).")
+        val top = enableOnTop(id, name, target, owner)
+        if (top.code != 0) {
+            val reason = "enable after the .frro rewrite failed: ${top.log}"
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0)
+        }
+
+        // Verification: idmap regenerated, file parses with every PNG, lookup resolves to frro:/.
+        val idmap = idmapPathFor(rewrite.path)
+        val idmapFile = File(idmap)
+        if (!idmapFile.isFile) {
+            val reason = "OverlayManager did not create $idmap after the rewrite"
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0)
+        }
+        val idmapCrc = runCatching { readLe32(idmapFile, IDMAP_OVERLAY_CRC_OFFSET) }.getOrNull()
+        val idmapFresh = idmapCrc == rewrite.crc
+        log.appendLine(
+            "idmap $idmap: ${idmapFile.length()} bytes, overlay crc " +
+                (idmapCrc?.let { "0x%08x".format(it) } ?: "unreadable") +
+                (if (idmapFresh) " (matches the rewritten .frro)" else " (expected 0x%08x)".format(rewrite.crc))
+        )
+
+        val reread = try {
+            FrroReader.read(File(rewrite.path))
+        } catch (t: Throwable) {
+            val reason = "rewritten .frro does not parse: ${describe(t)}"
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0)
+        }
+        val onDisk = File(rewrite.path).readBytes()
+        log.appendLine(
+            "Re-read ${rewrite.path}: ${reread.entries.size} entries, " +
+                "${reread.entries.count { it.binaryOffset != null }} file values, crc ok=${reread.crcMatchesProto}"
+        )
+
+        var applied = 0
+        val lookedUp = HashMap<String, String>()
+        rewrite.pngs.forEach { p ->
+            val entry = reread.entries.firstOrNull {
+                it.resourceName == p.resource && it.configuration == p.input.config && it.binaryOffset != null
+            }
+            val inFile = entry != null && runCatching { FrroReader.readBinary(onDisk, entry) }.getOrNull()?.contentEquals(p.bytes) == true
+            val value = lookedUp.getOrPut(p.resource) {
+                shell("cmd overlay lookup --user current $target ${p.resource}").getString(KEY_OUTPUT).orEmpty().trim()
+            }
+            val resolved = value.contains(FrroFormat.URI_SCHEME)
+            log.appendLine(
+                "  ${p.resource}${p.input.config?.let { " [$it]" } ?: ""}: " +
+                    (entry?.let { "offset=${it.binaryOffset} size=${it.binarySize}" } ?: "missing from file") +
+                    ", lookup: ${value.ifEmpty { "(empty)" }}"
+            )
+            when {
+                !inFile -> skip(skipped, p.input.name, "payload missing or different in the rewritten .frro")
+                idmapFresh || resolved -> applied++
+                else -> skip(
+                    skipped, p.input.name,
+                    "written to ${rewrite.path} but the idmap still has the old CRC and lookup returned: ${value.ifEmpty { "(empty)" }}"
+                )
+            }
+        }
+        log.appendLine("Root rewrite applied $applied/${drawables.size} drawables.")
+        return DrawableOutcome(top, applied)
+    }
+
+    /**
+     * Finds the `.frro` OverlayManager registered for [id], checks it is our colour overlay,
+     * builds the full file (its colours plus [pngs]) for that exact path and atomically
+     * replaces it with matching owner, mode and SELinux label. Throws on any failure, after
+     * removing the temporary file; the registered file is then untouched.
+     */
+    private fun rewriteFrro(
+        id: String,
+        name: String,
+        target: String,
+        owner: String,
+        colors: List<ColorInput>,
+        pngs: List<PngInput>,
+        log: StringBuilder,
+    ): Rewrite {
+        val path = findFrroPath(id, owner, name, log) ?: error("no registered .frro found for $id under $RESOURCE_CACHE")
+        val meta = try {
+            fileMeta(path).let { if (it.label == null) it.copy(label = RESOURCE_CACHE_LABEL) else it }
+        } catch (t: Throwable) {
+            log.appendLine("stat $path failed (${describe(t)}); using the One UI 9 defaults.")
+            DEFAULT_FRRO_META
+        }
+        log.appendLine("Registered file $path: $meta")
+        shell("ls -lZ '$path'").getString(KEY_OUTPUT).orEmpty().trim().takeIf { it.isNotEmpty() }?.let { log.appendLine("  $it") }
+
+        val original = File(path).readBytes()
+        val current = FrroReader.read(original)
+        check(current.packageName == owner && current.name == name && current.targetPackage == target) {
+            "$path belongs to ${current.packageName}:${current.name} -> ${current.targetPackage}, not $id -> $target"
+        }
+        val foreign = current.entries.filter { it.dataType != FrroFormat.TYPE_INT_COLOR_ARGB8 }
+        check(foreign.isEmpty()) { "$path holds ${foreign.size} non-colour values (${foreign.first().resourceName})" }
+        if (current.entries.size != colors.size) {
+            log.appendLine("Note: the registered file holds ${current.entries.size} colours, ${colors.size} were committed.")
+        }
+
+        // Colours exactly as OverlayManager wrote them, plus the PNG payloads.
+        val spec = FrroSpec(
+            ownerPackage = owner,
+            overlayName = name,
+            targetPackage = target,
+            targetOverlayable = current.targetOverlayable,
+            colors = current.entries.map { FrroColor(it.resourceName, it.data, it.configuration) },
+            binaries = pngs.map { FrroBinary(it.resource, it.bytes, false, it.input.config) },
+        )
+        val bytes = FrroWriter.write(spec, path)
+        val built = FrroReader.read(bytes)
+        check(built.crcMatchesProto && built.entries.count { it.binaryOffset != null } == pngs.size) {
+            "FrroWriter output failed its own read-back"
+        }
+        log.appendLine(
+            "Built ${bytes.size} bytes: ${spec.colors.size} colours + ${pngs.size} PNGs " +
+                "(${pngs.sumOf { it.bytes.size }} payload bytes), crc 0x%08x".format(built.crc)
+        )
+
+        replaceFile(path, bytes, meta, log)
+        log.appendLine("Replaced $path (was ${original.size} bytes, crc 0x%08x).".format(current.crc))
+        return Rewrite(path, original, meta, built.crc, pngs)
+    }
+
+    /** Puts the colour-only file back after a failed rewrite, re-enables it and skips every PNG with [reason]. */
+    private fun restoreColourOnly(
+        id: String,
+        name: String,
+        target: String,
+        owner: String,
+        rewrite: Rewrite,
+        reason: String,
+        skipped: JSONArray,
+        log: StringBuilder,
+    ): EnableResult {
+        log.appendLine("Rewrite verification failed: $reason")
+        try {
+            replaceFile(rewrite.path, rewrite.original, rewrite.meta, log)
+            log.appendLine("Restored the colour-only ${rewrite.path}.")
+        } catch (t: Throwable) {
+            log.appendLine("Could not restore the colour-only file: ${describe(t)}")
+        }
+        rewrite.pngs.forEach { skip(skipped, it.input.name, reason) }
+        shell("cmd overlay disable --user current $id")
+        return enableOnTop(id, name, target, owner)
+    }
+
+    /**
+     * The `.frro` path of [id]: from `cmd overlay dump <id>` (its base code path), else the
+     * newest `/data/resource-cache/<owner>-<name>-*.frro`. Only paths of that exact form are accepted.
+     */
+    private fun findFrroPath(id: String, owner: String, name: String, log: StringBuilder): String? {
+        val prefix = "$RESOURCE_CACHE/$owner-$name-"
+        fun ours(p: String) = p.startsWith(prefix) && FRRO_SUFFIX.matches(p.substring(prefix.length))
+        val dump = shell("cmd overlay dump $id").getString(KEY_OUTPUT).orEmpty()
+        FRRO_PATH.findAll(dump).map { it.value }.firstOrNull { ours(it) }?.let {
+            log.appendLine("Located $it via cmd overlay dump.")
+            return it
+        }
+        val newest = shell("ls -t $prefix*.frro 2>/dev/null").getString(KEY_OUTPUT).orEmpty().lineSequence()
+            .map { it.trim() }
+            .firstOrNull { ours(it) }
+        if (newest != null) log.appendLine("cmd overlay dump named no path; using the newest file $newest.")
+        return newest
+    }
+
+    /** uid, gid and mode from stat(2); label from `stat -c %C` (toybox), else `ls -Z`. */
+    private fun fileMeta(path: String): FileMeta {
+        val st = Os.stat(path)
+        return FileMeta(st.st_uid, st.st_gid, st.st_mode and 0xFFF, selinuxLabel(path))
+    }
+
+    private fun selinuxLabel(path: String): String? {
+        for (cmd in listOf("toybox stat -c %C '$path'", "stat -c %C '$path'", "ls -Zd '$path'")) {
+            val r = shell("$cmd 2>/dev/null")
+            if (r.getInt(KEY_CODE) != 0) continue
+            r.getString(KEY_OUTPUT).orEmpty().split(Regex("\\s+")).firstOrNull { SELINUX_LABEL.matches(it) }?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Writes [bytes] to `<path>.hexnext.tmp` in the same directory, applies [meta] (mode,
+     * owner, SELinux label; label fallback [RESOURCE_CACHE_LABEL], then `restorecon`), checks
+     * the result and renames it over [path]. Deletes the temporary file on any failure.
+     */
+    private fun replaceFile(path: String, bytes: ByteArray, meta: FileMeta, log: StringBuilder) {
+        val tmp = "$path$TMP_SUFFIX"
+        try {
+            FileOutputStream(tmp).use { out ->
+                out.write(bytes)
+                out.fd.sync()
+            }
+            Os.chmod(tmp, meta.mode)
+            try {
+                Os.chown(tmp, meta.uid, meta.gid)
+            } catch (t: Throwable) {
+                log.appendLine("chown ${meta.uid}:${meta.gid} failed: ${describe(t)}")
+            }
+            val wanted = meta.label ?: RESOURCE_CACHE_LABEL
+            var label = labelAfter("chcon '$wanted' '$tmp'", tmp)
+            if (label != wanted && wanted != RESOURCE_CACHE_LABEL) {
+                log.appendLine("chcon $wanted left ${label ?: "(unknown)"}; trying $RESOURCE_CACHE_LABEL.")
+                label = labelAfter("chcon '$RESOURCE_CACHE_LABEL' '$tmp'", tmp)
+            }
+            if (label != wanted && label != RESOURCE_CACHE_LABEL) {
+                log.appendLine("chcon left ${label ?: "(unknown)"}; running restorecon.")
+                label = labelAfter("restorecon '$tmp'", tmp)
+            }
+            val got = fileMeta(tmp).copy(label = label)
+            check(got.uid == meta.uid && got.gid == meta.gid && got.mode == meta.mode) { "temporary file is $got, wanted $meta" }
+            check(label == null || label == wanted || label == RESOURCE_CACHE_LABEL) { "temporary file has label $label, wanted $wanted" }
+            if (label == null) log.appendLine("SELinux label of $tmp could not be read; continuing.")
+            try {
+                Os.rename(tmp, path)
+            } catch (t: Throwable) {
+                val mv = shell("mv -f '$tmp' '$path'")
+                check(mv.getInt(KEY_CODE) == 0) { "rename failed (${describe(t)}), mv: ${mv.getString(KEY_OUTPUT)}" }
+            }
+            log.appendLine("Wrote ${bytes.size} bytes to $path as $got.")
+        } catch (t: Throwable) {
+            runCatching { File(tmp).delete() }
+            throw t
         }
     }
 
-    /** Copies each PNG into a root-owned, world-readable file and reopens it (retry for SELinux fd denials). */
-    private fun stageDrawables(name: String, drawables: List<DrawableInput>, log: StringBuilder): List<DrawableInput>? {
-        val opened = ArrayList<DrawableInput>()
-        return try {
-            val dir = File(MonitorScript.DIR, "stage")
-            if (!dir.isDirectory && !dir.mkdirs()) error("cannot create ${dir.path}")
-            dir.setReadable(true, false)
-            dir.setExecutable(true, false)
-            drawables.forEachIndexed { i, d ->
-                val file = File(dir, "${name}_$i.png")
-                file.writeBytes(readAll(d.fd))
-                file.setReadable(true, false)
-                opened.add(d.copy(fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)))
-            }
-            opened
-        } catch (t: Throwable) {
-            opened.forEach { runCatching { it.fd.close() } }
-            log.appendLine("Could not stage PNGs: ${describe(t)}")
-            null
-        }
+    private fun labelAfter(command: String, path: String): String? {
+        shell("$command 2>&1")
+        return selinuxLabel(path)
     }
+
+    /** `/data/resource-cache/` + [frroPath] without its leading slash, `/` -> `@`, + `@idmap`. */
+    private fun idmapPathFor(frroPath: String): String =
+        "$RESOURCE_CACHE/" + frroPath.removePrefix("/").replace('/', '@') + "@idmap"
+
+    private fun readLe32(file: File, offset: Long): Int = RandomAccessFile(file, "r").use { raf ->
+        raf.seek(offset)
+        val b = ByteArray(4)
+        raf.readFully(b)
+        (b[0].toInt() and 0xFF) or ((b[1].toInt() and 0xFF) shl 8) or
+            ((b[2].toInt() and 0xFF) shl 16) or ((b[3].toInt() and 0xFF) shl 24)
+    }
+
+    /** `pkg:type/name`, prefixing [target] when [name] has no package. */
+    private fun qualified(name: String, target: String): String = if (name.contains(':')) name else "$target:$name"
 
     /** Reads a regular-file descriptor with pread so its offset is untouched. */
     private fun readAll(pfd: ParcelFileDescriptor): ByteArray {
@@ -772,7 +920,6 @@ class ThemeService() : IThemeService.Stub() {
         require(offset == out.size) { "short read $offset/${out.size}" }
         return out
     }
-
     private fun lookup(target: String, resource: String?): String {
         if (resource == null || !RESOURCE_NAME.matches(resource) || !PACKAGE_NAME.matches(target)) return ""
         val r = shell("cmd overlay lookup --user current $target $resource")
@@ -782,9 +929,6 @@ class ThemeService() : IThemeService.Stub() {
     private fun skip(skipped: JSONArray, name: String, reason: String) {
         skipped.put(JSONObject().put("name", name).put("reason", reason))
     }
-
-    private fun findMethod(owner: Class<*>, name: String, vararg types: Class<*>): Method? =
-        owner.methods.firstOrNull { it.name == name && it.parameterTypes.contentEquals(types) }
 
     // ---------------------------------------------------------------------------------------
     // Panic / safety
@@ -1076,6 +1220,9 @@ class ThemeService() : IThemeService.Stub() {
         const val KEY_SKIPPED = "skipped"
         const val KEY_MILLIS = "millis"
         const val KEY_LOOKUP = "lookup"
+
+        /** Drawables embedded by the root `.frro` rewrite and verified afterwards. */
+        const val KEY_DRAWABLES_APPLIED = "drawablesApplied"
         const val KEY_CONTENT = "content"
         const val KEY_UID = "uid"
         const val SHELL_OWNER = "com.android.shell"
@@ -1088,6 +1235,20 @@ class ThemeService() : IThemeService.Stub() {
         /** /data/overlays is where One UI keeps SemWT_* frros; AOSP keeps fabricated overlays in /data/resource-cache. */
         const val FRRO_SEARCH_DIRS = "/data/overlays /data/resource-cache"
         private const val MAX_DRAWABLE_BYTES = 32L * 1024 * 1024
+
+        /** Where idmap2d keeps fabricated overlays and their idmaps. */
+        private const val RESOURCE_CACHE = "/data/resource-cache"
+        private const val RESOURCE_CACHE_LABEL = "u:object_r:resourcecache_data_file:s0"
+        private const val TMP_SUFFIX = ".hexnext.tmp"
+
+        /**
+         * Seen on every .frro in /data/resource-cache on One UI 9 (SM-S948U1): written by idmap2d
+         * as `system system 0644 resourcecache_data_file`. Only a fallback; the live file's stat wins.
+         */
+        private val DEFAULT_FRRO_META = FileMeta(1000, 1000, "644".toInt(8), RESOURCE_CACHE_LABEL)
+
+        /** idmap header: magic, version, target crc, then the overlay crc (the .frro header crc). */
+        private const val IDMAP_OVERLAY_CRC_OFFSET = 12L
 
         val DEVICE_PROPS = listOf(
             "ro.build.version.oneui",
@@ -1104,6 +1265,9 @@ class ThemeService() : IThemeService.Stub() {
         private val RESOURCE_NAME = Regex("^([A-Za-z0-9_.]+:)?[A-Za-z0-9_]+/[A-Za-z0-9_.]+$")
         private val STATE_NAME = Regex("^[A-Za-z0-9_.-]+$")
         private val CONFIG_NAME = Regex("^[A-Za-z0-9_+-]+$")
+        private val FRRO_PATH = Regex("""/data/resource-cache/[A-Za-z0-9_.-]+\.frro""")
+        private val FRRO_SUFFIX = Regex("""^[A-Za-z0-9]+\.frro$""")
+        private val SELINUX_LABEL = Regex("""^u:[a-z_]+:[A-Za-z0-9_]+:s0(:[A-Za-z0-9,.]+)?$""")
         private val OVERLAY_LINE = Regex("""^(\[[^\]]\]|---)\s+(\S+)""")
 
         /**
