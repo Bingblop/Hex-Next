@@ -7,9 +7,9 @@
 # Usage (Termux):  sh install.sh
 #                  APK_URL=... APK_ZIP_SHA256=... sh install.sh   (override both together)
 set -u
-RUN_ID="${RUN_ID:-41343388106}"
+RUN_ID="${RUN_ID:-41346852714}"
 APK_URL="${APK_URL:-https://nightly.link/Bingblop/Hex-Next/actions/runs/$RUN_ID/HexNext-Debug-Test-Installable.zip}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-0005fdcfef255dfa41170744df44ef931a72517b6dd29c4e664bb5805162fb9a}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-a6e0aa37db618fca3eb635a3b9d4fe465796dc537c61a4b81d9efd27816528c7}"
 PKG=com.hexnext.themer
 # Download into the home directory: Termux's $TMPDIR can be small or unwritable
 # (curl error 23 "client returned ERROR on write" means exactly that).
