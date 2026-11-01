@@ -1,0 +1,319 @@
+Hex Next overlay test Sun Nov  1 12:41:32 EST 2026
+
+### Build
+# getprop ro.build.version.oneui; getprop ro.product.model; getprop ro.build.display.id
+(exit 0)
+90000
+SM-S948U1
+CP2A.260605.016.S948U1UEU4BZID
+
+### Download
+# curl https://nightly.link/Bingblop/Hex-Next/actions/runs/41329717937/HexNext-Debug-Test-Installable.zip
+downloaded from https://nightly.link/Bingblop/Hex-Next/actions/runs/41329717937/HexNext-Debug-Test-Installable.zip
+zip sha256: b34508e95b1c71bd9ff7bdc9f67ef21fa58a166165c7c1df4bda5272509869f6 (expected b34508e95b1c71bd9ff7bdc9f67ef21fa58a166165c7c1df4bda5272509869f6)
+
+### Install
+# pm install -r /data/local/tmp/hexnext-debug.apk
+(exit 0)
+Success
+
+### Installed package
+# pm list packages | grep -i hexnext; dumpsys package com.hexnext.themer | grep -E 'versionName|versionCode' | head -2
+(exit 0)
+package:com.hexnext.themer
+    versionCode=220 minSdk=34 targetSdk=36
+    versionName=2.2.0
+
+### Baseline overlay list
+# cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings$|aam_monet'
+(exit 0)
+[ ] com.android.shell:aam_monet
+[x] com.android.shell:HexNextMonetShades
+[ ] android:SemWT_com.android.settings
+[x] com.android.shell:HexNext_probe
+baseline SemWT line: [ ] android:SemWT_com.android.settings
+
+### Baseline SemWT dump (head)
+# cmd overlay dump android:SemWT_com.android.settings | head -30
+(exit 0)
+android:SemWT_com.android.settings:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.android.settings
+  mUserId................: 0
+  mTargetPackageName.....: com.android.settings
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro
+  mState.................: STATE_DISABLED
+  mIsEnabled.............: false
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+IDMAP OF android:SemWT_com.android.settings
+Paths:
+    target path  : /system/priv-app/SecSettings/SecSettings.apk
+    overlay path : /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro
+Overlay name: SemWT_com.android.settings
+Debug info:
+    W failed to find resource 'com.android.settings:color/sec_search_view_hint_text_color'
+    W failed to find resource 'com.android.settings:color/sec_search_view_hint_text_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_action_button_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_action_button_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_close_button_bg_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_close_button_bg_color'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_background_for_theme'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_background_for_theme'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_icon_text_for_theme'
+
+### Baseline lookup
+# cmd overlay lookup --user 0 com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor
+(exit 0)
+#ffff0000
+
+### SemWT was disabled at baseline; enabling it for the comparison
+# cmd overlay enable --user 0 android:SemWT_com.android.settings; sleep 2; cmd overlay lookup --user 0 com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor
+(exit 0)
+#ffff0000
+
+### Fabricate probe
+# cmd overlay fabricate --target com.android.settings --name HexNext_probe com.android.settings:color/sec_widget_round_and_bgcolor 0x1c 0xffff0000 || cmd overlay help 2>&1 | grep -A6 fabricate
+(exit 0)
+
+
+### Probe registered?
+# cmd overlay list --user 0 | grep -E 'HexNext_probe$'; cmd overlay dump com.android.shell:HexNext_probe | head -20
+(exit 0)
+[x] com.android.shell:HexNext_probe
+com.android.shell:HexNext_probe:0 {
+  mPackageName...........: com.android.shell
+  mOverlayName...........: HexNext_probe
+  mUserId................: 0
+  mTargetPackageName.....: com.android.settings
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/com.android.shell-HexNext_probe-F5sx.frro
+  mState.................: STATE_ENABLED
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+IDMAP OF com.android.shell:HexNext_probe
+Paths:
+    target path  : /system/priv-app/SecSettings/SecSettings.apk
+    overlay path : /data/resource-cache/com.android.shell-HexNext_probe-F5sx.frro
+Overlay name: HexNext_probe
+
+### Enable probe
+# cmd overlay enable --user 0 com.android.shell:HexNext_probe
+(exit 0)
+
+
+### Lookup after enable (SemWT still on)
+# cmd overlay lookup --user 0 com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor
+(exit 0)
+#ffff0000
+
+### Probe priority highest
+# cmd overlay set-priority com.android.shell:HexNext_probe highest
+(exit 255)
+Error: Unable to retrieve overlay information for com.android.shell:HexNext_probe
+
+### Lookup after highest (SemWT still on)
+# cmd overlay lookup --user 0 com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor
+(exit 0)
+#ffff0000
+
+### Order now
+# cmd overlay list --user 0 | grep -nE 'HexNext_probe|SemWT_com.android.settings$'
+(exit 0)
+347:[x] android:SemWT_com.android.settings
+348:[x] com.android.shell:HexNext_probe
+
+### Disable SemWT
+# cmd overlay disable --user 0 android:SemWT_com.android.settings
+(exit 0)
+
+
+### Lookup after SemWT disabled
+# cmd overlay lookup --user 0 com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor
+(exit 0)
+#ffff0000
+screenshots: /sdcard/hexnext-semwt-on.png /sdcard/hexnext-semwt-off.png
+
+### SemWT after 30 s
+# cmd overlay list --user 0 | grep -E 'SemWT_com.android.settings$'
+(exit 0)
+[ ] android:SemWT_com.android.settings
+
+### Nudge wallpaper service
+# am broadcast -a android.intent.action.WALLPAPER_CHANGED
+(exit 0)
+Broadcasting: Intent { act=android.intent.action.WALLPAPER_CHANGED flg=0x400000 }
+Broadcast completed: result=0
+
+### SemWT after wallpaper broadcast
+# cmd overlay list --user 0 | grep -E 'SemWT_com.android.settings$'
+(exit 0)
+[ ] android:SemWT_com.android.settings
+
+### App files
+# ls -R /data/data/com.hexnext.themer/files 2>/dev/null | head -60
+(exit 0)
+
+
+### App build logs
+# for f in /data/data/com.hexnext.themer/files/logs/*.jsonl; do [ -f "$f" ] && { echo "== $f"; tail -40 "$f"; }; done
+(exit 1)
+
+
+### logcat
+# logcat -d | grep -iE 'hexnext|FabricatedOverlay|OverlayManager|idmap' | tail -120
+(exit 0)
+11-01 12:41:33.979  3272  4320 D SGM:SemGameManager: isGamePackage(), pkgName=com.hexnext.themer, ret=false
+11-01 12:41:33.980  3272  3501 I AdaptiveAppByDefaultLogger: sendSaBroadcast update:com.hexnext.themer;36;Unspecified;True;False;False
+11-01 12:41:33.981  4743  4743 D SecSTQuickControlRequestReceiver: onReceiveForPackage action = android.intent.action.PACKAGE_REMOVED, pkgName = com.hexnext.themer
+11-01 12:41:33.982  3272  3856 D SEP_UNION_SemDeviceInfoManagerService: Package com.hexnext.themer is removed on User 0 
+11-01 12:41:33.983  4743  4743 D SecSTQuickControlRequestReceiver: onReceiveForPackage action = android.intent.action.PACKAGE_REPLACED, pkgName = com.hexnext.themer
+11-01 12:41:33.984  9680  9680 I Finsky  : [2] AIM: AppInfoCacheUpdater -> invalidating apps: [com.hexnext.themer]
+11-01 12:41:33.984  9680  9724 I Finsky  : [113] AIM: AppInfoManager-Perf > OnDeviceAppInfo > cacheHitCount=0, cacheMissCount=1. Missed  in cache (limit 10) : [com.hexnext.themer]
+11-01 12:41:33.985  3272  3272 I BackupManagerService: No delayed restore requests for the given dependency: com.hexnext.themer
+11-01 12:41:33.985  3272  4398 D SGM:GameManager: identifyGamePackage. com.hexnext.themer, mCurrentUserId: 0, callingMethodInfo: com.samsung.android.game.SemGameManager.isGamePackage(SemGameManager.java:106)
+11-01 12:41:33.985  3272  4398 D SGM:SemGameManager: isGamePackage(), pkgName=com.hexnext.themer, ret=false
+11-01 12:41:33.985  3272  4398 I Pageboost: appinfo : com.hexnext.themer 0 0 0 0
+11-01 12:41:33.985  3272  4398 D SGM:GameManager: identifyGamePackage. com.hexnext.themer, mCurrentUserId: 0, callingMethodInfo: com.samsung.android.game.SemGameManager.isGamePackage(SemGameManager.java:106)
+11-01 12:41:33.985  3272  4398 D SGM:SemGameManager: isGamePackage(), pkgName=com.hexnext.themer, ret=false
+11-01 12:41:33.985  3272  4398 I Pageboost: Reset this app info : com.hexnext.themer 
+11-01 12:41:33.986  3272  3272 I JobProxy: deleted cached config because metadata is absent for com.hexnext.themer
+11-01 12:41:33.986  3272  5768 D SGM:GameManager: identifyGamePackage. com.hexnext.themer, mCurrentUserId: 0, callingMethodInfo: com.samsung.android.game.SemGameManager.isGamePackage(SemGameManager.java:106)
+11-01 12:41:33.986  3272  5768 D SGM:SemGameManager: isGamePackage(), pkgName=com.hexnext.themer, ret=false
+11-01 12:41:33.989  3272  3272 D AS.AudioService: received android.intent.action.PACKAGE_REPLACED replacing: true archival: false for package com.hexnext.themer with uid 10557
+11-01 12:41:33.990  3272  4398 I Pageboost: db create : CREATE TABLE IF NOT EXISTS comhexnextthemer (FILENAME TEXT, OFFSET INTEGER, SIZE INTEGER, FORVRAMDISK INTEGER, BITMAP BLOB, unique (FILENAME, OFFSET) );
+11-01 12:41:33.990  3272  3272 I JobProxy: deleted cached config because metadata is absent for com.hexnext.themer
+11-01 12:41:33.991  3272  3272 W AlarmManager: Package com.hexnext.themer, uid 10557 lost permission to set exact alarms!
+11-01 12:41:33.991  3272  4398 I Pageboost: add app to global @ runtime: com.hexnext.themer
+11-01 12:41:33.994  4397  4397 D SatelliteController: packageStateChanged: package:com.hexnext.themer defaultSmsPackageName: com.google.android.apps.messaging satelliteGatewayServicePackageName: com.google.android.apps.stargate
+11-01 12:41:34.006  3272  4320 D SGM:GameManager: identifyGamePackage. com.hexnext.themer, mCurrentUserId: 0, callingMethodInfo: com.samsung.android.game.SemGameManager.isGamePackage(SemGameManager.java:106)
+11-01 12:41:34.006  3272  4320 D SGM:SemGameManager: isGamePackage(), pkgName=com.hexnext.themer, ret=false
+11-01 12:41:34.009  9680 20968 I Finsky  : [305] Asset module broadcast after update successful for package com.hexnext.themer.
+11-01 12:41:34.011 10212 10238 I Finsky:background: [105] IQ:PSL: skipping onPackageRemoved(replacing=true) for untracked package=com.hexnext.themer
+11-01 12:41:34.014  9680  9680 I Finsky  : [2] AIM: AppInfoCacheUpdater -> invalidating apps: [com.hexnext.themer]
+11-01 12:41:34.015 15867 21620 I FILP/FilterInstaller: Delete all filter DB result : com.hexnext.themer, 0
+11-01 12:41:34.018 15867 21620 I FILP/FilterInstaller: uninstallFilters mPackageName: com.hexnext.themer
+11-01 12:41:34.020  3272  3706 D OverlayManager: reconcileSettingsForPackage pkgName=com.hexnext.themer userId=0
+11-01 12:41:34.020  3272  3706 I OverlayManager: updateOverlaysForTarget() called with: targetPackage = [com.hexnext.themer], userId = [0], flags = [2]
+11-01 12:41:34.023 15867 15867 W FILP/PackageIntentReceiver: Package com.hexnext.themer does not have filter permission
+11-01 12:41:34.023  3272  3706 D OverlayManager: reconcileSettingsForPackage pkgName=com.hexnext.themer userId=0
+11-01 12:41:34.023  3272  3706 I OverlayManager: updateOverlaysForTarget() called with: targetPackage = [com.hexnext.themer], userId = [0], flags = [0]
+11-01 12:41:34.024  3272  3706 I SWT_OverlayManager: handleWallpaperThemeOnPackageAdded : com.hexnext.themer
+11-01 12:41:34.025  9680  9721 I Finsky  : [111] AIM: AppInfoManager-Perf > OnDeviceAppInfo > cacheHitCount=0, cacheMissCount=1. Missed  in cache (limit 10) : [com.hexnext.themer]
+11-01 12:41:34.029  3272  3501 D LauncherApps: onPackageChanged 0,com.hexnext.themer
+11-01 12:41:34.029  6812  6930 D LauncherApps: onPackageChanged 0,com.hexnext.themer
+11-01 12:41:34.029  7061 26886 D LauncherApps: onPackageChanged 0,com.hexnext.themer
+11-01 12:41:34.029  4743  6278 D LauncherApps: onPackageChanged 0,com.hexnext.themer
+11-01 12:41:34.029  5277  5277 I HoneySpace.PackageOperationTracker: onPackageChanged - com.hexnext.themer UserHandle{0}
+11-01 12:41:34.029  5277  5277 I HoneySpace.PackageChangedCallbackImpl: onPackageChanged: com.hexnext.themer / UserHandle{0}
+11-01 12:41:34.033  7061 10604 D LauncherApps: onPackageChanged 0,com.hexnext.themer
+11-01 12:41:34.038 15765 21624 I SWT_ValidatorService: It doesn't support color theme, com.hexnext.themer
+11-01 12:41:34.038  3272  3951 W PackageConfigPersister: App-specific configuration not found for packageName: com.hexnext.themer and userId: 0
+11-01 12:41:34.043  3272  7007 I AppWidgetServiceImpl: getInstalledProvidersForProfiles lock in com.hexnext.themer
+11-01 12:41:34.044  5277  1819 I HoneySpace.IconCache: updateSpecificIconCacheAndDB : com.hexnext.themer UserHandle{0}
+11-01 12:41:34.044  5277  1819 I HoneySpace.IconCache: remove icon cache & DB : com.hexnext.themer UserHandle{0}
+11-01 12:41:34.044  5277  1819 I HoneySpace.IconCache: removeSpecificIconDb: com.hexnext.themer UserHandle{0}
+11-01 12:41:34.051  5277  1819 I AppIconSolution: getThemeIconWithBG called with public API, pkg = com.hexnext.themer, mode = 48
+11-01 12:41:34.051  5277  1819 I AppIconSolution: Set icon with Default container because tray option is set to None for com.hexnext.themer
+11-01 12:41:34.051  5277  1819 I AppIconSolution: return adaptive icon for com.hexnext.themer, isNight = true
+11-01 12:41:34.051  5277  1819 I LauncherActivityInfo: packageName: com.hexnext.themer, useThemeIcon: false, height: 229, width: 229, density: 640
+11-01 12:41:34.052 13664 19875 I NearbySharing: Got package event: PackageReplaced(packageName=com.hexnext.themer)
+11-01 12:41:34.059  5277  5277 I HoneySpace.HoneySpaceManagerContainer: refreshHoneyPlugin, packageName: com.hexnext.themer
+11-01 12:41:34.061  5277  1819 I HoneySpace.HoneySpacePackageSourceImpl: Package changed : com.hexnext.themer
+11-01 12:41:34.061  5277  1819 I SearchableManager: invalidate: com.hexnext.themer
+11-01 12:41:34.061  5277  2461 I HoneySpace.IconCache: add icon DB: [com.hexnext.themer/.MainActivity#UserHandle{0}] - IconAndLabel(icon=android.graphics.Bitmap@8d0bafa, label=HexNext) | false | 640 | false |true | -16658458
+11-01 12:41:34.061  5277 15946 I HoneySpace.OpenMarketCustomizationOperator: packageUpdateEvent: com.honeyspace.sdk.source.entity.PackageOperation$Changed > com.hexnext.themer
+11-01 12:41:34.064  3272  7654 I AppWidgetServiceImpl: getInstalledProvidersForProfiles lock in com.hexnext.themer
+11-01 12:41:34.077  3272  3706 I SWT_ThemeManager: update color theme overlay, pkg = com.hexnext.themer, overlay = null, usePrototype = false
+11-01 12:41:34.077  3272  3706 D OverlayManager: commit OverlayManagerTransaction { mRequests = [] }
+11-01 12:41:34.084 13664 21653 I ProximityAuth: [RecentAppsMediator] Package added: (user=UserHandle{0}) com.hexnext.themer
+11-01 12:41:34.097 15683 15685 I artd    : GetBestInfo: /data/app/~~AZrf9lmZY91n7fyhwHYlmw==/com.hexnext.themer-1V-DpAUbxkdIT6JjfaXp4g==/base.apk has no usable artifacts
+11-01 12:41:34.117 13664 21638 W SQLiteLog: (28) double-quoted string literal: "com.hexnext.themer"
+11-01 12:41:34.212 21702 21702 I idmap2d : Starting
+11-01 12:41:34.213 21702 21702 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: idmap
+11-01 12:41:34.274  3272  5744 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x00 (TYPE_SET_ENABLED), overlay=android:SemWT_com.android.settings, userId=0, constraints=None}] }
+11-01 12:41:34.274  3272  5744 D OverlayManager: setEnabled overlay=android:SemWT_com.android.settings enable=true userId=0 constraints=None
+11-01 12:41:34.274  3272  5744 D OverlayManager: create idmap for com.android.settings and android
+11-01 12:41:34.276  3272  5744 D OverlayManager: android:SemWT_com.android.settings:0: STATE_DISABLED -> STATE_ENABLED
+11-01 12:41:34.276  3272  5744 D OverlayManager: setHighestPriority overlay=android:SemWT_com.android.settings userId=0
+11-01 12:41:34.276  3272  5744 D OverlayManager: Executed request=Request{type=0x00 (TYPE_SET_ENABLED), overlay=android:SemWT_com.android.settings, userId=0, constraints=None} affected packages from request={<0>com.android.settings}
+11-01 12:41:34.276  3272  5744 D OverlayManager: Writing overlay settings
+11-01 12:41:34.279  3272  5744 D OverlayManager: Update package manager about changed overlays
+11-01 12:41:34.279  3272  5744 D OverlayManager: -> Updating overlay: target=com.android.settings overlays=[OverlayPaths { resourceDirs = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk], overlayPaths = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk, /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro, /data/resource-cache/android-SemWT_android-dX00.frro, /data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro, /data/resource-cache/android-ThemePark_dummy-w6vG.frro, /data/resource-cache/com.android.shell-HexNext_probe-AZSg.frro, /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro] }] userId=0
+11-01 12:41:34.281  3272  3458 I SWT_OverlayManager: overlay changed broadcast to system for color theme
+11-01 12:41:34.284  5277 13858 I HoneySpace.NavigationModeSource: ApkAssets{path=/data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro}
+11-01 12:41:34.433  7334  7670 I SSS@search user 0: (PackageBroadcastReceiver) packageName: com.hexnext.themer
+11-01 12:41:34.433  7334  7670 I SSS@search user 0: (PackageBroadcastReceiver) Packages changed: com.hexnext.themer
+11-01 12:41:34.433  7334  7670 I SSS@search user 0: (PackageBroadcastReceiver) packageName: com.hexnext.themer
+11-01 12:41:34.433  7334  7670 I SSS@search user 0: (PackageBroadcastReceiver) Packages changed: com.hexnext.themer
+11-01 12:41:34.434  7983  7983 I Notification4WatchManager_AM: NotificationPackageReceiver.onReceive-action: android.intent.action.PACKAGE_REMOVED, userId: 0, packageName: com.hexnext.themer
+11-01 12:41:34.577  7983  7983 W Notification4WatchManager_AM: NotificationPackageReceiver.onReceive-com.hexnext.themer is updating now.
+11-01 12:41:34.577  7983  7983 I Notification4WatchManager_AM: NotificationPackageReceiver.onReceive-action: android.intent.action.PACKAGE_ADDED, userId: 0, packageName: com.hexnext.themer
+11-01 12:41:34.580  7983  7983 W Notification4WatchManager_AM: NotiPackageUtil.checkAppValidation-HexNext - NO POST PERMISSIONS
+11-01 12:41:34.580  7983  7983 W Notification4WatchManager_AM: NotiPackageUtil.isValidPhoneApp-com.hexnext.themer SKIP / Reason : POST_PERMISSION X
+11-01 12:41:34.717  5277  1820 I HoneySpace.SuggestAppDecor: getInstaller: com.hexnext.themer [null]
+11-01 12:41:36.331  3272  7015 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x02 (TYPE_REGISTER_FABRICATED), overlay=com.android.shell:HexNext_probe, userId=-1, constraints=None}] }
+11-01 12:41:36.334  3272  7015 D OverlayManager: create idmap for com.android.settings and com.android.shell
+11-01 12:41:36.335 21702 21703 W idmap2d : failed to parse idmap header of '/data/resource-cache/data@resource-cache@com.android.shell-HexNext_probe-F5sx.frro@idmap'
+11-01 12:41:36.344  3272  7015 D OverlayManager: In registerFabricatedOverlay, OverlayInfo=OverlayInfo {packageName=com.android.shell, overlayName=HexNext_probe, targetPackage=com.android.settings, targetOverlayable=, category=null, state=3 (STATE_ENABLED),, userId=0, isFabricated=true, constraints=None } mustReinitializeOverlay=false updated=true
+11-01 12:41:36.344  3272  7015 D OverlayManager: Executed request=Request{type=0x02 (TYPE_REGISTER_FABRICATED), overlay=com.android.shell:HexNext_probe, userId=-1, constraints=None} affected packages from request={<0>com.android.settings}
+11-01 12:41:36.344  3272  7015 D OverlayManager: Writing overlay settings
+11-01 12:41:36.347  3272  7015 D OverlayManager: Update package manager about changed overlays
+11-01 12:41:36.347  3272  7015 D OverlayManager: -> Updating overlay: target=com.android.settings overlays=[OverlayPaths { resourceDirs = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk], overlayPaths = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk, /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro, /data/resource-cache/android-SemWT_android-dX00.frro, /data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro, /data/resource-cache/android-ThemePark_dummy-w6vG.frro, /data/resource-cache/com.android.shell-HexNext_probe-F5sx.frro, /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro] }] userId=0
+11-01 12:41:36.351 10792 10792 I ActivityThread: assets removed: [/data/resource-cache/com.android.shell-HexNext_probe-AZSg.frro]
+11-01 12:41:36.351 10792 10792 I ActivityThread: assets added: [/data/resource-cache/com.android.shell-HexNext_probe-F5sx.frro]
+11-01 12:41:36.430  3272  7671 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x00 (TYPE_SET_ENABLED), overlay=com.android.shell:HexNext_probe, userId=0, constraints=None}] }
+11-01 12:41:36.430  3272  7671 D OverlayManager: setEnabled overlay=com.android.shell:HexNext_probe enable=true userId=0 constraints=None
+11-01 12:41:36.430  3272  7671 D OverlayManager: create idmap for com.android.settings and com.android.shell
+11-01 12:41:36.431  3272  7671 D OverlayManager: setHighestPriority overlay=com.android.shell:HexNext_probe userId=0
+11-01 12:41:36.431  3272  7671 D OverlayManager: Executed request=Request{type=0x00 (TYPE_SET_ENABLED), overlay=com.android.shell:HexNext_probe, userId=0, constraints=None} affected packages from request={<0>com.android.settings}
+11-01 12:41:36.431  3272  7671 D OverlayManager: Writing overlay settings
+11-01 12:41:36.435  3272  7671 D OverlayManager: Update package manager about changed overlays
+11-01 12:41:36.439  3272  7671 D OverlayManager: -> Updating overlay: target=com.android.settings overlays=[OverlayPaths { resourceDirs = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk], overlayPaths = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk, /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro, /data/resource-cache/android-SemWT_android-dX00.frro, /data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro, /data/resource-cache/android-ThemePark_dummy-w6vG.frro, /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro, /data/resource-cache/com.android.shell-HexNext_probe-F5sx.frro] }] userId=0
+11-01 12:41:36.899  5277 15945 I HoneySpace.SuggestAppDecor: getInstaller: com.hexnext.themer [null]
+11-01 12:41:39.272  3272  7679 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x01 (TYPE_SET_DISABLED), overlay=android:SemWT_com.android.settings, userId=0, constraints=None}] }
+11-01 12:41:39.273  3272  7679 D OverlayManager: setEnabled overlay=android:SemWT_com.android.settings enable=false userId=0 constraints=None
+11-01 12:41:39.273  3272  7679 D OverlayManager: create idmap for com.android.settings and android
+11-01 12:41:39.273  3272  7679 D OverlayManager: android:SemWT_com.android.settings:0: STATE_ENABLED -> STATE_DISABLED
+11-01 12:41:39.273  3272  7679 D OverlayManager: Executed request=Request{type=0x01 (TYPE_SET_DISABLED), overlay=android:SemWT_com.android.settings, userId=0, constraints=None} affected packages from request=[<0>com.android.settings]
+11-01 12:41:39.274  3272  7679 D OverlayManager: Writing overlay settings
+11-01 12:41:39.276  3272  7679 D OverlayManager: Update package manager about changed overlays
+11-01 12:41:39.277  3272  7679 D OverlayManager: -> Updating overlay: target=com.android.settings overlays=[OverlayPaths { resourceDirs = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk], overlayPaths = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk, /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro, /data/resource-cache/android-SemWT_android-dX00.frro, /data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro, /data/resource-cache/android-ThemePark_dummy-w6vG.frro, /data/resource-cache/com.android.shell-HexNext_probe-F5sx.frro] }] userId=0
+11-01 12:41:39.279  3272  3458 I SWT_OverlayManager: overlay changed broadcast to system for color theme
+11-01 12:41:39.282  5277 15946 I HoneySpace.NavigationModeSource: ApkAssets{path=/data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro}
+11-01 12:41:39.723  5277 15944 I HoneySpace.SuggestAppDecor: getInstaller: com.hexnext.themer [null]
+11-01 12:41:49.276  3272  7671 W OverlayManager: service 'idmap' died
+
+### SELinux denials
+# dmesg | grep -i avc | grep -iE 'hexnext|shizuku|overlay' | tail -40
+(exit 0)
+
+
+### Revert: disable probe
+# cmd overlay disable --user 0 com.android.shell:HexNext_probe
+(exit 0)
+
+
+### Revert: SemWT was disabled at baseline, disabling again
+# cmd overlay disable --user 0 android:SemWT_com.android.settings
+(exit 0)
+
+
+### Final state
+# cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings$'
+(exit 0)
+[x] com.android.shell:HexNextMonetShades
+[ ] android:SemWT_com.android.settings
+[ ] com.android.shell:HexNext_probe
+
+Note: the fabricated probe com.android.shell:HexNext_probe stays registered but disabled; it is harmless and the app removes HexNext* overlays.
