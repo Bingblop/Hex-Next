@@ -30,17 +30,23 @@ rm -rf "$WORK"; mkdir -p "$WORK" || { echo "cannot create $WORK"; exit 1; }
 if [ -n "${GH_TOKEN:-}" ]; then
   # Private repo: resolve the artifact through the API and follow its signed download URL.
   echo "Resolving artifact $ARTIFACT of run $RUN_ID through the GitHub API ..."
-  LIST=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+  # The token goes to curl through a config on stdin, so it never appears in a process's argv.
+  LIST=$(printf 'header = "Authorization: Bearer %s"\n' "$GH_TOKEN" | curl --config - -fsSL -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts") || { echo "artifact listing failed (token scope? run id?)"; exit 1; }
   APK_URL=$(printf '%s' "$LIST" | tr -d '\n' | sed "s/.*\"name\": *\"$ARTIFACT\"[^}]*\"archive_download_url\": *\"\([^\"]*\)\".*/\1/")
   case "$APK_URL" in https://*) ;; *) echo "artifact $ARTIFACT not found in run $RUN_ID"; exit 1 ;; esac
-  AUTH="-H \"Authorization: Bearer $GH_TOKEN\""
 else
   APK_URL="${APK_URL:-https://nightly.link/$REPO/actions/runs/$RUN_ID/$ARTIFACT.zip}"
-  AUTH=""
 fi
+download() {
+  if [ -n "${GH_TOKEN:-}" ]; then
+    printf 'header = "Authorization: Bearer %s"\n' "$GH_TOKEN" | curl --config - -fL --retry 3 -o "$WORK/hexnext-debug.zip" "$APK_URL"
+  else
+    curl -fL --retry 3 -o "$WORK/hexnext-debug.zip" "$APK_URL"
+  fi
+}
 echo "Downloading run $RUN_ID to $WORK ..."
-if ! eval curl -fL --retry 3 $AUTH -o "'$WORK/hexnext-debug.zip'" "'$APK_URL'"; then
+if ! download; then
   echo "download failed: $APK_URL"
   echo "free space:"; df -h "$WORK" 2>/dev/null || df "$WORK"
   exit 1
