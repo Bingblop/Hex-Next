@@ -81,7 +81,10 @@ class ThemeCompilerTest {
         palette = mapOf("xx1" to "#FF123456", "sx1" to "#FF654321"),
     )
 
-    private fun compile(spec: ThemeSpec = baseSpec, packs: PackResolver = noPacks, rules: OneUiRules = OneUiRules.load(9), dev: DeviceSnapshot = device()) =
+    /** The One UI 9 rules without their renames: the fixtures use the legacy `ic_settings_*` names directly. */
+    private val rules9 = OneUiRules.load(9).copy(renamed = emptyMap())
+
+    private fun compile(spec: ThemeSpec = baseSpec, packs: PackResolver = noPacks, rules: OneUiRules = rules9, dev: DeviceSnapshot = device()) =
         ThemeCompiler.compile(spec, dev, packs, rules) { 42L }
 
     private fun CompiledTarget.color(name: String, config: String = ""): PlannedColor? =
@@ -229,6 +232,44 @@ class ThemeCompilerTest {
         val display = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
         assertEquals("settingsicon-1sett", display.source.category)
         assertEquals(SlotPalette.derive(resolved).getValue("lxx5"), display.plan.steps.single().tintArgb)
+    }
+
+    @Test
+    fun `pack defaults switch the first select choice on and user options win`() {
+        val selectPack = iconPack.copy(
+            id = "select-1",
+            options = listOf(
+                com.hexnext.engine.pack.PackOption("select", "Dashboard icon style", keys = listOf("1sett", "2sett")),
+                com.hexnext.engine.pack.PackOption("switch", "Frame", key = "settframe"),
+            ),
+        )
+        assertEquals(mapOf("1sett" to "true"), selectPack.defaultOptions)
+        val packs = InMemoryPackResolver(listOf(selectPack))
+
+        val byDefault = compile(baseSpec.copy(simplePackId = "select-1"), packs).target(settings)!!
+        val display = byDefault.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
+        assertEquals("settingsicon-1sett", display.source.category)
+
+        val off = baseSpec.copy(simplePackId = "select-1", elementOptions = mapOf("settings_icons" to mapOf("1sett" to "false")))
+        val plain = compile(off, packs).target(settings)!!.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
+        assertEquals("settingsicon", plain.source.category)
+    }
+
+    @Test
+    fun `One UI 9 renames legacy Settings icon names onto the dashboard rows`() {
+        val rules = OneUiRules.load(9)
+        assertEquals("drawable/sec_ic_settings_display", rules.rename("drawable/ic_settings_display"))
+        assertEquals("drawable/sec_ic_settings_themes", rules.rename("drawable/ic_theme"))
+        assertEquals("drawable/sec_ic_settings_user_manual", rules.rename("drawable/sec_ic_settings_help"))
+        assertEquals("drawable/sec_ic_settings_connections", rules.rename("drawable/sec_ic_settings_connections"))
+
+        val oneUi9Settings = table(settings, listOf("dashboard_tint"), mapOf("sec_ic_settings_display" to listOf(0), "ic_settings_display" to listOf(0)))
+        val dev = device(mapOf(settings to TargetSnapshot(settings, installed = true, table = oneUi9Settings, semwt = settingsSemwt)))
+        val t = compile(baseSpec.copy(simplePackId = "icons-1"), InMemoryPackResolver(listOf(iconPack)), rules, dev).target(settings)!!
+        val names = t.drawables.map { it.resourceName.substringAfter('/') }.toSet()
+        assertTrue("sec_ic_settings_display" in names, names.toString())
+        assertFalse("ic_settings_display" in names)
+        assertEquals("ic_settings_display", t.drawables.first { it.resourceName.endsWith("sec_ic_settings_display") }.source.resourceName)
     }
 
     @Test

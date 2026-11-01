@@ -41,6 +41,16 @@ public data class Pack(
         palette.mapNotNull { (k, v) -> parseColor(v)?.let { k to it } }.toMap()
     }
 
+    /**
+     * The option tokens the legacy Hex plugin had on before the user touched anything: the first
+     * key of every `select` option is `"true"`; `switch` options are off. The compiler overlays
+     * [com.hexnext.engine.compile.ThemeSpec.elementOptions] on these, so a pack whose only
+     * Settings icons live under `settingsicon-1sett` still themes the dashboard by default.
+     */
+    public val defaultOptions: Map<String, String> by lazy {
+        options.filter { it.type == PackOption.SELECT }.mapNotNull { it.keys.firstOrNull() }.associateWith { "true" }
+    }
+
     public companion object {
         /** Parses `#AARRGGBB`, `#RRGGBB`, `#ARGB` or `#RGB` (leading `#` optional); null when invalid. */
         public fun parseColor(text: String): Int? {
@@ -66,7 +76,15 @@ public data class PackOption(
     val key: String? = null,
     val keys: List<String> = emptyList(),
     val choices: List<String> = emptyList(),
-)
+) {
+    public companion object {
+        /** [type] of a one-of option over [keys]. */
+        public const val SELECT: String = "select"
+
+        /** [type] of an on/off option on [key]. */
+        public const val SWITCH: String = "switch"
+    }
+}
 
 /**
  * A group of greyscale PNG layers sharing pass, stage, tint and category.

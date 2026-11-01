@@ -20,7 +20,21 @@
     "com.samsung.android.app.notes",
     "com.samsung.android.app.reminder"
   ],
-  "deprecated": ["com.samsung.android.messaging"],
+  "deprecated": [
+    "com.samsung.android.messaging"
+  ],
   "quickSettingsColoursOnly": true,
-  "renamed": {}
+  "renamed": {
+    "drawable/ic_settings_display": "drawable/sec_ic_settings_display",
+    "drawable/ic_settings_sound": "drawable/sec_ic_settings_sound",
+    "drawable/ic_settings_applications": "drawable/sec_ic_settings_applications",
+    "drawable/ic_settings_location": "drawable/sec_ic_settings_location",
+    "drawable/ic_settings_about": "drawable/sec_ic_settings_about",
+    "drawable/ic_settings_accessibility": "drawable/sec_ic_settings_accessibility",
+    "drawable/ic_settings_privacy": "drawable/sec_ic_settings_privacy",
+    "drawable/ic_settings_themes": "drawable/sec_ic_settings_themes",
+    "drawable/ic_theme": "drawable/sec_ic_settings_themes",
+    "drawable/sec_ic_themes": "drawable/sec_ic_settings_themes",
+    "drawable/sec_ic_settings_help": "drawable/sec_ic_settings_user_manual"
+  }
 }

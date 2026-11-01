@@ -114,7 +114,8 @@ public data class CompiledTheme(
  *    [QS_COLOUR_NAMES] are kept ([REASON_QS_POLICY]). Names missing from the target table are
  *    skipped by [ResourceMapper].
  * 2. **Drawables.** For each enabled element of the target, its pack ([ThemeSpec.packFor])
- *    layer categories ([Elements.elementForCategory]; option tokens must be on) are planned with
+ *    layer categories ([Elements.elementForCategory]; option tokens must be on, in
+ *    [Pack.defaultOptions] overlaid by [ThemeSpec.elementOptions]) are planned with
  *    [LayerPlanner] using the pack palette overlaid by [SlotPalette.derive]. Each resource is
  *    planned once per density the target defines; night categories go to `night-<density>`. A
  *    day category without a night counterpart also gets a night twin planned with dark tints.
@@ -352,7 +353,8 @@ public object ThemeCompiler {
         }
 
         private fun elementJobs(element: Element, pack: Pack): Map<Pair<String, String>, PlannedDrawableJob> {
-            val options = spec.elementOptions[element.id].orEmpty()
+            // The pack's own defaults (first choice of every select) under the user's choices.
+            val options = pack.defaultOptions + spec.elementOptions[element.id].orEmpty()
             val categories = pack.layers.map { it.category }.distinct().map(CategoryName::parse)
                 .filter { Elements.elementForCategory(it.raw).id == element.id }
                 .filter { c -> c.optionTokens.all { options[it] == "true" } }
