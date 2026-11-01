@@ -7,9 +7,9 @@
 # Usage (Termux):  sh install.sh
 #                  APK_URL=... APK_ZIP_SHA256=... sh install.sh   (override both together)
 set -u
-RUN_ID="${RUN_ID:-41338489016}"
+RUN_ID="${RUN_ID:-41343388106}"
 APK_URL="${APK_URL:-https://nightly.link/Bingblop/Hex-Next/actions/runs/$RUN_ID/HexNext-Debug-Test-Installable.zip}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-56902b53c706ac9ccab8bf284b846daf0f319503fa0b45c4cb73705b7ee0d706}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-0005fdcfef255dfa41170744df44ef931a72517b6dd29c4e664bb5805162fb9a}"
 PKG=com.hexnext.themer
 WORK="${TMPDIR:-$PWD}/hexnext-apk"
 
