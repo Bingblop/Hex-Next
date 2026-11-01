@@ -92,8 +92,11 @@ How the app does this (`ThemeApplier`, `SemWtController`, `ThemeService.enableOn
    and restart the guard. When `safe_mode.json` appears, the guard re-enables the SemWT overlays
    it took over and exits.
 6. Removal stops the guard, disables every `HexNext*` overlay, re-enables exactly the SemWT
-   overlays that were enabled before, and removes the legacy `com.android.shell:HexNextMonetShades`
-   overlay of the old skeleton.
+   overlays that were enabled before, and cleans up the legacy overlays of older builds
+   (engine `device/LegacyOverlays.kt`: `com.android.shell:HexNextOneUI9_*`, `HexNextMonetShades`,
+   `HexNextMonetRoles`, `HexNextSettingsIcons26`, `HexNext_probe`): disabled, unregistered when the
+   service runs as root, stale `.frro` copies deleted. Apply runs the same cleanup first, and after
+   the last target disables once more any SemWT overlay of a themed target that is still enabled.
 
 ## Gradle layout
 
@@ -155,6 +158,14 @@ A **Pack** is the zip produced by `tools/hex_pack_builder.py`: greyscale PNG lay
 
 ## Safety
 
+* **Apply report**: `files/reports/apply-last.json` is written when an apply starts (`started`,
+  then with the compiled target list), after every target (`running`, with the targets still
+  pending) and at the end (`finished`); any throwable, `OutOfMemoryError` included, is recorded
+  as `aborted` with the error instead of killing the apply silently.
+* **Memory**: the snapshot reads each target's `resources.arsc` memory-mapped with
+  `ArscReadOptions.THEME` (colours with values; drawable/mipmap names, ids and densities; every
+  other type chunk skipped by size) and keeps one slim table per target. Full tables of all
+  targets (every translated string) exhausted the 256 MB heap on SM-S948U1.
 * **Build log**: every overlay build writes `files/logs/<timestamp>.jsonl` with target, resource
   count, skipped names, result, and `cmd overlay lookup` read-back of one sentinel resource.
 * **Repair**: a failed or stale overlay is disabled, its idmap purged from `/data/resource-cache`,

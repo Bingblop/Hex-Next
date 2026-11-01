@@ -12,14 +12,8 @@ import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
-import com.hexnext.themer.theme.MonetPalette
-import com.hexnext.themer.theme.PackedAppOverlay
-import com.hexnext.themer.theme.PaletteStyle
 import com.hexnext.themer.theme.SemWtController
-import com.hexnext.themer.theme.SettingsIconStyle
 import com.hexnext.themer.theme.ThemeApplier
-import com.hexnext.themer.theme.ThemeEngine
-import com.hexnext.themer.theme.ThemeSpec
 import com.hexnext.themer.theme.formatOneUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,9 +24,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class UiState(
-    val spec: ThemeSpec,
-    val palette: MonetPalette,
-    val enabledTargets: Set<String> = PackedAppOverlay.ALL.map { it.id }.toSet(),
+    /** Accent seed (opaque ARGB) of the compiled theme and the Diagnostics Settings test. */
+    val seed: Int,
     val busy: Boolean = false,
     val oneUiVersion: String? = null,
     val log: List<LogLine> = emptyList(),
@@ -45,7 +38,6 @@ data class UiState(
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
-    private val engine = ThemeEngine(prefs)
     private val guard = ApplyGuard(app)
     private val applier = ThemeApplier(app)
     private var safeModeChecked = false
@@ -125,99 +117,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(safeModeBanner = null) }
     }
 
-    private fun initialState(): UiState {
-        val style = runCatching { PaletteStyle.valueOf(prefs.getString(PREF_STYLE, null)!!) }
-            .getOrDefault(PaletteStyle.TONAL_SPOT)
-        val iconStyle = SettingsIconStyle.fromId(prefs.getString(PREF_ICON_STYLE, "1sett"))
-        val spec = ThemeSpec(
-            seed = prefs.getInt(PREF_SEED, DEFAULT_SEED),
-            style = style,
-            pureBlack = prefs.getBoolean(PREF_PURE_BLACK, true),
-            settingsIconStyle = iconStyle,
-            framelessIcons = prefs.getBoolean(PREF_SETTFRAME, false),
-            largeSettingsIcons = prefs.getBoolean(PREF_BIGSETICO, false),
-            hideAccountEmail = prefs.getBoolean(PREF_HIDEMAIL, false),
-            useAboutLogo = prefs.getBoolean(PREF_USELOGO, true),
-            showListDividers = prefs.getBoolean(PREF_UIDIVIDER, true),
-        )
-        return UiState(
-            spec = spec,
-            palette = MonetPalette.generate(spec),
-            lastApplySummary = ThemeApplier.lastReport(getApplication<Application>())?.summary(),
-        )
-    }
+    private fun initialState(): UiState = UiState(
+        seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
+        lastApplySummary = ThemeApplier.lastReport(getApplication<Application>())?.summary(),
+    )
 
-    fun setSeed(color: Int) = updateSpec { it.copy(seed = color or 0xFF000000.toInt()) }
-    fun setStyle(style: PaletteStyle) = updateSpec { it.copy(style = style) }
-    fun setPureBlack(enabled: Boolean) = updateSpec { it.copy(pureBlack = enabled) }
-    fun setSettingsIconStyle(style: SettingsIconStyle) = updateSpec { it.copy(settingsIconStyle = style) }
-    fun setFramelessIcons(enabled: Boolean) = updateSpec { it.copy(framelessIcons = enabled) }
-    fun setLargeSettingsIcons(enabled: Boolean) = updateSpec { it.copy(largeSettingsIcons = enabled) }
-    fun setHideAccountEmail(enabled: Boolean) = updateSpec { it.copy(hideAccountEmail = enabled) }
-    fun setUseAboutLogo(enabled: Boolean) = updateSpec { it.copy(useAboutLogo = enabled) }
-    fun setShowListDividers(enabled: Boolean) = updateSpec { it.copy(showListDividers = enabled) }
-
-    fun setPerIconColor(iconId: String, color: Int?) = updateSpec { current ->
-        val updated = current.perIconColors.toMutableMap()
-        if (color != null) updated[iconId] = color or 0xFF000000.toInt()
-        else updated.remove(iconId)
-        current.copy(perIconColors = updated)
-    }
-
-    fun resetPerIconColors() = updateSpec { it.copy(perIconColors = emptyMap()) }
-
-    fun toggleTarget(id: String) {
-        _ui.update { state ->
-            val updated = state.enabledTargets.toMutableSet()
-            if (!updated.add(id)) updated.remove(id)
-            state.copy(enabledTargets = updated)
-        }
-    }
-
-    private fun updateSpec(change: (ThemeSpec) -> ThemeSpec) {
-        val spec = change(_ui.value.spec)
-        prefs.edit()
-            .putInt(PREF_SEED, spec.seed)
-            .putString(PREF_STYLE, spec.style.name)
-            .putBoolean(PREF_PURE_BLACK, spec.pureBlack)
-            .putString(PREF_ICON_STYLE, spec.settingsIconStyle.id)
-            .putBoolean(PREF_SETTFRAME, spec.framelessIcons)
-            .putBoolean(PREF_BIGSETICO, spec.largeSettingsIcons)
-            .putBoolean(PREF_HIDEMAIL, spec.hideAccountEmail)
-            .putBoolean(PREF_USELOGO, spec.useAboutLogo)
-            .putBoolean(PREF_UIDIVIDER, spec.showListDividers)
-            .apply()
-        _ui.update { it.copy(spec = spec, palette = MonetPalette.generate(spec)) }
+    fun setSeed(color: Int) {
+        val seed = color or OPAQUE
+        prefs.edit().putInt(PREF_SEED, seed).apply()
+        _ui.update { it.copy(seed = seed) }
     }
 
     fun requestPermission() = ShizukuManager.requestPermission()
 
     fun clearLog() = _ui.update { it.copy(log = emptyList()) }
 
-    fun apply() = runTask { service, ready ->
-        val palette = _ui.value.palette
-        if (ready.isPrivileged) {
-            engine.applyFabricated(service, palette, _ui.value.enabledTargets, ::log)
-        } else {
-            log(
-                LogLine(
-                    LogLevel.ERROR,
-                    "Opening Requirement Not Met: Shizuku must run at UID 0 (Root) or UID 1000 (System), or direct SU access is required (current UID=${ready.uid})."
-                )
-            )
-            false
-        }
-    }
-
-    fun remove() = runTask { service, ready -> engine.remove(service, ready.isPrivileged, ::log) }
-
     /**
-     * Compiles and applies the full theme (for now [EngineThemeSpec.default]) to every scanned
-     * target. Works without packs (colours only); drawables and night colours need the
-     * privileged service.
+     * Compiles and applies the full theme ([EngineThemeSpec.default] with the chosen accent seed)
+     * to every scanned target. Works without packs (colours only); drawables and night colours
+     * need the privileged service.
      */
     fun applyTheme() = runTask { service, _ ->
-        val report = applier.apply(service, EngineThemeSpec.default(), ::log)
+        val spec = EngineThemeSpec.default().let { it.copy(source = it.source.copy(seedArgb = _ui.value.seed)) }
+        val report = applier.apply(service, spec, ::log)
         _ui.update { it.copy(lastApplySummary = report.summary()) }
         report.success
     }
@@ -269,17 +191,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         private const val PREF_SEED = "seed"
-        private const val PREF_STYLE = "style"
-        private const val PREF_PURE_BLACK = "pure_black"
-        private const val PREF_ICON_STYLE = "settings_icon_style"
-        private const val PREF_SETTFRAME = "settframe"
-        private const val PREF_BIGSETICO = "bigsetico"
-        private const val PREF_HIDEMAIL = "hidemail"
-        private const val PREF_USELOGO = "uselogo"
-        private const val PREF_UIDIVIDER = "uidivider"
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
         private const val MAX_LOG_LINES = 400
         private const val MAX_LOG_CHARS = 2000
+        private const val OPAQUE = 0xFF000000.toInt()
         private const val SAFE_MODE_TEXT = "Safe mode: Hex overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =
             "Safe mode: the device restarted repeatedly, but Hex overlays could not be turned off automatically"

@@ -18,21 +18,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -57,12 +54,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
-import com.hexnext.themer.theme.MonetPalette
-import com.hexnext.themer.theme.OneUi9SettingsIcon
-import com.hexnext.themer.theme.PackedAppOverlay
-import com.hexnext.themer.theme.PaletteStyle
-import com.hexnext.themer.theme.SettingsIconStyle
-import com.hexnext.themer.theme.ToneGroup
 import com.hexnext.themer.theme.parseHexColor
 import com.hexnext.themer.theme.toHex
 import android.graphics.Color as AndroidColor
@@ -84,7 +75,7 @@ fun MainScreen(viewModel: MainViewModel) {
     if (showDiagnostics) {
         DiagnosticsScreen(
             shizuku = shizuku,
-            accent = ui.spec.seed,
+            accent = ui.seed,
             onBack = { showDiagnostics = false },
         )
         return
@@ -115,48 +106,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 item { SafeModeBanner(banner, onOpenDiagnostics = { showDiagnostics = true }, onDismiss = viewModel::dismissSafeMode) }
             }
             item { StatusCard(shizuku, ui.oneUiVersion, viewModel::requestPermission) }
-            item {
-                ColorCard(
-                    seed = ui.spec.seed,
-                    onSeed = viewModel::setSeed,
-                )
-            }
-            item {
-                StyleCard(
-                    style = ui.spec.style,
-                    onStyle = viewModel::setStyle,
-                    pureBlack = ui.spec.pureBlack,
-                    onPureBlack = viewModel::setPureBlack,
-                    pureBlackAvailable = ready?.isPrivileged == true,
-                )
-            }
-            item {
-                SettingsIconsCustomizationCard(
-                    palette = ui.palette,
-                    onStyleChange = viewModel::setSettingsIconStyle,
-                    onFramelessChange = viewModel::setFramelessIcons,
-                    onLargeIconsChange = viewModel::setLargeSettingsIcons,
-                    onHideEmailChange = viewModel::setHideAccountEmail,
-                    onUseLogoChange = viewModel::setUseAboutLogo,
-                    onShowDividersChange = viewModel::setShowListDividers,
-                )
-            }
-            item {
-                SystemRroTargetsCard(
-                    enabledTargets = ui.enabledTargets,
-                    onToggle = viewModel::toggleTarget,
-                )
-            }
-            item { PaletteCard(ui.palette) }
-            item {
-                Actions(
-                    enabled = ready?.isPrivileged == true && !ui.busy,
-                    busy = ui.busy,
-                    applyLabel = "Build & Apply One UI 9.0 System RROs",
-                    onApply = viewModel::apply,
-                    onRemove = viewModel::remove,
-                )
-            }
+            item { ColorCard(seed = ui.seed, onSeed = viewModel::setSeed) }
             item {
                 CompiledThemeCard(
                     enabled = ready != null && !ui.busy,
@@ -225,11 +175,11 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
                 "Permission was denied. Open Shizuku and allow HexNext under authorized apps."
             is ShizukuState.Ready -> when {
                 state.isSystemUid1000 ->
-                    "Connected as System (UID 1000). New One UI 9.0 overlays (com.hexnext.oneui9.rro.*) are built from scratch with owner 'android' and highest priority above Samsung's modern SemWT_* overlays."
+                    "Connected as System (UID 1000). Apply theme builds one HexNext_<target> overlay per scanned app (owner 'android') and takes each target over from Samsung's SemWT_* overlay."
                 state.isRoot ->
-                    "Connected as Root (UID 0). New One UI 9.0 overlays (com.hexnext.oneui9.rro.*) are built from scratch with highest priority above Samsung's modern SemWT_* overlays."
+                    "Connected as Root (UID 0). Apply theme builds one HexNext_<target> overlay per scanned app and takes each target over from Samsung's SemWT_* overlay."
                 else ->
-                    "Connected as unprivileged shell (UID ${state.uid}). One UI 9.0 RRO fabrication requires UID 0 (Root) or UID 1000 (System)."
+                    "Connected as unprivileged shell (UID ${state.uid}). Drawables and night colours need UID 0 (Root) or UID 1000 (System); day colours go through cmd overlay fabricate."
             }
         }
         Text(body, style = MaterialTheme.typography.bodyMedium)
@@ -251,29 +201,13 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SystemRroTargetsCard(enabledTargets: Set<String>, onToggle: (String) -> Unit) {
-    SectionCard("One UI 9.0 From-Scratch RRO Targets (${enabledTargets.size}/${PackedAppOverlay.ALL.size})") {
+private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
+    SectionCard("Accent color") {
         Text(
-            "Built from scratch (com.hexnext.oneui9.rro.*) with priority=highest above Samsung SemWT_* overlays",
+            "Seed of the compiled theme and of the Diagnostics Settings test.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PackedAppOverlay.ALL.forEach { target ->
-                FilterChip(
-                    selected = target.id in enabledTargets,
-                    onClick = { onToggle(target.id) },
-                    label = { Text(target.label) },
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
-    SectionCard("Accent color") {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
@@ -332,179 +266,6 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         modifier = Modifier.fillMaxWidth(),
     )
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun StyleCard(
-    style: PaletteStyle,
-    onStyle: (PaletteStyle) -> Unit,
-    pureBlack: Boolean,
-    onPureBlack: (Boolean) -> Unit,
-    pureBlackAvailable: Boolean,
-) {
-    SectionCard("Palette style") {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PaletteStyle.entries.forEach { option ->
-                FilterChip(
-                    selected = option == style,
-                    onClick = { onStyle(option) },
-                    label = { Text(option.label) },
-                )
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Pure black dark mode", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    if (pureBlackAvailable) "True #000000 AMOLED backgrounds across One UI 9.0."
-                    else "Requires UID 0 (Root) or UID 1000 (System).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(checked = pureBlack, onCheckedChange = onPureBlack, enabled = pureBlackAvailable)
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun SettingsIconsCustomizationCard(
-    palette: MonetPalette,
-    onStyleChange: (SettingsIconStyle) -> Unit,
-    onFramelessChange: (Boolean) -> Unit,
-    onLargeIconsChange: (Boolean) -> Unit,
-    onHideEmailChange: (Boolean) -> Unit,
-    onUseLogoChange: (Boolean) -> Unit,
-    onShowDividersChange: (Boolean) -> Unit,
-) {
-    val spec = palette.spec
-    SectionCard("26 SecSettings Dashboard Icons (Niferpitou One UI 9.0)") {
-        Text(
-            "Rebuilt from project.vivid.ui.plugin.niferpitou (anaconda_tints/settingsicon-*) into com.hexnext.oneui9.rro.settings & HexNextSettingsIcons26 (> SemWT_com.android.settings).",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SettingsIconStyle.entries.forEach { option ->
-                FilterChip(
-                    selected = option == spec.settingsIconStyle,
-                    onClick = { onStyleChange(option) },
-                    label = { Text(option.label) },
-                )
-            }
-        }
-        SettingToggleRow(
-            title = "Remove Dashboard Icons Frame (settframe)",
-            subtitle = "Uses ${spec.settingsIconStyle.framelessFolder} vector drawables",
-            checked = spec.framelessIcons,
-            onCheckedChange = onFramelessChange,
-        )
-        SettingToggleRow(
-            title = "Large Settings Dashboard Icons (bigsetico)",
-            subtitle = "Enlarges SecSettings category icons from 28dp to 36dp",
-            checked = spec.largeSettingsIcons,
-            onCheckedChange = onLargeIconsChange,
-        )
-        SettingToggleRow(
-            title = "Hide Account Email on Dashboard (hidemail)",
-            subtitle = "Masks Samsung Account email subtitle in top SecSettings header",
-            checked = spec.hideAccountEmail,
-            onCheckedChange = onHideEmailChange,
-        )
-        SettingToggleRow(
-            title = "Use Custom About Phone Logo (uselogo)",
-            subtitle = "Displays Terpsichora custom graphic header inside About Phone",
-            checked = spec.useAboutLogo,
-            onCheckedChange = onUseLogoChange,
-        )
-        SettingToggleRow(
-            title = "Show Settings List Dividers (uidivider)",
-            subtitle = "Renders 1dp list dividers between SecSettings preference rows",
-            checked = spec.showListDividers,
-            onCheckedChange = onShowDividersChange,
-        )
-        Text(
-            "26 Resolved Category Icon Tints (${if (spec.largeSettingsIcons) 36 else 28}dp):",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            OneUi9SettingsIcon.ALL_26_ICONS.forEach { icon ->
-                val fgArgb = icon.resolveForegroundColor(palette)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Box(
-                        Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(Color(fgArgb))
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(icon.title, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingToggleRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun PaletteCard(palette: MonetPalette) {
-    SectionCard("Preview") {
-        ToneGroup.entries.forEach { group ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    group.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(28.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                ) {
-                    palette.shades.getValue(group).forEach { argb ->
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height(28.dp)
-                                .background(Color(argb))
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 /** Full compiled theme from the last device scan (default theme until the theme editor lands). */
