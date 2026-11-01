@@ -10,8 +10,8 @@
 #                  used only for the download and never stored)
 #   Overrides:     RUN_ID=... APK_ZIP_SHA256=... sh install.sh
 set -u
-RUN_ID="${RUN_ID:-41346852714}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-a6e0aa37db618fca3eb635a3b9d4fe465796dc537c61a4b81d9efd27816528c7}"
+RUN_ID="${RUN_ID:-41351135369}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-4ba951b3745dfeab17416f6f5935107ceb53c26eb35d85f1430341866575d946}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
 PKG=com.hexnext.themer
