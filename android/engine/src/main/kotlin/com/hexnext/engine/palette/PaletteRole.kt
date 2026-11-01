@@ -1,5 +1,6 @@
 package com.hexnext.engine.palette
 
+import kotlinx.serialization.Serializable
 import com.hexnext.engine.mcu.dynamiccolor.DynamicScheme
 import com.hexnext.engine.mcu.palettes.TonalPalette
 
@@ -7,6 +8,7 @@ import com.hexnext.engine.mcu.palettes.TonalPalette
  * A tonal palette of a scheme. The first five are Android's Monet palettes
  * (`system_accent1_*` … `system_neutral2_*`); [ERROR] has no system shades.
  */
+@Serializable
 public enum class PaletteRole(
     /** Name used in Android resource names (`system_<name>_<shade>`), `null` for [ERROR]. */
     public val systemName: String?,

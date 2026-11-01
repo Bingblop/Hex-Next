@@ -4,9 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hexnext.themer.IThemeService
-import com.hexnext.themer.build.BuildResult
-import com.hexnext.themer.build.OverlayBuilder
-import com.hexnext.themer.build.SettingsTestOverlay
+import com.hexnext.themer.overlay.BuildResult
+import com.hexnext.themer.overlay.OverlayBuilder
+import com.hexnext.themer.overlay.SettingsTestOverlay
 import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.themer.safety.ApplyGuard

@@ -1,5 +1,6 @@
 package com.hexnext.engine.palette
 
+import kotlinx.serialization.Serializable
 import com.hexnext.engine.mcu.dynamiccolor.ColorSpec.SpecVersion
 import com.hexnext.engine.mcu.dynamiccolor.DynamicScheme
 import com.hexnext.engine.mcu.dynamiccolor.DynamicScheme.Platform
@@ -22,6 +23,7 @@ import com.hexnext.engine.mcu.scheme.SchemeVibrant
  * MCU falls back to an older spec for variants a newer spec does not define (for example
  * Fidelity under 2025 resolves with the 2021 rules); that fallback is MCU's and is kept as-is.
  */
+@Serializable
 public enum class ColorSpecVersion(
     /** The vendored MCU spec version this maps to. */
     public val mcu: SpecVersion,
@@ -42,6 +44,7 @@ public enum class ColorSpecVersion(
  * [CMF] is backed by the vendored `SchemeCmf`, which only exists for the 2026 spec: CMF always
  * builds with [ColorSpecVersion.SPEC_2026], whatever spec is requested.
  */
+@Serializable
 public enum class PaletteStyle(
     /** The MCU variant this style produces. */
     public val variant: Variant,
@@ -109,8 +112,6 @@ public enum class PaletteStyle(
             )
         }
     }
-
-    private companion object {
-        const val OPAQUE: Int = 0xFF000000.toInt()
-    }
 }
+
+private const val OPAQUE: Int = 0xFF000000.toInt()

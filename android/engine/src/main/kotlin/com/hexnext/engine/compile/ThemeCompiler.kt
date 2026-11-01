@@ -1,0 +1,404 @@
+package com.hexnext.engine.compile
+
+import com.hexnext.engine.arsc.ResourceTable
+import com.hexnext.engine.frro.FabricatedOverlayFile
+import com.hexnext.engine.log.BuildEvent
+import com.hexnext.engine.log.LogLevel
+import com.hexnext.engine.map.DrawableSource
+import com.hexnext.engine.map.PlannedColor
+import com.hexnext.engine.map.PlannedDrawable
+import com.hexnext.engine.map.ResourceMapper
+import com.hexnext.engine.map.Skipped
+import com.hexnext.engine.map.ThemeRequest
+import com.hexnext.engine.pack.CompositePlan
+import com.hexnext.engine.pack.LayerPlanner
+import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.palette.ResolvedTheme
+import com.hexnext.engine.palette.RoleInference
+import com.hexnext.engine.palette.ThemeResolver
+import java.security.MessageDigest
+
+/** Supplies theme packs to the compiler (downloaded pack zips on the device). */
+public interface PackResolver {
+    /** The pack with [id], or null when it is not available. */
+    public fun pack(id: String): Pack?
+
+    /**
+     * File entry names of pack [id]'s zip ([com.hexnext.engine.pack.PackReader.entryNames]).
+     * An empty set means "unknown": layers are then taken from each layer's `resources` list.
+     */
+    public fun entryNames(id: String): Set<String>
+}
+
+/** A [PackResolver] over packs already in memory; [entries] maps pack id → zip entry names. */
+public class InMemoryPackResolver(
+    packs: Collection<Pack>,
+    private val entries: Map<String, Set<String>> = emptyMap(),
+) : PackResolver {
+    private val byId = packs.associateBy { it.id }
+
+    override fun pack(id: String): Pack? = byId[id]
+
+    override fun entryNames(id: String): Set<String> = entries[id].orEmpty()
+}
+
+/**
+ * One drawable to composite on the device and fabricate.
+ *
+ * @property resourceName `package:type/name` in the target.
+ * @property configuration FRRO configuration (`xxhdpi`, `night-xxhdpi`, `""` …).
+ * @property plan layers to composite, bottom first; the app renders it with Bitmaps.
+ * @property ninePatch true when the result must be fabricated as a 9-patch.
+ * @property source pack, category and pack resource name the plan was built from.
+ * @property elementId the [Element] that produced the job.
+ */
+public data class PlannedDrawableJob(
+    val resourceName: String,
+    val configuration: String,
+    val plan: CompositePlan,
+    val ninePatch: Boolean,
+    val source: DrawableSource,
+    val elementId: String,
+)
+
+/**
+ * Overlay content for one target package.
+ *
+ * @property overlayName fabricated overlay name, `HexNext_<pkg with dots as underscores>`.
+ * @property skipped resources not built and why (see the `REASON_*` constants of [ThemeCompiler]
+ *   and [ResourceMapper]).
+ * @property semwtCoverage distinct planned resources Samsung's SemWT overlay also overrides.
+ * @property contentHash SHA-256 (hex) of the sorted colour and drawable entries; equal hashes
+ *   mean the overlay does not need to be rebuilt.
+ */
+public data class CompiledTarget(
+    val packageName: String,
+    val overlayName: String,
+    val colors: List<PlannedColor>,
+    val drawables: List<PlannedDrawableJob>,
+    val skipped: List<Skipped>,
+    val semwtCoverage: Int,
+    val contentHash: String,
+    val versionCode: Long? = null,
+) {
+    /** True when there is nothing to fabricate. */
+    public val isEmpty: Boolean get() = colors.isEmpty() && drawables.isEmpty()
+}
+
+/**
+ * Output of [ThemeCompiler.compile].
+ *
+ * @property targets compiled targets, in build order.
+ * @property events build-log events (one summary per target, warnings for skips).
+ * @property skippedTargets target packages not compiled, with the reason.
+ */
+public data class CompiledTheme(
+    val targets: List<CompiledTarget>,
+    val events: List<BuildEvent>,
+    val skippedTargets: List<Skipped> = emptyList(),
+) {
+    /** The compiled target for [packageName], or null. */
+    public fun target(packageName: String): CompiledTarget? = targets.firstOrNull { it.packageName == packageName }
+}
+
+/**
+ * Compiles a [ThemeSpec] against a [DeviceSnapshot] into per-target overlay plans.
+ *
+ * Per enabled, installed, non-debloated target with a resource table:
+ * 1. **Colours.** Each colour entry (`Res_value` types `0x1c`–`0x1f`) of the target's SemWT
+ *    overlay is recoloured with [RoleInference.recolor] against [DeviceSnapshot.systemShades],
+ *    from the dark scheme when its configuration contains `night`, else from the light scheme;
+ *    entries without a match stay Samsung's ([REASON_FIXED]). [ThemeSpec.colorPins] then win
+ *    (a pinned resource absent from SemWT is written in `""` and, for shade pins, `night`).
+ *    For System UI under [OneUiRules.quickSettingsColoursOnly] only names matching
+ *    [QS_COLOUR_NAMES] are kept ([REASON_QS_POLICY]). Names missing from the target table are
+ *    skipped by [ResourceMapper].
+ * 2. **Drawables.** For each enabled element of the target, its pack ([ThemeSpec.packFor])
+ *    layer categories ([Elements.elementForCategory]; option tokens must be on) are planned with
+ *    [LayerPlanner] using the pack palette overlaid by [SlotPalette.derive]. Each resource is
+ *    planned once per density the target defines; night categories go to `night-<density>`. A
+ *    day category without a night counterpart also gets a night twin planned with dark tints.
+ *    More specific categories (more option tokens) and targeted elements win over generic ones.
+ *
+ * [OneUiRules.renamed] is applied to every resource name before lookup.
+ */
+public object ThemeCompiler {
+    /** Skip reason: SemWT colour without a palette match within ΔE 6; Samsung's value stays. */
+    public const val REASON_FIXED: String = "fixed"
+
+    /** Skip reason: removed by the quick-settings policy. */
+    public const val REASON_QS_POLICY: String = "qs-policy"
+
+    /** Skip reason: the element's pack is not available. */
+    public const val REASON_PACK_MISSING: String = "pack not available"
+
+    /** Skip reason: the pack has no layer file for the resource. */
+    public const val REASON_NO_LAYERS: String = "no layers in pack"
+
+    /** Target skip reason: the rules mark the package deprecated. */
+    public const val REASON_DEPRECATED: String = "deprecated"
+
+    /** Target skip reason: switched off in [ThemeSpec.targetEnabled]. */
+    public const val REASON_DISABLED: String = "disabled"
+
+    /** Target skip reason: the device snapshot has no entry for the package. */
+    public const val REASON_NOT_SCANNED: String = "not scanned"
+
+    /** Target skip reason: the package is not installed. */
+    public const val REASON_NOT_INSTALLED: String = "not installed"
+
+    /** Target skip reason: the package is debloated (disabled or removed for the user). */
+    public const val REASON_DEBLOATED: String = "debloated"
+
+    /** Target skip reason: the target's `resources.arsc` could not be read. */
+    public const val REASON_NO_TABLE: String = "no resource table"
+
+    /** System UI colour names kept under the quick-settings policy. */
+    public val QS_COLOUR_NAMES: Regex =
+        Regex("qs_|quick|tile|panel|notification|status_bar|statusbar|navigation|nav_bar|volume|power|lock|keyguard|brightness", RegexOption.IGNORE_CASE)
+
+    private const val SYSTEMUI = "com.android.systemui"
+    private val COLOR_TYPES = 0x1c..0x1f
+
+    /** `HexNext_` + [packageName] with dots replaced by underscores. */
+    public fun overlayName(packageName: String): String = "HexNext_" + packageName.replace('.', '_')
+
+    /**
+     * Compiles [spec] for [device].
+     *
+     * @param rules One UI rules; defaults to the bundled rules for the device's version.
+     * @param clock timestamp source for [CompiledTheme.events].
+     */
+    public fun compile(
+        spec: ThemeSpec,
+        device: DeviceSnapshot,
+        packs: PackResolver,
+        rules: OneUiRules = OneUiRules.forProfile(device.oneUi),
+        clock: () -> Long = System::currentTimeMillis,
+    ): CompiledTheme {
+        val events = mutableListOf<BuildEvent>()
+        fun event(level: LogLevel, target: String, message: String, data: Map<String, String> = emptyMap()) {
+            events += BuildEvent(clock(), level, target, message, data)
+        }
+        val resolved: ResolvedTheme by lazy { ThemeResolver.resolve(spec.source, spec.darkAdjustments, spec.lightAdjustments) }
+        val derivedPalette: Map<String, Int> by lazy { SlotPalette.derive(resolved) }
+
+        val order = rules.targets + device.targets.keys.filterNot { it in rules.targets }.sorted()
+        val compiled = mutableListOf<CompiledTarget>()
+        val skippedTargets = mutableListOf<Skipped>()
+        for (pkg in order) {
+            val snapshot = device.targets[pkg]
+            val reason = when {
+                pkg in rules.deprecated -> REASON_DEPRECATED
+                !spec.isTargetEnabled(pkg) -> REASON_DISABLED
+                snapshot == null -> REASON_NOT_SCANNED
+                !snapshot.installed -> REASON_NOT_INSTALLED
+                snapshot.debloated -> REASON_DEBLOATED
+                snapshot.table == null -> REASON_NO_TABLE
+                else -> null
+            }
+            if (reason != null) {
+                skippedTargets += Skipped(pkg, reason)
+                event(LogLevel.INFO, pkg, "target skipped", mapOf("reason" to reason))
+                continue
+            }
+            val ctx = TargetContext(spec, device, packs, rules, snapshot!!, snapshot.table!!, { resolved }, { derivedPalette }, ::event)
+            val target = ctx.compile()
+            compiled += target
+            event(
+                LogLevel.INFO, pkg, "target compiled",
+                mapOf(
+                    "overlay" to target.overlayName,
+                    "colors" to target.colors.size.toString(),
+                    "drawables" to target.drawables.size.toString(),
+                    "skipped" to target.skipped.size.toString(),
+                    "semwtCoverage" to target.semwtCoverage.toString(),
+                    "hash" to target.contentHash,
+                ),
+            )
+        }
+        return CompiledTheme(compiled, events, skippedTargets)
+    }
+
+    /**
+     * SHA-256 (lower-case hex) of the sorted entries of a target: one line per colour
+     * (`c|config|name|argb`) and drawable (`d|config|name|ninepatch|layer:tint,…`).
+     */
+    public fun contentHash(colors: List<PlannedColor>, drawables: List<PlannedDrawableJob>): String {
+        val lines = colors.map { "c|${it.configuration}|${it.resourceName}|%08x".format(it.argb) } +
+            drawables.map { job ->
+                "d|${job.configuration}|${job.resourceName}|${job.ninePatch}|" +
+                    job.plan.steps.joinToString(",") { s -> "${s.layerPath}:${s.tintArgb?.let { "%08x".format(it) } ?: "-"}" }
+            }
+        val digest = MessageDigest.getInstance("SHA-256").digest(lines.sorted().joinToString("\n").toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    /** True when the configuration qualifier string contains the `night` qualifier. */
+    internal fun isNight(configuration: String): Boolean = configuration.split('-').contains("night")
+
+    /** `night-<density>`, `<density>`, `night` or `""`. */
+    internal fun configFor(night: Boolean, density: String): String =
+        listOfNotNull("night".takeIf { night }, density.ifEmpty { null }).joinToString("-")
+
+    private class TargetContext(
+        val spec: ThemeSpec,
+        val device: DeviceSnapshot,
+        val packs: PackResolver,
+        val rules: OneUiRules,
+        val snapshot: TargetSnapshot,
+        val table: ResourceTable,
+        val resolved: () -> ResolvedTheme,
+        val derived: () -> Map<String, Int>,
+        val event: (LogLevel, String, String, Map<String, String>) -> Unit,
+    ) {
+        val pkg = snapshot.packageName
+        val semwt: FabricatedOverlayFile? = snapshot.semwt
+        val skipped = mutableListOf<Skipped>()
+
+        fun compile(): CompiledTarget {
+            val colors = compileColors()
+            val drawables = compileDrawables()
+            val semwtNames = semwt?.entries?.mapTo(HashSet()) { rules.rename(it.typeAndName) }.orEmpty()
+            val planned = colors.map { it.resourceName.substringAfter(':') } + drawables.map { it.resourceName.substringAfter(':') }
+            val coverage = planned.distinct().count { it in semwtNames }
+            return CompiledTarget(
+                packageName = pkg,
+                overlayName = overlayName(pkg),
+                colors = colors,
+                drawables = drawables,
+                skipped = skipped.distinct(),
+                semwtCoverage = coverage,
+                contentHash = contentHash(colors, drawables),
+                versionCode = snapshot.versionCode,
+            )
+        }
+
+        private fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"
+
+        private fun compileColors(): List<PlannedColor> {
+            val values = LinkedHashMap<Pair<String, String>, Int>()
+            val fixed = LinkedHashMap<Pair<String, String>, Skipped>()
+            for (e in semwt?.entries.orEmpty()) {
+                if (e.dataType !in COLOR_TYPES) continue
+                val typeName = rules.rename(e.typeAndName)
+                val config = e.configuration.orEmpty()
+                val key = typeName to config
+                val out = RoleInference.recolor(e.data, device.systemShades, resolved(), isNight(config))
+                if (out == null) fixed[key] = Skipped(display(typeName, config), REASON_FIXED) else values[key] = out
+            }
+            if (fixed.isNotEmpty()) {
+                event(
+                    LogLevel.WARN, pkg, "colours kept fixed",
+                    mapOf("count" to fixed.size.toString(), "names" to fixed.values.take(20).joinToString(",") { it.name }),
+                )
+            }
+
+            for ((pinKey, pin) in spec.colorPins) {
+                if (pinKey.substringBefore(':', "") != pkg) continue
+                val typeName = rules.rename(pinKey.substringAfter(':'))
+                val existing = (values.keys + fixed.keys).filter { it.first == typeName }.map { it.second }.distinct()
+                val configs = existing.ifEmpty { if (pin is ColorPin.Shade) listOf("", "night") else listOf("") }
+                for (config in configs) {
+                    val key = typeName to config
+                    values[key] = when (pin) {
+                        is ColorPin.Fixed -> pin.argb
+                        is ColorPin.Shade -> resolved().scheme(isNight(config)).shade(pin.role, pin.shade)
+                    }
+                    fixed.remove(key)
+                }
+            }
+            skipped += fixed.values
+
+            if (pkg == SYSTEMUI && rules.quickSettingsColoursOnly) {
+                val it = values.keys.iterator()
+                while (it.hasNext()) {
+                    val (typeName, config) = it.next()
+                    if (!QS_COLOUR_NAMES.containsMatchIn(typeName.substringAfter('/'))) {
+                        skipped += Skipped(display(typeName, config), REASON_QS_POLICY)
+                        it.remove()
+                    }
+                }
+            }
+
+            val out = mutableListOf<PlannedColor>()
+            for ((config, group) in values.entries.groupBy({ it.key.second }, { it.key.first to it.value })) {
+                val plan = ResourceMapper.map(table, semwt, ThemeRequest(colors = group.toMap(LinkedHashMap())))
+                plan.colorEntries.mapTo(out) { it.copy(configuration = config) }
+                plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name.substringAfter(':')}", it.reason) }
+            }
+            return out
+        }
+
+        private fun compileDrawables(): List<PlannedDrawableJob> {
+            val jobs = LinkedHashMap<Pair<String, String>, PlannedDrawableJob>()
+            val missingPacks = HashSet<String>()
+            // Generic elements first so targeted elements override them.
+            val elements = Elements.forTarget(pkg).sortedByDescending { it.anyTarget }
+            for (element in elements) {
+                if (!spec.isElementEnabled(element.id)) continue
+                val packId = spec.packFor(element.id) ?: continue
+                val pack = packs.pack(packId)
+                if (pack == null) {
+                    if (missingPacks.add(packId)) {
+                        skipped += Skipped(packId, REASON_PACK_MISSING)
+                        event(LogLevel.WARN, pkg, "pack not available", mapOf("pack" to packId, "element" to element.id))
+                    }
+                    continue
+                }
+                jobs.putAll(elementJobs(element, pack))
+            }
+            return jobs.values.toList()
+        }
+
+        private fun elementJobs(element: Element, pack: Pack): Map<Pair<String, String>, PlannedDrawableJob> {
+            val options = spec.elementOptions[element.id].orEmpty()
+            val categories = pack.layers.map { it.category }.distinct().map(CategoryName::parse)
+                .filter { Elements.elementForCategory(it.raw).id == element.id }
+                .filter { c -> c.optionTokens.all { options[it] == "true" } }
+                .sortedWith(compareBy<CategoryName>({ it.optionTokens.size }, { it.raw }))
+            if (categories.isEmpty()) return emptyMap()
+
+            val qsBlocked = element.quickSettingsPolicy == QuickSettingsPolicy.COLOURS_ONLY && rules.quickSettingsColoursOnly
+            val palette = if (options["palette"] == "pack") emptyMap() else pack.paletteArgb + derived()
+            val entryNames = packs.entryNames(pack.id).ifEmpty { null }
+            val jobs = LinkedHashMap<Pair<String, String>, PlannedDrawableJob>()
+            val dayWinners = LinkedHashMap<Pair<String, String>, Pair<PlannedDrawable, CategoryName>>()
+
+            fun job(pd: PlannedDrawable, category: CategoryName, night: Boolean, density: String): PlannedDrawableJob? {
+                val plan = LayerPlanner.plan(pack, category.raw, pd.source.resourceName, palette, night, entryNames)
+                if (plan.isEmpty) {
+                    skipped += Skipped(pd.resourceName, REASON_NO_LAYERS)
+                    return null
+                }
+                return PlannedDrawableJob(pd.resourceName, configFor(night, density), plan, plan.steps.any { it.isNinePatch }, pd.source, element.id)
+            }
+
+            for (category in categories) {
+                val type = if (category.base == "mipmap") "mipmap" else "drawable"
+                val request = pack.layers.filter { it.category == category.raw }.flatMap { it.resources }.distinct()
+                    .associateTo(LinkedHashMap()) { res -> rules.rename("$type/$res") to DrawableSource(pack.id, category.raw, res) }
+                val plan = ResourceMapper.map(table, semwt, ThemeRequest(drawables = request))
+                if (!element.anyTarget) plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name}", it.reason) }
+                for (pd in plan.drawableEntries) {
+                    if (qsBlocked) {
+                        skipped += Skipped(pd.resourceName, REASON_QS_POLICY)
+                        continue
+                    }
+                    for (density in pd.configs) {
+                        val j = job(pd, category, category.night, density) ?: continue
+                        jobs[j.resourceName to j.configuration] = j
+                        if (!category.night) dayWinners[pd.resourceName to density] = pd to category
+                    }
+                }
+            }
+            for ((key, winner) in dayWinners) {
+                val (name, density) = key
+                if ((name to configFor(true, density)) in jobs) continue
+                val (pd, category) = winner
+                job(pd, category, night = true, density = density)?.let { jobs[it.resourceName to it.configuration] = it }
+            }
+            return jobs
+        }
+    }
+}

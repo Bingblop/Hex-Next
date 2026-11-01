@@ -1,5 +1,7 @@
 package com.hexnext.engine.palette
 
+import kotlinx.serialization.Serializable
+
 /**
  * What a theme is generated from.
  *
@@ -10,6 +12,7 @@ package com.hexnext.engine.palette
  *   (for [PaletteStyle.CMF] it is also passed to MCU as the second source colour).
  * @property contrast -1.0 … 1.0; 0 is standard.
  */
+@Serializable
 public data class ThemeSource(
     val seedArgb: Int,
     val secondaryArgb: Int? = null,
@@ -20,6 +23,7 @@ public data class ThemeSource(
 )
 
 /** Pitch-black mode (dark theme only). */
+@Serializable
 public enum class PitchBlack {
     /** Normal dark surfaces. */
     OFF,
@@ -43,6 +47,7 @@ public enum class PitchBlack {
  * @property shadeOverrides pinned shades keyed `accent1_500` (or `system_accent1_500`).
  * @property roleOverrides pinned Material roles keyed by snake_case role name (`on_primary`).
  */
+@Serializable
 public data class ThemeAdjustments(
     val accentSaturation: Int = 100,
     val backgroundSaturation: Int = 100,

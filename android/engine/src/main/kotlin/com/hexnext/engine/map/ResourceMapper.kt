@@ -23,8 +23,11 @@ public data class ThemeRequest(
     val drawables: Map<String, DrawableSource> = emptyMap(),
 )
 
-/** A colour to fabricate. [resourceName] is `package:type/name`. */
-public data class PlannedColor(val resourceName: String, val argb: Int)
+/**
+ * A colour to fabricate. [resourceName] is `package:type/name`; [configuration] is the FRRO
+ * configuration qualifier string (`""` for the default configuration, `night` …).
+ */
+public data class PlannedColor(val resourceName: String, val argb: Int, val configuration: String = "")
 
 /**
  * A drawable to composite and fabricate once per entry of [configs] (density qualifiers such as
