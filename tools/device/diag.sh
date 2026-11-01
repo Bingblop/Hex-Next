@@ -55,6 +55,8 @@ if [ -n "$settings_semwt" ]; then
   run "Dump $settings_semwt" "cmd overlay dump $settings_semwt | head -300"
 fi
 run "Overlay dump android (first 120 lines)" "cmd overlay dump android | head -120"
+run "System fonts" "ls -la /system/fonts | head -120; ls -la /data/fonts 2>/dev/null | head; grep -nE '<family|<font ' /system/etc/fonts.xml | head -80; ls /system/etc/font_fallback.xml 2>/dev/null; pm list packages | grep -iE 'font'; settings get system font_size; ls -la /data/adb/modules 2>/dev/null"
+run "Settings window background" "cmd overlay lookup --user current com.android.settings com.android.settings:drawable/sec_settings_background; cmd overlay lookup --user current com.android.settings com.android.settings:color/sec_settings_background_color; dumpsys activity top | grep -iE 'windowBackground|background' | head -10; ls /data/overlays/wallpapertheme 2>/dev/null"
 run "Lookup sample" "cmd overlay lookup --user current com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor; cmd overlay lookup --user current android android:color/system_accent1_500"
 
 # Copy one SemWT .frro for the parser team (binary, small). Prefer a SemWT_ one over

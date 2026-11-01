@@ -20,9 +20,7 @@
     "com.samsung.android.app.notes",
     "com.samsung.android.app.reminder"
   ],
-  "deprecated": [
-    "com.samsung.android.messaging"
-  ],
+  "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
   "quickSettingsColoursOnly": true,
   "renamed": {
     "drawable/ic_settings_display": "drawable/sec_ic_settings_display",
