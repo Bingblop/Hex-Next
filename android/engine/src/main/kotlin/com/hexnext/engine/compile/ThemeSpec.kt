@@ -42,6 +42,16 @@ public sealed class ColorPin {
 }
 
 /**
+ * A custom font the user imported: file names under `custom/fonts`.
+ *
+ * @property regular file name of the regular weight.
+ * @property bold file name of the bold weight, null to reuse [regular].
+ * @property displayName family name shown in the UI.
+ */
+@Serializable
+public data class CustomFont(val regular: String, val bold: String? = null, val displayName: String)
+
+/**
  * The persisted user theme.
  *
  * Map keys: [elementPacks], [elementEnabled] and [elementOptions] are [Element.id]s;
@@ -51,6 +61,12 @@ public sealed class ColorPin {
  * @property elementOptions per element, option key → value. An option token of a pack category
  *   (see [CategoryName.optionTokens]) is on when its value is `"true"`; the key `palette` with
  *   value `"pack"` keeps the pack's own palette instead of the derived theme palette.
+ * @property customIcons `pkg:drawable/name` → file name under `custom/icons` (ARGB PNG, already
+ *   converted); replaces the pack's drawable for that resource.
+ * @property customBackgrounds `pkg:drawable/name` → file name under `custom/backgrounds` (ARGB PNG).
+ * @property customFont the system font to install with the theme, null for the system default.
+ * @property synthesizeMissingIcons when true the compiler plans pack-style icons for Settings
+ *   dashboard rows the pack lacks (see `PlannedDrawableJob.synthesis`).
  */
 @Serializable
 public data class ThemeSpec(
@@ -66,6 +82,10 @@ public data class ThemeSpec(
     val elementOptions: Map<String, Map<String, String>> = emptyMap(),
     val targetEnabled: Map<String, Boolean> = emptyMap(),
     val colorPins: Map<String, ColorPin> = emptyMap(),
+    val customIcons: Map<String, String> = emptyMap(),
+    val customBackgrounds: Map<String, String> = emptyMap(),
+    val customFont: CustomFont? = null,
+    val synthesizeMissingIcons: Boolean = true,
     val format: Int = FORMAT,
 ) {
     /** True unless [elementEnabled] switches [elementId] off. */

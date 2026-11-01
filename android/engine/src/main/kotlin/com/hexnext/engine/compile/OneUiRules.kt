@@ -14,6 +14,8 @@ import kotlinx.serialization.json.Json
  * @property quickSettingsColoursOnly enables the quick-settings policy: System UI colours are
  *   limited to panel/tile names and [QuickSettingsPolicy.COLOURS_ONLY] elements build no drawables.
  * @property renamed resource renames, `type/name` → `type/name`, applied before every lookup.
+ * @property dashboardRows Settings dashboard row keys (`display`, `galaxy_ai` …) whose icons are
+ *   `com.android.settings:drawable/sec_ic_settings_<row>`; the rows icon synthesis may fill in.
  */
 @Serializable
 public data class OneUiRules(
@@ -22,6 +24,7 @@ public data class OneUiRules(
     val deprecated: List<String> = emptyList(),
     val quickSettingsColoursOnly: Boolean = true,
     val renamed: Map<String, String> = emptyMap(),
+    val dashboardRows: List<String> = emptyList(),
 ) {
     /** [targets] without [deprecated] packages. */
     public val activeTargets: List<String> get() = targets.filterNot { it in deprecated }

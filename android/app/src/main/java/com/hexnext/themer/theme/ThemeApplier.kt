@@ -188,7 +188,7 @@ class ThemeApplier(context: Context) {
         var semwt = SemWtController.readState(service, log)
         onSemWt(semwt)
         val before = SemWtController.listOverlays(service)
-        DrawableRenderer(packs).use { renderer ->
+        DrawableRenderer(packs, CustomAssetStore.rootDir(appContext), IconSynthesizer(appContext)).use { renderer ->
             compiled.targets.forEachIndexed { index, target ->
                 val outcome = try {
                     applyTarget(service, target, renderer, privileged, owner, before, buildLog, log) { pkg, hexId, enabledBefore ->
@@ -218,6 +218,44 @@ class ThemeApplier(context: Context) {
         setTakeoverActive(appContext, semwt.records.isNotEmpty())
 
         outcomes += ApplyReport.skippedOutcomes(compiled)
+
+        applyFont(service, spec, log, note)
+    }
+
+    /**
+     * Font step, after the overlays: installs [EngineThemeSpec.customFont] through
+     * [FontInstaller] (its lines go to the on-screen log), or removes a previously installed
+     * font when the spec has none. Font failures are noted but never fail the theme.
+     */
+    private fun applyFont(
+        service: IThemeService,
+        spec: EngineThemeSpec,
+        log: (LogLine) -> Unit,
+        note: (LogLevel, String) -> Unit,
+    ) {
+        val installer = FontInstaller(service)
+        val font = spec.customFont
+        try {
+            if (font == null) {
+                // remove() is a no-op without recorded binds or a module directory, so the module a
+                // half-finished install left behind (nothing bound) is cleaned up as well.
+                installer.remove(log)
+                return
+            }
+            val store = CustomAssetStore(appContext)
+            val regular = store.file(CustomAssetStore.Kind.FONT, font.regular)
+            if (!regular.isFile) {
+                note(LogLevel.WARN, "Font \"${font.displayName}\" is missing (${font.regular}); the system font was left unchanged")
+                return
+            }
+            val bold = font.bold?.let { store.file(CustomAssetStore.Kind.FONT, it) }?.takeIf { it.isFile }
+            note(LogLevel.INFO, "Installing font \"${font.displayName}\"" + if (bold != null) " with a bold file" else "")
+            if (!installer.install(regular, bold, log)) {
+                note(LogLevel.WARN, "Font \"${font.displayName}\" was not fully installed (see log)")
+            }
+        } catch (e: Exception) {
+            note(LogLevel.WARN, "Font step failed: ${e.javaClass.simpleName}: ${e.message}")
+        }
     }
 
     /** Builds the snapshot from the last scan and compiles [spec]; null (with a note) when either fails. */
@@ -305,6 +343,12 @@ class ThemeApplier(context: Context) {
                 }
             }
             if (renderFailures > 0) log(LogLine(LogLevel.WARN, "$pkg: $renderFailures drawables could not be rendered (see build log)"))
+            val customCount = target.drawables.count { it.custom != null }
+            val synthesisedCount = target.drawables.count { it.synthesis != null }
+            if (customCount > 0 || synthesisedCount > 0) {
+                buildLog.write("INFO", pkg, "custom drawables", mapOf("custom" to customCount, "synthesised" to synthesisedCount))
+                log(LogLine(LogLevel.INFO, "$pkg: $customCount custom, $synthesisedCount synthesised drawables"))
+            }
         }
         val colors = target.colors.map { OverlayColor(it.resourceName, it.argb, it.configuration) }
         val request = BuildRequest(pkg, colors, drawables)
@@ -408,6 +452,8 @@ class ThemeApplier(context: Context) {
         SemWtController.restore(service) { say(it.level, it.text) }
         setTakeoverActive(appContext, false)
         cleanupLegacy(service, say)
+        runCatching { FontInstaller(service).remove(log) }
+            .onFailure { say(LogLevel.WARN, "Font removal failed: ${it.javaClass.simpleName}: ${it.message}") }
         guard.confirm()
         say(LogLevel.INFO, "Build log: ${buildLog.file.path}")
         return ok

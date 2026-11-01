@@ -1,5 +1,6 @@
 package com.hexnext.themer.ui
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -51,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -58,13 +61,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Typeface
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,14 +85,23 @@ import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.pack.Pack
 import com.hexnext.engine.pack.PackOption
+import com.hexnext.themer.R
+import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.shizuku.ShizukuState
+import com.hexnext.themer.theme.BackgroundSlots
 import com.hexnext.themer.theme.CatalogueEntry
+import com.hexnext.themer.theme.CustomAssetStore
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
+import com.hexnext.themer.theme.ThemePreviewer
 import com.hexnext.themer.theme.parseHexColor
 import com.hexnext.themer.theme.toHex
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import android.graphics.Color as AndroidColor
+import android.graphics.Typeface as AndroidTypeface
 
 private val PRESETS = listOf(
     0xFF00E5FF, 0xFF3E7BFA, 0xFF7E57C2, 0xFFEC407A, 0xFFE53935, 0xFFFF7043,
@@ -103,7 +121,11 @@ fun MainScreen(viewModel: MainViewModel) {
         DiagnosticsScreen(
             shizuku = shizuku,
             accent = ui.seed,
-            onBack = { showDiagnostics = false },
+            onBack = {
+                showDiagnostics = false
+                // A scan may have happened: the slot lists come from it.
+                viewModel.invalidateSlots()
+            },
         )
         return
     }
@@ -112,7 +134,7 @@ fun MainScreen(viewModel: MainViewModel) {
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
-                title = { Text("HexNext — One UI 9.0 RRO", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Hex Next", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     TextButton(onClick = { showDiagnostics = true }) { Text("Diagnostics") }
                 },
@@ -132,7 +154,7 @@ fun MainScreen(viewModel: MainViewModel) {
             ui.safeModeBanner?.let { banner ->
                 item { SafeModeBanner(banner, onOpenDiagnostics = { showDiagnostics = true }, onDismiss = viewModel::dismissSafeMode) }
             }
-            item { StatusCard(shizuku, ui.oneUiVersion, viewModel::requestPermission) }
+            item { StatusCard(shizuku, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
             item { ColorCard(seed = ui.seed, onSeed = viewModel::setSeed) }
             item {
                 PackCard(
@@ -151,6 +173,45 @@ fun MainScreen(viewModel: MainViewModel) {
                     onCatalogueUrl = viewModel::setCatalogueUrl,
                     onLoadCatalogue = viewModel::loadCatalogue,
                     onDownload = viewModel::downloadPack,
+                )
+            }
+            item {
+                CustomIconsCard(
+                    assets = ui.customIcons,
+                    slots = ui.iconSlots,
+                    slotsError = ui.slotsError,
+                    spec = ui.spec,
+                    busy = ui.busy,
+                    fileOf = viewModel::assetFile,
+                    onImport = viewModel::importCustomIcon,
+                    onAssign = viewModel::assignIcon,
+                    onDelete = viewModel::deleteAsset,
+                    onSynthesize = viewModel::setSynthesizeMissingIcons,
+                )
+            }
+            item {
+                BackgroundsCard(
+                    assets = ui.customBackgrounds,
+                    slots = ui.backgroundSlots,
+                    slotsError = ui.slotsError,
+                    spec = ui.spec,
+                    busy = ui.busy,
+                    fileOf = viewModel::assetFile,
+                    onImport = viewModel::importCustomBackground,
+                    onAssign = viewModel::assignBackground,
+                    onDelete = viewModel::deleteAsset,
+                )
+            }
+            item {
+                FontCard(
+                    fonts = ui.customFonts,
+                    spec = ui.spec,
+                    busy = ui.busy,
+                    fileOf = viewModel::assetFile,
+                    onImport = viewModel::importFont,
+                    onFont = viewModel::setFont,
+                    onBold = viewModel::setFontBold,
+                    onDelete = viewModel::deleteAsset,
                 )
             }
             item { PreviewCard(ui.preview) }
@@ -197,7 +258,7 @@ private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismis
 
 /** The shared card: title (with an optional [trailing] control at its right) over [content]. */
 @Composable
-private fun SectionCard(
+internal fun SectionCard(
     title: String,
     trailing: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable () -> Unit,
@@ -227,7 +288,12 @@ private fun SectionCard(
 }
 
 @Composable
-private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission: () -> Unit) {
+private fun StatusCard(
+    state: ShizukuState,
+    versionLine: String,
+    rootToolLinks: Map<String, String>,
+    onRequestPermission: () -> Unit,
+) {
     val uriHandler = LocalUriHandler.current
     SectionCard("Privilege Gate (No Theme Park / No High Contrast Overlays)") {
         val body = when (state) {
@@ -248,7 +314,7 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
         }
         Text(body, style = MaterialTheme.typography.bodyMedium)
         Text(
-            listOfNotNull(MainViewModel.androidVersion, oneUi, "Precedence > SemWT_*").joinToString(" · "),
+            "$versionLine · Precedence > SemWT_*",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -260,6 +326,74 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
             ShizukuState.PermissionNeeded -> Button(onClick = onRequestPermission) { Text("Allow access") }
             else -> Unit
         }
+        val needsRoot = when (state) {
+            ShizukuState.NotRunning, ShizukuState.PermissionNeeded, ShizukuState.PermissionDenied -> true
+            is ShizukuState.Ready -> !state.isPrivileged
+            ShizukuState.TooOld -> false
+        }
+        if (needsRoot) {
+            RootGuide(rootToolLinks)
+        }
+    }
+}
+
+/**
+ * The "No root yet?" block of [StatusCard]: how to get Samsung-compatible temporary root with
+ * Diabl0w's DFRoot and KernelSU forks. Title, body and the two APK download buttons always show;
+ * the four steps with their screenshots unfold behind "What is this?".
+ */
+@Composable
+private fun RootGuide(links: Map<String, String>) {
+    val uriHandler = LocalUriHandler.current
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val emphasis = SpanStyle(fontWeight = FontWeight.SemiBold)
+    val body = buildAnnotatedString {
+        append("Hex Next needs root. On Samsung, Diabl0w's DFRoot and KernelSU forks are ")
+        withStyle(emphasis) { append("the only compatible option") }
+        append(". They are built for Samsung and ")
+        withStyle(emphasis) { append("work on most devices running Android 15 to 17") }
+        append(
+            ". It is risk free: a temporary, system-less root that clears on reboot. It does not trip Knox or " +
+                "void your warranty, and banking apps keep working. Your theme stays after reboot.",
+        )
+    }
+    val downloads: @Composable () -> Unit = {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            RootTools.ALL.forEach { tool ->
+                OutlinedButton(onClick = { uriHandler.openUri(links[tool.name] ?: tool.pinnedApk) }) {
+                    Text("Download ${tool.name}")
+                }
+            }
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("No root yet? Four easy steps.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(body, style = MaterialTheme.typography.bodySmall)
+        if (!expanded) {
+            downloads()
+        } else {
+            Text("1. Download and install both APKs.", style = MaterialTheme.typography.bodyMedium)
+            downloads()
+            Text("2. Open DFRoot. Above the Root button, tap and select KernelSU.", style = MaterialTheme.typography.bodyMedium)
+            Image(
+                painter = painterResource(R.drawable.hx_guide_dfroot),
+                contentDescription = "DFRoot: Select a SU Manager, KernelSU",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium),
+            )
+            Text("3. Press Root and wait for success. KernelSU opens.", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "4. In KernelSU, open the Superuser tab at the bottom, find Hex Next, tap it and turn on Superuser. Done.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Image(
+                painter = painterResource(R.drawable.hx_guide_kernelsu),
+                contentDescription = "KernelSU app profile for Hex Next with Superuser on",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium),
+            )
+        }
+        TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide steps" else "What is this?") }
     }
 }
 
@@ -666,14 +800,419 @@ private fun ElementPackDialog(
     )
 }
 
-/** Settings dashboard icons of the theme to apply, rendered from the last device scan. Nothing is clickable. */
-@OptIn(ExperimentalLayoutApi::class)
+// ---- Custom assets ----
+
+private val IMAGE_MIME_TYPES = arrayOf("image/*", "image/x-icon", "image/vnd.microsoft.icon", "application/octet-stream")
+private val FONT_MIME_TYPES = arrayOf(
+    "font/*", "application/x-font-ttf", "application/font-sfnt", "application/vnd.ms-opentype", "application/octet-stream",
+)
+
+/** "1024×1024 · 48 KB" for images, "48 KB" for fonts. */
+private fun assetSummary(asset: CustomAssetStore.Asset): String = listOfNotNull(
+    if (asset.width > 0 && asset.height > 0) "${asset.width}×${asset.height}" else null,
+    "${(asset.bytes + 1023) / 1024} KB",
+).joinToString(" · ")
+
+/** The slot labels an asset [file] is assigned to, from [assignments] (`slot key → file`), joined with " · ". */
+private fun assignedSummary(file: String, assignments: Map<String, String>, labels: Map<String, String>): String? {
+    val keys = assignments.filterValues { it == file }.keys
+    if (keys.isEmpty()) return null
+    return keys.joinToString(" · ") { key -> labels[key] ?: key.substringAfter('/') }
+}
+
+/** Decodes [file] scaled down to about [targetPx] on its longer side, off the main thread. */
+@Composable
+private fun rememberThumbnail(file: File, targetPx: Int = 192): ImageBitmap? {
+    val state = produceState<ImageBitmap?>(initialValue = null, key1 = file.path) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.path, bounds)
+                var sample = 1
+                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= targetPx) sample *= 2
+                val options = BitmapFactory.Options().apply { inSampleSize = sample }
+                BitmapFactory.decodeFile(file.path, options)?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    return state.value
+}
+
+/** A font family from a `.ttf` / `.otf` file, or null when it cannot be loaded (the text then falls back to the default). */
+@Composable
+private fun rememberFontFamily(path: String?): FontFamily? = remember(path) {
+    path?.let { runCatching { FontFamily(Typeface(AndroidTypeface.createFromFile(File(it)))) }.getOrNull() }
+}
+
+/** One imported image: 48 dp thumbnail, name, size, the slots it fills, and its actions. */
+@Composable
+private fun AssetRow(
+    asset: CustomAssetStore.Asset,
+    file: File,
+    assigned: String?,
+    busy: Boolean,
+    assignLabel: String,
+    onAssign: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        val thumbnail = rememberThumbnail(file)
+        if (thumbnail != null) {
+            Image(thumbnail, contentDescription = asset.displayName, modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.small))
+        } else {
+            Box(Modifier.size(48.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(asset.displayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(assetSummary(asset), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (assigned != null) {
+                Text(assigned, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        TextButton(onClick = onAssign, enabled = !busy) { Text(assignLabel) }
+        TextButton(onClick = onDelete, enabled = !busy) { Text("Remove") }
+    }
+}
+
+/**
+ * Imported icons and the drawables they replace. "Assign…" opens [SlotDialog] with every slot of
+ * the last scan grouped by part; the switch controls icon synthesis for rows the pack lacks.
+ */
+@Composable
+private fun CustomIconsCard(
+    assets: List<CustomAssetStore.Asset>,
+    slots: List<ThemePreviewer.IconSlot>,
+    slotsError: String?,
+    spec: ThemeSpec,
+    busy: Boolean,
+    fileOf: (CustomAssetStore.Asset) -> File,
+    onImport: (Uri) -> Unit,
+    onAssign: (String, String?) -> Unit,
+    onDelete: (CustomAssetStore.Asset) -> Unit,
+    onSynthesize: (Boolean) -> Unit,
+) {
+    var assigning by rememberSaveable { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImport(uri)
+    }
+    val labels = remember(slots) { slots.associate { it.key to it.label } }
+    val names = remember(assets) { assets.associate { it.fileName to it.displayName } }
+    SectionCard("Custom icons") {
+        Text(
+            "Replace any themeable icon with your own PNG or ICO. Files are converted for overlays automatically.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SwitchRow(
+            label = "Fill in missing Settings icons in the pack's style",
+            checked = spec.synthesizeMissingIcons,
+            enabled = !busy,
+            onCheckedChange = onSynthesize,
+        )
+        if (assets.isEmpty()) {
+            Text("No custom icons yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        assets.forEach { asset ->
+            AssetRow(
+                asset = asset,
+                file = fileOf(asset),
+                assigned = assignedSummary(asset.fileName, spec.customIcons, labels),
+                busy = busy,
+                assignLabel = "Assign…",
+                onAssign = { assigning = asset.fileName },
+                onDelete = { onDelete(asset) },
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { picker.launch(IMAGE_MIME_TYPES) }, enabled = !busy) { Text("Import image") }
+        }
+    }
+    val dialogAsset = assets.firstOrNull { it.fileName == assigning }
+    if (dialogAsset != null) {
+        SlotDialog(
+            title = dialogAsset.displayName,
+            file = dialogAsset.fileName,
+            slots = slots,
+            assignments = spec.customIcons,
+            assetNames = names,
+            emptyText = slotsError ?: "Run a device scan to list icon slots.",
+            busy = busy,
+            onAssign = onAssign,
+            onDismiss = { assigning = null },
+        )
+    }
+}
+
+/** Imported backgrounds and the background drawables of the last scan they can fill. */
+@Composable
+private fun BackgroundsCard(
+    assets: List<CustomAssetStore.Asset>,
+    slots: List<BackgroundSlots.Slot>,
+    slotsError: String?,
+    spec: ThemeSpec,
+    busy: Boolean,
+    fileOf: (CustomAssetStore.Asset) -> File,
+    onImport: (Uri) -> Unit,
+    onAssign: (String, String?) -> Unit,
+    onDelete: (CustomAssetStore.Asset) -> Unit,
+) {
+    var assigning by rememberSaveable { mutableStateOf<String?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImport(uri)
+    }
+    val entries = remember(slots) { slots.map { ThemePreviewer.IconSlot(it.key, it.label, it.packageName) } }
+    val labels = remember(slots) { slots.associate { it.key to it.label } }
+    val names = remember(assets) { assets.associate { it.fileName to it.displayName } }
+    SectionCard("Backgrounds") {
+        Text(
+            "Put your own image behind Settings and other One UI screens. Large images are scaled down for overlays.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // One placeholder line, like CustomIconsCard: the scan hint only once there is something to assign.
+        if (assets.isEmpty()) {
+            Text("No backgrounds yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else if (slots.isEmpty()) {
+            Text(slotsError ?: "Run a device scan to list background slots.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        assets.forEach { asset ->
+            AssetRow(
+                asset = asset,
+                file = fileOf(asset),
+                assigned = assignedSummary(asset.fileName, spec.customBackgrounds, labels),
+                busy = busy,
+                assignLabel = "Use for…",
+                onAssign = { assigning = asset.fileName },
+                onDelete = { onDelete(asset) },
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { picker.launch(IMAGE_MIME_TYPES) }, enabled = !busy) { Text("Import background") }
+        }
+    }
+    val dialogAsset = assets.firstOrNull { it.fileName == assigning }
+    if (dialogAsset != null) {
+        SlotDialog(
+            title = dialogAsset.displayName,
+            file = dialogAsset.fileName,
+            slots = entries,
+            assignments = spec.customBackgrounds,
+            assetNames = names,
+            emptyText = slotsError ?: "Run a device scan to list background slots.",
+            busy = busy,
+            onAssign = onAssign,
+            onDismiss = { assigning = null },
+        )
+    }
+}
+
+/** A row of [SlotDialog]: a group header or one slot. */
+private sealed interface SlotLine {
+    data class Header(val group: String) : SlotLine
+    data class Entry(val slot: ThemePreviewer.IconSlot) : SlotLine
+}
+
+/**
+ * Picks the slots an asset [file] fills: a filter field, then the slots grouped under their part
+ * label, each with a radio that is on when this file is assigned. Tapping an assigned slot
+ * gives it back; a slot another file fills says so in its subtitle.
+ */
+@Composable
+private fun SlotDialog(
+    title: String,
+    file: String,
+    slots: List<ThemePreviewer.IconSlot>,
+    assignments: Map<String, String>,
+    assetNames: Map<String, String>,
+    emptyText: String,
+    busy: Boolean,
+    onAssign: (String, String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var filter by rememberSaveable { mutableStateOf("") }
+    val lines = remember(slots, filter) {
+        val needle = filter.trim()
+        val matching = if (needle.isEmpty()) slots else slots.filter {
+            it.label.contains(needle, ignoreCase = true) || it.key.contains(needle, ignoreCase = true) || it.group.contains(needle, ignoreCase = true)
+        }
+        buildList<SlotLine> {
+            var last: String? = null
+            for (slot in matching) {
+                if (slot.group != last) {
+                    add(SlotLine.Header(slot.group))
+                    last = slot.group
+                }
+                add(SlotLine.Entry(slot))
+            }
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text(title) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 420.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (slots.isEmpty()) {
+                    item { Text(emptyText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                } else {
+                    item {
+                        OutlinedTextField(
+                            value = filter,
+                            onValueChange = { filter = it },
+                            label = { Text("Filter") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                if (slots.isNotEmpty() && lines.isEmpty()) {
+                    item { Text("No slot matches the filter.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                items(lines) { line ->
+                    when (line) {
+                        is SlotLine.Header -> Text(line.group, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+                        is SlotLine.Entry -> {
+                            val slot = line.slot
+                            val current = assignments[slot.key]
+                            val selected = current == file
+                            PackRow(selected = selected, enabled = !busy, onClick = { onAssign(slot.key, if (selected) null else file) }) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(slot.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                    // The group header already names the target; only another asset's use is worth a line.
+                                    if (current != null && !selected) {
+                                        Text("Uses ${assetNames[current] ?: current}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+/**
+ * The system font of the theme: "System default" or an imported font, each row set in its own
+ * face; the chosen font can take a second file for bold. A sample line shows the choice.
+ */
+@Composable
+private fun FontCard(
+    fonts: List<CustomAssetStore.Asset>,
+    spec: ThemeSpec,
+    busy: Boolean,
+    fileOf: (CustomAssetStore.Asset) -> File,
+    onImport: (Uri) -> Unit,
+    onFont: (CustomAssetStore.Asset?) -> Unit,
+    onBold: (CustomAssetStore.Asset?) -> Unit,
+    onDelete: (CustomAssetStore.Asset) -> Unit,
+) {
+    var showBold by rememberSaveable { mutableStateOf(false) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImport(uri)
+    }
+    val font = spec.customFont
+    val chosen = fonts.firstOrNull { it.fileName == font?.regular }
+    val chosenFamily = rememberFontFamily(chosen?.let { fileOf(it).path })
+    SectionCard("Font") {
+        Text(
+            "Set the system font from a .ttf or .otf file. Applies with the theme; a reboot makes it show everywhere.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        PackRow(selected = font == null, enabled = !busy, onClick = { onFont(null) }) {
+            Text("System default", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        }
+        fonts.forEach { asset ->
+            val selected = font?.regular == asset.fileName
+            val family = rememberFontFamily(fileOf(asset).path)
+            PackRow(selected = selected, enabled = !busy, onClick = { onFont(asset) }) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        asset.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = family,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val subtitle = if (selected) {
+                        val bold = font?.bold?.let { b -> fonts.firstOrNull { it.fileName == b }?.displayName ?: b }
+                        "Bold file: ${bold ?: "same file"} · ${assetSummary(asset)}"
+                    } else {
+                        assetSummary(asset)
+                    }
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (selected) {
+                    TextButton(onClick = { showBold = true }, enabled = !busy) { Text("Bold…") }
+                }
+                TextButton(onClick = { onDelete(asset) }, enabled = !busy) { Text("Remove") }
+            }
+        }
+        Text(
+            "The quick brown fox jumps over the lazy dog. 0123456789",
+            style = MaterialTheme.typography.bodyLarge,
+            fontFamily = chosenFamily,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { picker.launch(FONT_MIME_TYPES) }, enabled = !busy) { Text("Import font") }
+        }
+    }
+    if (showBold && font != null) {
+        AlertDialog(
+            onDismissRequest = { showBold = false },
+            confirmButton = { TextButton(onClick = { showBold = false }) { Text("Close") } },
+            title = { Text("Bold file") },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    item {
+                        PackRow(selected = font.bold == null, enabled = !busy, onClick = { onBold(null) }) {
+                            Text("Same as regular", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    items(fonts.filter { it.fileName != font.regular }) { asset ->
+                        val family = rememberFontFamily(fileOf(asset).path)
+                        PackRow(selected = font.bold == asset.fileName, enabled = !busy, onClick = { onBold(asset) }) {
+                            Text(
+                                asset.displayName,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = family,
+                            )
+                        }
+                    }
+                }
+            },
+        )
+    }
+}
+
+// ---- Preview ----
+
+private val PREVIEW_SAMPLE = "The quick brown fox jumps over the lazy dog"
+
+/**
+ * The theme as it will apply, rendered from the last device scan: a phone-shaped mock of the
+ * Settings dashboard with the planned icons (pack, custom and generated), the chosen background
+ * and font, and a strip of My Files icons. Nothing is clickable.
+ */
 @Composable
 private fun PreviewCard(preview: PreviewState) {
     SectionCard("Preview") {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "Settings dashboard icons as they will apply, rendered from the last device scan.",
+                "Settings as it will apply, rendered from the last device scan.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -694,35 +1233,7 @@ private fun PreviewCard(preview: PreviewState) {
                 Text("Rendering…", style = MaterialTheme.typography.bodySmall)
             }
         }
-        if (preview.icons.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                preview.icons.forEach { icon ->
-                    Column(
-                        modifier = Modifier.width(72.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        val bitmap = icon.bitmap
-                        if (bitmap != null) {
-                            Image(bitmap.asImageBitmap(), contentDescription = icon.label, modifier = Modifier.size(48.dp))
-                        } else {
-                            Box(Modifier.size(48.dp))
-                        }
-                        Text(
-                            icon.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-        }
+        PhoneMock(preview)
         preview.note?.let { note ->
             Text(
                 note,
@@ -732,6 +1243,94 @@ private fun PreviewCard(preview: PreviewState) {
         }
     }
 }
+
+/** The phone-shaped mock of [PreviewCard]. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PhoneMock(preview: PreviewState) {
+    val family = rememberFontFamily(preview.fontFile)
+    val accent = preview.accent?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
+    val rows = remember(preview.icons) { preview.icons.ifEmpty { ThemePreviewer.defaultRows(PREVIEW_ROWS) }.take(PREVIEW_ROWS) }
+    val background = preview.background
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        if (background != null) {
+            Image(
+                background.asImageBitmap(),
+                contentDescription = "Custom background",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+            )
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .background(
+                    if (background != null) MaterialTheme.colorScheme.surface.copy(alpha = 0.78f) else Color.Transparent,
+                    RoundedCornerShape(16.dp),
+                )
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, fontFamily = family)
+            rows.forEach { icon ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val bitmap = icon.bitmap
+                    if (bitmap != null) {
+                        Image(bitmap.asImageBitmap(), contentDescription = icon.label, modifier = Modifier.size(48.dp))
+                    } else {
+                        Box(
+                            Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(accent.copy(alpha = 0.35f))
+                        )
+                    }
+                    Column {
+                        Text(icon.label, style = MaterialTheme.typography.bodyMedium, fontFamily = family, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (icon.name in preview.synthesised) {
+                            Text("generated", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+            if (preview.myFiles.isNotEmpty()) {
+                Text("My Files", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, fontFamily = family)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    preview.myFiles.forEach { icon ->
+                        val bitmap = icon.bitmap
+                        if (bitmap != null) {
+                            Image(bitmap.asImageBitmap(), contentDescription = icon.label, modifier = Modifier.size(40.dp))
+                        } else {
+                            Box(
+                                Modifier
+                                    .size(40.dp)
+                                    .clip(MaterialTheme.shapes.small)
+                                    .background(accent.copy(alpha = 0.35f))
+                            )
+                        }
+                    }
+                }
+            }
+            Text(PREVIEW_SAMPLE, style = MaterialTheme.typography.bodyMedium, fontFamily = family)
+            Text(
+                preview.fontName?.let { "Font: $it" } ?: "Font: system default",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private const val PREVIEW_ROWS = 6
 
 /** The "Get packs" dialog: catalogue URL, Load, and one row per index entry. */
 @Composable

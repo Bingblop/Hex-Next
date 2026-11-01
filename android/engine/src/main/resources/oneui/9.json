@@ -34,5 +34,34 @@
     "drawable/ic_theme": "drawable/sec_ic_settings_themes",
     "drawable/sec_ic_themes": "drawable/sec_ic_settings_themes",
     "drawable/sec_ic_settings_help": "drawable/sec_ic_settings_user_manual"
-  }
+  },
+  "dashboardRows": [
+    "cloud_and_account",
+    "google",
+    "connections",
+    "devicecare",
+    "applications",
+    "display",
+    "advanced_feature",
+    "wallpaper",
+    "general_device_management",
+    "battery",
+    "galaxy_ai",
+    "sound",
+    "notifications",
+    "themes",
+    "biometrics_and_security",
+    "lockscreen",
+    "accessibility",
+    "location",
+    "multi_devices",
+    "emergency",
+    "user_manual",
+    "about",
+    "digitalwellbeing",
+    "homescreen",
+    "modes",
+    "software_update",
+    "tips"
+  ]
 }

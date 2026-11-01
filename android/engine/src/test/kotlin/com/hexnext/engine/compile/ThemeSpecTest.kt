@@ -29,6 +29,10 @@ class ThemeSpecTest {
             "com.android.systemui:color/qs_tile_bg" to ColorPin.Shade(PaletteRole.ACCENT2, 300),
             "android:color/sec_x" to ColorPin.Fixed(0x80FF0000.toInt()),
         ),
+        customIcons = mapOf("com.android.settings:drawable/sec_ic_settings_display" to "mine-0a1b2c3d.png"),
+        customBackgrounds = mapOf("com.android.settings:drawable/sec_bg" to "wall-11223344.png"),
+        customFont = CustomFont("inter-aabbccdd.ttf", "inter-bold-eeff0011.ttf", "Inter"),
+        synthesizeMissingIcons = false,
     )
 
     @Test
@@ -46,6 +50,10 @@ class ThemeSpecTest {
         assertEquals(ThemeMode.SIMPLE, spec.mode)
         assertNull(spec.simplePackId)
         assertEquals(ThemeSpec.FORMAT, spec.format)
+        assertEquals(emptyMap(), spec.customIcons)
+        assertEquals(emptyMap(), spec.customBackgrounds)
+        assertNull(spec.customFont)
+        assertTrue(spec.synthesizeMissingIcons)
         assertFailsWith<IllegalArgumentException> { ThemeSpec.fromJson("{}") }
         assertFailsWith<IllegalArgumentException> { ThemeSpec.fromJson("""{"id":"x","name":"X","source":{"seedArgb":1},"colorPins":{"a":{"type":"shade","role":"ERROR","shade":500}}}""") }
     }
@@ -69,6 +77,31 @@ class ThemeSpecTest {
         assertEquals("deluxe-4-2", simple.packFor("navigation_bar"))
         assertEquals(listOf("deluxe-4-2", "dsp-2-5"), full.referencedPackIds)
         assertEquals(listOf("deluxe-4-2"), simple.referencedPackIds)
+    }
+
+    @Test
+    fun `custom asset fields round trip and helpers edit them`() {
+        val json = full.toJson()
+        assertTrue("\"customFont\"" in json && "\"synthesizeMissingIcons\":false" in json)
+        val back = ThemeSpec.fromJson(json)
+        assertEquals(full.customIcons, back.customIcons)
+        assertEquals(full.customBackgrounds, back.customBackgrounds)
+        assertEquals(full.customFont, back.customFont)
+        assertFalse(back.synthesizeMissingIcons)
+
+        val d = ThemeSpec.default()
+        val key = "com.android.settings:drawable/sec_ic_settings_tips"
+        val withIcon = d.withCustomIcon(key, "tips-12345678.png")
+        assertEquals(mapOf(key to "tips-12345678.png"), withIcon.customIcons)
+        assertEquals(d, withIcon.withCustomIcon(key, null))
+        val withBg = d.withCustomBackground("android:drawable/bg", "b-00000000.png")
+        assertEquals(mapOf("android:drawable/bg" to "b-00000000.png"), withBg.customBackgrounds)
+        assertEquals(d, withBg.withCustomBackground("android:drawable/bg", null))
+        val font = CustomFont("f-00000000.ttf", displayName = "F")
+        assertEquals(font, d.withFont(font).customFont)
+        assertNull(d.withFont(font).withFont(null).customFont)
+        assertFalse(d.withSynthesizeMissingIcons(false).synthesizeMissingIcons)
+        assertEquals("custom:", CustomAssets.ICON_PREFIX)
     }
 
     @Test

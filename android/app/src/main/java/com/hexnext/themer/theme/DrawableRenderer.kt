@@ -7,13 +7,18 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
+import com.hexnext.engine.compile.CustomAssets
+import com.hexnext.engine.compile.IconSynthesis
 import com.hexnext.engine.compile.PlannedDrawableJob
 import com.hexnext.engine.frro.NinePatch
 import com.hexnext.engine.frro.NinePatchException
 import com.hexnext.engine.pack.DirectoryPackResolver
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.File
 import java.io.IOException
+import kotlin.math.min
+import kotlin.math.roundToInt
 import java.util.zip.ZipFile
 
 /**
@@ -35,8 +40,18 @@ import java.util.zip.ZipFile
  * plain PNG, so marker pixels never reach the device, and [Rendered.warning] carries the reason.
  * A composite whose 9-patch layer was already compiled (decoding stripped its border) or whose
  * size differs from the canvas is rendered as a plain PNG with a warning as well.
+ *
+ * Two further job kinds carry no layers: a job with [PlannedDrawableJob.custom] is a user
+ * imported PNG under `customDir/<icons|backgrounds>/<file>`, fitted into the slot's size by
+ * [CustomSizing]; a job with [PlannedDrawableJob.synthesis] renders its reference pack icon
+ * through the normal path and hands it to [IconSynthesizer] to draw the missing glyph in the
+ * pack's style. Both need the optional constructor arguments; without them such a job throws.
  */
-class DrawableRenderer(private val packs: DirectoryPackResolver) : Closeable {
+class DrawableRenderer(
+    private val packs: DirectoryPackResolver,
+    private val customDir: File? = null,
+    private val synthesizer: IconSynthesizer? = null,
+) : Closeable {
 
     /**
      * [png] to fabricate. [ninePatch] asks the service to fabricate it as a 9-patch SOURCE
@@ -49,6 +64,8 @@ class DrawableRenderer(private val packs: DirectoryPackResolver) : Closeable {
     private val zips = HashMap<String, ZipFile>()
 
     fun render(job: PlannedDrawableJob): Rendered {
+        job.custom?.let { return renderCustom(job, it) }
+        job.synthesis?.let { return renderSynthesis(job, it) }
         val steps = job.plan.steps
         if (steps.isEmpty()) throw IOException("no layers for ${job.resourceName}")
         val zip = zip(job.source.packId)
@@ -107,6 +124,71 @@ class DrawableRenderer(private val packs: DirectoryPackResolver) : Closeable {
     override fun close() {
         zips.values.forEach { runCatching { it.close() } }
         zips.clear()
+    }
+
+    /**
+     * A user-imported image. Icons are letterboxed (aspect kept, centred, transparent padding)
+     * into the slot size from [CustomSizing.iconSize]; backgrounds are never upscaled and are
+     * shrunk so the longer side is at most [CustomSizing.MAX_BACKGROUND_PX].
+     */
+    private fun renderCustom(job: PlannedDrawableJob, file: String): Rendered {
+        val root = customDir ?: throw IOException("no custom asset directory for ${job.resourceName}")
+        val background = job.source.category == CustomAssets.CATEGORY_BACKGROUND
+        val dir = File(root, if (background) CustomSizing.DIR_BACKGROUNDS else CustomSizing.DIR_ICONS)
+        val source = File(dir, file)
+        if (file.isEmpty() || file.contains('/') || file.contains('\\') || !source.isFile) {
+            throw IOException("custom file $file for ${job.resourceName} is missing")
+        }
+        val bytes = source.readBytes()
+        val bitmap = decode(bytes, source.name)
+        try {
+            if (background) {
+                val longer = maxOf(bitmap.width, bitmap.height)
+                if (longer <= CustomSizing.MAX_BACKGROUND_PX) return Rendered(bytes, ninePatch = false)
+                val scale = CustomSizing.MAX_BACKGROUND_PX.toFloat() / longer
+                val scaled = Bitmap.createScaledBitmap(
+                    bitmap, maxOf(1, (bitmap.width * scale).roundToInt()), maxOf(1, (bitmap.height * scale).roundToInt()), true,
+                )
+                try {
+                    return Rendered(encode(scaled), ninePatch = false)
+                } finally {
+                    if (scaled !== bitmap) scaled.recycle()
+                }
+            }
+            val size = CustomSizing.iconSize(job.resourceName, job.configuration, bitmap.width, bitmap.height)
+            if (size.width == bitmap.width && size.height == bitmap.height) return Rendered(bytes, ninePatch = false)
+            val out = Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888)
+            try {
+                val scale = min(size.width.toFloat() / bitmap.width, size.height.toFloat() / bitmap.height)
+                val dw = maxOf(1, (bitmap.width * scale).roundToInt())
+                val dh = maxOf(1, (bitmap.height * scale).roundToInt())
+                val left = (size.width - dw) / 2
+                val top = (size.height - dh) / 2
+                Canvas(out).drawBitmap(bitmap, null, Rect(left, top, left + dw, top + dh), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+                return Rendered(encode(out), ninePatch = false)
+            } finally {
+                out.recycle()
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /** A missing dashboard icon: render the reference pack icon, then draw the glyph in its style. */
+    private fun renderSynthesis(job: PlannedDrawableJob, synthesis: IconSynthesis): Rendered {
+        val synth = synthesizer ?: throw IOException("no synthesizer")
+        val reference = render(synthesis.reference)
+        val decoded = decode(reference.png, synthesis.reference.resourceName)
+        try {
+            val out = synth.synthesize(decoded, synthesis.glyph, decoded.width, decoded.height)
+            try {
+                return Rendered(encode(out), ninePatch = false)
+            } finally {
+                out.recycle()
+            }
+        } finally {
+            decoded.recycle()
+        }
     }
 
     private fun zip(packId: String): ZipFile {
@@ -207,5 +289,72 @@ class DrawableRenderer(private val packs: DirectoryPackResolver) : Closeable {
         val out = ByteArrayOutputStream()
         if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("PNG encoding failed")
         return out.toByteArray()
+    }
+}
+
+/**
+ * Pixel sizes for user-imported icons. The compiler replaced the pack jobs for the resource, so
+ * the slot size is not known from a pack layer; it is derived from the dp size One UI uses for
+ * the resource family times the density of the job's configuration (xxhdpi when it names none).
+ */
+object CustomSizing {
+    const val DIR_ICONS: String = "icons"
+    const val DIR_BACKGROUNDS: String = "backgrounds"
+
+    /** Longer side limit for backgrounds. */
+    const val MAX_BACKGROUND_PX: Int = 2400
+
+    /** Longer side limit for an icon whose family is unknown (kept at source size below it). */
+    const val MAX_ICON_PX: Int = 512
+
+    /** Settings dashboard row icons measure 138–144 px at xxhdpi in packs: 46 dp. */
+    const val SETTINGS_ICON_DP: Int = 46
+
+    /** My Files category / file type icons: 40 dp. */
+    const val MY_FILES_ICON_DP: Int = 40
+
+    const val DEFAULT_DENSITY: Int = 480
+
+    /** An output size in px. */
+    data class Px(val width: Int, val height: Int)
+
+    /**
+     * Output size in px for [resourceName] (`pkg:drawable/name`) in [configuration]: a dp-based
+     * square for the known Settings / My Files families, else the source size (kept non-square),
+     * scaled down uniformly only when its longer side exceeds [MAX_ICON_PX].
+     */
+    fun iconSize(resourceName: String, configuration: String, sourceWidth: Int, sourceHeight: Int): Px {
+        val name = resourceName.substringAfterLast('/')
+        val dp = when {
+            name.startsWith("sec_ic_settings_") -> SETTINGS_ICON_DP
+            name.startsWith("home_category_") || name.startsWith("file_type_") -> MY_FILES_ICON_DP
+            else -> {
+                val w = maxOf(sourceWidth, 1)
+                val h = maxOf(sourceHeight, 1)
+                val longer = maxOf(w, h)
+                if (longer <= MAX_ICON_PX) return Px(w, h)
+                val scale = MAX_ICON_PX.toFloat() / longer
+                return Px(maxOf(1, (w * scale).roundToInt()), maxOf(1, (h * scale).roundToInt()))
+            }
+        }
+        val px = maxOf(1, (dp * density(configuration) / 160f).roundToInt())
+        return Px(px, px)
+    }
+
+    /** Density (dpi) named by a configuration such as `night-xxhdpi` or `420dpi`; [DEFAULT_DENSITY] when none. */
+    fun density(configuration: String): Int {
+        for (part in configuration.split('-')) {
+            when (part) {
+                "ldpi" -> return 120
+                "mdpi" -> return 160
+                "tvdpi" -> return 213
+                "hdpi" -> return 240
+                "xhdpi" -> return 320
+                "xxhdpi" -> return 480
+                "xxxhdpi" -> return 640
+            }
+            if (part.endsWith("dpi")) part.removeSuffix("dpi").toIntOrNull()?.let { if (it > 0) return it }
+        }
+        return DEFAULT_DENSITY
     }
 }

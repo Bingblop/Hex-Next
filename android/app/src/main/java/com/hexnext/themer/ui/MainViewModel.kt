@@ -2,22 +2,32 @@ package com.hexnext.themer.ui
 
 import android.app.Application
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hexnext.engine.compile.LiveOption
+import com.hexnext.engine.compile.CustomFont
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
+import com.hexnext.engine.compile.withCustomBackground
+import com.hexnext.engine.compile.withCustomIcon
 import com.hexnext.engine.compile.withElementEnabled
 import com.hexnext.engine.compile.withElementPack
+import com.hexnext.engine.compile.withFont
 import com.hexnext.engine.compile.withOption
+import com.hexnext.engine.compile.withSynthesizeMissingIcons
 import com.hexnext.engine.pack.Pack
+import com.hexnext.themer.device.CompatibilityCheck
+import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
+import com.hexnext.themer.theme.BackgroundSlots
 import com.hexnext.themer.theme.CatalogueEntry
+import com.hexnext.themer.theme.CustomAssetStore
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
@@ -38,6 +48,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 data class UiState(
     /** Accent seed (opaque ARGB) of the compiled theme and the Diagnostics Settings test. */
@@ -57,6 +68,20 @@ data class UiState(
     val spec: EngineThemeSpec = EngineThemeSpec.default(),
     val catalogue: CatalogueState = CatalogueState(),
     val preview: PreviewState = PreviewState(),
+    /** Imported assets under `files/custom/<icons|backgrounds|fonts>`. */
+    val customIcons: List<CustomAssetStore.Asset> = emptyList(),
+    val customBackgrounds: List<CustomAssetStore.Asset> = emptyList(),
+    val customFonts: List<CustomAssetStore.Asset> = emptyList(),
+    /** Background drawables of the last scan a custom background can replace; empty without a scan. */
+    val backgroundSlots: List<BackgroundSlots.Slot> = emptyList(),
+    /** Drawables a custom icon can replace, grouped by [ThemePreviewer.IconSlot.group]. */
+    val iconSlots: List<ThemePreviewer.IconSlot> = emptyList(),
+    /** Why the slot lists are empty when building them failed; null without a failure (no scan yet, or fine). */
+    val slotsError: String? = null,
+    /** [RootTools.Tool.name] → the newest APK URL (the pinned one until resolved). */
+    val rootToolLinks: Map<String, String> = RootTools.ALL.associate { it.name to it.pinnedApk },
+    /** "Android 17 · One UI 9.0" from the compatibility check. */
+    val versionLine: String = CompatibilityCheck.versionLine(),
 ) {
     /** [EngineThemeSpec.simplePackId] of the stored theme; null is "colours only". */
     val selectedPackId: String? get() = spec.simplePackId
@@ -68,6 +93,11 @@ data class PreviewState(
     val icons: List<ThemePreviewer.PreviewIcon> = emptyList(),
     val accent: Int? = null,
     val note: String? = null,
+    val background: Bitmap? = null,
+    val myFiles: List<ThemePreviewer.PreviewIcon> = emptyList(),
+    val fontFile: String? = null,
+    val fontName: String? = null,
+    val synthesised: Set<String> = emptySet(),
 )
 
 /** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
@@ -87,6 +117,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val themeStore = ThemeStore(app)
     private val packStore = PackStore(app)
     private val previewer = ThemePreviewer(app)
+    private val assets = CustomAssetStore(app)
     private var safeModeChecked = false
     private var semwtReasserted = false
 
@@ -95,6 +126,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** True when a preview was requested while [UiState.busy]; it runs once busy ends. */
     private var previewPending = false
+
+    /** Signature of the spec parts the slot catalogue depends on, as of its last computation. */
+    private var slotsSignature: String? = null
 
     val shizuku: StateFlow<ShizukuState> = ShizukuManager.state
 
@@ -110,6 +144,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
             seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
             refreshPacks()
+            refreshAssets()
+        }
+        viewModelScope.launch {
+            for (tool in RootTools.ALL) {
+                val url = RootTools.latestApkUrl(tool)
+                _ui.update { it.copy(rootToolLinks = it.rootToolLinks + (tool.name to url)) }
+            }
         }
         viewModelScope.launch {
             ShizukuManager.state.collect {
@@ -192,6 +233,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun initialState(): UiState = UiState(
         seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
+        oneUiVersion = CompatibilityCheck.oneUiName(),
         lastApplySummary = ThemeApplier.lastReport(getApplication<Application>())?.summary(),
     )
 
@@ -300,10 +342,169 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val spec = specToApply()
             val rendered = withContext(Dispatchers.Default) { previewer.render(spec) }
             _ui.update {
-                it.copy(preview = PreviewState(loading = false, icons = rendered.icons, accent = rendered.accent, note = rendered.note))
+                it.copy(
+                    preview = PreviewState(
+                        loading = false,
+                        icons = rendered.icons,
+                        accent = rendered.accent,
+                        note = rendered.note,
+                        background = rendered.background,
+                        myFiles = rendered.myFiles,
+                        fontFile = rendered.fontFile,
+                        fontName = rendered.fontName,
+                        synthesised = rendered.synthesised,
+                    ),
+                )
+            }
+            val signature = slotsSignatureOf(spec)
+            if (signature != slotsSignature) {
+                slotsSignature = signature
+                val catalogue = withContext(Dispatchers.Default) { previewer.slots(spec) }
+                _ui.update { it.copy(iconSlots = catalogue.icons, backgroundSlots = catalogue.backgrounds, slotsError = catalogue.error) }
             }
         }
     }
+
+    /** The slot catalogue changes only with the packs, elements and options of the theme, not with colours or custom files. */
+    private fun slotsSignatureOf(spec: EngineThemeSpec): String =
+        listOf(spec.mode, spec.simplePackId, spec.elementPacks, spec.elementEnabled, spec.elementOptions, _ui.value.packs.map { it.id }).toString()
+
+    /** Forces the slot catalogue to be recomputed with the next preview (after a scan or pack change). */
+    fun invalidateSlots() {
+        slotsSignature = null
+        refreshPreview()
+    }
+
+    // ---- Custom assets ----
+
+    /** The stored file of [asset] (for thumbnails and font rendering). */
+    fun assetFile(asset: CustomAssetStore.Asset): File = assets.file(asset.kind, asset.fileName)
+
+    /** Re-reads `files/custom`; a spec that references a file that is gone is cleaned up. */
+    fun refreshAssets() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                Triple(
+                    assets.list(CustomAssetStore.Kind.ICON),
+                    assets.list(CustomAssetStore.Kind.BACKGROUND),
+                    assets.list(CustomAssetStore.Kind.FONT),
+                )
+            }
+            result.onSuccess { (icons, backgrounds, fonts) ->
+                _ui.update { it.copy(customIcons = icons, customBackgrounds = backgrounds, customFonts = fonts) }
+                val iconFiles = icons.mapTo(HashSet()) { it.fileName }
+                val backgroundFiles = backgrounds.mapTo(HashSet()) { it.fileName }
+                val fontFiles = fonts.mapTo(HashSet()) { it.fileName }
+                val spec = _ui.value.spec
+                val staleIcons = spec.customIcons.filterValues { it !in iconFiles }
+                val staleBackgrounds = spec.customBackgrounds.filterValues { it !in backgroundFiles }
+                val font = spec.customFont
+                val bold = font?.bold
+                val staleFont = font != null && font.regular !in fontFiles
+                val staleBold = bold != null && bold !in fontFiles
+                if (staleIcons.isNotEmpty() || staleBackgrounds.isNotEmpty() || staleFont || staleBold) {
+                    log(LogLine(LogLevel.WARN, "Custom files that are no longer stored were removed from the theme"))
+                    updateSpec { current ->
+                        current.copy(
+                            customIcons = current.customIcons.filterValues { v -> v in iconFiles },
+                            customBackgrounds = current.customBackgrounds.filterValues { v -> v in backgroundFiles },
+                            customFont = current.customFont?.let { f ->
+                                val b = f.bold
+                                when {
+                                    f.regular !in fontFiles -> null
+                                    b != null && b !in fontFiles -> f.copy(bold = null)
+                                    else -> f
+                                }
+                            },
+                        )
+                    }
+                }
+            }.onFailure { log(LogLine(LogLevel.ERROR, "Listing custom files failed: ${it.javaClass.simpleName}: ${it.message}")) }
+        }
+    }
+
+    /** Converts the chosen image to an overlay-ready PNG under `files/custom/icons`. */
+    fun importCustomIcon(uri: Uri) = importAsset("icon") { assets.importImage(uri, CustomAssetStore.Kind.ICON) }
+
+    /** Converts the chosen image to an overlay-ready PNG under `files/custom/backgrounds`. */
+    fun importCustomBackground(uri: Uri) = importAsset("background") { assets.importImage(uri, CustomAssetStore.Kind.BACKGROUND) }
+
+    /** Validates and copies the chosen `.ttf` / `.otf` under `files/custom/fonts`. */
+    fun importFont(uri: Uri) = importAsset("font") { assets.importFont(uri) }
+
+    private fun importAsset(what: String, block: () -> CustomAssetStore.Asset) {
+        if (_ui.value.busy) return
+        _ui.update { it.copy(busy = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = block()
+                val size = if (asset.width > 0) " (${asset.width}×${asset.height})" else ""
+                log(LogLine(LogLevel.OK, "Imported $what ${asset.displayName}$size as ${asset.fileName}"))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Importing the $what failed: ${t.message ?: t.javaClass.simpleName}"))
+            } finally {
+                _ui.update { it.copy(busy = false) }
+                refreshAssets()
+            }
+        }
+    }
+
+    /** Deletes [asset] and every theme entry that used it. */
+    fun deleteAsset(asset: CustomAssetStore.Asset) {
+        if (_ui.value.busy) return
+        _ui.update { it.copy(busy = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                assets.delete(asset)
+                updateSpec { spec ->
+                    when (asset.kind) {
+                        CustomAssetStore.Kind.ICON -> spec.copy(customIcons = spec.customIcons.filterValues { it != asset.fileName })
+                        CustomAssetStore.Kind.BACKGROUND -> spec.copy(customBackgrounds = spec.customBackgrounds.filterValues { it != asset.fileName })
+                        CustomAssetStore.Kind.FONT -> {
+                            val font = spec.customFont
+                            when {
+                                font == null -> spec
+                                font.regular == asset.fileName -> spec.withFont(null)
+                                font.bold == asset.fileName -> spec.withFont(font.copy(bold = null))
+                                else -> spec
+                            }
+                        }
+                    }
+                }
+                log(LogLine(LogLevel.OK, "Removed ${asset.displayName}"))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Removing ${asset.displayName} failed: ${t.message ?: t.javaClass.simpleName}"))
+            } finally {
+                _ui.update { it.copy(busy = false) }
+                refreshAssets()
+            }
+        }
+    }
+
+    /** Uses the icon [file] for the drawable [slotKey] (`pkg:drawable/name`); null gives the slot back to the pack. */
+    fun assignIcon(slotKey: String, file: String?) = updateSpec { it.withCustomIcon(slotKey, file) }
+
+    /** Uses the background [file] for [slotKey]; null gives the slot back to the pack or Samsung. */
+    fun assignBackground(slotKey: String, file: String?) = updateSpec { it.withCustomBackground(slotKey, file) }
+
+    /** Makes [asset] the system font of the theme (keeping a bold file that is not the same asset); null restores the default. */
+    fun setFont(asset: CustomAssetStore.Asset?) = updateSpec { spec ->
+        if (asset == null) {
+            spec.withFont(null)
+        } else {
+            val bold = spec.customFont?.bold?.takeIf { it != asset.fileName }
+            spec.withFont(CustomFont(regular = asset.fileName, bold = bold, displayName = asset.displayName))
+        }
+    }
+
+    /** The bold weight of the chosen font: another font file, or null to reuse the regular file. */
+    fun setFontBold(asset: CustomAssetStore.Asset?) = updateSpec { spec ->
+        val font = spec.customFont ?: return@updateSpec spec
+        spec.withFont(font.copy(bold = asset?.fileName?.takeIf { it != font.regular }))
+    }
+
+    /** Whether the compiler draws pack-style icons for Settings rows the pack lacks. */
+    fun setSynthesizeMissingIcons(enabled: Boolean) = updateSpec { it.withSynthesizeMissingIcons(enabled) }
 
     // ---- Theme packs ----
 
@@ -457,7 +658,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             formatOneUi(raw)
         }.getOrNull()
-        _ui.update { it.copy(oneUiVersion = version ?: "One UI 9.0") }
+        _ui.update { it.copy(oneUiVersion = version ?: CompatibilityCheck.oneUiName() ?: "One UI") }
     }
 
     companion object {

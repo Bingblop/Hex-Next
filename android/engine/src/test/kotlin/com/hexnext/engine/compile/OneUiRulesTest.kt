@@ -28,6 +28,9 @@ class OneUiRulesTest {
             assertTrue(rules.deprecated.none { it in rules.activeTargets })
             assertTrue(rules.quickSettingsColoursOnly)
             assertEquals(expectedTargets, rules.activeTargets)
+            assertEquals(27, rules.dashboardRows.size)
+            assertEquals(rules.dashboardRows.distinct(), rules.dashboardRows)
+            assertTrue("display" in rules.dashboardRows && "galaxy_ai" in rules.dashboardRows && "tips" in rules.dashboardRows)
         }
         assertFailsWith<IllegalArgumentException> { OneUiRules.load(6) }
     }
@@ -49,6 +52,7 @@ class OneUiRulesTest {
         assertFalse(rules.quickSettingsColoursOnly)
         assertEquals("color/new", rules.rename("color/old"))
         assertEquals("color/other", rules.rename("color/other"))
+        assertEquals(emptyList(), rules.dashboardRows)
         assertFailsWith<IllegalArgumentException> { OneUiRules.parse("[1]") }
     }
 }

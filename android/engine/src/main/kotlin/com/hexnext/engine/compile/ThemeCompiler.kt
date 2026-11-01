@@ -43,14 +43,29 @@ public class InMemoryPackResolver(
 }
 
 /**
+ * A missing Settings dashboard icon to draw in the pack's style.
+ *
+ * @property glyph the dashboard row key (`galaxy_ai`); the app maps it to its own glyph artwork.
+ * @property reference a pack icon job of the same configuration whose rendered shape and colours
+ *   the synthesised icon copies.
+ */
+public data class IconSynthesis(val glyph: String, val reference: PlannedDrawableJob)
+
+/**
  * One drawable to composite on the device and fabricate.
  *
  * @property resourceName `package:type/name` in the target.
  * @property configuration FRRO configuration (`xxhdpi`, `night-xxhdpi`, `""` …).
- * @property plan layers to composite, bottom first; the app renders it with Bitmaps.
+ * @property plan layers to composite, bottom first; the app renders it with Bitmaps. Empty for
+ *   [custom] and [synthesis] jobs.
  * @property ninePatch true when the result must be fabricated as a 9-patch.
- * @property source pack, category and pack resource name the plan was built from.
+ * @property source pack, category and pack resource name the plan was built from. For a custom
+ *   job `DrawableSource(CustomAssets.PACK_ID, CustomAssets.CATEGORY_ICON | CATEGORY_BACKGROUND, file)`;
+ *   for a synthesis job the reference's source with the target resource name.
  * @property elementId the [Element] that produced the job.
+ * @property custom file name under the app's `custom/<icons|backgrounds>` directory when the
+ *   user replaced this drawable with an imported image; [plan] is then empty.
+ * @property synthesis set when the icon is generated from a reference pack icon; [plan] is then empty.
  */
 public data class PlannedDrawableJob(
     val resourceName: String,
@@ -59,6 +74,8 @@ public data class PlannedDrawableJob(
     val ninePatch: Boolean,
     val source: DrawableSource,
     val elementId: String,
+    val custom: String? = null,
+    val synthesis: IconSynthesis? = null,
 )
 
 /**
@@ -120,6 +137,15 @@ public data class CompiledTheme(
  *    planned once per density the target defines; night categories go to `night-<density>`. A
  *    day category without a night counterpart also gets a night twin planned with dark tints.
  *    More specific categories (more option tokens) and targeted elements win over generic ones.
+ * 3. **Custom overrides.** Each [ThemeSpec.customIcons] / [ThemeSpec.customBackgrounds] entry of
+ *    the target replaces every pack job of its resource with one custom job per configuration
+ *    the pack jobs used (else per density/night configuration the target defines, else `""`).
+ *    Resources the target lacks are skipped with [REASON_NOT_IN_TARGET].
+ * 4. **Icon synthesis.** For Settings, when [ThemeSpec.synthesizeMissingIcons] is on and the
+ *    `settings_icons` element has a pack: every [OneUiRules.dashboardRows] row the target
+ *    defines but the pack left without a job gets a [PlannedDrawableJob.synthesis] job in each
+ *    configuration the pack's dashboard icons cover, referencing that configuration's
+ *    `sec_ic_settings_display` job (else `_connections`, else any).
  *
  * [OneUiRules.renamed] is applied to every resource name before lookup.
  */
@@ -154,11 +180,20 @@ public object ThemeCompiler {
     /** Target skip reason: the target's `resources.arsc` could not be read. */
     public const val REASON_NO_TABLE: String = "no resource table"
 
+    /** Skip reason: a custom icon/background key names a drawable the target does not define. */
+    public const val REASON_NOT_IN_TARGET: String = ResourceMapper.REASON_NOT_IN_TARGET
+
+    /** Resource-name prefix of the Settings dashboard row icons. */
+    public const val DASHBOARD_ICON_PREFIX: String = "sec_ic_settings_"
+
     /** System UI colour names kept under the quick-settings policy. */
     public val QS_COLOUR_NAMES: Regex =
         Regex("qs_|quick|tile|panel|notification|status_bar|statusbar|navigation|nav_bar|volume|power|lock|keyguard|brightness", RegexOption.IGNORE_CASE)
 
     private const val SYSTEMUI = "com.android.systemui"
+    private const val SETTINGS = "com.android.settings"
+    private const val MYFILES = "com.sec.android.app.myfiles"
+    private const val SETTINGS_ICONS = "settings_icons"
     private val COLOR_TYPES = 0x1c..0x1f
 
     /** `HexNext_` + [packageName] with dots replaced by underscores. */
@@ -223,16 +258,25 @@ public object ThemeCompiler {
 
     /**
      * SHA-256 (lower-case hex) of the sorted entries of a target: one line per colour
-     * (`c|config|name|argb`) and drawable (`d|config|name|ninepatch|layer:tint,…`).
+     * (`c|config|name|argb`) and drawable (`d|config|name|ninepatch|layer:tint,…`; custom jobs
+     * `d|config|name|custom:<file>`; synthesis jobs `d|config|name|synth:<glyph>|<reference line>`).
      */
     public fun contentHash(colors: List<PlannedColor>, drawables: List<PlannedDrawableJob>): String {
         val lines = colors.map { "c|${it.configuration}|${it.resourceName}|%08x".format(it.argb) } +
-            drawables.map { job ->
-                "d|${job.configuration}|${job.resourceName}|${job.ninePatch}|" +
-                    job.plan.steps.joinToString(",") { s -> "${s.layerPath}:${s.tintArgb?.let { "%08x".format(it) } ?: "-"}" }
-            }
+            drawables.map(::hashLine)
         val digest = MessageDigest.getInstance("SHA-256").digest(lines.sorted().joinToString("\n").toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun hashLine(job: PlannedDrawableJob): String {
+        val head = "d|${job.configuration}|${job.resourceName}|"
+        val synthesis = job.synthesis
+        return when {
+            job.custom != null -> head + "custom:${job.custom}"
+            synthesis != null -> head + "synth:${synthesis.glyph}|" + hashLine(synthesis.reference)
+            else -> head + "${job.ninePatch}|" +
+                job.plan.steps.joinToString(",") { s -> "${s.layerPath}:${s.tintArgb?.let { "%08x".format(it) } ?: "-"}" }
+        }
     }
 
     /** True when the configuration qualifier string contains the `night` qualifier. */
@@ -349,7 +393,83 @@ public object ThemeCompiler {
                 }
                 jobs.putAll(elementJobs(element, pack))
             }
+            val overridden = HashSet<String>()
+            customJobs(spec.customIcons, CustomAssets.CATEGORY_ICON, jobs, overridden)
+            customJobs(spec.customBackgrounds, CustomAssets.CATEGORY_BACKGROUND, jobs, overridden)
+            if (pkg == SETTINGS && spec.synthesizeMissingIcons) synthesisJobs(jobs, overridden)
             return jobs.values.toList()
+        }
+
+        /**
+         * Replaces the pack jobs of every [entries] key of this target with custom jobs; the
+         * resource names overridden are added to [overridden].
+         */
+        private fun customJobs(
+            entries: Map<String, String>,
+            category: String,
+            jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>,
+            overridden: MutableSet<String>,
+        ) {
+            for ((key, file) in entries) {
+                if (key.substringBefore(':', "") != pkg) continue
+                val typeName = rules.rename(key.substringAfter(':'))
+                val entry = table.find(typeName)
+                if (entry == null || '/' !in typeName) {
+                    skipped += Skipped(key, REASON_NOT_IN_TARGET)
+                    event(LogLevel.WARN, pkg, "custom drawable not in target", mapOf("key" to key, "file" to file))
+                    continue
+                }
+                val resourceName = "$pkg:$typeName"
+                val replaced = jobs.values.filter { it.resourceName == resourceName }
+                replaced.forEach { jobs.remove(it.resourceName to it.configuration) }
+                val configs = replaced.map { it.configuration }.distinct().ifEmpty {
+                    entry.values.map { configFor(it.resConfig.isNight, it.resConfig.densityQualifier) }.distinct().ifEmpty { listOf("") }
+                }
+                val name = typeName.substringAfter('/')
+                val elementId = replaced.firstOrNull()?.elementId ?: when {
+                    category == CustomAssets.CATEGORY_BACKGROUND -> "backgrounds"
+                    name.startsWith(DASHBOARD_ICON_PREFIX) -> SETTINGS_ICONS
+                    pkg == MYFILES -> "my_files_icons"
+                    else -> "system_drawables"
+                }
+                val source = DrawableSource(CustomAssets.PACK_ID, category, file)
+                for (config in configs) {
+                    jobs[resourceName to config] =
+                        PlannedDrawableJob(resourceName, config, CompositePlan(emptyList()), false, source, elementId, custom = file)
+                }
+                overridden += resourceName
+                event(LogLevel.INFO, pkg, "custom drawable", mapOf("key" to key, "file" to file, "configs" to configs.joinToString(",")))
+            }
+        }
+
+        /** Adds synthesis jobs for dashboard rows the Settings icon pack left out (see [ThemeCompiler], step 4). */
+        private fun synthesisJobs(jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>, overridden: Set<String>) {
+            if (!spec.isElementEnabled(SETTINGS_ICONS)) return
+            val packId = spec.packFor(SETTINGS_ICONS) ?: return
+            if (packs.pack(packId) == null) return
+            val prefix = "$pkg:drawable/$DASHBOARD_ICON_PREFIX"
+            val packIcons = jobs.values.filter { it.custom == null && it.synthesis == null && it.resourceName.startsWith(prefix) }
+            if (packIcons.isEmpty()) return
+            for ((config, group) in packIcons.groupBy { it.configuration }) {
+                val reference = group.firstOrNull { it.resourceName == "${prefix}display" }
+                    ?: group.firstOrNull { it.resourceName == "${prefix}connections" }
+                    ?: group.first()
+                for (row in rules.dashboardRows) {
+                    val name = DASHBOARD_ICON_PREFIX + row
+                    val resourceName = "$pkg:drawable/$name"
+                    if (resourceName in overridden || (resourceName to config) in jobs) continue
+                    if (table.find("drawable", name) == null) continue
+                    jobs[resourceName to config] = PlannedDrawableJob(
+                        resourceName, config, CompositePlan(emptyList()), ninePatch = false,
+                        source = reference.source.copy(resourceName = name), elementId = SETTINGS_ICONS,
+                        synthesis = IconSynthesis(row, reference),
+                    )
+                    event(
+                        LogLevel.INFO, pkg, "icon synthesised",
+                        mapOf("row" to row, "reference" to reference.resourceName, "configuration" to config),
+                    )
+                }
+            }
         }
 
         private fun elementJobs(element: Element, pack: Pack): Map<Pair<String, String>, PlannedDrawableJob> {
