@@ -119,15 +119,34 @@ public object OverlayList {
     }
 }
 
+/** What it takes to put Hex Next's overlay on top of its target, from `cmd overlay list` order. */
+public enum class RaiseNeed {
+    /** Ours is enabled and no enabled overlay of the target is listed after it. */
+    NONE,
+
+    /** Ours is enabled but an enabled overlay of the target (usually SemWT) is listed after it. */
+    RAISE,
+
+    /** Ours is registered but disabled; a plain enable lands it on top. */
+    ENABLE,
+
+    /** Ours is not in the list at all; it has to be registered (fabricated) again. */
+    REGISTER,
+}
+
 /**
  * Shell commands for taking a target over from Samsung's `android:SemWT_<target>`.
  *
- * SemWT overlays sit at `Integer.MAX_VALUE`, so a numeric priority cannot outrank them. For every
- * themed target Hex Next disables the SemWT overlay and re-raises its own overlay to `highest`
- * after Samsung's are in place; [reassert] repeats that whenever Samsung's wallpaper-theme service
- * re-enables a SemWT overlay. Options come before the positional arguments because
- * `OverlayManagerShellCommand` only reads leading options. Ids that are not plain
- * `owner:name` overlay ids produce no command.
+ * On One UI 9 (SM-S948U1) OverlayManagerService calls `setHighestPriority` on every successful
+ * enable, so the most recently enabled overlay of a target wins, and a fabricated overlay on top
+ * beats a SemWT overlay. `cmd overlay set-priority … highest` fails for fabricated overlays
+ * ("Unable to retrieve overlay information", exit 255), so the planner raises an overlay with a
+ * disable/enable cycle instead, and only when [raiseNeed] says another enabled overlay of the
+ * target is listed after ours (`cmd overlay list` prints each target's overlays in ascending
+ * priority). Hex Next still disables SemWT for the targets it themes so that removal can restore
+ * exactly what was on. Options come before the positional arguments because
+ * `OverlayManagerShellCommand` only reads leading options. Ids that are not plain `owner:name`
+ * overlay ids produce no command.
  */
 public object SemWtPlanner {
     private val OVERLAY_ID = Regex("^[A-Za-z0-9_.]+:[A-Za-z0-9_.]+$")
@@ -135,20 +154,49 @@ public object SemWtPlanner {
     /** True when [overlayId] is safe to put on a shell command line. */
     public fun isSafeId(overlayId: String): Boolean = OVERLAY_ID.matches(overlayId)
 
-    /** `cmd overlay set-priority --user current <id> highest`. */
-    public fun raisePriority(overlayId: String): String = "cmd overlay set-priority --user current ${checked(overlayId)} highest"
-
     /** `cmd overlay disable --user current <id>`. */
     public fun disable(overlayId: String): String = "cmd overlay disable --user current ${checked(overlayId)}"
 
     /** `cmd overlay enable --user current <id>`. */
     public fun enable(overlayId: String): String = "cmd overlay enable --user current ${checked(overlayId)}"
 
-    /** Disable `android:SemWT_<target>`, then raise [hexOverlayId] to the top. */
-    public fun takeover(target: String, hexOverlayId: String): List<String> {
+    /** Disable then enable [overlayId]; the enable puts it at the top of its target. */
+    public fun raiseCycle(overlayId: String): List<String> = listOf(disable(overlayId), enable(overlayId))
+
+    /**
+     * Where [ourId] stands among the overlays of [target] in [overlays] (parsed `cmd overlay list`).
+     * The overlays compared are those under the same target header as ours; output without
+     * headers (a filtered list) falls back to the rows whose target is unknown, or to the SemWT
+     * overlay of [target].
+     */
+    public fun raiseNeed(overlays: List<OverlayListEntry>, target: String, ourId: String): RaiseNeed {
+        val index = overlays.indexOfFirst { it.overlayId == ourId }
+        if (index < 0) return RaiseNeed.REGISTER
+        val ours = overlays[index]
+        if (!ours.enabled) return RaiseNeed.ENABLE
+        val semwt = OneUi9Facts.semWtOverlayId(target)
+        val above = overlays.drop(index + 1).any { other ->
+            other.enabled && other.overlayId != ourId &&
+                (other.target == ours.target || other.overlayId == semwt)
+        }
+        return if (above) RaiseNeed.RAISE else RaiseNeed.NONE
+    }
+
+    /** True when ours is enabled but not the highest enabled overlay of [target]. */
+    public fun needsRaise(overlays: List<OverlayListEntry>, target: String, ourId: String): Boolean =
+        raiseNeed(overlays, target, ourId) == RaiseNeed.RAISE
+
+    /**
+     * Disable `android:SemWT_<target>` and, when [overlays] is given and shows ours below another
+     * enabled overlay, raise [hexOverlayId] with a disable/enable cycle. Without a list only the
+     * SemWT disable is planned: a fresh enable already landed ours on top.
+     */
+    public fun takeover(target: String, hexOverlayId: String, overlays: List<OverlayListEntry>? = null): List<String> {
         val semwt = OneUi9Facts.semWtOverlayId(target)
         if (!isSafeId(semwt) || !isSafeId(hexOverlayId)) return emptyList()
-        return listOf(disable(semwt), raisePriority(hexOverlayId))
+        val out = mutableListOf(disable(semwt))
+        if (overlays != null && needsRaise(overlays, target, hexOverlayId)) out += raiseCycle(hexOverlayId)
+        return out
     }
 
     /** Re-enable every SemWT overlay of [state] that was enabled before the takeover. */
@@ -156,15 +204,20 @@ public object SemWtPlanner {
         state.toRestore.map { it.semwtId }.filter(::isSafeId).distinct().map(::enable)
 
     /**
-     * Commands for the records whose Hex overlay is enabled while Samsung's SemWT overlay was
-     * enabled again: disable the SemWT overlay and re-raise the Hex overlay.
+     * Commands for the records whose Hex overlay is enabled: disable the SemWT overlay when it is
+     * enabled again, and raise the Hex overlay when anything enabled is listed after it.
      */
     public fun reassert(state: SemWtState, overlays: List<OverlayListEntry>): List<String> {
         val enabled = overlays.filter { it.enabled }.mapTo(HashSet()) { it.overlayId }
         return state.records
-            .filter { it.hexOverlayId in enabled && it.semwtId in enabled }
+            .filter { it.hexOverlayId in enabled }
             .filter { isSafeId(it.semwtId) && isSafeId(it.hexOverlayId) }
-            .flatMap { listOf(disable(it.semwtId), raisePriority(it.hexOverlayId)) }
+            .flatMap { record ->
+                val out = ArrayList<String>()
+                if (record.semwtId in enabled) out += disable(record.semwtId)
+                if (needsRaise(overlays, record.target, record.hexOverlayId)) out += raiseCycle(record.hexOverlayId)
+                out
+            }
     }
 
     private fun checked(id: String): String {
@@ -175,13 +228,16 @@ public object SemWtPlanner {
 
 /**
  * The re-assert guard: a detached POSIX sh loop (run as root like the stability monitor) that
- * keeps Samsung's SemWT overlays off for the targets Hex Next themes.
+ * keeps Hex Next's overlays on top of Samsung's SemWT overlays for the targets Hex Next themes.
  *
- * Every [DEFAULT_INTERVAL] seconds it compares the modification times of `/data/resource-cache`
- * (Samsung re-fabricates SemWT `.frro` files there on a palette change) and the user 0
- * `wallpaper_info.xml`; when either changed, and in any case every [FULL_CHECK_TICKS] ticks, it
- * reads `cmd overlay list` and, for each recorded pair whose Hex overlay is enabled while the
- * SemWT overlay is enabled again, disables the SemWT overlay and re-raises the Hex overlay.
+ * Every [DEFAULT_INTERVAL] seconds it compares a stamp made of the modification times of
+ * `/data/resource-cache` (Samsung re-fabricates SemWT `.frro` files there on a palette change) and
+ * the user 0 `wallpaper_info.xml` plus a checksum of `cmd overlay list` (which changes when an
+ * overlay is enabled, disabled or reordered); when the stamp changed, and in any case every
+ * [FULL_CHECK_TICKS] ticks, it checks each recorded pair whose Hex overlay is enabled: an enabled
+ * SemWT overlay is disabled again, and when any enabled overlay is listed after the Hex overlay
+ * in its target's section the Hex overlay is raised with a disable/enable cycle (One UI 9 moves an
+ * overlay to the top on every enable; `set-priority` does not work for fabricated overlays).
  * When `safe_mode.json` appears (the stability monitor tripped) it re-enables the SemWT overlays
  * that were enabled before the takeover and exits. A second guard replaces the first: each
  * instance exits once the pid file names another process.
@@ -195,8 +251,8 @@ public object SemWtGuardScript {
     public const val PID_FILE: String = "$DIR/semwt_guard.pid"
     public const val STATUS_FILE_NAME: String = "semwt_guard_status.json"
     public const val SAFE_MODE_FILE: String = "$DIR/safe_mode.json"
-    public const val DEFAULT_INTERVAL: Int = 15
-    public const val FULL_CHECK_TICKS: Int = 20
+    public const val DEFAULT_INTERVAL: Int = 5
+    public const val FULL_CHECK_TICKS: Int = 60
 
     /** The script for [state]'s records; restore candidates are the records that were enabled. */
     public fun text(state: SemWtState): String {
@@ -238,7 +294,7 @@ public object SemWtGuardScript {
         DIR=/data/local/tmp/hexnext
         PIDFILE=£DIR/semwt_guard.pid
         STATUS=£DIR/semwt_guard_status.json
-        INTERVAL=£{1:-15}
+        INTERVAL=£{1:-5}
         FULL=@FULL@
         PAIRS='@PAIRS@'
         RESTORE='@RESTORE@'
@@ -267,7 +323,27 @@ public object SemWtGuardScript {
         trap on_term TERM INT HUP
 
         stamp() {
-          printf '%s/%s' "£(stat -c %Y /data/resource-cache 2>/dev/null)" "£(stat -c %Y /data/system/users/0/wallpaper_info.xml 2>/dev/null)"
+          printf '%s/%s/%s' "£(stat -c %Y /data/resource-cache 2>/dev/null)" \
+            "£(stat -c %Y /data/system/users/0/wallpaper_info.xml 2>/dev/null)" \
+            "£(cmd overlay list --user current 2>/dev/null | cksum 2>/dev/null)"
+        }
+
+        # Prints 1 when an enabled overlay follows £1 inside its target's section of £LIST
+        # (cmd overlay list prints each target's overlays in ascending priority), else 0.
+        needs_raise() {
+          printf '%s\n' "£LIST" | {
+            seen=0
+            out=0
+            while IFS= read -r line; do
+              case "£line" in
+                "[x] £1"|"[ ] £1") seen=1 ;;
+                "[x] "*) if [ "£seen" = 1 ]; then out=1; break; fi ;;
+                "["?"] "*|"--- "*) ;;
+                *) if [ "£seen" = 1 ]; then break; fi ;;
+              esac
+            done
+            echo "£out"
+          }
         }
 
         fix_pairs() {
@@ -275,11 +351,18 @@ public object SemWtGuardScript {
           [ -n "£LIST" ] || return 0
           printf '%s\n' "£PAIRS" | while IFS='|' read -r sem hex; do
             [ -n "£sem" ] && [ -n "£hex" ] || continue
-            if printf '%s\n' "£LIST" | grep -qxF "[x] £hex" && printf '%s\n' "£LIST" | grep -qxF "[x] £sem"; then
+            printf '%s\n' "£LIST" | grep -qxF "[x] £hex" || continue
+            acted=0
+            if printf '%s\n' "£LIST" | grep -qxF "[x] £sem"; then
               cmd overlay disable --user current "£sem" >/dev/null 2>&1
-              cmd overlay set-priority --user current "£hex" highest >/dev/null 2>&1
-              echo fixed
+              acted=1
             fi
+            if [ "£(needs_raise "£hex")" = 1 ]; then
+              cmd overlay disable --user current "£hex" >/dev/null 2>&1
+              cmd overlay enable --user current "£hex" >/dev/null 2>&1
+              acted=1
+            fi
+            [ "£acted" = 1 ] && echo fixed
           done
         }
 
@@ -308,10 +391,10 @@ public object SemWtGuardScript {
         mkdir -p "£DIR"
         echo ££ > "£PIDFILE"
         chmod 644 "£PIDFILE" 2>/dev/null
-        LAST=£(stamp)
         TICK=0
         exit_if_safe_mode
         check
+        LAST=£(stamp)
 
         while true; do
           sleep "£INTERVAL" &
@@ -325,12 +408,13 @@ public object SemWtGuardScript {
           NOW=£(stamp)
           if [ "£NOW" != "£LAST" ]; then
             sleep 3
-            LAST=£(stamp)
             TICK=0
             check
+            LAST=£(stamp)
           elif [ "£TICK" -ge "£FULL" ]; then
             TICK=0
             check
+            LAST=£(stamp)
           fi
         done
     """

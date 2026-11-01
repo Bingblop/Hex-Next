@@ -1,6 +1,7 @@
 package com.hexnext.themer.theme
 
 import android.os.Bundle
+import com.hexnext.engine.compile.OverlayLookup
 import com.hexnext.engine.device.OverlayList
 import com.hexnext.engine.device.OverlayListEntry
 import com.hexnext.engine.device.SemWtGuardScript
@@ -40,6 +41,28 @@ object SemWtController {
         if (bundle.code() != 0) return emptyList()
         return OverlayList.parse(bundle.output())
     }
+
+    /**
+     * `cmd overlay lookup --user current <target> <resource>` until it resolves to [argb], up to
+     * [attempts] times one second apart (the resource cache can lag behind an enable). Returns
+     * whether it matched (null when the output never held a colour) and the last output.
+     */
+    fun verifyColor(service: IThemeService, target: String, resource: String, argb: Int, attempts: Int = 3): Pair<Boolean?, String> {
+        if (!SAFE_TOKEN.matches(target) || !SAFE_RESOURCE.matches(resource)) return null to "unsafe lookup arguments"
+        var last = ""
+        var matched: Boolean? = null
+        repeat(attempts.coerceAtLeast(1)) { attempt ->
+            if (attempt > 0) Thread.sleep(1000)
+            val r = service.exec("cmd overlay lookup --user current $target $resource")
+            last = r.output().trim()
+            matched = OverlayLookup.matches(last, argb)
+            if (matched == true) return true to last
+        }
+        return matched to last
+    }
+
+    private val SAFE_TOKEN = Regex("^[A-Za-z0-9_.]+$")
+    private val SAFE_RESOURCE = Regex("^[A-Za-z0-9_.]+:[A-Za-z0-9_]+/[A-Za-z0-9_.]+$")
 
     /** Runs [commands] in order; returns how many exited 0. */
     fun run(service: IThemeService, commands: List<String>, log: (LogLine) -> Unit): Int {

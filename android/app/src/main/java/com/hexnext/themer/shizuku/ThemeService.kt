@@ -12,6 +12,9 @@ import android.os.SystemClock
 import android.system.Os
 import android.util.TypedValue
 import androidx.annotation.Keep
+import com.hexnext.engine.device.OverlayList
+import com.hexnext.engine.device.RaiseNeed
+import com.hexnext.engine.device.SemWtPlanner
 import com.hexnext.themer.IThemeService
 import org.json.JSONArray
 import org.json.JSONObject
@@ -107,16 +110,12 @@ class ThemeService() : IThemeService.Stub() {
                 if (fab.getInt(KEY_CODE) != 0) return fab
             }
 
-            // Enable and raise priority to highest on top of Samsung's System RROs
-            val enable = exec(
-                "cmd overlay enable --user current $id && " +
-                    "cmd overlay set-priority --user current $id highest"
-            )
-            val code = enable.getInt(KEY_CODE)
+            // Enable; on One UI 9 every enable moves the overlay to the top of its target.
+            val top = enableOnTop(id, name, targetPackage, owner)
             result(
-                code,
+                top.code,
                 "Registered $id (${resourceNames.size} One UI 9.0 tokens) on $targetPackage [UID ${Process.myUid()}]" +
-                    if (code == 0) ", enabled at highest priority." else ".\nEnable failed: ${enable.getString(KEY_OUTPUT)}"
+                    if (top.code == 0) ", enabled.\n${top.log}" else ".\nEnable failed: ${top.log}"
             )
         } catch (t: Throwable) {
             result(-1, describe(t))
@@ -172,16 +171,12 @@ class ThemeService() : IThemeService.Stub() {
                     exec("cmd overlay fabricate --target $target --name $name")
                 }
 
-                // Step 3: Re-enable and elevate priority above Samsung SemWT_*
-                val enableRes = exec(
-                    "cmd overlay enable --user current $id && " +
-                        "cmd overlay set-priority --user current $id highest"
-                )
-                val code = enableRes.getInt(KEY_CODE)
+                // Step 3: Re-enable; the enable lands it above Samsung SemWT_* on One UI 9
+                val top = enableOnTop(id, name, target, owner)
                 logs.appendLine(
                     "$seqLabel [UID ${Process.myUid()}] Cleared idmap2 cache & rebuilt $id -> $target " +
-                        if (code == 0) "(STATE_ENABLED, priority=highest > SemWT_*)"
-                        else "(FAILED: ${enableRes.getString(KEY_OUTPUT)})"
+                        if (top.code == 0) "(STATE_ENABLED)\n${top.log}"
+                        else "(FAILED: ${top.log})"
                 )
             }
 
@@ -527,15 +522,13 @@ class ThemeService() : IThemeService.Stub() {
                 log.appendLine("No drawable was applied (see skipped).")
             }
 
-            val enable = exec(
-                "cmd overlay enable --user current $id && " +
-                    "cmd overlay set-priority --user current $id highest"
-            )
-            val enableCode = enable.getInt(KEY_CODE)
+            val top = enableOnTop(id, name, target, owner)
+            val enableCode = top.code
             if (enableCode == 0) {
-                log.appendLine("Registered ${done.resourceCount} resources, enabled at highest priority.")
+                log.appendLine("Registered ${done.resourceCount} resources, enabled.")
+                log.appendLine(top.log)
             } else {
-                log.appendLine("Enable/priority failed: ${enable.getString(KEY_OUTPUT)}")
+                log.appendLine("Enable failed: ${top.log}")
             }
             val code = when {
                 enableCode != 0 -> enableCode
@@ -913,6 +906,83 @@ class ThemeService() : IThemeService.Stub() {
 
     private fun isSafePath(path: String): Boolean =
         path.startsWith("/") && path.length < 4096 && path.none { it == '\'' || it == '"' || it == '\n' || it == '\r' || it == '\u0000' }
+
+    private class EnableResult(val code: Int, val log: String)
+
+    /**
+     * Enables [id] and makes sure it ends up as the highest enabled overlay of [target].
+     *
+     * On One UI 9 OverlayManagerService calls `setHighestPriority` on every successful enable, so
+     * a plain enable normally lands on top. `cmd overlay set-priority … highest` still runs, but
+     * only best-effort and separately: it fails for fabricated overlays ("Unable to retrieve
+     * overlay information", exit 255), and that exit must never be read as "overlay missing" or
+     * fail the apply. Afterwards `cmd overlay list` is checked; when another enabled overlay of
+     * the target is listed after ours the overlay is raised with a disable/enable cycle (through
+     * an OverlayManagerTransaction when privileged and the hidden `setEnabled` exists, else the
+     * shell). Only a failing enable makes the result non-zero.
+     */
+    private fun enableOnTop(id: String, name: String, target: String, owner: String): EnableResult {
+        val log = StringBuilder()
+        val enable = exec("cmd overlay enable --user current $id")
+        val code = enable.getInt(KEY_CODE)
+        if (code != 0) return EnableResult(code, enable.getString(KEY_OUTPUT).orEmpty().ifEmpty { "exit $code" })
+
+        val priority = exec("cmd overlay set-priority --user current $id highest")
+        val priorityCode = priority.getInt(KEY_CODE)
+        log.append("set-priority highest (best-effort): exit $priorityCode")
+        priority.getString(KEY_OUTPUT).orEmpty().trim().takeIf { it.isNotEmpty() }?.let { log.append(" ").append(it) }
+        log.appendLine()
+
+        val need = raiseNeed(id, target)
+        if (need == RaiseNeed.RAISE) {
+            val how = raiseWithTransaction(name, target, owner) ?: run {
+                val off = exec("cmd overlay disable --user current $id")
+                val on = exec("cmd overlay enable --user current $id")
+                "shell disable/enable (exit ${off.getInt(KEY_CODE)}/${on.getInt(KEY_CODE)})"
+            }
+            log.appendLine("Another overlay of $target was above $id; re-raised via $how.")
+            val after = raiseNeed(id, target)
+            log.appendLine("Order after raise: ${if (after == RaiseNeed.NONE) "on top" else after.name.lowercase()}.")
+        } else {
+            log.appendLine("Order: ${if (need == RaiseNeed.NONE) "on top of $target" else need.name.lowercase()}.")
+        }
+        return EnableResult(0, log.toString().trimEnd())
+    }
+
+    private fun raiseNeed(id: String, target: String): RaiseNeed {
+        val list = exec("cmd overlay list --user current")
+        if (list.getInt(KEY_CODE) != 0) return RaiseNeed.NONE
+        return SemWtPlanner.raiseNeed(OverlayList.parse(list.getString(KEY_OUTPUT).orEmpty()), target, id)
+    }
+
+    /**
+     * Disable then enable the fabricated overlay in one transaction through the hidden
+     * `OverlayManagerTransaction.setEnabled(OverlayIdentifier, boolean, int)`. Returns a
+     * description on success, or null when not privileged or the method is unavailable.
+     */
+    private fun raiseWithTransaction(name: String, target: String, owner: String): String? {
+        if (!isPrivilegedUid()) return null
+        return try {
+            val identifier = newOverlay(name, target, owner).identifier
+            val setEnabled = OverlayManagerTransaction::class.java.methods.firstOrNull { m ->
+                m.name == "setEnabled" && m.parameterTypes.size == 3 &&
+                    m.parameterTypes[1] == java.lang.Boolean.TYPE && m.parameterTypes[2] == Integer.TYPE
+            } ?: return null
+            val user = currentUserId()
+            val off = OverlayManagerTransaction.newInstance()
+            setEnabled.invoke(off, identifier, false, user)
+            commit(off)
+            val on = OverlayManagerTransaction.newInstance()
+            setEnabled.invoke(on, identifier, true, user)
+            commit(on)
+            "OverlayManagerTransaction.setEnabled (user $user)"
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    private fun currentUserId(): Int =
+        exec("am get-current-user").getString(KEY_OUTPUT).orEmpty().trim().toIntOrNull() ?: 0
 
     private fun newOverlay(name: String, target: String, owner: String): FabricatedOverlay {
         val overlay = FabricatedOverlay(name, target)

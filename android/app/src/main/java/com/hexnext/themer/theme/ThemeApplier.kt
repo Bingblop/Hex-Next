@@ -5,6 +5,7 @@ import android.os.Bundle
 import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.CompiledTarget
 import com.hexnext.engine.compile.CompiledTheme
+import com.hexnext.engine.compile.OverlayLookup
 import com.hexnext.engine.compile.TargetOutcome
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.engine.compile.ThemeCompiler
@@ -33,9 +34,11 @@ import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
  * ([DirectoryPackResolver]; colour-only themes compile without packs), clean up the legacy
  * `HexNextMonetShades` overlay, arm the boot-loop guard and the 120 s stability monitor, then per
  * compiled target: render its drawables ([DrawableRenderer]), fabricate `HexNext_<target>` through
- * [OverlayBuilder] (build log + saved request for repair), disable `android:SemWT_<target>` and
- * re-raise the Hex overlay ([SemWtPlanner.takeover]). A failing target is recorded and the next
- * one is built. The SemWT state is saved and the re-assert guard started; the [ApplyReport] is
+ * [OverlayBuilder] (build log + saved request for repair), disable `android:SemWT_<target>` and,
+ * only when `cmd overlay list` shows the Hex overlay below another enabled overlay, raise it with a
+ * disable/enable cycle ([SemWtPlanner.takeover]; One UI 9 puts an overlay on top on every enable),
+ * then verify with `cmd overlay lookup` that the first plain colour resolves to the value set
+ * (a mismatch makes the target PARTIAL). A failing target is recorded and the next one is built. The SemWT state is saved and the re-assert guard started; the [ApplyReport] is
  * saved to `files/reports/apply-last.json`.
  *
  * [remove]: stop the guard, disable (and when privileged unregister) every HexNext overlay,
@@ -204,14 +207,16 @@ class ThemeApplier(context: Context) {
             return TargetOutcome(pkg, status, target.overlayName, colors.size, drawables.size, result.resourceCount, millis = result.millis, message = tail)
         }
 
-        val hexId = SemWtController.listOverlays(service)
+        val after = SemWtController.listOverlays(service)
+        val hexId = after
             .firstOrNull { it.overlayId.substringAfter(':') == target.overlayName && it.target == pkg }?.overlayId
             ?: "$owner:${target.overlayName}"
         val semwtId = OneUi9Facts.semWtOverlayId(pkg)
         val semwtRow = before.firstOrNull { it.overlayId == semwtId }
         var semwtDisabled = false
         if (semwtRow != null && semwtRow.marker != MARKER_NOT_APPLICABLE) {
-            val commands = SemWtPlanner.takeover(pkg, hexId)
+            // Disable SemWT; raise ours (disable/enable cycle) only when the list shows it below another overlay.
+            val commands = SemWtPlanner.takeover(pkg, hexId, after)
             val ok = SemWtController.run(service, commands, log)
             semwtDisabled = commands.isNotEmpty() && ok >= 1
             if (semwtDisabled) recordTakeover(pkg, hexId, semwtRow.enabled)
@@ -219,14 +224,35 @@ class ThemeApplier(context: Context) {
                 if (ok == commands.size) "INFO" else "WARN", pkg, "SemWT takeover",
                 mapOf("semwt" to semwtId, "wasEnabled" to semwtRow.enabled, "hexOverlay" to hexId, "commandsOk" to ok, "commands" to commands.size),
             )
-        } else if (SemWtPlanner.isSafeId(hexId)) {
-            SemWtController.run(service, listOf(SemWtPlanner.raisePriority(hexId)), log)
+        } else if (SemWtPlanner.isSafeId(hexId) && SemWtPlanner.needsRaise(after, pkg, hexId)) {
+            SemWtController.run(service, SemWtPlanner.raiseCycle(hexId), log)
         }
+
+        val probe = OverlayLookup.probe(target)
+        var verified: Boolean? = null
+        var verifyDetail = ""
+        if (probe != null) {
+            val (match, output) = SemWtController.verifyColor(service, pkg, probe.resourceName, probe.argb)
+            verified = match
+            val expected = "#%08x".format(probe.argb)
+            verifyDetail = when (match) {
+                true -> ""
+                false -> "lookup ${probe.resourceName} = ${output.lineSequence().firstOrNull().orEmpty()}, expected $expected"
+                null -> ""
+            }
+            buildLog.write(
+                if (match == false) "WARN" else "INFO", pkg, "lookup verification",
+                mapOf("resource" to probe.resourceName, "expected" to expected, "output" to output, "verified" to match),
+            )
+            if (match == false) log(LogLine(LogLevel.WARN, "$pkg: $verifyDetail"))
+        }
+        val finalStatus = if (verified == false && status == TargetResult.OK) TargetResult.PARTIAL else status
         log(
             LogLine(
-                if (status == TargetResult.OK) LogLevel.OK else LogLevel.WARN,
+                if (finalStatus == TargetResult.OK) LogLevel.OK else LogLevel.WARN,
                 "$pkg: ${result.resourceCount} resources${if (semwtDisabled) ", SemWT disabled" else ""}" +
-                    if (status == TargetResult.PARTIAL) " (partial)" else "",
+                    (if (verified == true) ", verified" else "") +
+                    if (finalStatus == TargetResult.PARTIAL) " (partial)" else "",
             ),
         )
         return TargetOutcome(
@@ -239,7 +265,7 @@ class ThemeApplier(context: Context) {
             semwtDisabled = semwtDisabled,
             millis = result.millis,
             message = if (status == TargetResult.PARTIAL) tail else "",
-        )
+        ).withVerification(verified, verifyDetail)
     }
 
     /**

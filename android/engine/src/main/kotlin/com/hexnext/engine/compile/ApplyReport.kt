@@ -1,5 +1,6 @@
 package com.hexnext.engine.compile
 
+import com.hexnext.engine.map.PlannedColor
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -31,6 +32,8 @@ public enum class TargetResult {
  *
  * @property message service output tail, or the skip reason.
  * @property semwtDisabled true when `android:SemWT_<target>` was disabled for this target.
+ * @property verified result of the post-apply `cmd overlay lookup` of the first colour set: true
+ *   when the target resolves to the value Hex Next set, false on a mismatch, null when not checked.
  */
 @Serializable
 public data class TargetOutcome(
@@ -43,7 +46,45 @@ public data class TargetOutcome(
     val semwtDisabled: Boolean = false,
     val millis: Long = 0,
     val message: String = "",
-)
+    val verified: Boolean? = null,
+) {
+    /**
+     * This outcome with the lookup verification recorded. A mismatch turns [TargetResult.OK] into
+     * [TargetResult.PARTIAL] (the overlay is in place but something outranks it or the value did
+     * not land), never into [TargetResult.FAILED]; [detail] is appended to [message].
+     */
+    public fun withVerification(ok: Boolean?, detail: String = ""): TargetOutcome {
+        if (ok == null) return copy(verified = null)
+        val result = if (!ok && result == TargetResult.OK) TargetResult.PARTIAL else result
+        val text = if (detail.isEmpty()) message else listOf(message, detail).filter { it.isNotEmpty() }.joinToString("\n")
+        return copy(result = result, verified = ok, message = text)
+    }
+}
+
+/** Reading `cmd overlay lookup` output. */
+public object OverlayLookup {
+    private val HEX = Regex("""#([0-9a-fA-F]{8}|[0-9a-fA-F]{6})\b""")
+
+    /** The ARGB colour in [output] (`#ffff0000`, `#ff0000`), or null when there is none. */
+    public fun parseColor(output: String): Int? {
+        val digits = HEX.find(output)?.groupValues?.get(1) ?: return null
+        val full = if (digits.length == 6) "ff$digits" else digits
+        return full.toLong(16).toInt()
+    }
+
+    /** True when [output] resolves to [argb], false when it resolves to another colour, null when unreadable. */
+    public fun matches(output: String, argb: Int): Boolean? = parseColor(output)?.let { it == argb }
+
+    /**
+     * The colour to verify [target] with: the first colour set for the default configuration
+     * whose resource has no other configuration variant (so the lookup reads the same value in
+     * light and dark mode), or null when there is none.
+     */
+    public fun probe(target: CompiledTarget): PlannedColor? {
+        val configured = target.colors.filter { it.configuration.isNotEmpty() }.mapTo(HashSet()) { it.resourceName }
+        return target.colors.firstOrNull { it.configuration.isEmpty() && it.resourceName !in configured }
+    }
+}
 
 /**
  * Result of applying a compiled theme: one [TargetOutcome] per target, in build order.
@@ -77,18 +118,29 @@ public data class ApplyReport(
     /** Targets skipped for any other reason, or compiled empty. */
     public val skippedCount: Int get() = outcomes.count { it.result == TargetResult.SKIPPED || it.result == TargetResult.EMPTY }
 
+    /** Targets whose post-apply lookup matched. */
+    public val verifiedCount: Int get() = outcomes.count { it.verified == true }
+
+    /** Targets whose post-apply lookup returned another value. */
+    public val mismatchCount: Int get() = outcomes.count { it.verified == false }
+
     /** Targets whose SemWT overlay was disabled. */
     public val semwtDisabledCount: Int get() = outcomes.count { it.semwtDisabled }
 
     /** True when no target failed and at least one overlay is in place. */
     public val success: Boolean get() = failedCount == 0 && okCount > 0
 
-    /** One line: `12 ok (1 partial), 1 failed, 3 debloated, 2 skipped, 12 SemWT disabled`. */
+    /**
+     * One line: `12 ok (1 partial), 1 failed, 3 debloated, 2 skipped, 12 SemWT disabled`, followed
+     * by `, 11/12 verified` when any target was checked.
+     */
     public fun summary(): String = buildString {
         append("$okCount ok")
         if (partialCount > 0) append(" ($partialCount partial)")
         append(", $failedCount failed, $debloatedCount debloated, $skippedCount skipped")
         append(", $semwtDisabledCount SemWT disabled")
+        val checked = verifiedCount + mismatchCount
+        if (checked > 0) append(", $verifiedCount/$checked verified")
     }
 
     /** This report as JSON. */

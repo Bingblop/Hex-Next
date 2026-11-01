@@ -61,16 +61,51 @@ class SemWtTakeoverTest {
     }
 
     @Test
-    fun `commands disable semwt then raise the hex overlay`() {
+    fun `takeover disables semwt and raises only when the list shows ours below`() {
+        val hex = "com.android.shell:HexNext_com_android_settings"
+        val disableSem = "cmd overlay disable --user current android:SemWT_com.android.settings"
+        assertEquals(listOf(disableSem), SemWtPlanner.takeover("com.android.settings", hex))
+        assertEquals(listOf(disableSem), SemWtPlanner.takeover("com.android.settings", hex, OverlayList.parse(list)))
+        val below = OverlayList.parse(
+            """
+            com.android.settings
+            [x] $hex
+            [x] android:SemWT_com.android.settings
+            """.trimIndent(),
+        )
         assertEquals(
-            listOf(
-                "cmd overlay disable --user current android:SemWT_com.android.settings",
-                "cmd overlay set-priority --user current com.android.shell:HexNext_com_android_settings highest",
-            ),
-            SemWtPlanner.takeover("com.android.settings", "com.android.shell:HexNext_com_android_settings"),
+            listOf(disableSem, "cmd overlay disable --user current $hex", "cmd overlay enable --user current $hex"),
+            SemWtPlanner.takeover("com.android.settings", hex, below),
         )
         assertTrue(SemWtPlanner.takeover("com.android.settings", "x; reboot").isEmpty())
         assertFailsWith<IllegalArgumentException> { SemWtPlanner.enable("a:b c") }
+        assertTrue(SemWtPlanner.raiseCycle(hex).none { "set-priority" in it })
+    }
+
+    @Test
+    fun `raise need follows list order within the target section`() {
+        val ours = "com.android.shell:HexNext_com_android_settings"
+        val sem = "android:SemWT_com.android.settings"
+        fun need(text: String) = SemWtPlanner.raiseNeed(OverlayList.parse(text.trimIndent()), "com.android.settings", ours)
+
+        // Ours last: no raise.
+        assertEquals(RaiseNeed.NONE, need("com.android.settings\n[x] $sem\n[x] $ours"))
+        // SemWT after ours: raise.
+        assertEquals(RaiseNeed.RAISE, need("com.android.settings\n[x] $ours\n[x] $sem"))
+        // SemWT after ours but disabled: no raise.
+        assertEquals(RaiseNeed.NONE, need("com.android.settings\n[x] $ours\n[ ] $sem"))
+        // Another enabled overlay of the same target after ours: raise.
+        assertEquals(RaiseNeed.RAISE, need("com.android.settings\n[x] $ours\n[x] com.example:other"))
+        // Enabled overlays of the next target do not count.
+        assertEquals(RaiseNeed.NONE, need("com.android.settings\n[x] $ours\n\nandroid\n[x] android:SemWT_android"))
+        // A filtered list without headers, as the device test greps it (finding: probe one line after SemWT).
+        assertEquals(RaiseNeed.NONE, need("[x] $sem\n[x] $ours"))
+        assertEquals(RaiseNeed.RAISE, need("[x] $ours\n[x] $sem"))
+        // Ours disabled: enable; ours missing: register again.
+        assertEquals(RaiseNeed.ENABLE, need("com.android.settings\n[ ] $ours\n[x] $sem"))
+        assertEquals(RaiseNeed.REGISTER, need("com.android.settings\n[x] $sem"))
+        assertTrue(SemWtPlanner.needsRaise(OverlayList.parse("[x] $ours\n[x] $sem"), "com.android.settings", ours))
+        assertFalse(SemWtPlanner.needsRaise(OverlayList.parse("[x] $sem"), "com.android.settings", ours))
     }
 
     @Test
@@ -79,14 +114,24 @@ class SemWtTakeoverTest {
     }
 
     @Test
-    fun `reassert acts only where samsung re-enabled semwt under an enabled hex overlay`() {
+    fun `reassert disables a re-enabled semwt and raises a hex overlay that fell below`() {
         val rows = OverlayList.parse(list)
+        // SemWT_android was re-enabled but sits below HexNext_android: disable it, no raise needed.
+        assertEquals(listOf("cmd overlay disable --user current android:SemWT_android"), SemWtPlanner.reassert(state, rows))
+        val reordered = OverlayList.parse(
+            """
+            android
+            [x] com.android.shell:HexNext_android
+            [x] android:SemWT_android
+            """.trimIndent(),
+        )
         assertEquals(
             listOf(
                 "cmd overlay disable --user current android:SemWT_android",
-                "cmd overlay set-priority --user current com.android.shell:HexNext_android highest",
+                "cmd overlay disable --user current com.android.shell:HexNext_android",
+                "cmd overlay enable --user current com.android.shell:HexNext_android",
             ),
-            SemWtPlanner.reassert(state, rows),
+            SemWtPlanner.reassert(state, reordered),
         )
         val hexOff = rows.map { if (it.overlayId == "com.android.shell:HexNext_android") it.copy(enabled = false) else it }
         assertTrue(SemWtPlanner.reassert(state, hexOff).isEmpty())
@@ -104,6 +149,9 @@ class SemWtTakeoverTest {
         assertFalse('@' in text)
         assertTrue("\$(stamp)" in text)
         assertTrue("grep -qxF \"[x] \$hex\"" in text)
+        assertTrue("cksum" in text)
+        assertTrue("needs_raise \"\$hex\"" in text)
+        assertFalse("set-priority" in text)
     }
 
     @Test
