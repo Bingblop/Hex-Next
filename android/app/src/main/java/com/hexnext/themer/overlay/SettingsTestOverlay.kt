@@ -67,14 +67,18 @@ class SettingsTestOverlay(context: Context) {
         // AAPT's generated sub-drawables ($name__0) are not valid overlay resource names.
         val allDrawables = parsed?.ofType("drawable")?.map { it.name }?.distinct()?.sorted().orEmpty()
             .filterNot { it.startsWith('$') }
-        // Build 53 proved the One UI 9 dashboard rows are `ic_<menu>_<symbol>` drawables of Settings
-        // (ic_apps, ic_advanced_features_plus_gearshape, ic_accounts_and_backup_…): those come first,
-        // then anything else that looks like a dashboard icon, then the legacy Hex names.
-        val rows = allDrawables.filter { DASHBOARD_ROW_ICON.containsMatchIn(it) }
-        val dashboard = allDrawables.filter { it !in rows && DASHBOARD_ICON.containsMatchIn(it) }
-        val legacy = allDrawables.filter { it.startsWith("ic_settings") || it.startsWith("sec_ic_settings") }
-        val drawables = (rows + dashboard + legacy).distinct().take(MAX_DRAWABLES)
-        log("Settings has ${allDrawables.size} drawables: ${rows.size} dashboard-row icons, ${dashboard.size} other dashboard-like " +
+        // Settings logs the icon of every dashboard row at start ("TopLevelSettings: {"icon":
+        // "com.android.settings:drawable/sec_ic_settings_connections", ...}"): the rows are the
+        // legacy Hex `sec_ic_settings_*` drawables (22 rows on One UI 9.0, see
+        // docs/device/oneui9-sm-s948u1/build53-icons-probe-*.txt). Those come first, then the
+        // `ic_<menu>_<symbol>` glyphs build 53 proved visible (ic_apps, ic_advanced_features_plus_gearshape,
+        // ic_accounts_and_backup_…), then anything else named like a dashboard icon.
+        val rows = allDrawables.filter { it in DASHBOARD_ROW_ICONS }
+        val glyphs = allDrawables.filter { it !in rows && (it.startsWith("sec_ic_settings_") || DASHBOARD_ROW_ICON.containsMatchIn(it)) }
+        val dashboard = allDrawables.filter { it !in rows && it !in glyphs && DASHBOARD_ICON.containsMatchIn(it) }
+        val drawables = (rows + glyphs + dashboard).distinct().take(MAX_DRAWABLES)
+        log("Settings has ${allDrawables.size} drawables: ${rows.size}/${DASHBOARD_ROW_ICONS.size} dashboard-row icons, " +
+            "${glyphs.size} menu glyphs, ${dashboard.size} other dashboard-like " +
             "(full list: ${File(arsc.parentFile, "names-drawable.txt").path})")
 
         val mapping = readSemWtMapping(log)
@@ -239,7 +243,44 @@ class SettingsTestOverlay(context: Context) {
 
         /** Colour the shell probe proved visible; always set to the plain accent when present. */
         const val PROBE_COLOR = "color/sec_widget_round_and_bgcolor"
-        private const val MAX_DRAWABLES = 60
+        private const val MAX_DRAWABLES = 80
+
+        /**
+         * The icon Settings loads for each top-level row on One UI 9.0 (logged by TopLevelSettings /
+         * [GS]PolicyManager at start), in dashboard order. Hidden rows (Battery, Connected devices,
+         * Safety and emergency, User guide) are included: they show on other devices or after setup.
+         */
+        val DASHBOARD_ROW_ICONS: List<String> = listOf(
+            "sec_ic_settings_cloud_and_account",       // Accounts and backup
+            "sec_ic_settings_google",                  // Google services
+            "sec_ic_settings_connections",             // Connections
+            "sec_ic_settings_devicecare",              // Device care
+            "sec_ic_settings_applications",            // Apps
+            "sec_ic_settings_display",                 // Display
+            "sec_ic_settings_advanced_feature",        // Advanced features
+            "sec_ic_settings_wallpaper",               // Wallpaper and style
+            "sec_ic_settings_general_device_management", // General management
+            "sec_ic_settings_battery",                 // Battery (hidden on SM-S948U1)
+            "sec_ic_settings_galaxy_ai",               // Galaxy AI
+            "sec_ic_settings_sound",                   // Sounds and vibration
+            "sec_ic_settings_notifications",           // Notifications
+            "sec_ic_settings_themes",                  // Themes
+            "sec_ic_settings_biometrics_and_security", // Security and privacy
+            "sec_ic_settings_lockscreen",              // Lock screen and AOD
+            "sec_ic_settings_accessibility",           // Accessibility
+            "sec_ic_settings_location",                // Location
+            "sec_ic_settings_multi_devices",           // Connected devices (hidden)
+            "sec_ic_settings_emergency",               // Safety and emergency (hidden)
+            "sec_ic_settings_user_manual",             // User guide (hidden)
+            "sec_ic_settings_about",                   // About phone
+            "sec_ic_settings_digitalwellbeing",        // Digital Wellbeing (row seen in the default screenshot)
+            "sec_ic_settings_homescreen",              // Home screen
+            "sec_ic_settings_modes",                   // Modes and Routines
+            "sec_ic_settings_software_update",         // Software update
+            "sec_ic_settings_tips",                    // Tips and user manual
+            "sec_ic_settings_parental_controls",       // Parental controls
+            "sec_ic_settings_privacy",                 // Privacy
+        )
 
         /**
          * One UI 9 dashboard-row icons: `ic_<menu>_<symbol>` (or plain `ic_<menu>`), proven visible on
