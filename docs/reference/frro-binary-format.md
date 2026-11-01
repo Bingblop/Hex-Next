@@ -41,14 +41,17 @@ u32 sp_size
 Proto (`frameworks/base/cmds/idmap2/libidmap2/proto/fabricated_v1.proto`):
 
 ```
-FabricatedOverlay { string package_name=1; string name=2;
-                    string target_package_name=3; string target_overlayable=4;
-                    repeated Package packages=5; }
+FabricatedOverlay { repeated Package packages=1; string name=2;
+                    string package_name=3; string target_package_name=4;
+                    string target_overlayable=5; }
 Package  { string name=1; repeated Type types=2; }
 Type     { string name=1; repeated Entry entries=2; }
 Entry    { string name=1; ResourceValue res_value=2; string configuration=3; }
 ResourceValue { uint32 data_type=1; uint32 data_value=2; }
 ```
+
+Field numbers are confirmed by the Samsung fixture `semwt_android_oneui9.frro`: the
+protobuf starts with field 1 (`packages`), and `FrroWriter` reproduces that file byte for byte.
 
 Ordering: packages, types and entries are emitted from `std::map`s keyed by
 name, configurations sorted within an entry (byte-wise string order).
