@@ -81,6 +81,7 @@ def build_pack(path: Path, out_dir: Path) -> dict:
     pack_id, pack_name = catalogue_identity(source_id) or (source_id, meta["name"] or meta["label"])
     palette, defaults, options, category_options = {}, {}, [], {}
     layers: dict[tuple, dict] = {}
+    ui_drawables: dict[str, zipfile.ZipInfo] = {}
     out_zip = out_dir / f"{pack_id}.zip"
     previews = drawables = 0
 
@@ -120,8 +121,15 @@ def build_pack(path: Path, out_dir: Path) -> dict:
                 dst.writestr(f"previews/{previews:03d}{ext}", src.read(info))
             elif (name.startswith("res/drawable") and name.endswith(".png")
                   and "mipmap" not in name):
-                drawables += 1
-                dst.writestr(f"drawables/{Path(name).name}", src.read(info))
+                # Several densities share one basename; keep the largest so the zip has no
+                # duplicate entry names (Android's ZipFile rejects those).
+                kept = ui_drawables.get(Path(name).name)
+                if kept is None or info.file_size > kept.file_size:
+                    ui_drawables[Path(name).name] = info
+
+        for file_name, info in ui_drawables.items():
+            drawables += 1
+            dst.writestr(f"drawables/{file_name}", src.read(info))
 
         pack = {
             "format": 1,

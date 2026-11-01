@@ -66,13 +66,15 @@ class PackStore(context: Context) {
     /**
      * Copies the packs bundled under `assets/packs/` (debug builds only: the CI copies a few test
      * packs there) into the pack directory, skipping ids that are already installed. Returns the
-     * ids it added. A release build has no such assets and this is a no-op.
+     * ids it added and, per asset that could not be installed, why. A release build has no such
+     * assets and this is a no-op.
      */
-    fun seedBundled(): List<String> {
+    fun seedBundled(): Seeded {
         val names = runCatching { appContext.assets.list(ASSET_DIR)?.toList() }.getOrNull().orEmpty()
             .filter { isPackFile(it) }
-        if (names.isEmpty()) return emptyList()
+        if (names.isEmpty()) return Seeded(emptyList(), emptyMap())
         val added = ArrayList<String>()
+        val failed = LinkedHashMap<String, String>()
         for (name in names) {
             val id = name.substringBeforeLast('.')
             if (!runCatching { requireSafeId(id) }.isSuccess || zipFor(id).isFile) continue
@@ -82,16 +84,21 @@ class PackStore(context: Context) {
                 val pack = PackReader.read(staged)
                 if (pack.id != id) {
                     staged.delete()
+                    failed[name] = "pack id is \"${pack.id}\", expected \"$id\""
                     continue
                 }
                 install(staged, id)
                 added += id
             } catch (e: Exception) {
                 partFor(id).delete()
+                failed[name] = "${e.javaClass.simpleName}: ${e.message}"
             }
         }
-        return added
+        return Seeded(added, failed)
     }
+
+    /** Result of [seedBundled]: installed ids plus asset name → reason for the ones that failed. */
+    data class Seeded(val added: List<String>, val failed: Map<String, String>)
 
     /** Every readable pack zip, sorted by name; unreadable zips are reported in [InstalledPacks.errors]. */
     fun installed(): InstalledPacks {

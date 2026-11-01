@@ -10,6 +10,7 @@ import com.hexnext.engine.compile.TargetOutcome
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.engine.compile.ThemeCompiler
 import com.hexnext.engine.device.LegacyOverlays
+import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayListEntry
 import com.hexnext.engine.device.SemWtPlanner
@@ -155,7 +156,7 @@ class ThemeApplier(context: Context) {
             }
         }
         // The device snapshot (every target's resource table) is unreachable once this returns.
-        val compiled = compileFromScan(spec, packs, say, note)
+        val compiled = compileFromScan(service, spec, packs, say, note)
             ?: throw ApplyAborted(notes.lastOrNull() ?: "The theme could not be compiled.")
         val uid = runCatching { service.uid }.getOrDefault(-1)
         val privileged = uid == 0 || uid == 1000
@@ -221,20 +222,38 @@ class ThemeApplier(context: Context) {
 
     /** Builds the snapshot from the last scan and compiles [spec]; null (with a note) when either fails. */
     private fun compileFromScan(
+        service: IThemeService,
         spec: EngineThemeSpec,
         packs: DirectoryPackResolver,
         say: (LogLevel, String, Map<String, Any?>) -> Unit,
         note: (LogLevel, String) -> Unit,
     ): CompiledTheme? {
-        val built = try {
+        var built = try {
             snapshots.build()
         } catch (e: Exception) {
             note(LogLevel.ERROR, "Reading the device scan failed: ${e.javaClass.simpleName}: ${e.message}")
             return null
         }
         if (built == null) {
-            note(LogLevel.ERROR, "No device scan yet. Open Diagnostics and run the scan first.")
-            return null
+            // First apply on a fresh install: scan the device now instead of sending the user to Diagnostics.
+            say(LogLevel.INFO, "No device scan yet; scanning the device first", emptyMap())
+            val report = try {
+                DeviceScanner(appContext).scanBlocking(service) { step -> say(LogLevel.INFO, step, emptyMap()) }
+            } catch (e: Exception) {
+                note(LogLevel.ERROR, "Device scan failed: ${e.javaClass.simpleName}: ${e.message}")
+                return null
+            }
+            report.errors.forEach { note(LogLevel.WARN, "Scan: $it") }
+            built = try {
+                snapshots.build(report)
+            } catch (e: Exception) {
+                note(LogLevel.ERROR, "Reading the device scan failed: ${e.javaClass.simpleName}: ${e.message}")
+                return null
+            }
+            if (built == null) {
+                note(LogLevel.ERROR, "The device scan produced no usable report. Open Diagnostics and run the scan.")
+                return null
+            }
         }
         built.warnings.forEach { note(LogLevel.WARN, it) }
         val oneUi = built.snapshot.oneUi.version?.toString() ?: "unknown One UI"

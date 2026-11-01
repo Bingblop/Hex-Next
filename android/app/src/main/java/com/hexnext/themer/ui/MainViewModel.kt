@@ -75,8 +75,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val selected = themeStore.load().simplePackId
             _ui.update { it.copy(selectedPackId = selected) }
-            val seeded = runCatching { packStore.seedBundled() }.getOrDefault(emptyList())
-            if (seeded.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.joinToString()}"))
+            val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
+            if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
+            seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
             refreshPacks()
         }
         viewModelScope.launch {

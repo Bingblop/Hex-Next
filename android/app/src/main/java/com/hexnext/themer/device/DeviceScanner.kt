@@ -44,7 +44,8 @@ class DeviceScanner(context: Context) {
     suspend fun scan(service: IThemeService, viaSu: Boolean = false, progress: (String) -> Unit = {}): DeviceReport =
         withContext(Dispatchers.IO) { scanBlocking(service, viaSu, progress) }
 
-    private fun scanBlocking(service: IThemeService, viaSu: Boolean, progress: (String) -> Unit): DeviceReport {
+    /** [scan] for callers already on a background thread (the apply pipeline scans when no report exists). */
+    fun scanBlocking(service: IThemeService, viaSu: Boolean = false, progress: (String) -> Unit = {}): DeviceReport {
         val errors = ArrayList<String>()
         val uid = runCatching { service.uid }.getOrElse { errors.add("getUid: ${it.message}"); -1 }
 

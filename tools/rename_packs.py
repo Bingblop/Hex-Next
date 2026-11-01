@@ -37,23 +37,35 @@ def strip_source(pack: dict) -> None:
     pack["package"] = pack_package(pack["id"])
 
 
+def unique_entries(infos: list[zipfile.ZipInfo]) -> list[zipfile.ZipInfo]:
+    """Drops duplicate entry names, keeping the largest (highest-density) copy.
+
+    The legacy plugins ship `res/drawable-*dpi/<name>.png` in several densities, which the first
+    builder flattened to one `drawables/<name>.png` entry per density. Android's ZipFile refuses a
+    zip with duplicate names ("Duplicate entry name"), so such a pack could not be installed.
+    """
+    best: dict[str, zipfile.ZipInfo] = {}
+    for info in infos:
+        kept = best.get(info.filename)
+        if kept is None or info.file_size > kept.file_size:
+            best[info.filename] = info
+    return [best[info.filename] for info in infos if best[info.filename] is info]
+
+
 def rename_zip(src: Path, out_dir: Path) -> tuple[dict, bool]:
     with zipfile.ZipFile(src) as zin:
         pack = json.loads(zin.read("pack.json"))
         identity = catalogue_identity(pack["id"])
-        if identity is None:
-            dst = out_dir / src.name
-            dst.write_bytes(src.read_bytes())
-        else:
+        if identity is not None:
             pack["id"], pack["name"] = identity
-            strip_source(pack)
-            dst = out_dir / f"{identity[0]}.zip"
-            with zipfile.ZipFile(dst, "w") as zout:
-                for info in zin.infolist():
-                    if info.filename == "pack.json":
-                        continue
-                    zout.writestr(info, zin.read(info))
-                zout.writestr("pack.json", json.dumps(pack, indent=1), zipfile.ZIP_DEFLATED)
+        strip_source(pack)
+        dst = out_dir / f"{pack['id']}.zip"
+        with zipfile.ZipFile(dst, "w") as zout:
+            for info in unique_entries(zin.infolist()):
+                if info.filename == "pack.json":
+                    continue
+                zout.writestr(info, zin.read(info))
+            zout.writestr("pack.json", json.dumps(pack, indent=1), zipfile.ZIP_DEFLATED)
     entry = {"id": pack["id"], "name": pack["name"], "author": pack["author"],
              "version": pack["version"], "file": dst.name, "bytes": dst.stat().st_size,
              "categories": sorted(pack["categories"]), "dayNight": pack["dayNight"],
@@ -76,8 +88,10 @@ def main() -> int:
         print(f"  {path.name} -> {entry['file']}  ({entry['name']})")
     index.sort(key=lambda e: e["name"].lower())
     (out / "index.json").write_text(json.dumps({"format": 1, "packs": index}, indent=1) + "\n")
-    print(f"renamed {len(index) - len(unmapped)} packs; unmapped: {unmapped or 'none'}")
-    return 1 if unmapped else 0
+    # An unmapped pack is one that already carries a catalogue id (a second pass over the
+    # catalogue itself); it is rewritten with duplicate entries removed and reported only.
+    print(f"renamed {len(index) - len(unmapped)} packs; already catalogued: {unmapped or 'none'}")
+    return 0
 
 
 if __name__ == "__main__":
