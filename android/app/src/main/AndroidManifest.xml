@@ -3,6 +3,8 @@
 
     <!-- BootReceiver records each boot id for the boot-loop safe mode (safety/ApplyGuard). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Theme pack catalogue downloads (theme/PackStore). -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->
     <application

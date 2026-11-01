@@ -146,6 +146,14 @@ class ThemeApplier(context: Context) {
     ) {
         say(LogLevel.INFO, "Applying theme \"${spec.name}\" (${spec.id})", emptyMap())
         val packs = DirectoryPackResolver(packsDir(appContext))
+        spec.simplePackId?.let { packId ->
+            val pack = packs.pack(packId)
+            if (pack != null) {
+                say(LogLevel.INFO, "Theme pack: ${pack.name} ($packId)", emptyMap())
+            } else {
+                note(LogLevel.WARN, "Theme pack $packId is not installed; colours only")
+            }
+        }
         // The device snapshot (every target's resource table) is unreachable once this returns.
         val compiled = compileFromScan(spec, packs, say, note)
             ?: throw ApplyAborted(notes.lastOrNull() ?: "The theme could not be compiled.")

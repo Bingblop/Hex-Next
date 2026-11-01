@@ -2,6 +2,7 @@ package com.hexnext.themer.ui
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,10 +11,14 @@ import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
+import com.hexnext.themer.theme.CatalogueEntry
+import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
+import com.hexnext.themer.theme.PackStore
 import com.hexnext.themer.theme.SemWtController
 import com.hexnext.themer.theme.ThemeApplier
+import com.hexnext.themer.theme.ThemeStore
 import com.hexnext.themer.theme.formatOneUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +38,22 @@ data class UiState(
     val safeModeBanner: String? = null,
     /** [com.hexnext.engine.compile.ApplyReport.summary] of the last compiled-theme apply. */
     val lastApplySummary: String? = null,
+    /** Pack zips in `files/packs` that could be read. */
+    val packs: List<InstalledPack> = emptyList(),
+    /** Pack zips that could not be read: file name → message. */
+    val packErrors: Map<String, String> = emptyMap(),
+    /** [EngineThemeSpec.simplePackId] of the stored theme; null is "colours only". */
+    val selectedPackId: String? = null,
+    val catalogue: CatalogueState = CatalogueState(),
+)
+
+/** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
+data class CatalogueState(
+    val url: String = PackStore.DEFAULT_CATALOGUE_URL,
+    val entries: List<CatalogueEntry> = emptyList(),
+    val loading: Boolean = false,
+    val error: String? = null,
+    val downloading: Map<String, Float> = emptyMap(),
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -40,6 +61,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
     private val guard = ApplyGuard(app)
     private val applier = ThemeApplier(app)
+    private val themeStore = ThemeStore(app)
+    private val packStore = PackStore(app)
     private var safeModeChecked = false
     private var semwtReasserted = false
 
@@ -49,6 +72,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val selected = themeStore.load().simplePackId
+            _ui.update { it.copy(selectedPackId = selected) }
+            val seeded = runCatching { packStore.seedBundled() }.getOrDefault(emptyList())
+            if (seeded.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.joinToString()}"))
+            refreshPacks()
+        }
         viewModelScope.launch {
             ShizukuManager.state.collect {
                 if (it is ShizukuState.Ready) {
@@ -133,15 +163,132 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun clearLog() = _ui.update { it.copy(log = emptyList()) }
 
     /**
-     * Compiles and applies the full theme ([EngineThemeSpec.default] with the chosen accent seed)
-     * to every scanned target. Works without packs (colours only); drawables and night colours
-     * need the privileged service.
+     * Compiles and applies the full theme (the stored [EngineThemeSpec] with the chosen accent
+     * seed and pack) to every scanned target. Works without packs (colours only); drawables and
+     * night colours need the privileged service.
      */
     fun applyTheme() = runTask { service, _ ->
-        val spec = EngineThemeSpec.default().let { it.copy(source = it.source.copy(seedArgb = _ui.value.seed)) }
+        val spec = specToApply()
         val report = applier.apply(service, spec, ::log)
         _ui.update { it.copy(lastApplySummary = report.summary()) }
         report.success
+    }
+
+    /** The stored theme with the seed preference and the selected pack applied on top. */
+    private fun specToApply(): EngineThemeSpec {
+        val stored = themeStore.load()
+        val state = _ui.value
+        return stored.copy(source = stored.source.copy(seedArgb = state.seed), simplePackId = state.selectedPackId)
+    }
+
+    // ---- Theme packs ----
+
+    /** Re-reads `files/packs`; a selected pack that is gone falls back to colours only. */
+    fun refreshPacks() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { packStore.installed() }
+            result.onSuccess { installed ->
+                val ids = installed.packs.mapTo(HashSet()) { it.id }
+                _ui.update {
+                    it.copy(
+                        packs = installed.packs,
+                        packErrors = installed.errors,
+                        catalogue = it.catalogue.copy(entries = it.catalogue.entries.map { e -> e.copy(installed = e.id in ids) }),
+                    )
+                }
+                val selected = _ui.value.selectedPackId
+                if (selected != null && installed.packs.none { it.id == selected }) {
+                    log(LogLine(LogLevel.WARN, "Theme pack $selected is no longer installed; colours only"))
+                    selectPack(null)
+                }
+            }.onFailure { log(LogLine(LogLevel.ERROR, "Listing packs failed: ${it.javaClass.simpleName}: ${it.message}")) }
+        }
+    }
+
+    /** Chooses the pack of the next apply (null = colours only) and persists it in the theme. */
+    fun selectPack(id: String?) {
+        _ui.update { it.copy(selectedPackId = id) }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                themeStore.update { it.copy(simplePackId = id) }
+            }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
+        }
+    }
+
+    /** Copies the chosen document into `files/packs` and lists it. */
+    fun importPack(uri: Uri) {
+        if (_ui.value.busy) return
+        _ui.update { it.copy(busy = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val pack = packStore.import(uri)
+                log(LogLine(LogLevel.OK, "Imported pack ${pack.name} (${pack.id}, ${pack.drawableCount} drawables)"))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Import failed: ${t.message ?: t.javaClass.simpleName}"))
+            } finally {
+                _ui.update { it.copy(busy = false) }
+                refreshPacks()
+            }
+        }
+    }
+
+    /** Deletes pack [id]; a deleted selected pack falls back to colours only. */
+    fun deletePack(id: String) {
+        if (_ui.value.busy) return
+        _ui.update { it.copy(busy = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val removed = packStore.delete(id)
+                if (_ui.value.selectedPackId == id) selectPack(null)
+                log(LogLine(if (removed) LogLevel.OK else LogLevel.WARN, if (removed) "Removed pack $id" else "Pack $id was not found"))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Removing pack $id failed: ${t.message ?: t.javaClass.simpleName}"))
+            } finally {
+                _ui.update { it.copy(busy = false) }
+                refreshPacks()
+            }
+        }
+    }
+
+    fun setCatalogueUrl(url: String) = _ui.update { it.copy(catalogue = it.catalogue.copy(url = url)) }
+
+    /** Fetches `index.json` from the catalogue URL; errors show in the dialog, not only the log. */
+    fun loadCatalogue() {
+        if (_ui.value.catalogue.loading) return
+        val url = _ui.value.catalogue.url
+        _ui.update { it.copy(catalogue = it.catalogue.copy(loading = true, error = null)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val entries = packStore.fetchCatalogue(url)
+                _ui.update { it.copy(catalogue = it.catalogue.copy(entries = entries, loading = false, error = null)) }
+                log(LogLine(LogLevel.OK, "Catalogue: ${entries.size} packs at ${PackStore.normaliseBaseUrl(url)}"))
+            } catch (t: Exception) {
+                val message = t.message ?: t.javaClass.simpleName
+                _ui.update { it.copy(catalogue = it.catalogue.copy(loading = false, error = message)) }
+                log(LogLine(LogLevel.ERROR, "Catalogue failed: $message"))
+            }
+        }
+    }
+
+    /** Downloads [entry] into `files/packs` with progress in [CatalogueState.downloading]. */
+    fun downloadPack(entry: CatalogueEntry) {
+        if (_ui.value.busy || entry.id in _ui.value.catalogue.downloading) return
+        val url = _ui.value.catalogue.url
+        _ui.update { it.copy(busy = true, catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to 0f))) }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val pack = packStore.download(url, entry) { read, total ->
+                    val fraction = if (total > 0) (read.toFloat() / total).coerceIn(0f, 1f) else 0f
+                    _ui.update { it.copy(catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to fraction))) }
+                }
+                log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)"))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Download of ${entry.name} failed: ${t.message ?: t.javaClass.simpleName}"))
+            } finally {
+                _ui.update { it.copy(busy = false, catalogue = it.catalogue.copy(downloading = it.catalogue.downloading - entry.id)) }
+                refreshPacks()
+            }
+        }
     }
 
     /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */

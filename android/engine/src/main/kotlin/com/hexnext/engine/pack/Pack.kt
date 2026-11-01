@@ -1,5 +1,6 @@
 package com.hexnext.engine.pack
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -24,7 +25,8 @@ public data class Pack(
     val name: String,
     val author: String = "",
     val version: String = "",
-    val sourcePackage: String = "",
+    /** The pack's own package name, `com.hexnext.pack.<id>`; packs never carry their source plugin's. */
+    @SerialName("package") val packageName: String = "",
     val dayNight: Boolean = false,
     val features: List<String> = emptyList(),
     val palette: Map<String, String> = emptyMap(),

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Give already-built packs their catalogue names (tools/pack_names.json).
 
-Reads every pack zip in <in-dir>, rewrites its pack.json with the catalogue id and name,
+Reads every pack zip in <in-dir>, rewrites its pack.json with the catalogue id, name and com.hexnext.pack.* package
+(dropping the source plugin's package),
 writes <new-id>.zip into <out-dir> and regenerates index.json there. Zips without a
 mapping are copied unchanged and reported. hex_pack_builder.py applies the same mapping
 when it converts a plugin, so this is only needed for packs built before the mapping.
@@ -19,10 +20,21 @@ from pathlib import Path
 NAMES = json.loads((Path(__file__).resolve().parent / "pack_names.json").read_text())
 
 
+def pack_package(pack_id: str) -> str:
+    """The package name a pack ships under: `com.hexnext.pack.<id>` with `-` as `_`."""
+    return "com.hexnext.pack." + pack_id.replace("-", "_")
+
+
 def catalogue_identity(source_id: str) -> tuple[str, str] | None:
     """(id, name) a pack converted from the plugin with [source_id] ships under, or None."""
     entry = NAMES.get(source_id)
     return (entry["id"], entry["name"]) if isinstance(entry, dict) else None
+
+
+def strip_source(pack: dict) -> None:
+    """Removes every trace of the source plugin from a pack.json dict and sets the pack's package."""
+    pack.pop("sourcePackage", None)
+    pack["package"] = pack_package(pack["id"])
 
 
 def rename_zip(src: Path, out_dir: Path) -> tuple[dict, bool]:
@@ -34,6 +46,7 @@ def rename_zip(src: Path, out_dir: Path) -> tuple[dict, bool]:
             dst.write_bytes(src.read_bytes())
         else:
             pack["id"], pack["name"] = identity
+            strip_source(pack)
             dst = out_dir / f"{identity[0]}.zip"
             with zipfile.ZipFile(dst, "w") as zout:
                 for info in zin.infolist():

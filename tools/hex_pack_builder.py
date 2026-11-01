@@ -33,7 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hex_plugin_catalog import CATEGORY_LABELS, catalog_one, base_apk_bytes  # noqa: E402
-from rename_packs import catalogue_identity  # noqa: E402
+from rename_packs import catalogue_identity, pack_package  # noqa: E402
 
 SLOT_RE = re.compile(r"^l?(x[xyz]|lx[xyz]|sx|lz[xy]|xg|lxg)\d+$")
 FIXED_RE = re.compile(r"^H([0-9A-Fa-f]{8})$")
@@ -129,7 +129,7 @@ def build_pack(path: Path, out_dir: Path) -> dict:
             "name": pack_name,
             "author": meta["author"],
             "version": meta["version"],
-            "sourcePackage": meta["package"],
+            "package": pack_package(pack_id),
             "dayNight": meta["day_night"],
             "features": meta["features"],
             "palette": dict(sorted(palette.items())),

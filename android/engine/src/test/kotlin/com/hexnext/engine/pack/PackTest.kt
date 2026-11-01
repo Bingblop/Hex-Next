@@ -18,7 +18,7 @@ class PackTest {
     private val packJson = """
         {
          "format": 1, "id": "deluxe-4-2", "name": "Deluxe", "author": "Charlie_Dii_", "version": "4.2",
-         "sourcePackage": "project.vivid.ui.plugin.deluxe", "dayNight": true, "features": ["navbar", "qs"],
+         "package": "com.hexnext.pack.velvet_rope", "dayNight": true, "features": ["navbar", "qs"],
          "palette": {"lxx1": "#FFEEEEEE", "xx1": "#FF111111", "xy2": "#FF0000FF", "bogus": "nope"},
          "settings": {"radius": 12, "style": "round"},
          "options": [
