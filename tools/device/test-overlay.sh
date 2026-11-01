@@ -10,6 +10,7 @@
 set -u
 OUT_DIR="${1:-$PWD}"
 OUT="$OUT_DIR/hexnext-overlay-test.txt"
+# Each run overwrites the report; logcat -d still shows earlier runs.
 PKG=com.hexnext.themer
 TARGET=com.android.settings
 SEMWT="android:SemWT_$TARGET"
@@ -79,9 +80,15 @@ step "Baseline overlay list" "cmd overlay list --user 0 | grep -iE 'hexnext|SemW
 baseline_semwt=$(semwt_line); log "baseline SemWT line: $baseline_semwt"
 step "Baseline SemWT dump (head)" "cmd overlay dump $SEMWT | head -30"
 step "Baseline lookup" "cmd overlay lookup --user 0 $TARGET $TARGET:color/$COLOR"
+case "$baseline_semwt" in
+  "[x]"*) ;;
+  *) step "SemWT was disabled at baseline; enabling it for the comparison" "cmd overlay enable --user 0 $SEMWT; sleep 2; cmd overlay lookup --user 0 $TARGET $TARGET:color/$COLOR";;
+esac
 
 # 3. Shell-level probe: fabricate, enable, highest priority.
-step "Fabricate probe" "cmd overlay fabricate --target $TARGET --name $PROBE --resource-name color/$COLOR --type 0x1c --value 0xffff0000"
+# AOSP syntax: fabricate --target PKG --name NAME PKG:TYPE/NAME ENCODED-TYPE ENCODED-VALUE
+step "Fabricate probe" "cmd overlay fabricate --target $TARGET --name $PROBE $TARGET:color/$COLOR 0x1c 0xffff0000 || cmd overlay help 2>&1 | grep -A6 fabricate"
+step "Probe registered?" "cmd overlay list --user 0 | grep -E 'HexNext_probe\$'; cmd overlay dump $PROBE_ID | head -20"
 step "Enable probe" "cmd overlay enable --user 0 $PROBE_ID"
 step "Lookup after enable (SemWT still on)" "cmd overlay lookup --user 0 $TARGET $TARGET:color/$COLOR"
 step "Probe priority highest" "cmd overlay set-priority $PROBE_ID highest"
@@ -110,7 +117,7 @@ step "SELinux denials" "dmesg | grep -i avc | grep -iE 'hexnext|shizuku|overlay'
 step "Revert: disable probe" "cmd overlay disable --user 0 $PROBE_ID"
 case "$baseline_semwt" in
   "[x]"*) step "Revert: re-enable SemWT" "cmd overlay enable --user 0 $SEMWT";;
-  *) log "SemWT was not enabled at baseline; left as is";;
+  *) step "Revert: SemWT was disabled at baseline, disabling again" "cmd overlay disable --user 0 $SEMWT";;
 esac
 step "Final state" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings\$'"
 log ""; log "Note: the fabricated probe $PROBE_ID stays registered but disabled; it is harmless and the app removes HexNext* overlays."
