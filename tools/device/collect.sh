@@ -31,7 +31,10 @@ for f in $(root "ls -t $APP/logs/*.jsonl 2>/dev/null | head -3"); do
 done
 
 # Drawable names the Settings arsc really has (written by the scan since build 53).
-run "Settings icon-like drawable names" "grep -iE 'ic_|icon|dashboard' $APP/scan/com.android.settings/names-drawable.txt 2>/dev/null | head -500 || echo '(no names-drawable.txt; re-run the scan)'"
+# The whole list goes to its own file; the collect file only gets the dashboard-looking names.
+run "Settings drawable count" "wc -l $APP/scan/com.android.settings/names-drawable.txt 2>/dev/null || echo '(no names-drawable.txt; re-run the scan)'"
+root "cat $APP/scan/com.android.settings/names-drawable.txt 2>/dev/null" >"$OUT_DIR/hexnext-settings-drawables.txt"
+run "Settings dashboard-looking drawable names" "grep -iE '^(ic_settings|sec_ic_|homepage|sec_homepage|ic_homepage|dashboard|top_level)|connections|display|wallpaper|lock_screen|home_screen|sound|notification|modes|routine|safety|emergency|location|google|theme|software_update|about_phone|wellbeing|device_care|general_management|accounts_and|advanced_features|security|privacy|accessibility|^ic_apps' $APP/scan/com.android.settings/names-drawable.txt 2>/dev/null | grep -viE 'bluetooth_|battery_tips|_buds|earbuds|wifi_|signin' | head -400"
 
 # Overlay state.
 run "Hex Next + SemWT overlays (user 0)" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_|aam_monet'"
@@ -44,7 +47,7 @@ run "Hex Next idmap files" "ls -la /data/resource-cache/ | grep -i hexnext | gre
 section "Drawable lookups from the newest build log"
 newest=$(root "ls -t $APP/logs/*.jsonl 2>/dev/null | head -1")
 if [ -n "$newest" ]; then
-  for name in $(root "cat '$newest'" | grep -o '"drawable/[A-Za-z0-9_]*"' | tr -d '"' | sort -u | head -20); do
+  for name in $(root "cat '$newest'" | grep -oE 'drawable\\?/[A-Za-z0-9_]+' | sed 's#\\\\##' | sort -u | head -20); do
     printf '$ cmd overlay lookup --user current com.android.settings com.android.settings:%s\n' "$name" >>"$OUT"
     root "cmd overlay lookup --user current com.android.settings com.android.settings:$name" >>"$OUT"
   done
