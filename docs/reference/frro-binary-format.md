@@ -99,7 +99,10 @@ chunk into a NinePatch, whether it comes from an APK or from an `frro:/` range.
 * Missing padding ticks copy the stretch region of the same axis, as aapt2 does.
 * Chunks: `[len u32 BE][type][data][crc32(type+data)]`; `npTc` (and `npLb`,
   four `int32` layout bounds l/t/r/b, only when red markers exist) are inserted
-  right before the first `IDAT` of the inner PNG. No `npOl` chunk is written.
+  right before the first `IDAT` of the inner PNG. Unlike `npTc`, `npLb` is
+  **little-endian**: aapt2 `SerializeLayoutBounds` memcpy()s host ints and
+  hwui `NinePatchPeeker::readChunk` reads them raw, with no byte swap. No
+  `npOl` chunk is written.
 
 ## Loading and verification
 
@@ -135,6 +138,7 @@ chunk into a NinePatch, whether it comes from an APK or from an `frro:/` range.
    live file on the test device). After a successful enable `ThemeService`
    lists `/data/resource-cache`, keeps the path from step 2 and removes the
    other `<owner>-<name>-<suffix>.frro` files plus their
-   `@data@resource-cache@<file>@idmap` siblings. Removing a theme or all
+   `data@resource-cache@<file>@idmap` siblings (no leading `@`, e.g.
+   `/data/resource-cache/data@resource-cache@android-HexNext_android-ikKX.frro@idmap`). Removing a theme or all
    HexNext overlays also drops the files of overlays `cmd overlay list` no
    longer knows.

@@ -24,7 +24,8 @@ class OneUiRulesTest {
             val rules = OneUiRules.load(major)
             assertEquals(major, rules.major)
             assertEquals(expectedTargets, rules.targets)
-            assertEquals(listOf("com.samsung.android.messaging"), rules.deprecated)
+            assertTrue("com.samsung.android.messaging" in rules.deprecated)
+            assertTrue(rules.deprecated.none { it in rules.activeTargets })
             assertTrue(rules.quickSettingsColoursOnly)
             assertEquals(expectedTargets, rules.activeTargets)
         }

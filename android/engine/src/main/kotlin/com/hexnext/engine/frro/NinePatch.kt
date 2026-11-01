@@ -44,7 +44,11 @@ public object NinePatch {
     /** Chunk type carrying the serialised `Res_png_9patch`. */
     public const val CHUNK_NINE_PATCH: String = "npTc"
 
-    /** Chunk type carrying the layout bounds (left, top, right, bottom as big-endian int32). */
+    /**
+     * Chunk type carrying the layout bounds (left, top, right, bottom as native/little-endian
+     * int32). Unlike `npTc` this payload is not byte-swapped: aapt2 memcpy()s the host ints and
+     * hwui's `NinePatchPeeker` reads them raw, so the device order (little-endian) is written.
+     */
     public const val CHUNK_LAYOUT_BOUNDS: String = "npLb"
 
     private const val COLOR_BLACK = 0xFF000000.toInt()
@@ -68,8 +72,8 @@ public object NinePatch {
      * Result of [compile].
      *
      * @property chunk `npTc` payload: the big-endian serialised `Res_png_9patch`.
-     * @property layoutBounds `npLb` payload (4 big-endian int32: left, top, right, bottom), or null
-     *   when the border has no red layout-bounds ticks.
+     * @property layoutBounds `npLb` payload (4 native/little-endian int32: left, top, right, bottom,
+     *   read raw by `NinePatchPeeker`), or null when the border has no red layout-bounds ticks.
      * @property xDivs stretch segment boundaries along x, `[start0, end0, start1, end1, …]`.
      * @property yDivs stretch segment boundaries along y.
      * @property padding left, right, top, bottom.
@@ -128,7 +132,8 @@ public object NinePatch {
         val (boundLeft, boundRight) = layoutBounds(bottom.secondary, innerWidth, "bottom")
         val (boundTop, boundBottom) = layoutBounds(right.secondary, innerHeight, "right")
         val layoutBounds = if ((boundLeft or boundTop or boundRight or boundBottom) != 0) {
-            ByteBuffer.allocate(16).order(ByteOrder.BIG_ENDIAN)
+            // Not byte-swapped like npTc: NinePatchPeeker memcpy()s these into int32s on device.
+            ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN)
                 .putInt(boundLeft).putInt(boundTop).putInt(boundRight).putInt(boundBottom).array()
         } else {
             null

@@ -214,20 +214,16 @@ class OverlayBuilder(context: Context) {
     }
 
     /**
-     * Disables (and when privileged unregisters) `HexNext_<target>`, purges its idmap/frro cache
-     * entries, then re-applies the last saved request for that target.
+     * Disables (and when privileged unregisters) `HexNext_<target>`, letting the service prune its
+     * idmap/frro cache entries, then re-applies the last saved request for that target.
      */
     fun repair(service: IThemeService, target: String, log: (String) -> Unit = {}): BuildResult? {
         val buildLog = BuildLog(appContext)
         val name = overlayName(target)
         val removed = service.removeOverlay(name)
+        // removeOverlay prunes exactly `<owner>-<name>-<suffix>.frro` (+ idmaps); its output is in removed.output().
         log("Remove $name: ${removed.output()}")
-        val purge = service.exec("rm -f /data/resource-cache/*$name*")
-        log("Purged /data/resource-cache/*$name* (code ${purge.code()})")
-        buildLog.write(
-            "INFO", target, "repair: removed and purged",
-            mapOf("remove" to removed.output(), "purgeCode" to purge.code())
-        )
+        buildLog.write("INFO", target, "repair: removed and pruned", mapOf("remove" to removed.output()))
         val request = loadRequest(target)
         if (request == null) {
             log("No saved request for $target; nothing to re-apply.")

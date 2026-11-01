@@ -176,9 +176,14 @@ class ThemeService() : IThemeService.Stub() {
                 unregister.unregisterFabricatedOverlay(newOverlay(name, "android", owner).identifier)
                 commit(unregister)
             }
-            // The overlay is gone from OverlayManager; none of its files (this or earlier applies) is live any more.
+            // Only when unregistered is the overlay gone from OverlayManager and none of its files
+            // (this or earlier applies) live any more; a merely disabled overlay keeps its .frro.
             val cleanup = StringBuilder()
-            pruneOverlayFrros(owner, name, null, cleanup)
+            if (isPrivilegedUid()) {
+                pruneOverlayFrros(owner, name, null, cleanup)
+            } else {
+                cleanup.appendLine("Cleanup: $id is still registered (uid ${Process.myUid()} cannot unregister); its files were left in place.")
+            }
             result(0, "Removed $id\n$cleanup")
         } catch (t: Throwable) {
             result(-1, describe(t))
@@ -1016,7 +1021,11 @@ class ThemeService() : IThemeService.Stub() {
      */
     private fun pruneHexFrros(onlyUnregistered: Boolean, log: StringBuilder): Int {
         val hex = listFrroEntries().filter { it.name.startsWith(HEX_PREFIX, ignoreCase = true) }
-        if (!onlyUnregistered) return removeFrroFiles(hex, "HexNext", log)
+        if (!onlyUnregistered) {
+            val removed = removeFrroFiles(hex, "HexNext", log)
+            removeOrphanHexIdmaps(log)
+            return removed
+        }
         val list = shell("cmd overlay list --user current")
         if (list.getInt(KEY_CODE) != 0) {
             log.appendLine("Cleanup: not pruning unregistered HexNext .frro files, cmd overlay list failed (exit ${list.getInt(KEY_CODE)}).")
@@ -1028,6 +1037,32 @@ class ThemeService() : IThemeService.Stub() {
             return 0
         }
         return removeFrroFiles(hex.filter { it.overlayId !in registered }, "unregistered HexNext", log)
+    }
+
+    /**
+     * Safe-mode purge of `data@resource-cache@<owner>-HexNext…-<suffix>.frro@idmap` files whose
+     * `.frro` is already gone ([removeFrroFiles] derives idmaps from existing `.frro` files only).
+     * Names come from a plain `ls`, are validated with [HEX_IDMAP_FILE] and single-quoted.
+     */
+    private fun removeOrphanHexIdmaps(log: StringBuilder) {
+        val orphans = shell("ls -1 '$RESOURCE_CACHE' 2>/dev/null").getString(KEY_OUTPUT).orEmpty().lineSequence()
+            .map { it.trim() }
+            .filter { file ->
+                val m = HEX_IDMAP_FILE.matchEntire(file) ?: return@filter false
+                m.groupValues[2].startsWith(HEX_PREFIX, ignoreCase = true)
+            }
+            .toList()
+        if (orphans.isEmpty()) return
+        var removed = 0
+        orphans.forEach { file ->
+            val rm = shell("rm -f '$RESOURCE_CACHE/$file'")
+            if (rm.getInt(KEY_CODE) == 0) {
+                removed++
+            } else {
+                log.appendLine("Cleanup: could not remove $RESOURCE_CACHE/$file: ${rm.getString(KEY_OUTPUT).orEmpty().trim()}")
+            }
+        }
+        log.appendLine("Cleanup: removed $removed/${orphans.size} orphaned HexNext idmap files from $RESOURCE_CACHE: " + orphans.joinToString(", "))
     }
 
     private fun readLe32(file: File, offset: Long): Int = RandomAccessFile(file, "r").use { raf ->
@@ -1413,6 +1448,9 @@ class ThemeService() : IThemeService.Stub() {
 
         /** `<owner>-<name>-<suffix>.frro` file name in /data/resource-cache; owner and name never contain `-`. */
         private val FRRO_FILE = Regex("""^([A-Za-z0-9_.]+)-([A-Za-z0-9_.]+)-[A-Za-z0-9]+\.frro$""")
+
+        /** idmap of a fabricated overlay in /data/resource-cache: the `.frro` path with `/` -> `@`, plus `@idmap`. */
+        private val HEX_IDMAP_FILE = Regex("""^data@resource-cache@([A-Za-z0-9_.]+)-([A-Za-z0-9_.]+)-[A-Za-z0-9]+\.frro@idmap$""")
         private val SELINUX_LABEL = Regex("""^u:[a-z_]+:[A-Za-z0-9_]+:s0(:[A-Za-z0-9,.]+)?$""")
         private val OVERLAY_LINE = Regex("""^(\[[^\]]\]|---)\s+(\S+)""")
 

@@ -43,6 +43,7 @@ class NinePatchTest {
     }
 
     private fun be32(bytes: ByteArray, offset: Int) = ByteBuffer.wrap(bytes, offset, 4).order(ByteOrder.BIG_ENDIAN).int
+    private fun le32(bytes: ByteArray, offset: Int) = ByteBuffer.wrap(bytes, offset, 4).order(ByteOrder.LITTLE_ENDIAN).int
 
     private fun chunk(type: String, data: ByteArray): ByteArray {
         val t = type.toByteArray(Charsets.US_ASCII)
@@ -157,10 +158,11 @@ class NinePatchTest {
         val c = NinePatch.compile(border, 5, 5, ::samplePixel)
         val lb = assertNotNull(c.layoutBounds)
         assertEquals(16, lb.size)
-        assertEquals(1, be32(lb, 0)) // left
-        assertEquals(0, be32(lb, 4)) // top
-        assertEquals(1, be32(lb, 8)) // right
-        assertEquals(2, be32(lb, 12)) // bottom
+        // npLb is read raw (little-endian) by NinePatchPeeker, unlike the byte-swapped npTc
+        assertEquals(1, le32(lb, 0)) // left
+        assertEquals(0, le32(lb, 4)) // top
+        assertEquals(1, le32(lb, 8)) // right
+        assertEquals(2, le32(lb, 12)) // bottom
         // the black run between the red ticks is still the padding
         assertContentEquals(intArrayOf(2, 2, 2, 2), c.padding)
         // a lone red run that touches no corner is an error
