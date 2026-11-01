@@ -16,9 +16,19 @@ SEMWT="android:SemWT_$TARGET"
 PROBE=HexNext_probe
 PROBE_ID="com.android.shell:$PROBE"
 COLOR=sec_widget_round_and_bgcolor
+# Pinned CI artifact (GitHub Actions run 41329717937, artifact HexNext-Debug-Test-Installable)
+# and its SHA-256 as reported by the GitHub artifacts API. Override both together:
+#   APK_URL=... APK_ZIP_SHA256=... sh test-overlay.sh
 APK_URL="${APK_URL:-https://nightly.link/Bingblop/Hex-Next/actions/runs/41329717937/HexNext-Debug-Test-Installable.zip}"
-APK_URL_FALLBACK="https://nightly.link/Bingblop/Hex-Next/workflows/android/claude%2Fproject-thread-rje8bm/HexNext-Debug-Test-Installable.zip"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-b34508e95b1c71bd9ff7bdc9f67ef21fa58a166165c7c1df4bda5272509869f6}"
 WORK="$OUT_DIR/hexnext-apk"
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v toybox >/dev/null 2>&1; then toybox sha256sum "$1" | cut -d' ' -f1
+  elif command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 "$1" | sed 's/.*= //'
+  else echo "no-sha256-tool"; fi
+}
 
 if ! command -v su >/dev/null 2>&1 || ! su -c id >/dev/null 2>&1; then
   echo "This test needs root (su). Aborting before changing anything."; exit 1
@@ -43,18 +53,21 @@ step "Build" "getprop ro.build.version.oneui; getprop ro.product.model; getprop 
 mkdir -p "$WORK"
 log ""; log "### Download"
 ok=0
-for url in "$APK_URL" "$APK_URL_FALLBACK"; do
-  log "# curl $url"
-  if curl -fsSL -o "$WORK/hexnext-debug.zip" "$url"; then ok=1; log "downloaded from $url"; break; fi
-  log "download failed: $url"
-done
+log "# curl $APK_URL"
+if curl -fsSL -o "$WORK/hexnext-debug.zip" "$APK_URL"; then ok=1; log "downloaded from $APK_URL"; else log "download failed: $APK_URL"; fi
 if [ $ok -eq 1 ]; then
-  (cd "$WORK" && unzip -o -q hexnext-debug.zip) && APK=$(find "$WORK" -name '*.apk' | head -1)
-  if [ -n "${APK:-}" ]; then
-    root "cp '$APK' /data/local/tmp/hexnext-debug.apk && chmod 644 /data/local/tmp/hexnext-debug.apk"
-    step "Install" "pm install -r -g /data/local/tmp/hexnext-debug.apk"
+  got=$(sha256_file "$WORK/hexnext-debug.zip")
+  log "zip sha256: $got (expected $APK_ZIP_SHA256)"
+  if [ "$got" != "$APK_ZIP_SHA256" ]; then
+    log "Checksum mismatch or no sha256 tool; NOT installing. Continuing with the shell-level overlay test only."
   else
-    log "no apk inside zip"
+    (cd "$WORK" && unzip -o -q hexnext-debug.zip) && APK=$(find "$WORK" -name '*.apk' | head -1)
+    if [ -n "${APK:-}" ]; then
+      root "cp '$APK' /data/local/tmp/hexnext-debug.apk && chmod 644 /data/local/tmp/hexnext-debug.apk"
+      step "Install" "pm install -r /data/local/tmp/hexnext-debug.apk"
+    else
+      log "no apk inside zip"
+    fi
   fi
 else
   log "Could not download the APK; continuing with the shell-level overlay test only."
