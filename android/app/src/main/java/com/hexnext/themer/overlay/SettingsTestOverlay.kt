@@ -64,13 +64,17 @@ class SettingsTestOverlay(context: Context) {
         }
         parsed?.warnings?.forEach { log("arsc warning: $it") }
         val arscColors = parsed?.ofType("color")?.map { it.name }?.distinct().orEmpty()
-        val drawables = parsed?.ofType("drawable")
-            ?.map { it.name }
-            ?.distinct()
-            ?.filter { it.startsWith("ic_settings") || it.startsWith("sec_ic_settings") }
-            ?.sorted()
-            ?.take(MAX_DRAWABLES)
-            .orEmpty()
+        val allDrawables = parsed?.ofType("drawable")?.map { it.name }?.distinct()?.sorted().orEmpty()
+        // The dashboard rows (Connections, Display, Notifications …) are what the user looks at, so
+        // pick every icon-looking drawable named after a dashboard entry; fall back to the legacy
+        // Hex names and finally to anything called ic_settings*.
+        val dashboard = allDrawables.filter { DASHBOARD_ICON.containsMatchIn(it) }
+        val drawables = when {
+            dashboard.isNotEmpty() -> dashboard
+            else -> allDrawables.filter { it.startsWith("ic_settings") || it.startsWith("sec_ic_settings") }
+        }.take(MAX_DRAWABLES)
+        log("Settings has ${allDrawables.size} drawables, ${dashboard.size} named like dashboard icons " +
+            "(full list: ${File(arsc.parentFile, "names-drawable.txt").path})")
 
         val mapping = readSemWtMapping(log)
         val colorMappings = mapping.filter { it.type == "color" && it.defaultColor != null }
@@ -128,11 +132,14 @@ class SettingsTestOverlay(context: Context) {
         val png = roundedSquarePng(argb)
         val serviceUid = runCatching { service.uid }.getOrDefault(-1)
         val privileged = serviceUid == 0 || serviceUid == 1000
-        if (!privileged && plan.drawables.isNotEmpty()) {
+        if (!privileged) {
+            // `cmd overlay fabricate` takes one resource per call and replaces the overlay each time,
+            // so there is no shell fallback for a multi-colour overlay.
             log(
-                "Service uid $serviceUid cannot commit FabricatedOverlay drawables or night colours (SU mode or shell). " +
-                    "Applying the day colours only through `cmd overlay fabricate`."
+                "The theme service runs as uid $serviceUid, but committing an overlay needs uid 0 or 1000. " +
+                    "Start Shizuku with root (or restart it after a reboot) and run the test again."
             )
+            return null
         }
         val colors = if (plan.fromSemWt) {
             val reference = SnapshotBuilder.loadSystemShades(appContext) ?: SnapshotBuilder.readSystemShades(appContext)
@@ -231,7 +238,19 @@ class SettingsTestOverlay(context: Context) {
 
         /** Colour the shell probe proved visible; always set to the plain accent when present. */
         const val PROBE_COLOR = "color/sec_widget_round_and_bgcolor"
-        private const val MAX_DRAWABLES = 3
+        private const val MAX_DRAWABLES = 40
+
+        /**
+         * Drawables that are an icon (`ic`/`icon` as a name part) of a dashboard entry. Covers the
+         * legacy `sec_ic_settings_connections` style and newer `ic_dashboard_*`/`*_dashboard_ic` styles.
+         */
+        private val DASHBOARD_ICON = Regex(
+            "(^|_)(ic|icon)(_|$).*(connections|display|notifications|notification|sound|wallpaper|apps|application|battery|" +
+                "devicecare|device_care|general_device|general_management|account|google|galaxy_ai|themes|theme|" +
+                "advanced|security|privacy|location|accessibility|software_update|about|biometrics|lockscreen|lock_screen|" +
+                "homescreen|home_screen|digital_wellbeing|digitalwellbeing|modes|multi_devices|connected_devices|tips|" +
+                "emergency|help|dashboard)"
+        )
         private const val ICON_PX = 138
     }
 }

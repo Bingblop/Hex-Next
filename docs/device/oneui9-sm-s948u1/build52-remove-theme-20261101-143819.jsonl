@@ -1,0 +1,5 @@
+{"timestamp":1793561899065,"level":"INFO","target":"","message":"Removing the Hex Next theme","data":{}}
+{"timestamp":1793561899186,"level":"INFO","target":"","message":"No SemWT guard running","data":{}}
+{"timestamp":1793561899466,"level":"OK","target":"","message":"Acted on 1 HexNext overlays (1 ok) [UID 0]\n  com.android.shell:HexNext_com_android_settings","data":{}}
+{"timestamp":1793561899585,"level":"INFO","target":"","message":"No SemWT guard running","data":{}}
+{"timestamp":1793561899720,"level":"INFO","target":"","message":"Build log: \/data\/user\/0\/com.hexnext.themer\/files\/logs\/20261101-143819.jsonl","data":{}}

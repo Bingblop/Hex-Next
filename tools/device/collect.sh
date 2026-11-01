@@ -30,6 +30,9 @@ for f in $(root "ls -t $APP/logs/*.jsonl 2>/dev/null | head -3"); do
   root "cat '$f'" >>"$OUT"
 done
 
+# Drawable names the Settings arsc really has (written by the scan since build 53).
+run "Settings icon-like drawable names" "grep -iE 'ic_|icon|dashboard' $APP/scan/com.android.settings/names-drawable.txt 2>/dev/null | head -500 || echo '(no names-drawable.txt; re-run the scan)'"
+
 # Overlay state.
 run "Hex Next + SemWT overlays (user 0)" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_|aam_monet'"
 run "Hex Next overlays (user current)" "cmd overlay list --user current | grep -i hexnext"

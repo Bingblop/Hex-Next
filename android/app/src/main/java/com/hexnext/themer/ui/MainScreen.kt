@@ -179,7 +179,7 @@ private fun StatusCard(state: ShizukuState, oneUi: String?, onRequestPermission:
                 state.isRoot ->
                     "Connected as Root (UID 0). Apply theme builds one HexNext_<target> overlay per scanned app and takes each target over from Samsung's SemWT_* overlay."
                 else ->
-                    "Connected as unprivileged shell (UID ${state.uid}). Drawables and night colours need UID 0 (Root) or UID 1000 (System); day colours go through cmd overlay fabricate."
+                    "Connected as unprivileged shell (UID ${state.uid}). Applying a theme needs UID 0 (Root) or UID 1000 (System): start Shizuku with root, or restart it if it came up as shell after a reboot."
             }
         }
         Text(body, style = MaterialTheme.typography.bodyMedium)

@@ -81,8 +81,8 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         if (!ready.isPrivileged || ready.viaSu) {
             log(
                 LogLevel.WARN,
-                "PNG drawables need Shizuku running as root (uid 0/1000). " +
-                    "In SU mode the service lives in the app process, so only colours are applied (via `cmd overlay fabricate`)."
+                "Overlays can only be committed by a service running as uid 0 or 1000 (Shizuku started with root). " +
+                    "In SU mode the service lives in the app process and the test will stop before applying anything."
             )
         }
         val result = withContext(Dispatchers.IO) {

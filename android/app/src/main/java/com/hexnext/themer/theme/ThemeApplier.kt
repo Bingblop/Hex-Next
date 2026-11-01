@@ -108,11 +108,12 @@ class ThemeApplier(context: Context) {
         } catch (t: Throwable) {
             // OutOfMemoryError included: the snapshot, compiled theme and bitmaps are only
             // referenced from applyAll's frame, which is gone here, so there is room to record it.
-            val error = "${t.javaClass.simpleName}: ${t.message}"
+            val error = if (t is ApplyAborted) t.message.orEmpty() else "${t.javaClass.simpleName}: ${t.message}"
             val report = currentReport(ApplyReport.STATUS_ABORTED, error)
             saveReport(report)
             runCatching { buildLog.write("ERROR", "", "theme apply aborted", mapOf("error" to error, "pending" to pending.size)) }
-            log(LogLine(LogLevel.ERROR, "Theme apply aborted: $error"))
+            // An ApplyAborted message was already shown by the step that raised it.
+            if (t !is ApplyAborted) log(LogLine(LogLevel.ERROR, "Theme apply aborted: $error"))
             if (t is OutOfMemoryError) {
                 log(LogLine(LogLevel.ERROR, "Out of memory (max heap ${Runtime.getRuntime().maxMemory() / MIB} MiB). Remove theme, then report the build log."))
             }
@@ -146,7 +147,19 @@ class ThemeApplier(context: Context) {
         say(LogLevel.INFO, "Applying theme \"${spec.name}\" (${spec.id})", emptyMap())
         val packs = DirectoryPackResolver(packsDir(appContext))
         // The device snapshot (every target's resource table) is unreachable once this returns.
-        val compiled = compileFromScan(spec, packs, say, note) ?: return
+        val compiled = compileFromScan(spec, packs, say, note)
+            ?: throw ApplyAborted(notes.lastOrNull() ?: "The theme could not be compiled.")
+        val uid = runCatching { service.uid }.getOrDefault(-1)
+        val privileged = uid == 0 || uid == 1000
+        if (!privileged) {
+            // Nothing can be committed from an unprivileged service: `cmd overlay fabricate` takes a
+            // single resource per call and replaces the overlay each time. Stop before touching anything.
+            throw ApplyAborted(
+                "The theme service runs as uid $uid, but committing overlays needs uid 0 or 1000. " +
+                    "Start Shizuku with root (or restart it after a reboot) and apply again.",
+            )
+        }
+        val owner = if (uid == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
         compiled.events.forEach { e -> buildLog.write(e.level.name, e.target, e.message, e.data) }
         packs.errors.forEach { (file, why) -> note(LogLevel.WARN, "Pack $file unreadable: $why") }
         say(
@@ -162,13 +175,6 @@ class ThemeApplier(context: Context) {
         guard.recordApply()
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
         say(LogLevel.INFO, "Stability monitor: ${monitor.output()}", emptyMap())
-
-        val uid = runCatching { service.uid }.getOrDefault(-1)
-        val privileged = uid == 0 || uid == 1000
-        val owner = if (uid == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
-        if (!privileged) {
-            note(LogLevel.WARN, "The service is not privileged (uid 0/1000): drawables and night colours are skipped, day colours go through `cmd overlay fabricate`.")
-        }
 
         var semwt = SemWtController.readState(service, log)
         onSemWt(semwt)
@@ -225,6 +231,10 @@ class ThemeApplier(context: Context) {
         built.warnings.forEach { note(LogLevel.WARN, it) }
         val oneUi = built.snapshot.oneUi.version?.toString() ?: "unknown One UI"
         say(LogLevel.INFO, "Device snapshot: $oneUi, ${built.snapshot.targets.size} targets, ${built.snapshot.systemShades.size} system shades", emptyMap())
+        if (built.snapshot.targets.isEmpty()) {
+            note(LogLevel.ERROR, "The last scan (${built.report.jsonPath ?: "unknown file"}) has no targets. Open Diagnostics and run the scan again.")
+            return null
+        }
         return try {
             ThemeCompiler.compile(spec, built.snapshot, packs)
         } catch (e: Exception) {
@@ -463,6 +473,9 @@ class ThemeApplier(context: Context) {
 
     private fun Bundle.code() = getInt(ThemeService.KEY_CODE, -1)
     private fun Bundle.output() = getString(ThemeService.KEY_OUTPUT).orEmpty()
+
+    /** Thrown by [applyAll] when the apply cannot start; recorded as `aborted` with this message. */
+    private class ApplyAborted(message: String) : RuntimeException(message)
 
     companion object {
         const val MONITOR_SECONDS = 120

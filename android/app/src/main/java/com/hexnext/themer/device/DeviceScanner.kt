@@ -199,6 +199,14 @@ class DeviceScanner(context: Context) {
         return runCatching {
             // Only the counted types: skipping strings, styles and layouts keeps the per-package scan small.
             val parsed = ArscReader.read(out, ArscReader.THEME_TYPES)
+            // Plain-text name lists beside the arsc: cheap to share, and they tell us which drawable
+            // names a One UI build really uses (the test overlay and the pack mapping depend on it).
+            runCatching {
+                for (type in listOf("drawable", "mipmap", "color")) {
+                    File(out.parentFile, "names-$type.txt")
+                        .writeText(parsed.ofType(type).map { it.name }.distinct().sorted().joinToString("\n"))
+                }
+            }
             status.copy(
                 arscPath = out.absolutePath,
                 arscBytes = out.length(),
@@ -444,8 +452,12 @@ class DeviceScanner(context: Context) {
         fun arscFile(context: Context, pkg: String): File =
             File(File(File(context.filesDir, "scan"), pkg), ARSC)
 
+        /** Scan reports are named `yyyyMMdd-HHmmss.json`; other files in `files/reports/` (e.g. the apply report) are not scans. */
+        private val SCAN_REPORT_NAME = Regex("""\d{8}-\d{6}\.json""")
+
+        /** The newest scan report, or null. `apply-last.json` (the theme apply report) is deliberately excluded. */
         fun latestReport(context: Context): File? =
-            File(context.filesDir, "reports").listFiles { f -> f.name.endsWith(".json") }
+            File(context.filesDir, "reports").listFiles { f -> SCAN_REPORT_NAME.matches(f.name) }
                 ?.maxByOrNull { it.name }
     }
 }

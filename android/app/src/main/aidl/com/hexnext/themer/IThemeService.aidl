@@ -43,8 +43,8 @@ interface IThemeService {
     Bundle packageInfo(in String[] packages) = 9;
 
     // One fabricated overlay holding colours (TYPE_INT_COLOR_ARGB8) and PNG drawables, registered,
-    // enabled and raised to highest priority. Drawables need the privileged (uid 0/1000) service;
-    // pure-colour requests fall back to `cmd overlay fabricate` otherwise.
+    // enabled and raised to highest priority. Needs the privileged (uid 0/1000) service; an
+    // unprivileged service returns code 3 without touching anything.
     // Extra keys: "resourceCount" (int), "skipped" (JSON array), "millis" (long), "lookup" (String).
     Bundle applyOverlay(String name, String target,
             in String[] colorNames, in int[] colors,
@@ -67,7 +67,7 @@ interface IThemeService {
 
     // applyOverlay with one FRRO configuration per colour (colorConfigs[i]: "" or null for the
     // default configuration, "night" …). colorConfigs may be null (all default). Configured
-    // colours need the privileged service; the `cmd overlay fabricate` fallback skips them.
+    // colours need the privileged service, like everything else in this call.
     Bundle applyOverlayConfigured(String name, String target,
             in String[] colorNames, in int[] colors, in String[] colorConfigs,
             in String[] drawableNames, in String[] drawableConfigs,

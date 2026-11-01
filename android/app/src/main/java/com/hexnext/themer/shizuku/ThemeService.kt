@@ -140,12 +140,15 @@ class ThemeService() : IThemeService.Stub() {
                 register.registerFabricatedOverlay(overlay)
                 commit(register)
             } else {
-                // Fallback via SU shell command fabrication
-                val args = resourceNames.indices.joinToString(" ") { i ->
-                    "${resourceNames[i]} 0x1c 0x${Integer.toUnsignedString(colors[i], 16)}"
-                }
-                val fab = shell("cmd overlay fabricate --target $targetPackage --name $name $args")
-                if (fab.getInt(KEY_CODE) != 0) return fab
+                // `cmd overlay fabricate` accepts exactly one resource per invocation and every
+                // invocation replaces the whole overlay, so a multi-colour overlay cannot be built
+                // through the shell (the old multi-argument form failed with "For input string ...
+                // under radix 16" on One UI 9). Committing through OverlayManager needs uid 0/1000.
+                return result(
+                    3,
+                    "Cannot build $id: this service runs as uid ${Process.myUid()}, but committing a fabricated " +
+                        "overlay needs uid 0 or 1000. Start Shizuku with root (or restart it after a reboot) and retry.",
+                )
             }
 
             // Enable; on One UI 9 every enable moves the overlay to the top of its target.
@@ -541,8 +544,8 @@ class ThemeService() : IThemeService.Stub() {
                         "PNG drawables need the privileged service (Shizuku running as root, uid 0/1000). " +
                             "This service runs as uid ${Process.myUid()}" +
                             (if (Process.myUid() >= 10000) " inside the app (SU mode, only exec() has root)" else "") +
-                            ", so FabricatedOverlay cannot be committed directly. Start Shizuku with root and retry; " +
-                            "colour-only requests still work through `cmd overlay fabricate`."
+                            ", so FabricatedOverlay cannot be committed directly. Start Shizuku with root " +
+                            "(or restart it after a reboot) and retry."
                     ),
                     0,
                     "",
