@@ -4,11 +4,15 @@ import android.content.Context
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.Process
+import com.hexnext.engine.device.OneUi9Facts
+import com.hexnext.engine.device.OverlayDump
+import com.hexnext.engine.frro.FrroReader
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ThemeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.InputStream
 import java.text.SimpleDateFormat
@@ -19,8 +23,14 @@ import java.util.zip.ZipInputStream
 
 /**
  * Reads the device before anything is themed: target package status, every overlay, the
- * targets' `resources.arsc` and Samsung's `.frro` files. Writes
+ * targets' `resources.arsc`, Samsung's `SemWT_*` overlays and their `.frro` files. Writes
  * `files/reports/<timestamp>.json` plus a readable `.txt` beside it.
+ *
+ * Samsung's themed resources are learned primarily from `cmd overlay dump android:SemWT_<target>`
+ * (parsed by the engine's [OverlayDump]): it needs only `cmd overlay`, returns the resource
+ * names already resolved and both the default and `night` colours, and reports `mPriority` /
+ * `mState`. The copied `.frro` (parsed with [FrroReader]) is the fallback when the dump has no
+ * mapping.
  */
 class DeviceScanner(context: Context) {
 
@@ -49,18 +59,35 @@ class DeviceScanner(context: Context) {
         val frroPaths = overlayBundle.getStringArray(ThemeService.KEY_FRRO_PATHS)?.toList().orEmpty()
 
         val scanDir = File(filesDir, "scan").apply { mkdirs() }
-        val packages = basePackages.map { status ->
-            val semWt = overlays.count { it.target == status.pkg && it.isSamsungWallpaperTheme }
-            if (!status.installed || status.apkPath == null) {
-                status.copy(semWtOverlays = semWt)
-            } else {
-                progress("Extracting resources.arsc from ${status.pkg}…")
-                extractArsc(service, status, File(scanDir, status.pkg)).copy(semWtOverlays = semWt)
-            }
-        }
 
         progress("Copying ${frroPaths.size} .frro candidates…")
-        val frroCopied = copyFrros(service, frroPaths, packages.filter { it.installed }.map { it.pkg }, File(scanDir, "frro"), errors)
+        val frroCopied = copyFrros(service, frroPaths, basePackages.filter { it.installed }.map { it.pkg }, File(scanDir, "frro"), errors)
+
+        val semWtTargets = (
+            basePackages.map { it.pkg } +
+                overlays.filter { it.isSamsungWallpaperTheme && it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) }
+            ).distinct()
+        val semWt = semWtTargets.map { target ->
+            progress("Dumping ${OneUi9Facts.semWtOverlayId(target)}…")
+            scanSemWt(service, target, frroCopied, File(scanDir, "semwt"))
+        }
+        val semWtByTarget = semWt.associateBy { it.target }
+
+        val packages = basePackages.map { base ->
+            val semWtCount = overlays.count { it.target == base.pkg && it.isSamsungWallpaperTheme }
+            val dumped = semWtByTarget[base.pkg]?.takeIf { it.found }
+            val status = base.copy(
+                semWtOverlays = semWtCount,
+                semwtPriority = dumped?.priority,
+                semwtState = dumped?.state,
+            )
+            if (!status.installed || status.apkPath == null) {
+                status
+            } else {
+                progress("Extracting resources.arsc from ${status.pkg}…")
+                extractArsc(service, status, File(scanDir, status.pkg))
+            }
+        }
 
         val createdAt = System.currentTimeMillis()
         val report = DeviceReport(
@@ -73,6 +100,7 @@ class DeviceScanner(context: Context) {
             frroCopied = frroCopied,
             packages = packages,
             errors = errors,
+            semWt = semWt,
         )
 
         progress("Writing report…")
@@ -182,6 +210,94 @@ class DeviceScanner(context: Context) {
     }
 
     /**
+     * Runs `cmd overlay dump android:SemWT_<target>` and parses it with [OverlayDump]. Saves the
+     * raw output to `<outDir>/<target>.txt` and the parsed resources to `<outDir>/<target>.json`.
+     * When the dump has no mapping (no idmap, missing target, dump failed), falls back to the
+     * copied `.frro` matching `mBaseCodePath` (or any copied `SemWT_<target>` file).
+     */
+    private fun scanSemWt(service: IThemeService, target: String, frroCopied: List<String>, outDir: File): SemWtStatus {
+        val overlayId = OneUi9Facts.semWtOverlayId(target)
+        if (!PACKAGE_NAME.matches(target)) return SemWtStatus(target, overlayId, error = "unsafe package name")
+        outDir.mkdirs()
+        val problems = ArrayList<String>()
+        val dumpFile = File(outDir, "${sanitize(target)}.txt")
+        val mappingFile = File(outDir, "${sanitize(target)}.json")
+        dumpFile.delete()
+        mappingFile.delete()
+
+        val dump: OverlayDump? = runCatching {
+            val r = service.exec("cmd overlay dump $overlayId")
+            val text = r.output()
+            dumpFile.writeText(text)
+            val parsed = OverlayDump.parseAll(text).firstOrNull { it.overlayId == overlayId }
+            if (r.code() != 0) problems.add("dump exit ${r.code()}")
+            parsed
+        }.onFailure { problems.add("dump: ${it.message}") }.getOrNull()
+
+        var source = SemWtStatus.SOURCE_NONE
+        var resourceCount = 0
+        var valueCount = 0
+        if (dump != null && dump.entries.isNotEmpty()) {
+            source = SemWtStatus.SOURCE_DUMP
+            resourceCount = dump.entries.size
+            valueCount = dump.entries.size + dump.entries.count { it.nightValue != null }
+            runCatching { mappingFile.writeText(mappingJson(dump).toString(2)) }
+                .onFailure { problems.add("mapping json: ${it.message}") }
+        } else {
+            val live = dump?.baseCodePath?.substringAfterLast('/')?.takeIf { it.isNotEmpty() }?.let { sanitize(it) }
+            val candidates = frroCopied.filter { it.substringAfterLast('/').contains("SemWT_$target-") }
+            val copy = live?.let { name -> candidates.firstOrNull { it.endsWith("_$name") } } ?: candidates.firstOrNull()
+            if (copy != null) {
+                runCatching {
+                    val parsed = FrroReader.read(File(copy))
+                    source = SemWtStatus.SOURCE_FRRO
+                    resourceCount = parsed.entries.map { it.resourceName }.distinct().size
+                    valueCount = parsed.entries.size
+                }.onFailure { problems.add("frro ${copy.substringAfterLast('/')}: ${it.message}") }
+            }
+        }
+
+        return SemWtStatus(
+            target = target,
+            overlayId = overlayId,
+            found = dump != null,
+            owner = dump?.packageName,
+            state = dump?.state,
+            enabled = dump?.isEnabled ?: false,
+            priority = dump?.priority,
+            targetOverlayable = dump?.targetOverlayable,
+            frroPath = dump?.baseCodePath?.ifBlank { null },
+            source = source,
+            resourceCount = resourceCount,
+            valueCount = valueCount,
+            missingCount = dump?.missing?.size ?: 0,
+            dumpPath = dumpFile.takeIf { it.isFile }?.absolutePath,
+            mappingPath = mappingFile.takeIf { it.isFile }?.absolutePath,
+            error = problems.takeIf { it.isNotEmpty() }?.joinToString("; "),
+        )
+    }
+
+    private fun mappingJson(dump: OverlayDump): JSONObject = JSONObject().apply {
+        put("overlayId", dump.overlayId)
+        put("target", dump.targetPackage)
+        put("state", dump.state)
+        put("priority", dump.priority ?: JSONObject.NULL)
+        put("entries", JSONArray().apply {
+            dump.entries.forEach { e ->
+                put(
+                    JSONObject()
+                        .put("resId", "0x%08x".format(e.resId))
+                        .put("name", e.typeAndName)
+                        .put("kind", e.kind)
+                        .put("default", e.defaultValue)
+                        .put("night", e.nightValue ?: JSONObject.NULL)
+                )
+            }
+        })
+        put("missing", JSONArray(dump.missing.toList()))
+    }
+
+    /**
      * Copies every `.frro` whose path or first 64 KB mentions an installed target, or whose
      * name contains `SemWT`. Falls back to a root `cat > ` into our own files dir when the
      * descriptor cannot be read (SELinux).
@@ -269,6 +385,7 @@ class DeviceScanner(context: Context) {
         private const val ARSC = "resources.arsc"
         private const val MAX_FRRO_BYTES = 16L * 1024 * 1024
         private const val HEADER_SCAN_BYTES = 64 * 1024
+        private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*")
 
         /** One UI targets the scan always checks. */
         val TARGETS = listOf(

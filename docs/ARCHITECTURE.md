@@ -9,16 +9,51 @@ is the map of what the legacy Hex plugins themed.
 
 Every One UI version renames resources. Hard-coding resource names (as the AI Studio draft did)
 breaks silently: `cmd overlay` accepts a fabricated overlay whose resources do not exist and the
-screen simply does not change. The engine therefore **reads the device** before it builds:
+screen simply does not change. The engine therefore **reads the device** before it builds.
 
-1. `cmd overlay list --user current` gives every overlay and its target. Samsung's theme
-   overlays are the `SemWT_*` entries (fabricated, stored under `/data/overlays/`).
-2. For each target package Hex Next parses, as root, the target APK's `resources.arsc` and the
-   `SemWT_*` fabricated overlay (`.frro`) files. The union of "resources Samsung themes" and
-   "all colour/drawable/dimen/bool resources of the target" becomes the **resource map** for
-   that package, cached per package version code in `files/resmap/<pkg>-<version>.json`.
-3. The plugin catalog's resource names are matched against the live map; names that no longer
+What a real One UI 9.0 device showed (Galaxy SM-S948U1, Android 17 / SDK 37, KernelSU, Shizuku
+as root; raw data in `docs/device/oneui9-sm-s948u1/`, constants in
+`engine/.../device/OneUi9Facts.kt`):
+
+- Samsung's theme overlays are the fabricated `android:SemWT_<target>` overlays, one per
+  target package. Their `.frro` files live in **`/data/resource-cache/`**
+  (`android-SemWT_<target>-XXXX.frro`, stale copies with other suffixes can linger), not in
+  `/data/overlays/` (that directory only holds the theme store's own state).
+- Every SemWT overlay is owned by package `android` (`mPackageName: android`), targets no
+  `<overlayable>` (`mTargetOverlayableName` empty), is mutable, and sits at
+  **`mPriority 2147483647` (`Integer.MAX_VALUE`)**.
+- `cmd overlay list` showed 42 enabled SemWT targets (plus `SemWT_MonetPalette`, which targets
+  `android` with Monet shades) and 74 more listed as `---`: `STATE_MISSING_TARGET` (the target
+  was debloated) or `STATE_NO_IDMAP`.
+
+Discovery, in order:
+
+1. `cmd overlay list --user current` gives every overlay and its target.
+2. **Primary:** for each target, `cmd overlay dump android:SemWT_<target>`, parsed by
+   `engine/.../device/OverlayDump.kt`. The info block gives owner, state, enabled and priority;
+   the `IDMAP OF` section gives every themed resource already resolved against the target
+   (`0x7f060020 -> color 0xff0b4d5f    0x7f060020 -> color 0xff6ed4ef (color/actionbar_text_color)`:
+   default value, then `night` value) and the `W failed to find resource` warnings (names Samsung
+   themes that this target build lacks). This needs only `cmd overlay`, not read access to
+   `/data/resource-cache`. `cmd overlay dump <pkg>` without a name prints the info blocks of all
+   of that package's overlays; `OverlayDump.parseAll` returns them as a list. The app's
+   `DeviceScanner` stores each dump in `files/scan/semwt/<target>.txt` / `.json` and records
+   `semwtPriority` / `semwtState` per target in the device report.
+3. **Fallback:** the `.frro` itself, parsed by `engine/.../frro/FrroReader.kt`. The version 3
+   layout is verified against Samsung's real `SemWT_android.frro` (see `FrroFormat`); binary
+   payloads are still an assumption.
+4. The target APK's `resources.arsc`. The union of "resources Samsung themes" and "all
+   colour/drawable/dimen/bool resources of the target" becomes the **resource map** for that
+   package, cached per package version code in `files/resmap/<pkg>-<version>.json`.
+5. The plugin catalog's resource names are matched against the live map; names that no longer
    exist are reported in the build log instead of being applied blindly.
+
+What the priority finding means for applying a theme: Samsung's overlays already sit at
+`Integer.MAX_VALUE`, so "highest" cannot be outranked numerically. Hex Next must (a) run
+`cmd overlay set-priority <hexnext overlay> highest` **after** Samsung's overlays are in place,
+so it is ordered above them, and (b) for every target it themes, disable
+`android:SemWT_<target>`, then re-assert that (and its own priority) whenever Samsung's
+wallpaper-theme service re-enables the SemWT overlay, e.g. after a wallpaper or palette change.
 
 ## Gradle layout
 

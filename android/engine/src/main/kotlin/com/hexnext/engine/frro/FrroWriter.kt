@@ -9,8 +9,10 @@ import java.nio.ByteOrder
  * Builds a fabricated overlay file in the layout described by [FrroFormat].
  *
  * Intended as a fallback for devices where the `FabricatedOverlay` Java API cannot be used;
- * the primary path registers overlays through `OverlayManagerTransaction`. The layout is
- * unverified against device files (see [FrroFormat]).
+ * the primary path registers overlays through `OverlayManagerTransaction`. Version 3 colour
+ * overlays are byte-identical to Samsung's One UI 9.0 files (a parsed `SemWT_android.frro`
+ * rewrites to the same bytes); binary values and versions 1/2 follow the assumed layout in
+ * [FrroFormat].
  *
  * Resource names are `package:type/name` or `type/name` (the target package is assumed).
  *
@@ -93,43 +95,37 @@ public class FrroWriter(
         }
 
         val proto = ProtoWriter()
-            .string(1, packageName).string(2, name).string(3, targetPackage).string(4, targetOverlayable)
         for ((pkg, types) in values) {
-            proto.message(5) {
+            proto.message(1) {
                 string(1, pkg)
                 for ((type, entries) in types) message(2) {
                     string(1, type)
-                    for ((entry, configs) in entries) message(2) {
-                        string(1, entry)
-                        for ((config, v) in configs) {
-                            if (config.isEmpty() && version == 1) {
-                                message(2) { value(v) }
-                            } else {
-                                message(3) { string(1, config); message(2) { value(v) } }
-                            }
+                    for ((entry, configs) in entries) {
+                        // one ResourceEntry per (name, configuration); default config has no field 3
+                        for ((config, v) in configs) message(2) {
+                            string(1, entry)
+                            message(2) { value(v) }
+                            string(3, config)
                         }
                     }
                 }
             }
         }
+        proto.string(2, name).string(3, packageName).string(4, targetPackage).string(5, targetOverlayable)
         val protoBytes = proto.toByteArray()
         val out = ByteArrayOutputStream()
         out.write(le32(FrroFormat.MAGIC))
         out.write(le32(version))
-        out.write(le32(FrroFormat.crc(protoBytes)))
-        if (version == 1) {
-            out.write(protoBytes)
-        } else {
-            out.write(le32(protoBytes.size))
-            out.write(protoBytes)
-            val pool = if (strings.isEmpty()) ByteArray(0) else StringPoolWriter.write(strings)
+        out.write(le32(FrroFormat.crc(version, protoBytes)))
+        if (version >= 3) out.write(le32(binary.size()))
+        if (version >= 2) {
+            // Samsung writes the (empty) pool chunk even when there are no strings
+            val pool = StringPoolWriter.write(strings)
             out.write(le32(pool.size))
             out.write(pool)
-            if (version >= 3) {
-                out.write(le32(binary.size()))
-                binary.writeTo(out)
-            }
         }
+        if (version >= 3) binary.writeTo(out)
+        out.write(protoBytes)
         return out.toByteArray()
     }
 

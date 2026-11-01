@@ -16,7 +16,8 @@ import java.util.zip.CRC32
  * @property packageName owning package of the overlay.
  * @property version FRRO file version (1–3).
  * @property crc CRC stored in the header.
- * @property crcMatchesProto true when [crc] equals the CRC-32 of the protobuf payload.
+ * @property crcMatchesProto true when [crc] equals CRC-32 of (version bytes + protobuf), the
+ *   coverage verified on a One UI 9.0 file. Informational only: a mismatch never fails parsing.
  */
 public data class FabricatedOverlayFile(
     val name: String,
@@ -37,10 +38,11 @@ public data class FabricatedOverlayFile(
  * @property data `Res_value::data`; for strings, the string-pool index.
  * @property stringData the resolved string for `TYPE_STRING` values (version 2+), else null.
  * @property binaryOffset absolute offset of the file payload inside the `.frro` (version 3), else null.
+ *   Computed as start of the binary region + `data_binary_offset` (assumed, see [FrroFormat]).
  * @property binarySize size of the file payload in bytes (version 3), else null.
  * @property isNinePatch whether the payload is a compiled 9-patch PNG.
- * @property configuration config qualifier string (`""`, `night`, `xxhdpi` …); null when the
- *   value was stored in the configuration-less `res_value` field.
+ * @property configuration config qualifier string (`night`, `xxhdpi` …) from `ResourceEntry`
+ *   field 3; null for the default configuration (field absent).
  */
 public data class FrroEntry(
     val resourceName: String,
@@ -62,44 +64,69 @@ public class FrroFormatException(message: String, cause: Throwable? = null) : Ex
 /**
  * The fabricated overlay container layout implemented by [FrroReader] and [FrroWriter].
  *
- * **Provenance warning:** this layout was written from knowledge of AOSP
- * `frameworks/base/cmds/idmap2/libidmap2/FabricatedOverlay.cpp` and
- * `frameworks/base/cmds/idmap2/libidmap2/proto/fabricated_v1.proto` (Android 12 – 16), *not*
- * from a device file. Field numbers, the CRC coverage and the binary-offset base must be
- * verified against a real `/data/resource-cache/<overlay>.frro` (e.g. a Samsung `SemWT_*` overlay)
- * before the writer is used on a device.
+ * **Provenance.** Version 3 is verified byte-for-byte against a real Samsung overlay pulled from
+ * a Galaxy SM-S948U1 on One UI 9.0 / Android 17 (SDK 37):
+ * `/data/resource-cache/android-SemWT_android-dX00.frro`, kept as
+ * `docs/device/oneui9-sm-s948u1/SemWT_android.frro` and the test fixture
+ * `semwt_android_oneui9.frro`. [FrroWriter] reproduces that file exactly from its parsed form.
+ * The sample holds colours only, so everything about binary (file) values is an assumption,
+ * as are versions 1 and 2 (inferred from the version 3 layout, not seen on a device).
  *
  * ```
- * all versions (little-endian):
+ * header, all versions (little-endian)                                         [verified v3]
  *   u32 magic    = 0x4f525246 ("FRRO")
  *   u32 version  = 1 | 2 | 3
- *   u32 crc      = CRC-32 of the protobuf bytes (assumed)
- * version 1 (Android 12/13):
- *   protobuf FabricatedOverlay … to end of file
- * version 2 (Android 14, string values):
- *   u32 proto_size, proto_size bytes protobuf
- *   u32 pool_size,  pool_size bytes ResStringPool chunk (UTF-8); TYPE_STRING data = pool index
- * version 3 (Android 14 QPR+/15/16, file values):
- *   as version 2, then
- *   u32 binary_size, binary_size bytes of concatenated file payloads;
- *   ResourceValue.data_binary_offset is relative to the start of that region
+ *   u32 crc      = CRC-32 (zlib) of the 4 version bytes followed by the protobuf bytes
+ *                  (not the string pool, not the binary region)                 [verified v3]
+ * version 3 (seen on One UI 9.0)
+ *   u32 total_binary_bytes                                (0 in the sample)     [verified]
+ *   u32 string_pool_size                                  (28 in the sample)    [verified]
+ *   string_pool_size bytes: ResStringPool chunk, UTF-8; written even when empty
+ *     (an empty pool is the 28-byte header 01 00 1c 00 1c 00 00 00 ... flags 0x100,
+ *     stringsStart 0x1c); TYPE_STRING data_value = index into it          [verified empty]
+ *   total_binary_bytes bytes: concatenated file payloads                       [ASSUMED]
+ *   protobuf FabricatedOverlay to end of file                                  [verified]
+ *   ResourceValue.data_binary_offset is relative to the start of the binary region
+ *   (offset 20 + string_pool_size), as AOSP FabricatedOverlay.cpp appears to write it [ASSUMED]
+ * version 2: header, u32 string_pool_size, pool, protobuf to EOF                [ASSUMED]
+ * version 1: header, protobuf to EOF                                            [ASSUMED]
  *
- * message FabricatedOverlay { string package_name = 1; string name = 2;
- *   string target_package_name = 3; string target_overlayable = 4;
- *   repeated ResourcePackage packages = 5; }
- * message ResourcePackage   { string name = 1; repeated ResourceType types = 2; }
- * message ResourceType      { string name = 1; repeated ResourceEntry entries = 2; }
- * message ResourceEntry     { string name = 1; ResourceValue res_value = 2;
- *   map<string, ResourceValue> configs = 3; }          // key = config qualifiers
- * message ResourceValue     { uint32 data_type = 1; uint32 data_value = 2;
- *   uint64 data_binary_offset = 3; uint64 data_binary_size = 4; bool is_nine_patch = 5; }
+ * message FabricatedOverlay {
+ *   repeated ResourcePackage packages = 1;                                      [verified]
+ *   string name = 2;                          // "SemWT_android"                [verified]
+ *   string package_name = 3;                  // owner, "android" for SemWT     [see below]
+ *   string target_package_name = 4;           // "android"                      [see below]
+ *   string target_overlayable = 5;            // absent in SemWT files          [ASSUMED]
+ * }
+ * message ResourcePackage { string name = 1; repeated ResourceType types = 2; } [verified]
+ * message ResourceType    { string name = 1; repeated ResourceEntry entries = 2; } [verified]
+ * message ResourceEntry {
+ *   string name = 1;                                                            [verified]
+ *   ResourceValue res_value = 2;                                                [verified]
+ *   string configuration = 3;   // "night" …; absent for the default config     [verified]
+ * }                             // one ResourceEntry per (name, configuration)
+ * message ResourceValue {
+ *   uint32 data_type = 1;       // 0x1c colour                                  [verified]
+ *   uint32 data_value = 2;      // varint, so 0xffxxxxxx colours take 5 bytes   [verified]
+ *   uint64 data_binary_offset = 3; uint64 data_binary_size = 4;                 [ASSUMED]
+ *   bool is_nine_patch = 5;                                                     [ASSUMED]
+ * }
  * ```
+ *
+ * Fields 3 and 4 of `FabricatedOverlay`: the sample has field 3 = field 4 = `"android"` and
+ * no field 5. `cmd overlay dump` prints `mTargetOverlayableName` empty and `mPackageName`
+ * `android` for every SemWT overlay, so field 4 cannot be the overlayable name (that would make
+ * `SemWT_android`'s overlayable `"android"`) and field 5 is the only candidate left for it.
+ * Fields 3/4 are therefore owner and target; their order (3 = owner `package_name`,
+ * 4 = `target_package_name`) follows AOSP `fabricated_v1.proto` and cannot be told apart in
+ * this sample because both are `"android"`. A `SemWT_<pkg>` file for a non-framework target
+ * would settle it.
  */
 public object FrroFormat {
     /** `kFabricatedOverlayMagic`. */
     public const val MAGIC: Int = 0x4f525246
 
-    /** Highest version this implementation reads and the default it writes. */
+    /** Highest version this implementation reads and the default it writes (One UI 9.0 uses 3). */
     public const val CURRENT_VERSION: Int = 3
 
     /** `Res_value::TYPE_STRING`. */
@@ -108,7 +135,17 @@ public object FrroFormat {
     /** `Res_value::TYPE_INT_COLOR_ARGB8`. */
     public const val TYPE_INT_COLOR_ARGB8: Int = 0x1c
 
-    internal fun crc(bytes: ByteArray): Int = CRC32().apply { update(bytes) }.value.toInt()
+    /** Size of the fixed header (magic, version, crc). */
+    internal const val HEADER_SIZE: Int = 12
+
+    /**
+     * The header CRC: CRC-32 over the little-endian version followed by [proto]
+     * (verified on a One UI 9.0 version 3 file).
+     */
+    internal fun crc(version: Int, proto: ByteArray): Int = CRC32().apply {
+        update(byteArrayOf(version.toByte(), (version shr 8).toByte(), (version shr 16).toByte(), (version shr 24).toByte()))
+        update(proto)
+    }.value.toInt()
 }
 
 /** Reads fabricated overlay files; see [FrroFormat] for the layout. */
@@ -125,26 +162,29 @@ public object FrroReader {
         if (version !in 1..FrroFormat.CURRENT_VERSION) throw FrroFormatException("unsupported fabricated overlay version $version")
         val crc = le.i32(8)
         try {
-            val proto: ByteArray
+            var p = FrroFormat.HEADER_SIZE
             var pool: ResStringPool? = null
             var binaryStart = -1
             var binaryEnd = -1
-            if (version == 1) {
-                proto = bytes.copyOfRange(12, bytes.size)
-            } else {
-                var p = 12
-                val protoSize = le.i32(p); p += 4
-                proto = le.slice(p, protoSize); p += protoSize
+            var binarySize = 0
+            if (version >= 3) {
+                binarySize = le.i32(p); p += 4
+                if (binarySize < 0) throw FrroFormatException("negative binary size")
+            }
+            if (version >= 2) {
                 val poolSize = le.i32(p); p += 4
+                if (poolSize < 0) throw FrroFormatException("negative string pool size")
+                le.check(p, poolSize, "string pool")
                 if (poolSize > 0) pool = ResStringPool.parse(LeBytes(le.slice(p, poolSize)), 0)
                 p += poolSize
-                if (version >= 3) {
-                    val binarySize = le.i32(p); p += 4
-                    le.check(p, binarySize, "binary data")
-                    binaryStart = p
-                    binaryEnd = p + binarySize
-                }
             }
+            if (version >= 3) {
+                le.check(p, binarySize, "binary data")
+                binaryStart = p
+                binaryEnd = p + binarySize
+                p = binaryEnd
+            }
+            val proto = bytes.copyOfRange(p, bytes.size)
             return parseProto(proto, version, crc, pool, binaryStart, binaryEnd)
         } catch (e: ArscFormatException) {
             throw FrroFormatException("malformed fabricated overlay: ${e.message}", e)
@@ -174,14 +214,15 @@ public object FrroReader {
         val entries = mutableListOf<FrroEntry>()
         for (f in ProtoReader(proto).fields()) {
             when (f.number) {
-                1 -> packageName = f.string()
+                1 -> parsePackage(f.bytes(), pool, binaryStart, binaryEnd, entries)
                 2 -> name = f.string()
-                3 -> target = f.string()
-                4 -> overlayable = f.string()
-                5 -> parsePackage(f.bytes(), pool, binaryStart, binaryEnd, entries)
+                3 -> packageName = f.string()
+                4 -> target = f.string()
+                5 -> overlayable = f.string()
             }
         }
-        return FabricatedOverlayFile(name, target, overlayable, entries, packageName, version, crc, FrroFormat.crc(proto) == crc)
+        val crcOk = FrroFormat.crc(version, proto) == crc
+        return FabricatedOverlayFile(name, target, overlayable, entries, packageName, version, crc, crcOk)
     }
 
     private fun parsePackage(bytes: ByteArray, pool: ResStringPool?, bStart: Int, bEnd: Int, out: MutableList<FrroEntry>) {
@@ -193,18 +234,9 @@ public object FrroReader {
             for (entryField in typeFields.filter { it.number == 2 }) {
                 val entryFields = ProtoReader(entryField.bytes()).fields()
                 val entryName = entryFields.firstOrNull { it.number == 1 }?.string().orEmpty()
-                val resourceName = "$pkg:$type/$entryName"
-                for (ef in entryFields) {
-                    when (ef.number) {
-                        2 -> out += parseValue(resourceName, ef.bytes(), null, pool, bStart, bEnd)
-                        3 -> {
-                            val mapFields = ProtoReader(ef.bytes()).fields()
-                            val config = mapFields.firstOrNull { it.number == 1 }?.string().orEmpty()
-                            val value = mapFields.firstOrNull { it.number == 2 }?.bytes() ?: ByteArray(0)
-                            out += parseValue(resourceName, value, config, pool, bStart, bEnd)
-                        }
-                    }
-                }
+                val config = entryFields.firstOrNull { it.number == 3 }?.string()
+                val value = entryFields.firstOrNull { it.number == 2 }?.bytes() ?: ByteArray(0)
+                out += parseValue("$pkg:$type/$entryName", value, config, pool, bStart, bEnd)
             }
         }
     }

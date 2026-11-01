@@ -44,7 +44,7 @@ class FrroRoundTripTest {
         assertTrue(file.crcMatchesProto)
         val byName = file.entries.groupBy { it.resourceName }
         assertEquals(
-            listOf("" to 0xFF336699.toInt(), "night" to 0xFF112233.toInt()),
+            listOf(null to 0xFF336699.toInt(), "night" to 0xFF112233.toInt()),
             byName.getValue("com.android.systemui:color/qs_tile_active").map { it.configuration to it.data },
         )
         assertEquals(0x1801, byName.getValue("com.android.systemui:dimen/status_bar_height").single().data)

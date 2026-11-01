@@ -217,5 +217,9 @@ dependencies {
     implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
 
+    // Pure-JVM engine (FRRO reader, `cmd overlay dump` parser, One UI rules); substituted by
+    // includeBuild("engine") in settings.gradle.kts.
+    implementation("com.hexnext:engine")
+
     testImplementation("junit:junit:4.13.2")
 }

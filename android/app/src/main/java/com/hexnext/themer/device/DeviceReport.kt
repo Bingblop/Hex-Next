@@ -26,9 +26,52 @@ data class PackageStatus(
     val colorCount: Int = 0,
     val drawableCount: Int = 0,
     val semWtOverlays: Int = 0,
+    /** `mPriority` of `android:SemWT_<pkg>` from `cmd overlay dump`; null when there is none. */
+    val semwtPriority: Int? = null,
+    /** `mState` of `android:SemWT_<pkg>` (`STATE_ENABLED`, `STATE_MISSING_TARGET` …); null when there is none. */
+    val semwtState: String? = null,
     val error: String? = null,
 ) {
     val arscFound: Boolean get() = arscPath != null
+}
+
+/**
+ * What `cmd overlay dump android:SemWT_<target>` (or, as a fallback, the copied `.frro`) said
+ * about Samsung's wallpaper-theme overlay for one target.
+ */
+data class SemWtStatus(
+    val target: String,
+    val overlayId: String,
+    /** True when the dump printed an info block for [overlayId]. */
+    val found: Boolean = false,
+    val owner: String? = null,
+    val state: String? = null,
+    val enabled: Boolean = false,
+    val priority: Int? = null,
+    val targetOverlayable: String? = null,
+    /** `mBaseCodePath`, the live `.frro` under `/data/resource-cache`. */
+    val frroPath: String? = null,
+    /** Where [resourceCount] came from: [SOURCE_DUMP], [SOURCE_FRRO] or [SOURCE_NONE]. */
+    val source: String = SOURCE_NONE,
+    /** Distinct resources Samsung themes in the target. */
+    val resourceCount: Int = 0,
+    /** Values including per-configuration (`night`) duplicates. */
+    val valueCount: Int = 0,
+    /** Resources the idmap could not find in the target (`W failed to find resource`). */
+    val missingCount: Int = 0,
+    /** Raw dump output, `files/scan/semwt/<target>.txt`. */
+    val dumpPath: String? = null,
+    /** Parsed resources, `files/scan/semwt/<target>.json`. */
+    val mappingPath: String? = null,
+    val error: String? = null,
+) {
+    val isMaxPriority: Boolean get() = priority == Int.MAX_VALUE
+
+    companion object {
+        const val SOURCE_DUMP = "dump"
+        const val SOURCE_FRRO = "frro"
+        const val SOURCE_NONE = "none"
+    }
 }
 
 data class DeviceReport(
@@ -41,6 +84,7 @@ data class DeviceReport(
     val frroCopied: List<String>,
     val packages: List<PackageStatus>,
     val errors: List<String>,
+    val semWt: List<SemWtStatus> = emptyList(),
     val jsonPath: String? = null,
     val txtPath: String? = null,
 ) {
@@ -91,7 +135,32 @@ data class DeviceReport(
                         .put("colorCount", p.colorCount)
                         .put("drawableCount", p.drawableCount)
                         .put("semWtOverlays", p.semWtOverlays)
+                        .put("semwtPriority", p.semwtPriority ?: JSONObject.NULL)
+                        .put("semwtState", p.semwtState ?: JSONObject.NULL)
                         .put("error", p.error ?: JSONObject.NULL)
+                )
+            }
+        })
+        put("semWt", JSONArray().apply {
+            semWt.forEach { w ->
+                put(
+                    JSONObject()
+                        .put("target", w.target)
+                        .put("overlayId", w.overlayId)
+                        .put("found", w.found)
+                        .put("owner", w.owner ?: JSONObject.NULL)
+                        .put("state", w.state ?: JSONObject.NULL)
+                        .put("enabled", w.enabled)
+                        .put("priority", w.priority ?: JSONObject.NULL)
+                        .put("targetOverlayable", w.targetOverlayable ?: JSONObject.NULL)
+                        .put("frroPath", w.frroPath ?: JSONObject.NULL)
+                        .put("source", w.source)
+                        .put("resourceCount", w.resourceCount)
+                        .put("valueCount", w.valueCount)
+                        .put("missingCount", w.missingCount)
+                        .put("dumpPath", w.dumpPath ?: JSONObject.NULL)
+                        .put("mappingPath", w.mappingPath ?: JSONObject.NULL)
+                        .put("error", w.error ?: JSONObject.NULL)
                 )
             }
         })
@@ -123,6 +192,7 @@ data class DeviceReport(
             append("${p.pkg}: $state")
             if (p.deprecated) append(" [deprecated]")
             append(", $arsc, ${p.semWtOverlays} SemWT")
+            if (p.semwtState != null) append(" (${p.semwtState}, priority ${p.semwtPriority ?: "?"})")
             if (p.error != null) append(" — ${p.error}")
             appendLine()
         }
@@ -132,6 +202,24 @@ data class DeviceReport(
             appendLine("----------------")
             overlays.filter { it.isSamsungWallpaperTheme }.forEach {
                 appendLine("${if (it.enabled) "[x]" else "[ ]"} ${it.overlayId} -> ${it.target}")
+            }
+        }
+        if (semWt.isNotEmpty()) {
+            appendLine()
+            appendLine("SemWT dumps (cmd overlay dump android:SemWT_<target>)")
+            appendLine("-----------------------------------------------------")
+            semWt.forEach { w ->
+                append("${w.target}: ")
+                if (w.found) {
+                    append("${w.state ?: "?"}, priority ${w.priority ?: "?"}${if (w.isMaxPriority) " (MAX)" else ""}")
+                    append(", owner ${w.owner ?: "?"}")
+                } else {
+                    append("no overlay")
+                }
+                append(", ${w.resourceCount} resources/${w.valueCount} values via ${w.source}")
+                if (w.missingCount > 0) append(", ${w.missingCount} missing in target")
+                if (w.error != null) append(" — ${w.error}")
+                appendLine()
             }
         }
         if (overlays.any { it.isHexNext }) {
