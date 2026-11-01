@@ -157,6 +157,15 @@ fun MainScreen(viewModel: MainViewModel) {
                     onRemove = viewModel::remove,
                 )
             }
+            item {
+                CompiledThemeCard(
+                    enabled = ready != null && !ui.busy,
+                    busy = ui.busy,
+                    summary = ui.lastApplySummary,
+                    onApply = viewModel::applyTheme,
+                    onRemove = viewModel::removeTheme,
+                )
+            }
             if (ui.log.isNotEmpty()) {
                 item { LogCard(ui.log, onClear = viewModel::clearLog) }
             }
@@ -498,6 +507,44 @@ private fun PaletteCard(palette: MonetPalette) {
     }
 }
 
+/** Full compiled theme from the last device scan (default theme until the theme editor lands). */
+@Composable
+private fun CompiledThemeCard(
+    enabled: Boolean,
+    busy: Boolean,
+    summary: String?,
+    onApply: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Compiled theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Builds one HexNext overlay per scanned One UI target from the last device scan, " +
+                    "disables Samsung's SemWT overlay for it and keeps it off after wallpaper changes. " +
+                    "Debloated apps are skipped. Run Diagnostics > Run scan first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (summary != null) {
+                Text("Last apply: $summary", style = MaterialTheme.typography.bodySmall)
+            }
+            Actions(
+                enabled = enabled,
+                busy = busy,
+                applyLabel = "Apply theme",
+                onApply = onApply,
+                onRemove = onRemove,
+                removeLabel = "Remove theme",
+            )
+        }
+    }
+}
+
 @Composable
 private fun Actions(
     enabled: Boolean,
@@ -505,6 +552,7 @@ private fun Actions(
     applyLabel: String,
     onApply: () -> Unit,
     onRemove: () -> Unit,
+    removeLabel: String = "Remove",
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Button(onClick = onApply, enabled = enabled, modifier = Modifier.weight(1f).height(52.dp)) {
@@ -515,7 +563,7 @@ private fun Actions(
             }
         }
         OutlinedButton(onClick = onRemove, enabled = enabled, modifier = Modifier.height(52.dp)) {
-            Text("Remove")
+            Text(removeLabel)
         }
     }
 }

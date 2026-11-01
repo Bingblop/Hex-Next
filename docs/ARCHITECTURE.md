@@ -55,6 +55,24 @@ so it is ordered above them, and (b) for every target it themes, disable
 `android:SemWT_<target>`, then re-assert that (and its own priority) whenever Samsung's
 wallpaper-theme service re-enables the SemWT overlay, e.g. after a wallpaper or palette change.
 
+How the app does this (`ThemeApplier`, `SemWtController`, engine `device/SemWtTakeover.kt`):
+
+1. After `applyOverlay` registered `HexNext_<target>`, run
+   `cmd overlay disable --user current android:SemWT_<target>` and
+   `cmd overlay set-priority --user current <hex overlay id> highest` (options first: the shell
+   command only reads leading options).
+2. Record each takeover in `/data/local/tmp/hexnext/semwt_state.json` (`SemWtState`: SemWT id,
+   Hex overlay id, whether the SemWT overlay was enabled before the first takeover).
+3. Start the root re-assert guard `semwt_guard.sh` (detached `setsid sh`, like the stability
+   monitor). It polls the mtimes of `/data/resource-cache` and `wallpaper_info.xml` every 15 s,
+   does a full `cmd overlay list` check on change and every 5 minutes, and disables any SemWT
+   overlay Samsung re-enabled under an enabled Hex overlay. `BOOT_COMPLETED` and app start
+   re-assert once and restart the guard. When `safe_mode.json` appears, the guard re-enables
+   the SemWT overlays it took over and exits.
+4. Removal stops the guard, disables every `HexNext*` overlay, re-enables exactly the SemWT
+   overlays that were enabled before, and removes the legacy `com.android.shell:HexNextMonetShades`
+   overlay of the old skeleton.
+
 ## Gradle layout
 
 ```

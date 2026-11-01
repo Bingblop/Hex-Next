@@ -3,6 +3,7 @@ package com.hexnext.themer.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.overlay.BuildResult
 import com.hexnext.themer.overlay.OverlayBuilder
@@ -15,6 +16,7 @@ import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
+import com.hexnext.themer.theme.ThemeApplier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +37,8 @@ data class DiagnosticsState(
     val monitorStatus: String? = null,
     val safeModeFile: String? = null,
     val guard: String = "",
+    /** The last compiled-theme apply ([ThemeApplier.lastReport]). */
+    val applyReport: ApplyReport? = null,
     val log: List<LogLine> = emptyList(),
 ) {
     val latestReportTxt: File?
@@ -49,11 +53,18 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsTest = SettingsTestOverlay(app)
 
     private val _state = MutableStateFlow(
-        DiagnosticsState(latestReportJson = DeviceScanner.latestReport(app), guard = guard.describe())
+        DiagnosticsState(
+            latestReportJson = DeviceScanner.latestReport(app),
+            guard = guard.describe(),
+            applyReport = ThemeApplier.lastReport(app),
+        )
     )
     val state: StateFlow<DiagnosticsState> = _state.asStateFlow()
 
     fun clearLog() = _state.update { it.copy(log = emptyList()) }
+
+    /** Reloads the last [ApplyReport] (the main screen's Apply theme writes it). */
+    fun refreshApplyReport() = _state.update { it.copy(applyReport = ThemeApplier.lastReport(getApplication<Application>())) }
 
     fun noteShareFailed(file: File?) =
         log(LogLevel.ERROR, if (file == null) "Nothing to share yet." else "Could not share ${file.path}.")

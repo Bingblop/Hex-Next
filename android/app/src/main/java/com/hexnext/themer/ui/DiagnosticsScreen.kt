@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hexnext.engine.compile.ApplyReport
+import com.hexnext.engine.compile.TargetResult
 import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.device.ReportSharer
 import com.hexnext.themer.shizuku.ShizukuState
@@ -56,6 +59,7 @@ fun DiagnosticsScreen(
     val ready = shizuku as? ShizukuState.Ready
     val enabled = ready != null && !state.busy
     BackHandler(onBack = onBack)
+    LaunchedEffect(Unit) { viewModel.refreshApplyReport() }
 
     fun share(file: File?) {
         if (file == null || !ReportSharer.share(context, file)) {
@@ -115,6 +119,9 @@ fun DiagnosticsScreen(
                 }
             }
             state.report?.let { report -> item { ReportCard(report) } }
+            state.applyReport?.let { report ->
+                item { ApplyReportCard(report, onShareLog = { share(File(report.logFile).takeIf { it.isFile }) }) }
+            }
             item {
                 DiagCard("Settings test overlay (One UI 9)") {
                     Text(
@@ -226,6 +233,43 @@ private fun ReportCard(report: DeviceReport) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
+        }
+    }
+}
+
+@Composable
+private fun ApplyReportCard(report: ApplyReport, onShareLog: () -> Unit) {
+    DiagCard("Last theme apply") {
+        Text(
+            "${report.themeName} · ${java.util.Date(report.finishedAt)} · ${(report.finishedAt - report.startedAt) / 1000} s",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            report.summary(),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (report.failedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        )
+        report.notes.forEach { Mono(it) }
+        report.outcomes.filter { it.result == TargetResult.FAILED || it.result == TargetResult.PARTIAL }.forEach { o ->
+            Text(
+                "${o.target}: ${o.result.name.lowercase()}${if (o.message.isNotBlank()) " — ${o.message}" else ""}",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = if (o.result == TargetResult.FAILED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+            )
+        }
+        report.outcomes.filter { it.result == TargetResult.OK }.forEach { o ->
+            Mono("${o.target}: ${o.resourceCount} resources (${o.colorCount}c/${o.drawableCount}d)${if (o.semwtDisabled) ", SemWT off" else ""}")
+        }
+        val debloated = report.outcomes.filter { it.result == TargetResult.SKIPPED_DEBLOATED }
+        if (debloated.isNotEmpty()) {
+            Text(
+                "Debloated (skipped): ${debloated.joinToString { it.target }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
+        if (report.logFile.isNotBlank()) {
+            TextButton(onClick = onShareLog) { Text("Share build log") }
         }
     }
 }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
@@ -14,7 +15,9 @@ import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.MonetPalette
 import com.hexnext.themer.theme.PackedAppOverlay
 import com.hexnext.themer.theme.PaletteStyle
+import com.hexnext.themer.theme.SemWtController
 import com.hexnext.themer.theme.SettingsIconStyle
+import com.hexnext.themer.theme.ThemeApplier
 import com.hexnext.themer.theme.ThemeEngine
 import com.hexnext.themer.theme.ThemeSpec
 import com.hexnext.themer.theme.formatOneUi
@@ -35,6 +38,8 @@ data class UiState(
     val log: List<LogLine> = emptyList(),
     /** Non-null while the "Hex overlays were turned off after repeated restarts" banner shows. */
     val safeModeBanner: String? = null,
+    /** [com.hexnext.engine.compile.ApplyReport.summary] of the last compiled-theme apply. */
+    val lastApplySummary: String? = null,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -42,7 +47,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
     private val engine = ThemeEngine(prefs)
     private val guard = ApplyGuard(app)
+    private val applier = ThemeApplier(app)
     private var safeModeChecked = false
+    private var semwtReasserted = false
 
     val shizuku: StateFlow<ShizukuState> = ShizukuManager.state
 
@@ -54,6 +61,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ShizukuManager.state.collect {
                 if (it is ShizukuState.Ready) {
                     checkSafeMode()
+                    reassertSemWt()
                     loadDeviceInfo()
                 }
             }
@@ -76,6 +84,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (bundle != null && bundle.getInt(ThemeService.KEY_CODE, -1) == 0) {
                 guard.markSafeModeEntered(by = "app start")
                 log(LogLine(LogLevel.WARN, "Safe mode: ${bundle.getString(ThemeService.KEY_OUTPUT).orEmpty()}"))
+                runCatching {
+                    val service = ShizukuManager.service()
+                    withContext(Dispatchers.IO) {
+                        SemWtController.restore(service, ::log)
+                        ThemeApplier.setTakeoverActive(getApplication<Application>(), false)
+                    }
+                }.onFailure { log(LogLine(LogLevel.WARN, "Safe mode could not restore Samsung SemWT overlays: ${it.message}")) }
             } else {
                 val why = bundle?.getString(ThemeService.KEY_OUTPUT)
                     ?: result.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
@@ -88,6 +103,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (guard.safeModeActive()) {
             _ui.update { it.copy(safeModeBanner = SAFE_MODE_TEXT) }
         }
+    }
+
+    /**
+     * Once per app run: if a compiled theme took targets over from Samsung's SemWT overlays,
+     * disable any SemWT overlay Samsung re-enabled since (wallpaper or palette change) and restart
+     * the re-assert guard. Skipped in safe mode.
+     */
+    private suspend fun reassertSemWt() {
+        if (semwtReasserted) return
+        semwtReasserted = true
+        if (guard.safeModeActive() || !ThemeApplier.isTakeoverActive(getApplication<Application>())) return
+        runCatching {
+            val service = ShizukuManager.service()
+            withContext(Dispatchers.IO) { SemWtController.reassert(service, { line -> if (line.level != LogLevel.INFO) log(line) }) }
+        }.onFailure { log(LogLine(LogLevel.WARN, "SemWT re-assert failed: ${it.javaClass.simpleName}: ${it.message}")) }
     }
 
     fun dismissSafeMode() {
@@ -110,7 +140,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             useAboutLogo = prefs.getBoolean(PREF_USELOGO, true),
             showListDividers = prefs.getBoolean(PREF_UIDIVIDER, true),
         )
-        return UiState(spec = spec, palette = MonetPalette.generate(spec))
+        return UiState(
+            spec = spec,
+            palette = MonetPalette.generate(spec),
+            lastApplySummary = ThemeApplier.lastReport(getApplication<Application>())?.summary(),
+        )
     }
 
     fun setSeed(color: Int) = updateSpec { it.copy(seed = color or 0xFF000000.toInt()) }
@@ -176,6 +210,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun remove() = runTask { service, ready -> engine.remove(service, ready.isPrivileged, ::log) }
+
+    /**
+     * Compiles and applies the full theme (for now [EngineThemeSpec.default]) to every scanned
+     * target. Works without packs (colours only); drawables and night colours need the
+     * privileged service.
+     */
+    fun applyTheme() = runTask { service, _ ->
+        val report = applier.apply(service, EngineThemeSpec.default(), ::log)
+        _ui.update { it.copy(lastApplySummary = report.summary()) }
+        report.success
+    }
+
+    /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
+    fun removeTheme() = runTask { service, _ ->
+        val ok = applier.remove(service, ::log)
+        _ui.update { it.copy(lastApplySummary = null) }
+        ok
+    }
 
     private fun runTask(block: (com.hexnext.themer.IThemeService, ShizukuState.Ready) -> Boolean) {
         val ready = ShizukuManager.state.value as? ShizukuState.Ready ?: run {
