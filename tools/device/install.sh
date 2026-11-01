@@ -1,15 +1,19 @@
 #!/system/bin/sh
 # Hex Next: install the pinned CI debug build (root required).
-# Downloads the GitHub Actions artifact through nightly.link, checks its SHA-256
-# against the value the GitHub artifacts API reported, installs it with `pm install -r`
-# (keeps app data), then prints the installed version.
+# Downloads the GitHub Actions artifact, checks its SHA-256 against the value the GitHub
+# artifacts API reported, installs it with `pm install -r` (keeps app data), then prints
+# the installed version.
 #
 # Usage (Termux):  sh install.sh
-#                  APK_URL=... APK_ZIP_SHA256=... sh install.sh   (override both together)
+#   Private repo:  GH_TOKEN=github_pat_... sh install.sh
+#                  (a fine-grained token with read access to Contents and Actions; it is
+#                  used only for the download and never stored)
+#   Overrides:     RUN_ID=... APK_ZIP_SHA256=... sh install.sh
 set -u
 RUN_ID="${RUN_ID:-41346852714}"
-APK_URL="${APK_URL:-https://nightly.link/Bingblop/Hex-Next/actions/runs/$RUN_ID/HexNext-Debug-Test-Installable.zip}"
 APK_ZIP_SHA256="${APK_ZIP_SHA256:-a6e0aa37db618fca3eb635a3b9d4fe465796dc537c61a4b81d9efd27816528c7}"
+ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
+REPO=Bingblop/Hex-Next
 PKG=com.hexnext.themer
 # Download into the home directory: Termux's $TMPDIR can be small or unwritable
 # (curl error 23 "client returned ERROR on write" means exactly that).
@@ -23,8 +27,20 @@ sha256_file() {
 }
 
 rm -rf "$WORK"; mkdir -p "$WORK" || { echo "cannot create $WORK"; exit 1; }
+if [ -n "${GH_TOKEN:-}" ]; then
+  # Private repo: resolve the artifact through the API and follow its signed download URL.
+  echo "Resolving artifact $ARTIFACT of run $RUN_ID through the GitHub API ..."
+  LIST=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts") || { echo "artifact listing failed (token scope? run id?)"; exit 1; }
+  APK_URL=$(printf '%s' "$LIST" | tr -d '\n' | sed "s/.*\"name\": *\"$ARTIFACT\"[^}]*\"archive_download_url\": *\"\([^\"]*\)\".*/\1/")
+  case "$APK_URL" in https://*) ;; *) echo "artifact $ARTIFACT not found in run $RUN_ID"; exit 1 ;; esac
+  AUTH="-H \"Authorization: Bearer $GH_TOKEN\""
+else
+  APK_URL="${APK_URL:-https://nightly.link/$REPO/actions/runs/$RUN_ID/$ARTIFACT.zip}"
+  AUTH=""
+fi
 echo "Downloading run $RUN_ID to $WORK ..."
-if ! curl -fL --retry 3 -o "$WORK/hexnext-debug.zip" "$APK_URL"; then
+if ! eval curl -fL --retry 3 $AUTH -o "'$WORK/hexnext-debug.zip'" "'$APK_URL'"; then
   echo "download failed: $APK_URL"
   echo "free space:"; df -h "$WORK" 2>/dev/null || df "$WORK"
   exit 1

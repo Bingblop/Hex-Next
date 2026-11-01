@@ -45,6 +45,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+      # Debug builds carry a few small packs from the `packs` branch (history-free pack hosting),
+      # so the test build can theme Settings icons on a private repo without a catalogue download.
+      # Release builds never bundle packs (they come from the entitlement server).
+      - name: Bundle test packs into the debug build
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 origin packs
+          mkdir -p app/src/debug/assets/packs
+          for pack in velvet-rope particle-zoo firefly stardust; do
+            git show "origin/packs:$pack.zip" > "app/src/debug/assets/packs/$pack.zip"
+          done
+          ls -l app/src/debug/assets/packs
       - name: Test and build unsigned universal candidate
         run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleDebug
       - name: Verify installable universal candidate
