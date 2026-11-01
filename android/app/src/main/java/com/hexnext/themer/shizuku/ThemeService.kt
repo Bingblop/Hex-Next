@@ -153,10 +153,13 @@ class ThemeService() : IThemeService.Stub() {
 
             // Enable; on One UI 9 every enable moves the overlay to the top of its target.
             val top = enableOnTop(id, name, targetPackage, owner)
+            val cleanup = StringBuilder()
+            if (top.code == 0) pruneStaleAfterEnable(id, owner, name, null, cleanup)
             result(
                 top.code,
                 "Registered $id (${resourceNames.size} One UI 9.0 tokens) on $targetPackage [UID ${Process.myUid()}]" +
-                    if (top.code == 0) ", enabled.\n${top.log}" else ".\nEnable failed: ${top.log}"
+                    (if (top.code == 0) ", enabled.\n${top.log}" else ".\nEnable failed: ${top.log}") +
+                    cleanup.toString().trimEnd().let { if (it.isEmpty()) "" else "\n$it" }
             )
         } catch (t: Throwable) {
             result(-1, describe(t))
@@ -173,7 +176,10 @@ class ThemeService() : IThemeService.Stub() {
                 unregister.unregisterFabricatedOverlay(newOverlay(name, "android", owner).identifier)
                 commit(unregister)
             }
-            result(0, "Removed $id")
+            // The overlay is gone from OverlayManager; none of its files (this or earlier applies) is live any more.
+            val cleanup = StringBuilder()
+            pruneOverlayFrros(owner, name, null, cleanup)
+            result(0, "Removed $id\n$cleanup")
         } catch (t: Throwable) {
             result(-1, describe(t))
         }
@@ -196,12 +202,18 @@ class ThemeService() : IThemeService.Stub() {
                 val target = targetPackages[index]
                 val id = "$owner:$name"
                 val seqLabel = "[SEQ ${index + 1}/$total]"
+                if (!OVERLAY_NAME.matches(name) || !PACKAGE_NAME.matches(target)) {
+                    logs.appendLine("$seqLabel Skipped $id -> $target: invalid overlay name or target package.")
+                    return@forEach
+                }
 
-                // Step 1: Disable stale overlay & purge idmap2/frro cache files under UID 0 / Shizuku
-                shell(
-                    "cmd overlay disable --user current $id 2>/dev/null; " +
-                        "rm -f /data/resource-cache/*${name}*.idmap /data/resource-cache/*${name}*.frro"
-                )
+                // Step 1: Disable stale overlay & purge its idmap2/frro cache files under UID 0 / Shizuku.
+                // Only `<owner>-<name>-<suffix>.frro` files are removed (a `*name*` glob would also
+                // hit overlays whose name merely contains this one, e.g. HexNext_android_auto).
+                shell("cmd overlay disable --user current $id 2>/dev/null")
+                val cleanup = StringBuilder()
+                pruneOverlayFrros(owner, name, null, cleanup)
+                logs.append(cleanup)
 
                 // Step 2: Re-register fabricated overlay or re-fabricate via shell
                 if (isPrivilegedUid()) {
@@ -233,13 +245,13 @@ class ThemeService() : IThemeService.Stub() {
             logs.appendLine("[!] [SAFE_MODE_FALLBACK] System crash detected: $crashReason")
             logs.appendLine("[*] [UID ${Process.myUid()}] Executing emergency rollback: cmd overlay disable-all --user current")
 
-            // 1. Disable all overlays for the current user and purge any corrupted HexNext idmap2/frro files
-            val disableRes = shell(
-                "cmd overlay disable-all --user current 2>/dev/null; " +
-                    "rm -f /data/resource-cache/*HexNext*.idmap /data/resource-cache/*HexNext*.frro " +
-                    "/data/resource-cache/*hexnext*.idmap /data/resource-cache/*hexnext*.frro"
-            )
-            logs.appendLine("[✓] Disabled active RROs & purged /data/resource-cache/ (code=${disableRes.getInt(KEY_CODE)})")
+            // 1. Disable all overlays for the current user and purge every HexNext idmap2/frro file
+            //    (possibly corrupted): exactly the `<owner>-HexNext…-<suffix>.frro` files, nothing else.
+            val disableRes = shell("cmd overlay disable-all --user current 2>/dev/null")
+            val cleanup = StringBuilder()
+            val purged = pruneHexFrros(onlyUnregistered = false, cleanup)
+            logs.appendLine("[✓] Disabled active RROs (code=${disableRes.getInt(KEY_CODE)}) & purged $purged HexNext .frro files from $RESOURCE_CACHE")
+            logs.append(cleanup)
             logs.appendLine("[✓] Restored stock One UI 9.0 SemWT_* & Framework resource state (Safe Mode active).")
 
             result(0, logs.toString().trimEnd())
@@ -428,7 +440,8 @@ class ThemeService() : IThemeService.Stub() {
         val pngs: List<PngInput>,
     )
 
-    private class DrawableOutcome(val enable: EnableResult, val applied: Int)
+    /** Result of the drawable step; [frroPath] is the registered file when the rewrite located it, else null. */
+    private class DrawableOutcome(val enable: EnableResult, val applied: Int, val frroPath: String? = null)
 
     override fun applyOverlay(
         name: String?,
@@ -585,6 +598,9 @@ class ThemeService() : IThemeService.Stub() {
                     val stop = shell("am force-stop --user current $target")
                     log.appendLine("Restarted $target so it reloads its drawables (am force-stop exit ${stop.getInt(KEY_CODE)}).")
                 }
+                // Step 5: every registration wrote a new `<owner>-<name>-XXXX.frro`; drop the files of
+                // earlier applies (and their idmaps) now that the live one is enabled and verified.
+                pruneStaleAfterEnable(id, owner, name, drawn.frroPath, log)
             } else {
                 log.appendLine("Enable failed: ${top.log}")
             }
@@ -674,7 +690,7 @@ class ThemeService() : IThemeService.Stub() {
         val top = enableOnTop(id, name, target, owner)
         if (top.code != 0) {
             val reason = "enable after the .frro rewrite failed: ${top.log}"
-            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0)
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0, rewrite.path)
         }
 
         // Verification: idmap regenerated, file parses with every PNG, lookup resolves to frro:/.
@@ -682,7 +698,7 @@ class ThemeService() : IThemeService.Stub() {
         val idmapFile = File(idmap)
         if (!idmapFile.isFile) {
             val reason = "OverlayManager did not create $idmap after the rewrite"
-            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0)
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0, rewrite.path)
         }
         val idmapCrc = runCatching { readLe32(idmapFile, IDMAP_OVERLAY_CRC_OFFSET) }.getOrNull()
         val idmapFresh = idmapCrc == rewrite.crc
@@ -696,7 +712,7 @@ class ThemeService() : IThemeService.Stub() {
             FrroReader.read(File(rewrite.path))
         } catch (t: Throwable) {
             val reason = "rewritten .frro does not parse: ${describe(t)}"
-            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0)
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0, rewrite.path)
         }
         val onDisk = File(rewrite.path).readBytes()
         log.appendLine(
@@ -730,7 +746,7 @@ class ThemeService() : IThemeService.Stub() {
             }
         }
         log.appendLine("Root rewrite applied $applied/${drawables.size} drawables.")
-        return DrawableOutcome(top, applied)
+        return DrawableOutcome(top, applied, rewrite.path)
     }
 
     /**
@@ -904,6 +920,116 @@ class ThemeService() : IThemeService.Stub() {
     private fun idmapPathFor(frroPath: String): String =
         "$RESOURCE_CACHE/" + frroPath.removePrefix("/").replace('/', '@') + "@idmap"
 
+    // ---------------------------------------------------------------------------------------
+    // Stale .frro cleanup
+    // ---------------------------------------------------------------------------------------
+
+    /** One `<owner>-<name>-<suffix>.frro` file in [RESOURCE_CACHE], as idmap2d names fabricated overlays. */
+    private class FrroEntry(val owner: String, val name: String, val fileName: String) {
+        val path: String get() = "$RESOURCE_CACHE/$fileName"
+        val overlayId: String get() = "$owner:$name"
+    }
+
+    /**
+     * Every file in [RESOURCE_CACHE] named exactly `<owner>-<name>-<suffix>.frro` ([FRRO_FILE], suffix
+     * re-checked with [FRRO_SUFFIX]). Built from a plain `ls` of the directory, never from a glob, so
+     * no caller-supplied string reaches the shell unvalidated. Owner and name cannot contain `-`,
+     * which makes the split unambiguous.
+     */
+    private fun listFrroEntries(): List<FrroEntry> =
+        shell("ls -1 '$RESOURCE_CACHE' 2>/dev/null").getString(KEY_OUTPUT).orEmpty().lineSequence()
+            .map { it.trim() }
+            .mapNotNull { file ->
+                val m = FRRO_FILE.matchEntire(file) ?: return@mapNotNull null
+                val owner = m.groupValues[1]
+                val name = m.groupValues[2]
+                val suffix = file.substring(owner.length + 1 + name.length + 1)
+                if (!FRRO_SUFFIX.matches(suffix)) return@mapNotNull null
+                FrroEntry(owner, name, file)
+            }
+            .toList()
+
+    /**
+     * Removes the `.frro` files in [entries] and their `@idmap` siblings with `rm -f` and logs one
+     * line naming what went. Returns how many `.frro` files were removed (rm exit 0).
+     */
+    private fun removeFrroFiles(entries: List<FrroEntry>, what: String, log: StringBuilder): Int {
+        if (entries.isEmpty()) {
+            log.appendLine("Cleanup: no $what .frro files in $RESOURCE_CACHE.")
+            return 0
+        }
+        var removed = 0
+        entries.forEach { e ->
+            val frro = e.path
+            val idmap = idmapPathFor(frro)
+            val rm = shell("rm -f '$frro' '$idmap'")
+            if (rm.getInt(KEY_CODE) == 0) {
+                removed++
+            } else {
+                log.appendLine("Cleanup: could not remove $frro: ${rm.getString(KEY_OUTPUT).orEmpty().trim()}")
+            }
+        }
+        log.appendLine(
+            "Cleanup: removed $removed/${entries.size} $what .frro files (and their idmaps) from $RESOURCE_CACHE: " +
+                entries.joinToString(", ") { it.fileName }
+        )
+        return removed
+    }
+
+    /**
+     * Removes every `<owner>-<name>-<suffix>.frro` of one overlay (plus idmaps) except [keep], the
+     * path OverlayManager currently uses. Each registration writes a new random suffix and nothing
+     * deletes the previous file, so earlier applies pile up beside the live one. With [keep] null
+     * (overlay unregistered, or about to be re-registered) every file of the overlay goes. Returns
+     * the number of files removed; nothing is touched when [owner] or [name] look unexpected.
+     */
+    private fun pruneOverlayFrros(owner: String, name: String, keep: String?, log: StringBuilder): Int {
+        if (!PACKAGE_NAME.matches(owner) || !OVERLAY_NAME.matches(name)) {
+            log.appendLine("Cleanup: not touching $RESOURCE_CACHE for $owner:$name (unexpected characters).")
+            return 0
+        }
+        val stale = listFrroEntries().filter { it.owner == owner && it.name == name && it.path != keep }
+        if (keep != null) log.appendLine("Cleanup: keeping the live $keep.")
+        return removeFrroFiles(stale, if (keep != null) "stale $owner:$name" else "$owner:$name", log)
+    }
+
+    /**
+     * After a successful enable: keeps the live `.frro` of [id] ([known] from the rewrite, else located
+     * with [findFrroPath]) and removes the overlay's other files. When the live path cannot be
+     * located nothing is removed, so a confused `cmd overlay dump` can never delete the file in use.
+     */
+    private fun pruneStaleAfterEnable(id: String, owner: String, name: String, known: String?, log: StringBuilder) {
+        val live = known ?: findFrroPath(id, owner, name, log)
+        if (live == null) {
+            log.appendLine("Cleanup: skipped, the live .frro of $id could not be located under $RESOURCE_CACHE.")
+            return
+        }
+        pruneOverlayFrros(owner, name, live, log)
+    }
+
+    /**
+     * Removes `.frro` files (plus idmaps) of HexNext overlays, i.e. entries whose name starts with
+     * [HEX_PREFIX]. With [onlyUnregistered] only overlays `cmd overlay list` does not know as
+     * `owner:name` go (left behind by unregister or by a registration that was never cleaned up);
+     * nothing is removed when the list cannot be read or is empty, because then "unregistered"
+     * cannot be told apart from "live". Without it every HexNext file goes (safe-mode purge).
+     */
+    private fun pruneHexFrros(onlyUnregistered: Boolean, log: StringBuilder): Int {
+        val hex = listFrroEntries().filter { it.name.startsWith(HEX_PREFIX, ignoreCase = true) }
+        if (!onlyUnregistered) return removeFrroFiles(hex, "HexNext", log)
+        val list = shell("cmd overlay list --user current")
+        if (list.getInt(KEY_CODE) != 0) {
+            log.appendLine("Cleanup: not pruning unregistered HexNext .frro files, cmd overlay list failed (exit ${list.getInt(KEY_CODE)}).")
+            return 0
+        }
+        val registered = parseOverlayList(list.getString(KEY_OUTPUT).orEmpty()).map { it.overlayId }.toSet()
+        if (registered.isEmpty()) {
+            log.appendLine("Cleanup: not pruning unregistered HexNext .frro files, cmd overlay list returned no overlays.")
+            return 0
+        }
+        return removeFrroFiles(hex.filter { it.overlayId !in registered }, "unregistered HexNext", log)
+    }
+
     private fun readLe32(file: File, offset: Long): Int = RandomAccessFile(file, "r").use { raf ->
         raf.seek(offset)
         val b = ByteArray(4)
@@ -977,10 +1103,15 @@ class ThemeService() : IThemeService.Stub() {
                 json.put(entry.put("disabled", disabled).put("unregistered", unregistered).put("message", message))
             }
             val ids = hex.joinToString("\n") { "  ${it.overlayId}" }
+            // Unregistered overlays leave their `.frro` + idmap behind in /data/resource-cache;
+            // remove every HexNext file that `cmd overlay list` no longer knows (this run's and older ones).
+            val cleanup = StringBuilder()
+            pruneHexFrros(onlyUnregistered = true, cleanup)
             result(
                 if (failures == 0) 0 else 1,
                 "Acted on ${hex.size} HexNext overlays (${hex.size - failures} ok) [UID ${Process.myUid()}]" +
-                    if (ids.isNotEmpty()) "\n$ids" else ""
+                    (if (ids.isNotEmpty()) "\n$ids" else "") +
+                    "\n$cleanup"
             ).apply { putString(KEY_JSON, json.toString()) }
         } catch (t: Throwable) {
             result(-1, describe(t))
@@ -1279,6 +1410,9 @@ class ThemeService() : IThemeService.Stub() {
         private val CONFIG_NAME = Regex("^[A-Za-z0-9_+-]+$")
         private val FRRO_PATH = Regex("""/data/resource-cache/[A-Za-z0-9_.-]+\.frro""")
         private val FRRO_SUFFIX = Regex("""^[A-Za-z0-9]+\.frro$""")
+
+        /** `<owner>-<name>-<suffix>.frro` file name in /data/resource-cache; owner and name never contain `-`. */
+        private val FRRO_FILE = Regex("""^([A-Za-z0-9_.]+)-([A-Za-z0-9_.]+)-[A-Za-z0-9]+\.frro$""")
         private val SELINUX_LABEL = Regex("""^u:[a-z_]+:[A-Za-z0-9_]+:s0(:[A-Za-z0-9,.]+)?$""")
         private val OVERLAY_LINE = Regex("""^(\[[^\]]\]|---)\s+(\S+)""")
 

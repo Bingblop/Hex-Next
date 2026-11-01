@@ -79,8 +79,27 @@ never treated as a compiled XML drawable.
 ### Nine-patch
 When `isNinePatch` is set, idmap2d decodes the `.9.png`, strips the 1-pixel
 border, and re-encodes a PNG with the `npTc` chunk (aapt2 logic in
-`androidfw/Png.cpp`). A hand-written .frro must do the same before embedding;
-until then nine-patch entries are reported as unsupported.
+`tools/aapt2/compile/NinePatch.cpp` / `Png.cpp`). Hex Next does the same itself
+(`engine/frro/NinePatch.kt`, driven by the app's `DrawableRenderer`) and embeds
+the result as a plain PNG entry: BitmapFactory turns any PNG carrying an `npTc`
+chunk into a NinePatch, whether it comes from an APK or from an `frro:/` range.
+
+* Source `.9.png` markers: top row = x stretch runs, left column = y stretch
+  runs (opaque black, `0xFF000000`, in inner coordinates = source minus 1),
+  bottom row / right column = padding, red `0xFFFF0000` = layout bounds.
+  Any other colour, or an axis without a run, is a compile error; the drawable
+  then ships as the inner image without the chunk and the apply log carries
+  the warning.
+* `npTc` payload = serialised `Res_png_9patch` in device (big-endian) order:
+  `int8 wasDeserialized=0, uint8 numXDivs, numYDivs, numColors, uint32
+  xDivsOffset=32, yDivsOffset=32+4*numXDivs, int32 padding l/r/t/b, uint32
+  colorsOffset=yDivsOffset+4*numYDivs`, then `int32 xDivs[]`, `int32 yDivs[]`,
+  `uint32 colors[]` (one per region, row-major: `0x00000000` fully transparent,
+  `0x00000001` NO_COLOR for mixed pixels, else the uniform ARGB).
+* Missing padding ticks copy the stretch region of the same axis, as aapt2 does.
+* Chunks: `[len u32 BE][type][data][crc32(type+data)]`; `npTc` (and `npLb`,
+  four `int32` layout bounds l/t/r/b, only when red markers exist) are inserted
+  right before the first `IDAT` of the inner PNG. No `npOl` chunk is written.
 
 ## Loading and verification
 
@@ -111,3 +130,11 @@ until then nine-patch entries are reported as unsupported.
 6. Verify: idmap file exists and parses (no `failed to parse idmap header` for
    our path), `cmd overlay lookup <target> <drawable>` returns a `frro:/` value,
    and `FrroReader` round-trips the file.
+7. Prune: every registration created a new `<owner>-<name>-XXXX.frro` and the
+   previous one stayed behind (`android-HexNext_android-ikKX.frro` next to the
+   live file on the test device). After a successful enable `ThemeService`
+   lists `/data/resource-cache`, keeps the path from step 2 and removes the
+   other `<owner>-<name>-<suffix>.frro` files plus their
+   `@data@resource-cache@<file>@idmap` siblings. Removing a theme or all
+   HexNext overlays also drops the files of overlays `cmd overlay list` no
+   longer knows.
