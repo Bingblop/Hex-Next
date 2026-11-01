@@ -41,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,12 +79,25 @@ fun MainScreen(viewModel: MainViewModel) {
     val shizuku by viewModel.shizuku.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val ready = shizuku as? ShizukuState.Ready
+    var showDiagnostics by rememberSaveable { mutableStateOf(false) }
+
+    if (showDiagnostics) {
+        DiagnosticsScreen(
+            shizuku = shizuku,
+            accent = ui.spec.seed,
+            onBack = { showDiagnostics = false },
+        )
+        return
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
                 title = { Text("HexNext — One UI 9.0 RRO", fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    TextButton(onClick = { showDiagnostics = true }) { Text("Diagnostics") }
+                },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -97,6 +111,9 @@ fun MainScreen(viewModel: MainViewModel) {
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            ui.safeModeBanner?.let { banner ->
+                item { SafeModeBanner(banner, onOpenDiagnostics = { showDiagnostics = true }, onDismiss = viewModel::dismissSafeMode) }
+            }
             item { StatusCard(shizuku, ui.oneUiVersion, viewModel::requestPermission) }
             item {
                 ColorCard(
@@ -142,6 +159,31 @@ fun MainScreen(viewModel: MainViewModel) {
             }
             if (ui.log.isNotEmpty()) {
                 item { LogCard(ui.log, onClear = viewModel::clearLog) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismiss: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "The device restarted twice within 10 minutes of an unconfirmed apply. Check Diagnostics, " +
+                    "repair or re-apply, then tap \"It works\" when the result is stable.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onOpenDiagnostics) { Text("Diagnostics") }
+                TextButton(onClick = onDismiss) { Text("Dismiss") }
             }
         }
     }

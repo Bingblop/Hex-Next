@@ -5,8 +5,10 @@ import android.content.Context
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
+import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.MonetPalette
@@ -31,12 +33,16 @@ data class UiState(
     val busy: Boolean = false,
     val oneUiVersion: String? = null,
     val log: List<LogLine> = emptyList(),
+    /** Non-null while the "Hex overlays were turned off after repeated restarts" banner shows. */
+    val safeModeBanner: String? = null,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
     private val engine = ThemeEngine(prefs)
+    private val guard = ApplyGuard(app)
+    private var safeModeChecked = false
 
     val shizuku: StateFlow<ShizukuState> = ShizukuManager.state
 
@@ -45,8 +51,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            ShizukuManager.state.collect { if (it is ShizukuState.Ready) loadDeviceInfo() }
+            ShizukuManager.state.collect {
+                if (it is ShizukuState.Ready) {
+                    checkSafeMode()
+                    loadDeviceInfo()
+                }
+            }
         }
+    }
+
+    /**
+     * Boot-loop guard: if the device restarted twice within 10 minutes of an unconfirmed apply,
+     * turn every HexNext overlay off and show the safe-mode banner.
+     */
+    private suspend fun checkSafeMode() {
+        if (safeModeChecked) return
+        safeModeChecked = true
+        if (guard.shouldEnterSafeMode()) {
+            val result = runCatching {
+                val service = ShizukuManager.service()
+                withContext(Dispatchers.IO) { service.disableHexOverlays() }
+            }
+            val bundle = result.getOrNull()
+            if (bundle != null && bundle.getInt(ThemeService.KEY_CODE, -1) == 0) {
+                guard.markSafeModeEntered(by = "app start")
+                log(LogLine(LogLevel.WARN, "Safe mode: ${bundle.getString(ThemeService.KEY_OUTPUT).orEmpty()}"))
+            } else {
+                val why = bundle?.getString(ThemeService.KEY_OUTPUT)
+                    ?: result.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
+                    ?: "unknown error"
+                log(LogLine(LogLevel.ERROR, "Safe mode could not turn Hex overlays off: $why. Use Diagnostics > Remove all Hex overlays."))
+                _ui.update { it.copy(safeModeBanner = SAFE_MODE_FAILED_TEXT) }
+                return
+            }
+        }
+        if (guard.safeModeActive()) {
+            _ui.update { it.copy(safeModeBanner = SAFE_MODE_TEXT) }
+        }
+    }
+
+    fun dismissSafeMode() {
+        guard.dismissSafeMode()
+        _ui.update { it.copy(safeModeBanner = null) }
     }
 
     private fun initialState(): UiState {
@@ -175,6 +221,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val PREF_USELOGO = "uselogo"
         private const val PREF_UIDIVIDER = "uidivider"
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
+        private const val SAFE_MODE_TEXT = "Safe mode: Hex overlays were turned off after repeated restarts"
+        private const val SAFE_MODE_FAILED_TEXT =
+            "Safe mode: the device restarted repeatedly, but Hex overlays could not be turned off automatically"
 
         val androidVersion: String get() = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     }
