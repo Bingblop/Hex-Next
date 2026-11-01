@@ -578,6 +578,13 @@ class ThemeService() : IThemeService.Stub() {
             if (top.code == 0) {
                 log.appendLine("Enabled ${done.committed.size} colours and ${drawn.applied}/${drawables.size} drawables.")
                 log.appendLine(top.log)
+                // Apps keep decoded icons in their drawable caches: Settings kept drawing its old
+                // dashboard icons until it was restarted (build 53). A framework overlay change
+                // restarts everything anyway; for app targets drop the process so the new PNGs show.
+                if (drawn.applied > 0 && target !in NEVER_FORCE_STOP) {
+                    val stop = shell("am force-stop --user current $target")
+                    log.appendLine("Restarted $target so it reloads its drawables (am force-stop exit ${stop.getInt(KEY_CODE)}).")
+                }
             } else {
                 log.appendLine("Enable failed: ${top.log}")
             }
@@ -1226,6 +1233,8 @@ class ThemeService() : IThemeService.Stub() {
 
         /** Drawables embedded by the root `.frro` rewrite and verified afterwards. */
         const val KEY_DRAWABLES_APPLIED = "drawablesApplied"
+        /** Targets never force-stopped after an overlay: the framework and SystemUI restart on their own terms. */
+        private val NEVER_FORCE_STOP = setOf("android", "com.android.systemui")
         const val KEY_CONTENT = "content"
         const val KEY_UID = "uid"
         const val SHELL_OWNER = "com.android.shell"

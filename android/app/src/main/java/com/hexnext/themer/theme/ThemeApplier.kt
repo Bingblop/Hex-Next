@@ -418,6 +418,25 @@ class ThemeApplier(context: Context) {
                 stillOn += semwtId
             }
         }
+        // Samsung's Monet palette overlays also target `android` and repaint the system shades the
+        // theme just set; with them enabled Settings kept its stock look (Kyle, build 53). Take them
+        // over like a SemWT overlay of a pseudo-target so removal restores them.
+        val androidOutcome = themed.firstOrNull { it.target == "android" }
+        if (androidOutcome != null) {
+            val hexAndroid = now.firstOrNull { it.target == "android" && it.overlayId.substringAfter(':') == androidOutcome.overlay }?.overlayId
+                ?: "$owner:${androidOutcome.overlay}"
+            for (name in OneUi9Facts.MONET_PALETTE_OVERLAYS) {
+                val pseudoTarget = name.removePrefix(OneUi9Facts.SEMWT_PREFIX)
+                val id = OneUi9Facts.semWtOverlayId(pseudoTarget)
+                if (now.none { it.overlayId == id && it.enabled } || !SemWtPlanner.isSafeId(id)) continue
+                if (SemWtController.run(service, listOf(SemWtPlanner.disable(id)), log) == 1) {
+                    recordTakeover(pseudoTarget, hexAndroid, before.firstOrNull { it.overlayId == id }?.enabled ?: true)
+                    log(LogLine(LogLevel.INFO, "android: $id (Monet palette) was enabled; disabled"))
+                } else {
+                    stillOn += id
+                }
+            }
+        }
         return if (stillOn.isEmpty()) null else "Still enabled after the apply: ${stillOn.joinToString()}"
     }
 

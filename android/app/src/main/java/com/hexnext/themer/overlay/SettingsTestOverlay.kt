@@ -64,16 +64,17 @@ class SettingsTestOverlay(context: Context) {
         }
         parsed?.warnings?.forEach { log("arsc warning: $it") }
         val arscColors = parsed?.ofType("color")?.map { it.name }?.distinct().orEmpty()
+        // AAPT's generated sub-drawables ($name__0) are not valid overlay resource names.
         val allDrawables = parsed?.ofType("drawable")?.map { it.name }?.distinct()?.sorted().orEmpty()
-        // The dashboard rows (Connections, Display, Notifications …) are what the user looks at, so
-        // pick every icon-looking drawable named after a dashboard entry; fall back to the legacy
-        // Hex names and finally to anything called ic_settings*.
-        val dashboard = allDrawables.filter { DASHBOARD_ICON.containsMatchIn(it) }
-        val drawables = when {
-            dashboard.isNotEmpty() -> dashboard
-            else -> allDrawables.filter { it.startsWith("ic_settings") || it.startsWith("sec_ic_settings") }
-        }.take(MAX_DRAWABLES)
-        log("Settings has ${allDrawables.size} drawables, ${dashboard.size} named like dashboard icons " +
+            .filterNot { it.startsWith('$') }
+        // Build 53 proved the One UI 9 dashboard rows are `ic_<menu>_<symbol>` drawables of Settings
+        // (ic_apps, ic_advanced_features_plus_gearshape, ic_accounts_and_backup_…): those come first,
+        // then anything else that looks like a dashboard icon, then the legacy Hex names.
+        val rows = allDrawables.filter { DASHBOARD_ROW_ICON.containsMatchIn(it) }
+        val dashboard = allDrawables.filter { it !in rows && DASHBOARD_ICON.containsMatchIn(it) }
+        val legacy = allDrawables.filter { it.startsWith("ic_settings") || it.startsWith("sec_ic_settings") }
+        val drawables = (rows + dashboard + legacy).distinct().take(MAX_DRAWABLES)
+        log("Settings has ${allDrawables.size} drawables: ${rows.size} dashboard-row icons, ${dashboard.size} other dashboard-like " +
             "(full list: ${File(arsc.parentFile, "names-drawable.txt").path})")
 
         val mapping = readSemWtMapping(log)
@@ -238,7 +239,19 @@ class SettingsTestOverlay(context: Context) {
 
         /** Colour the shell probe proved visible; always set to the plain accent when present. */
         const val PROBE_COLOR = "color/sec_widget_round_and_bgcolor"
-        private const val MAX_DRAWABLES = 40
+        private const val MAX_DRAWABLES = 60
+
+        /**
+         * One UI 9 dashboard-row icons: `ic_<menu>_<symbol>` (or plain `ic_<menu>`), proven visible on
+         * device for apps, advanced_features and accounts_and_backup.
+         */
+        private val DASHBOARD_ROW_ICON = Regex(
+            "^ic_(connections|connected_devices|modes_and_routines|modes|sounds_and_vibration|sounds|sound|notifications|display|" +
+                "wallpaper_and_style|wallpaper|themes|home_screen|lock_screen_and_aod|lock_screen|security_and_privacy|security|privacy|" +
+                "location|safety_and_emergency|safety|accounts_and_backup|google|google_services|advanced_features|" +
+                "digital_wellbeing_and_parental_controls|digital_wellbeing|device_care|battery_and_device_care|apps|general_management|" +
+                "accessibility|software_update|about_phone|galaxy_ai|samsung_account|tips_and_user_manual|tips|battery)(_|$)"
+        )
 
         /**
          * Drawables that are an icon (`ic`/`icon` as a name part) of a dashboard entry. Covers the
