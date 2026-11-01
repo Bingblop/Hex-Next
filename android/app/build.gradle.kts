@@ -37,7 +37,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.hexnext.bingblop"
+        applicationId = "com.hexnext.themer"
         // Public FabricatedOverlay / OverlayManagerTransaction APIs for One UI 7/8/9.0 (Android 14–16 / SDK 36).
         minSdk = 34
         targetSdk = 36
