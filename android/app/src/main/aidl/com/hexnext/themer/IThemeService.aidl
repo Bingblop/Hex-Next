@@ -64,4 +64,12 @@ interface IThemeService {
     // two restarts of either disable every HexNext* overlay and write safe_mode.json.
     Bundle startStabilityMonitor(int seconds) = 14;
     Bundle stopStabilityMonitor() = 15;
+
+    // applyOverlay with one FRRO configuration per colour (colorConfigs[i]: "" or null for the
+    // default configuration, "night" …). colorConfigs may be null (all default). Configured
+    // colours need the privileged service; the `cmd overlay fabricate` fallback skips them.
+    Bundle applyOverlayConfigured(String name, String target,
+            in String[] colorNames, in int[] colors, in String[] colorConfigs,
+            in String[] drawableNames, in String[] drawableConfigs,
+            in ParcelFileDescriptor[] drawableFds, in boolean[] ninePatch) = 16;
 }

@@ -77,11 +77,11 @@ class SettingsTestOverlay(context: Context) {
         }
         val request = BuildRequest(
             target = TARGET,
-            colors = plan.colors.associate { "$TARGET:color/$it" to argb },
+            colors = plan.colors.map { OverlayColor("$TARGET:color/$it", argb) },
             drawables = if (drawablesAllowed) {
-                plan.drawables.associate { "$TARGET:drawable/$it" to DrawableSpec(null, png) }
+                plan.drawables.map { OverlayDrawable("$TARGET:drawable/$it", DrawableSpec(null, png)) }
             } else {
-                emptyMap()
+                emptyList()
             },
         )
         if (request.colors.isEmpty() && request.drawables.isEmpty()) {
@@ -96,7 +96,7 @@ class SettingsTestOverlay(context: Context) {
         log("Stability monitor: ${monitor.getString(ThemeService.KEY_OUTPUT).orEmpty()}")
 
         val result = OverlayBuilder(appContext).apply(service, request, log)
-        log("Read-back (${request.colors.keys.firstOrNull() ?: request.drawables.keys.firstOrNull()}): ${result.lookup.ifBlank { "(empty)" }}")
+        log("Read-back (${request.colors.firstOrNull()?.name ?: request.drawables.firstOrNull()?.name}): ${result.lookup.ifBlank { "(empty)" }}")
         log("Build log: ${result.logFile.path}")
         return result
     }

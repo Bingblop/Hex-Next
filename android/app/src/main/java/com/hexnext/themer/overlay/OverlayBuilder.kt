@@ -16,42 +16,63 @@ import java.util.Locale
 /** One PNG drawable for an overlay. [config] is a resource qualifier such as `xxhdpi`, or null for default. */
 class DrawableSpec(val config: String?, val png: ByteArray, val ninePatch: Boolean = false)
 
-/** Everything one `HexNext_<target>` fabricated overlay holds. Keys are `pkg:type/name`. */
+/** One colour of an overlay: [name] is `pkg:type/name`, [config] a FRRO configuration (`""` default, `night` …). */
+data class OverlayColor(val name: String, val argb: Int, val config: String = "")
+
+/** One drawable of an overlay; the same [name] can appear once per [DrawableSpec.config]. */
+class OverlayDrawable(val name: String, val spec: DrawableSpec)
+
+/** Everything one `HexNext_<target>` fabricated overlay holds. Names are `pkg:type/name`. */
 data class BuildRequest(
     val target: String,
-    val colors: Map<String, Int>,
-    val drawables: Map<String, DrawableSpec>,
+    val colors: List<OverlayColor>,
+    val drawables: List<OverlayDrawable>,
 ) {
+    /** True when a colour has a non-default configuration (needs [IThemeService.applyOverlayConfigured]). */
+    val hasConfiguredColors: Boolean get() = colors.any { it.config.isNotEmpty() }
+
     fun toJson(): JSONObject = JSONObject().apply {
+        put("format", 2)
         put("target", target)
-        put("colors", JSONObject().apply { colors.forEach { (k, v) -> put(k, v) } })
-        put("drawables", JSONObject().apply {
-            drawables.forEach { (k, d) ->
+        put("colors", JSONArray().apply {
+            colors.forEach { c -> put(JSONObject().put("name", c.name).put("argb", c.argb).put("config", c.config)) }
+        })
+        put("drawables", JSONArray().apply {
+            drawables.forEach { d ->
                 put(
-                    k,
                     JSONObject()
-                        .put("config", d.config ?: "")
-                        .put("ninePatch", d.ninePatch)
-                        .put("png", Base64.encodeToString(d.png, Base64.NO_WRAP))
+                        .put("name", d.name)
+                        .put("config", d.spec.config ?: "")
+                        .put("ninePatch", d.spec.ninePatch)
+                        .put("png", Base64.encodeToString(d.spec.png, Base64.NO_WRAP))
                 )
             }
         })
     }
 
     companion object {
+        /** Reads [toJson] output, and the format 1 maps (`{"name": argb}`) older builds saved. */
         fun fromJson(json: JSONObject): BuildRequest {
-            val colors = LinkedHashMap<String, Int>()
-            json.optJSONObject("colors")?.let { c -> c.keys().forEach { k -> colors[k] = c.getInt(k) } }
-            val drawables = LinkedHashMap<String, DrawableSpec>()
-            json.optJSONObject("drawables")?.let { d ->
-                d.keys().forEach { k ->
-                    val o = d.getJSONObject(k)
-                    drawables[k] = DrawableSpec(
-                        config = o.optString("config").ifBlank { null },
-                        png = Base64.decode(o.getString("png"), Base64.NO_WRAP),
-                        ninePatch = o.optBoolean("ninePatch"),
-                    )
+            val colors = ArrayList<OverlayColor>()
+            when (val c = json.opt("colors")) {
+                is JSONArray -> for (i in 0 until c.length()) {
+                    val o = c.getJSONObject(i)
+                    colors.add(OverlayColor(o.getString("name"), o.getInt("argb"), o.optString("config")))
                 }
+                is JSONObject -> c.keys().forEach { k -> colors.add(OverlayColor(k, c.getInt(k))) }
+            }
+            val drawables = ArrayList<OverlayDrawable>()
+            fun spec(o: JSONObject) = DrawableSpec(
+                config = o.optString("config").ifBlank { null },
+                png = Base64.decode(o.getString("png"), Base64.NO_WRAP),
+                ninePatch = o.optBoolean("ninePatch"),
+            )
+            when (val d = json.opt("drawables")) {
+                is JSONArray -> for (i in 0 until d.length()) {
+                    val o = d.getJSONObject(i)
+                    drawables.add(OverlayDrawable(o.getString("name"), spec(o)))
+                }
+                is JSONObject -> d.keys().forEach { k -> drawables.add(OverlayDrawable(k, spec(d.getJSONObject(k)))) }
             }
             return BuildRequest(json.getString("target"), colors, drawables)
         }
@@ -74,9 +95,9 @@ data class BuildResult(
 }
 
 /** JSON-lines build log: `files/logs/<yyyyMMdd-HHmmss>.jsonl`, one object per line. */
-internal class BuildLog(context: Context) {
+internal class BuildLog(val file: File) {
 
-    val file: File = File(File(context.filesDir, "logs").apply { mkdirs() }, "${stamp()}.jsonl")
+    constructor(context: Context) : this(File(File(context.filesDir, "logs").apply { mkdirs() }, "${stamp()}.jsonl"))
 
     fun write(level: String, target: String, message: String, data: Map<String, Any?> = emptyMap()) {
         val line = JSONObject()
@@ -88,7 +109,9 @@ internal class BuildLog(context: Context) {
         runCatching { file.appendText(line.toString() + "\n") }
     }
 
-    private fun stamp(): String = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+    companion object {
+        fun stamp(): String = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+    }
 }
 
 /**
@@ -100,8 +123,11 @@ class OverlayBuilder(context: Context) {
 
     private val appContext = context.applicationContext
 
-    fun apply(service: IThemeService, request: BuildRequest, log: (String) -> Unit = {}): BuildResult {
-        val buildLog = BuildLog(appContext)
+    fun apply(service: IThemeService, request: BuildRequest, log: (String) -> Unit = {}): BuildResult =
+        apply(service, request, BuildLog(appContext), log)
+
+    /** As [apply], writing to [buildLog] so that a whole theme apply shares one log file. */
+    internal fun apply(service: IThemeService, request: BuildRequest, buildLog: BuildLog, log: (String) -> Unit): BuildResult {
         val name = overlayName(request.target)
         val started = System.currentTimeMillis()
         buildLog.write(
@@ -120,24 +146,40 @@ class OverlayBuilder(context: Context) {
         val nine = ArrayList<Boolean>()
         val fds = ArrayList<ParcelFileDescriptor>()
         try {
-            request.drawables.entries.forEachIndexed { i, (res, spec) ->
+            request.drawables.forEachIndexed { i, d ->
                 val file = File(pngDir, "$i.png")
-                file.writeBytes(spec.png)
+                file.writeBytes(d.spec.png)
                 fds.add(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY))
-                drawableNames.add(res)
-                configs.add(spec.config.orEmpty())
-                nine.add(spec.ninePatch)
+                drawableNames.add(d.name)
+                configs.add(d.spec.config.orEmpty())
+                nine.add(d.spec.ninePatch)
             }
-            val bundle = service.applyOverlay(
-                name,
-                request.target,
-                request.colors.keys.toTypedArray(),
-                request.colors.values.toIntArray(),
-                drawableNames.toTypedArray(),
-                configs.toTypedArray(),
-                fds.toTypedArray(),
-                nine.toBooleanArray(),
-            )
+            val colorNames = request.colors.map { it.name }.toTypedArray()
+            val colorValues = request.colors.map { it.argb }.toIntArray()
+            val bundle = if (request.hasConfiguredColors) {
+                service.applyOverlayConfigured(
+                    name,
+                    request.target,
+                    colorNames,
+                    colorValues,
+                    request.colors.map { it.config }.toTypedArray(),
+                    drawableNames.toTypedArray(),
+                    configs.toTypedArray(),
+                    fds.toTypedArray(),
+                    nine.toBooleanArray(),
+                )
+            } else {
+                service.applyOverlay(
+                    name,
+                    request.target,
+                    colorNames,
+                    colorValues,
+                    drawableNames.toTypedArray(),
+                    configs.toTypedArray(),
+                    fds.toTypedArray(),
+                    nine.toBooleanArray(),
+                )
+            }
             val result = toResult(bundle, buildLog.file, System.currentTimeMillis() - started)
             buildLog.write(
                 if (result.ok) "OK" else "ERROR", request.target, "applyOverlay finished",

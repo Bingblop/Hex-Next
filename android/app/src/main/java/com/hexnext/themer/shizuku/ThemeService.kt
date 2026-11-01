@@ -349,6 +349,8 @@ class ThemeService() : IThemeService.Stub() {
         val ninePatch: Boolean,
     )
 
+    private data class ColorInput(val name: String, val argb: Int, val config: String?)
+
     private class Outcome(val resourceCount: Int, val drawablesApplied: Int, val skipped: JSONArray)
 
     override fun applyOverlay(
@@ -356,6 +358,30 @@ class ThemeService() : IThemeService.Stub() {
         target: String?,
         colorNames: Array<String?>?,
         colors: IntArray?,
+        drawableNames: Array<String?>?,
+        drawableConfigs: Array<String?>?,
+        drawableFds: Array<ParcelFileDescriptor?>?,
+        ninePatch: BooleanArray?,
+    ): Bundle = applyOverlayInternal(name, target, colorNames, colors, null, drawableNames, drawableConfigs, drawableFds, ninePatch)
+
+    override fun applyOverlayConfigured(
+        name: String?,
+        target: String?,
+        colorNames: Array<String?>?,
+        colors: IntArray?,
+        colorConfigs: Array<String?>?,
+        drawableNames: Array<String?>?,
+        drawableConfigs: Array<String?>?,
+        drawableFds: Array<ParcelFileDescriptor?>?,
+        ninePatch: BooleanArray?,
+    ): Bundle = applyOverlayInternal(name, target, colorNames, colors, colorConfigs, drawableNames, drawableConfigs, drawableFds, ninePatch)
+
+    private fun applyOverlayInternal(
+        name: String?,
+        target: String?,
+        colorNames: Array<String?>?,
+        colors: IntArray?,
+        colorConfigs: Array<String?>?,
         drawableNames: Array<String?>?,
         drawableConfigs: Array<String?>?,
         drawableFds: Array<ParcelFileDescriptor?>?,
@@ -382,16 +408,21 @@ class ThemeService() : IThemeService.Stub() {
             if (cNames.size != cValues.size) {
                 return finish(result(-1, "colorNames and colors differ in length"), 0, "")
             }
+            if (colorConfigs != null && colorConfigs.size != cNames.size) {
+                return finish(result(-1, "colorNames and colorConfigs differ in length"), 0, "")
+            }
             if (dNames.size != fds.size) {
                 return finish(result(-1, "drawableNames and drawableFds differ in length"), 0, "")
             }
 
-            val colorList = ArrayList<Pair<String, Int>>()
+            val colorList = ArrayList<ColorInput>()
             cNames.forEachIndexed { i, res ->
+                val config = colorConfigs?.getOrNull(i)?.takeIf { it.isNotBlank() }
                 when {
                     res == null -> Unit
                     !RESOURCE_NAME.matches(res) -> skip(skipped, res, "invalid resource name")
-                    else -> colorList.add(res to cValues[i])
+                    config != null && !CONFIG_NAME.matches(config) -> skip(skipped, res, "invalid configuration $config")
+                    else -> colorList.add(ColorInput(res, cValues[i], config))
                 }
             }
             val drawables = ArrayList<DrawableInput>()
@@ -411,17 +442,23 @@ class ThemeService() : IThemeService.Stub() {
                     )
                 }
             }
-            val firstResource = colorList.firstOrNull()?.first ?: drawables.firstOrNull()?.name
+            val firstResource = colorList.firstOrNull { it.config == null }?.name
+                ?: colorList.firstOrNull()?.name
+                ?: drawables.firstOrNull()?.name
 
             if (!isPrivilegedUid()) {
                 if (dNames.isEmpty()) {
+                    val plain = colorList.filter { it.config == null }
+                    colorList.filter { it.config != null }.forEach {
+                        skip(skipped, it.name, "configuration ${it.config} needs the privileged service (uid 0/1000)")
+                    }
                     val fallback = applyColorOverlay(
                         name,
                         target,
-                        colorList.map { it.first }.toTypedArray(),
-                        colorList.map { it.second }.toIntArray(),
+                        plain.map { it.name }.toTypedArray(),
+                        plain.map { it.argb }.toIntArray(),
                     )
-                    val count = if (fallback.getInt(KEY_CODE) == 0) colorList.size else 0
+                    val count = if (fallback.getInt(KEY_CODE) == 0) plain.size else 0
                     return finish(fallback, count, lookup(target, firstResource))
                 }
                 return finish(
@@ -518,7 +555,7 @@ class ThemeService() : IThemeService.Stub() {
         name: String,
         target: String,
         owner: String,
-        colors: List<Pair<String, Int>>,
+        colors: List<ColorInput>,
         drawables: List<DrawableInput>,
         log: StringBuilder,
     ): Outcome {
@@ -546,12 +583,12 @@ class ThemeService() : IThemeService.Stub() {
             drawn = viaBuilder.drawn
         } else {
             overlay = newOverlay(name, target, owner)
-            colors.forEach { (res, argb) ->
+            colors.forEach { c ->
                 try {
-                    overlay.setResourceValue(res, TypedValue.TYPE_INT_COLOR_ARGB8, argb, null)
+                    overlay.setResourceValue(c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb, c.config)
                     count++
                 } catch (t: Throwable) {
-                    skip(skipped, res, describe(t))
+                    skip(skipped, c.name, describe(t))
                 }
             }
             if (drawables.isNotEmpty() && directPng == null && directNine == null) {
@@ -597,7 +634,7 @@ class ThemeService() : IThemeService.Stub() {
         name: String,
         target: String,
         owner: String,
-        colors: List<Pair<String, Int>>,
+        colors: List<ColorInput>,
         drawables: List<DrawableInput>,
         skipped: JSONArray,
         log: StringBuilder,
@@ -618,16 +655,17 @@ class ThemeService() : IThemeService.Stub() {
             }
             var count = 0
             var drawn = 0
-            colors.forEach { (res, argb) ->
+            colors.forEach { c ->
                 try {
                     when {
-                        color4 != null -> color4.invoke(builder, res, TypedValue.TYPE_INT_COLOR_ARGB8, argb, null)
-                        color3 != null -> color3.invoke(builder, res, TypedValue.TYPE_INT_COLOR_ARGB8, argb)
+                        color4 != null -> color4.invoke(builder, c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb, c.config)
+                        color3 != null && c.config == null -> color3.invoke(builder, c.name, TypedValue.TYPE_INT_COLOR_ARGB8, c.argb)
+                        color3 != null -> error("Builder has no configured colour setter")
                         else -> error("Builder has no colour setter")
                     }
                     count++
                 } catch (t: Throwable) {
-                    skip(skipped, res, describe(t))
+                    skip(skipped, c.name, describe(t))
                 }
             }
             drawables.forEach { d ->
@@ -935,6 +973,7 @@ class ThemeService() : IThemeService.Stub() {
         private val OVERLAY_ID = Regex("^[A-Za-z0-9_.]+(:[A-Za-z0-9_.]+)?$")
         private val RESOURCE_NAME = Regex("^([A-Za-z0-9_.]+:)?[A-Za-z0-9_]+/[A-Za-z0-9_.]+$")
         private val STATE_NAME = Regex("^[A-Za-z0-9_.-]+$")
+        private val CONFIG_NAME = Regex("^[A-Za-z0-9_+-]+$")
         private val OVERLAY_LINE = Regex("""^(\[[^\]]\]|---)\s+(\S+)""")
 
         /**
