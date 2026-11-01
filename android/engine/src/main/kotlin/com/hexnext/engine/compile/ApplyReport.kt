@@ -91,6 +91,11 @@ public object OverlayLookup {
  *
  * @property logFile the JSON-lines build log the apply wrote.
  * @property notes apply-wide messages (legacy cleanup, guard start, pack errors …).
+ * @property status [STATUS_STARTED] / [STATUS_RUNNING] while the apply is in progress (the report
+ *   is saved early and after every target, so a process death still leaves evidence),
+ *   [STATUS_FINISHED] when it completed, [STATUS_ABORTED] when it stopped on an error.
+ * @property pendingTargets compiled targets not built yet (while running, or when aborted).
+ * @property error what aborted the apply (`OutOfMemoryError: …`), empty otherwise.
  */
 @Serializable
 public data class ApplyReport(
@@ -102,7 +107,13 @@ public data class ApplyReport(
     val logFile: String = "",
     val notes: List<String> = emptyList(),
     val format: Int = FORMAT,
+    val status: String = STATUS_FINISHED,
+    val pendingTargets: List<String> = emptyList(),
+    val error: String = "",
 ) {
+    /** True when the apply ran to the end (not interrupted, not aborted). */
+    public val finished: Boolean get() = status == STATUS_FINISHED
+
     /** Targets whose overlay is in place ([TargetResult.OK] or [TargetResult.PARTIAL]). */
     public val okCount: Int get() = outcomes.count { it.result == TargetResult.OK || it.result == TargetResult.PARTIAL }
 
@@ -127,14 +138,19 @@ public data class ApplyReport(
     /** Targets whose SemWT overlay was disabled. */
     public val semwtDisabledCount: Int get() = outcomes.count { it.semwtDisabled }
 
-    /** True when no target failed and at least one overlay is in place. */
-    public val success: Boolean get() = failedCount == 0 && okCount > 0
+    /** True when the apply finished, no target failed and at least one overlay is in place. */
+    public val success: Boolean get() = finished && failedCount == 0 && okCount > 0
 
     /**
      * One line: `12 ok (1 partial), 1 failed, 3 debloated, 2 skipped, 12 SemWT disabled`, followed
      * by `, 11/12 verified` when any target was checked.
      */
     public fun summary(): String = buildString {
+        when (status) {
+            STATUS_FINISHED -> Unit
+            STATUS_ABORTED -> append("aborted${if (error.isEmpty()) "" else " ($error)"}: ")
+            else -> append("interrupted while $status (${pendingTargets.size} targets pending): ")
+        }
         append("$okCount ok")
         if (partialCount > 0) append(" ($partialCount partial)")
         append(", $failedCount failed, $debloatedCount debloated, $skippedCount skipped")
@@ -148,6 +164,18 @@ public data class ApplyReport(
 
     public companion object {
         public const val FORMAT: Int = 1
+
+        /** Saved before the first target is built. */
+        public const val STATUS_STARTED: String = "started"
+
+        /** Saved after each target. */
+        public const val STATUS_RUNNING: String = "running"
+
+        /** The apply completed. */
+        public const val STATUS_FINISHED: String = "finished"
+
+        /** The apply stopped on an exception or error (e.g. OutOfMemoryError). */
+        public const val STATUS_ABORTED: String = "aborted"
 
         /** Parses JSON written by [toJson]; throws [IllegalArgumentException] when invalid. */
         public fun fromJson(json: String): ApplyReport = try {

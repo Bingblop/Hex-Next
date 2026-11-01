@@ -86,4 +86,19 @@ class ApplyReportTest {
         assertEquals(a, OverlayLookup.probe(target(a, b)))
         assertEquals(null, OverlayLookup.probe(target(a, aNight)))
     }
+
+    @Test
+    fun `in-progress and aborted reports`() {
+        val running = report.copy(status = ApplyReport.STATUS_RUNNING, pendingTargets = listOf("com.android.settings"))
+        assertEquals(running, ApplyReport.fromJson(running.toJson()))
+        assertEquals(false, running.success)
+        assertTrue(running.summary().startsWith("interrupted while running (1 targets pending): "))
+        val aborted = report.copy(status = ApplyReport.STATUS_ABORTED, error = "OutOfMemoryError: heap")
+        assertTrue(aborted.summary().startsWith("aborted (OutOfMemoryError: heap): "))
+        assertEquals(false, aborted.success)
+        // Reports written before the status field existed are finished ones.
+        val old = report.toJson().replace(Regex(",\"status\":\"[a-z]+\",\"pendingTargets\":\\[],\"error\":\"\""), "")
+        assertTrue("status" !in old)
+        assertEquals(report, ApplyReport.fromJson(old))
+    }
 }
