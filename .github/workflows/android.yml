@@ -46,7 +46,25 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       - name: Test and build unsigned universal candidate
-        run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+        run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Verify signed device-testing APK
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose \
+            app/build/outputs/apk/debug/app-universal-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging \
+            app/build/outputs/apk/debug/app-universal-debug.apk
+      - name: Upload installable native device-testing APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Native-Device-Test
+          path: android/app/build/outputs/apk/debug/app-universal-debug.apk
+          if-no-files-found: error
+      - name: Upload native instrumentation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Native-Instrumentation
+          path: android/app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: error
       - name: Verify installable universal candidate
         run: |
           python3 ../bin/verify-release-apk.py \
@@ -74,3 +92,39 @@ jobs:
             -alias "$HEXNEXT_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=HexNext CI Test"
           ../bin/build-and-sign-release-apk.sh "$RUNNER_TEMP/HexNext-ci-test.apk"
+
+  device-smoke:
+    needs: build-android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: HexNext-Native-Device-Test
+          path: device-apks
+      - uses: actions/download-artifact@v4
+        with:
+          name: HexNext-Native-Instrumentation
+          path: device-apks
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch and exercise the native Kotlin interface on Android 14
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install device-apks/app-universal-debug.apk
+            adb install device-apks/app-debug-androidTest.apk
+            adb shell am instrument -w -r com.hexnext.themer.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation-results.txt
+            grep -q 'OK (2 tests)' instrumentation-results.txt
+      - name: Upload device smoke-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Native-Smoke-Results
+          path: instrumentation-results.txt
+          if-no-files-found: warn

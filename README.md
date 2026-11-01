@@ -22,6 +22,36 @@ the unsigned CI candidate is for validation, not installation. It needs Android 
 Build locally with `cd android && ./gradlew assembleDebug`. The old WebView app in `apps/hex-next/`
 is kept only as a design reference.
 
+## Test the native Kotlin app on a device
+
+The launcher opens `MainActivity` in `android/`, which renders the Jetpack Compose `MainScreen`
+through `HexNextTheme` and `MainViewModel`. It does not load the legacy WebView or a local web server.
+The current application ID is `com.hexnext.themer`, matching the latest package standardization.
+
+Open **Actions > Android Universal APK**, select a successful run, and download the
+**HexNext-Native-Device-Test** artifact. Extract `app-universal-debug.apk` and install it on an
+Android 14+ device, allowing installation from your browser/file manager when prompted. This is a
+real, debug-signed universal APK, not the unsigned release candidate; no production signing secrets
+are needed. You can also build and install locally:
+
+```bash
+cd android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-universal-debug.apk
+adb shell am start -n com.hexnext.themer/com.hexnext.themer.MainActivity
+```
+
+The native palette, accent input, icon controls, and previews can be tested without Shizuku.
+Applying or removing system themes remains disabled until a supported privileged session is ready.
+CI installs the exact debug APK on an Android 14 emulator and checks native launch, accent persistence
+after activity recreation, preview rendering, and the unprivileged action gate. On a connected device,
+run `./gradlew connectedDebugAndroidTest` for the same checks.
+
+Debug APKs use a development certificate that may differ between CI runs and from release builds.
+If installation reports a signature conflict, uninstall the existing development app first
+(this deletes its saved settings), or use a consistently signed local build. Device testing builds
+are not production releases; Samsung overlay behavior still needs testing on a supported device.
+
 ## Universal APK release
 
 The release is the compiled native app in `android/`, not a web dashboard export. Its universal APK

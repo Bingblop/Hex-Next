@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -89,6 +90,7 @@ fun MainScreen(viewModel: MainViewModel) {
         },
     ) { padding ->
         LazyColumn(
+            modifier = Modifier.testTag("theme-list"),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
@@ -231,7 +233,7 @@ private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
                     .background(Color(seed))
             )
             Spacer(Modifier.width(16.dp))
-            HexField(seed, onSeed)
+            HexField(seed, onSeed, Modifier.testTag("accent-hex"))
         }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -265,7 +267,7 @@ private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
 }
 
 @Composable
-private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
+private fun HexField(seed: Int, onSeed: (Int) -> Unit, modifier: Modifier = Modifier) {
     var text by remember { mutableStateOf(seed.toHex()) }
     LaunchedEffect(seed) { if (parseHexColor(text) != seed) text = seed.toHex() }
     OutlinedTextField(
@@ -279,7 +281,7 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
         isError = parseHexColor(text) == null,
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
