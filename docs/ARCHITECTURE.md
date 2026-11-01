@@ -40,8 +40,8 @@ Discovery, in order:
    `DeviceScanner` stores each dump in `files/scan/semwt/<target>.txt` / `.json` and records
    `semwtPriority` / `semwtState` per target in the device report.
 3. **Fallback:** the `.frro` itself, parsed by `engine/.../frro/FrroReader.kt`. The version 3
-   layout is verified against Samsung's real `SemWT_android.frro` (see `FrroFormat`); binary
-   payloads are still an assumption.
+   layout follows AOSP `FabricatedOverlay.cpp` and is verified against Samsung's real
+   `SemWT_android.frro` (see `FrroFormat` and `docs/reference/frro-binary-format.md`).
 4. The target APK's `resources.arsc`. The union of "resources Samsung themes" and "all
    colour/drawable/dimen/bool resources of the target" becomes the **resource map** for that
    package, cached per package version code in `files/resmap/<pkg>-<version>.json`.
@@ -111,7 +111,7 @@ android/
 | Need | Mechanism |
 |---|---|
 | Colours, dimens, bools, ints, strings | `FabricatedOverlay` (FRRO) registered through `OverlayManagerTransaction` as root |
-| PNG / 9-patch drawables (icons, backgrounds) | FRRO `setResourceValue(name, ParcelFileDescriptor, config)` (Android 14+), 9-patch via `setNinePatchResourceValue` where present |
+| PNG drawables (icons, backgrounds) | Colour FRRO committed through OverlayManager, then its `.frro` rewritten as root with `FrroWriter` (see below); nine-patch not yet |
 | XML drawables, styles, layouts | Phase 2b: on-device RRO APK compiler (binary `AndroidManifest.xml` + `resources.arsc` writer, APK Signature Scheme v2) installed with `pm install` as root |
 
 One fabricated overlay per target package, named `HexNext_<target>`, owned by the service
@@ -119,6 +119,23 @@ UID's owner package, registered in one transaction and then enabled (which puts 
 One UI 9; see the takeover section above). Applying a
 theme is: compute the desired state, diff against the installed state, re-register only the
 overlays whose content hash changed.
+
+**PNG drawables (root `.frro` rewrite).** On One UI 9 a FabricatedOverlay carrying PNG
+`ParcelFileDescriptor`s never reaches idmap2d: OverlayManagerService's Binder call dies with
+`FAILED_TRANSACTION` because SELinux lets idmap2d accept descriptors from no app, shell or su
+domain (`docs/device/oneui9-sm-s948u1/idmap-log-20261101.txt`). `ThemeService` therefore
+commits the overlay with its colours only, finds the registered file (`cmd overlay dump`, else
+the newest `/data/resource-cache/<owner>-<name>-*.frro`), and as uid 0 writes the full file with
+the engine's `FrroWriter`: the PNGs (read from the app's descriptors) are embedded after the
+header and referenced by `frro:/<path>?offset=&size=` strings, exactly as idmap2d would have
+written them. The new bytes go to `<path>.hexnext.tmp` with the original owner, mode and SELinux
+label (`system:system 0644 resourcecache_data_file` on One UI 9) and are renamed over the file.
+A disable/enable makes OverlayManager regenerate the idmap (new CRC) and raises the overlay
+above SemWT. The service then checks that the idmap exists and records the rewritten CRC,
+that `cmd overlay lookup` resolves each drawable to a `frro:/` value, and that `FrroReader`
+re-reads every payload; on a hard failure it restores the colour-only file and reports the
+drawables as skipped (exit code 3). Nine-patch PNGs are skipped until the aapt2 `npTc`
+compilation idmap2d performs is implemented.
 
 ## Theme model
 
