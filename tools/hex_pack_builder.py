@@ -33,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hex_plugin_catalog import CATEGORY_LABELS, catalog_one, base_apk_bytes  # noqa: E402
+from rename_packs import catalogue_identity  # noqa: E402
 
 SLOT_RE = re.compile(r"^l?(x[xyz]|lx[xyz]|sx|lz[xy]|xg|lxg)\d+$")
 FIXED_RE = re.compile(r"^H([0-9A-Fa-f]{8})$")
@@ -75,7 +76,9 @@ def tint_descriptor(tint: str) -> dict:
 def build_pack(path: Path, out_dir: Path) -> dict:
     meta = catalog_one(path)
     raw = base_apk_bytes(path)
-    pack_id = slug(f"{meta['name'] or meta['label']}-{meta['version']}")
+    source_id = slug(f"{meta['name'] or meta['label']}-{meta['version']}")
+    # The catalogue never shows the source plugin's name (tools/pack_names.json).
+    pack_id, pack_name = catalogue_identity(source_id) or (source_id, meta["name"] or meta["label"])
     palette, defaults, options, category_options = {}, {}, [], {}
     layers: dict[tuple, dict] = {}
     out_zip = out_dir / f"{pack_id}.zip"
@@ -123,7 +126,7 @@ def build_pack(path: Path, out_dir: Path) -> dict:
         pack = {
             "format": 1,
             "id": pack_id,
-            "name": meta["name"] or meta["label"],
+            "name": pack_name,
             "author": meta["author"],
             "version": meta["version"],
             "sourcePackage": meta["package"],
