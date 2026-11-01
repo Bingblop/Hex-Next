@@ -9,6 +9,7 @@ import com.hexnext.engine.device.OverlayDump
 import com.hexnext.engine.frro.FrroReader
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ThemeService
+import com.hexnext.themer.theme.SnapshotBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -88,6 +89,13 @@ class DeviceScanner(context: Context) {
                 extractArsc(service, status, File(scanDir, status.pkg))
             }
         }
+
+        progress("Reading system colours…")
+        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext) }.getOrElse {
+            errors.add("system shades: ${it.message}")
+            emptyMap()
+        }
+        if (shades.isEmpty()) errors.add("system shades: no android:color/system_* colour could be read")
 
         val createdAt = System.currentTimeMillis()
         val report = DeviceReport(

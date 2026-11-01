@@ -167,6 +167,77 @@ data class DeviceReport(
         put("errors", JSONArray(errors))
     }
 
+    companion object {
+        /** Reads a report written by [toJson]; [path] becomes [jsonPath]. Missing fields get defaults. */
+        fun fromJson(json: JSONObject, path: String? = null): DeviceReport {
+            fun JSONObject.str(key: String): String? = if (isNull(key)) null else optString(key)
+            fun JSONObject.int(key: String): Int? = if (isNull(key)) null else optInt(key)
+            fun <T : Any> JSONArray?.objects(map: (JSONObject) -> T): List<T> =
+                if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it)?.let(map) }
+            fun JSONArray?.strings(): List<String> =
+                if (this == null) emptyList() else (0 until length()).map { optString(it) }
+
+            val props = LinkedHashMap<String, String>()
+            json.optJSONObject("props")?.let { p -> p.keys().forEach { k -> props[k] = p.optString(k) } }
+            return DeviceReport(
+                createdAt = json.optLong("createdAt"),
+                uid = json.optInt("uid", -1),
+                viaSu = json.optBoolean("viaSu"),
+                props = props,
+                overlays = json.optJSONArray("overlays").objects { o ->
+                    OverlayStatus(
+                        overlayId = o.optString("overlayId"),
+                        target = o.optString("target"),
+                        enabled = o.optBoolean("enabled"),
+                        isSamsungWallpaperTheme = o.optBoolean("isSamsungWallpaperTheme"),
+                    )
+                },
+                frroPaths = json.optJSONArray("frroPaths").strings(),
+                frroCopied = json.optJSONArray("frroCopied").strings(),
+                packages = json.optJSONArray("packages").objects { o ->
+                    PackageStatus(
+                        pkg = o.optString("pkg"),
+                        deprecated = o.optBoolean("deprecated"),
+                        apkPath = o.str("apkPath"),
+                        installed = o.optBoolean("installed"),
+                        debloated = o.optBoolean("debloated"),
+                        arscPath = o.str("arscPath"),
+                        arscBytes = o.optLong("arscBytes"),
+                        colorCount = o.optInt("colorCount"),
+                        drawableCount = o.optInt("drawableCount"),
+                        semWtOverlays = o.optInt("semWtOverlays"),
+                        semwtPriority = o.int("semwtPriority"),
+                        semwtState = o.str("semwtState"),
+                        error = o.str("error"),
+                    )
+                },
+                errors = json.optJSONArray("errors").strings(),
+                semWt = json.optJSONArray("semWt").objects { o ->
+                    SemWtStatus(
+                        target = o.optString("target"),
+                        overlayId = o.optString("overlayId"),
+                        found = o.optBoolean("found"),
+                        owner = o.str("owner"),
+                        state = o.str("state"),
+                        enabled = o.optBoolean("enabled"),
+                        priority = o.int("priority"),
+                        targetOverlayable = o.str("targetOverlayable"),
+                        frroPath = o.str("frroPath"),
+                        source = o.optString("source", SemWtStatus.SOURCE_NONE),
+                        resourceCount = o.optInt("resourceCount"),
+                        valueCount = o.optInt("valueCount"),
+                        missingCount = o.optInt("missingCount"),
+                        dumpPath = o.str("dumpPath"),
+                        mappingPath = o.str("mappingPath"),
+                        error = o.str("error"),
+                    )
+                },
+                jsonPath = path,
+                txtPath = path?.let { java.io.File(it).let { f -> java.io.File(f.parentFile, f.nameWithoutExtension + ".txt").absolutePath } },
+            )
+        }
+    }
+
     fun summaryText(): String = buildString {
         appendLine("Hex Next device report")
         appendLine("======================")
