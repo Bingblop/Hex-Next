@@ -47,7 +47,7 @@ run "Hex Next idmap files" "ls -la /data/resource-cache/ | grep -i hexnext | gre
 section "Drawable lookups from the newest build log"
 newest=$(root "ls -t $APP/logs/*.jsonl 2>/dev/null | head -1")
 if [ -n "$newest" ]; then
-  for name in $(root "cat '$newest'" | grep -oE 'drawable\\?/[A-Za-z0-9_]+' | sed 's#\\\\##' | sort -u | head -20); do
+  for name in $(root "cat '$newest'" | grep -oE 'drawable\\?/[A-Za-z0-9_]+' | sed 's#\\##' | sort -u | head -20); do
     printf '$ cmd overlay lookup --user current com.android.settings com.android.settings:%s\n' "$name" >>"$OUT"
     root "cmd overlay lookup --user current com.android.settings com.android.settings:$name" >>"$OUT"
   done
