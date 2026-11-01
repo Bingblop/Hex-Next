@@ -92,7 +92,7 @@ def verify(apk, unsigned=False, expected_version=None):
 
     badging = run(sdk_tool("aapt2"), "dump", "badging", str(apk))
     package = re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'", badging)
-    if not package or package[1] != "com.hexnext.themer":
+    if not package or package[1] != "com.hexnext.bingblop":
         raise ValueError("Unexpected application ID or missing package metadata.")
     if expected_version and package[3] != expected_version:
         raise ValueError(f"Tag version {expected_version} does not match APK version {package[3]}.")
