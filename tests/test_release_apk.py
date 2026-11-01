@@ -14,7 +14,7 @@ spec = importlib.util.spec_from_file_location(
 release_apk = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_apk)
 
-BADGING = """package: name='com.hexnext.themer' versionCode='210' versionName='2.1.0'
+BADGING = """package: name='com.hexnext.bingblop' versionCode='210' versionName='2.1.0'
 minSdkVersion:'34'
 targetSdkVersion:'36'
 launchable-activity: name='com.hexnext.themer.MainActivity'
@@ -67,6 +67,7 @@ class ReleaseApkTest(unittest.TestCase):
         result, run = self.verify(expected_version="2.1.0")
         self.assertTrue(result["universal"])
         self.assertTrue(result["signed"])
+        self.assertEqual(result["application_id"], "com.hexnext.bingblop")
         self.assertEqual(result["native_abis"], [])
         self.assertEqual(len(result["sha256"]), 64)
         self.assertEqual(run.call_args_list[-1].args[0], "apksigner")
@@ -120,7 +121,8 @@ class ReleaseApkTest(unittest.TestCase):
 
     def test_invalid_metadata_is_rejected(self):
         for badging in (
-            BADGING.replace("com.hexnext.themer'", "com.other.app'", 1),
+            BADGING.replace("com.hexnext.bingblop'", "com.other.app'", 1),
+            BADGING.replace("com.hexnext.bingblop'", "com.hexnext.themer'", 1),
             BADGING.replace("minSdkVersion:'34'", "minSdkVersion:'33'"),
             BADGING.replace("targetSdkVersion:'36'", "targetSdkVersion:'35'"),
             BADGING.replace("versionCode='210'", "versionCode='0'"),

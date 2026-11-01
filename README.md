@@ -24,6 +24,9 @@ is kept only as a design reference.
 
 ## Universal APK release
 
+The installed application ID is `com.hexnext.bingblop`. The source namespace remains
+`com.hexnext.themer`; builds using the former application ID install as a separate app, not an update.
+
 The release is the compiled native app in `android/`, not a web dashboard export. Its universal APK
 supports ARM and x86, both 32-bit and 64-bit, and includes English resources. Managed-code builds
 need no native `.so` files; any native dependencies must include all four supported ABIs.
