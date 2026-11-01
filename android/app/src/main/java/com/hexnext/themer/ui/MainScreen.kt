@@ -3,6 +3,7 @@ package com.hexnext.themer.ui
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,7 +39,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -53,13 +58,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hexnext.engine.compile.Element
+import com.hexnext.engine.compile.Elements
+import com.hexnext.engine.compile.LiveOption
+import com.hexnext.engine.compile.PackOptions
+import com.hexnext.engine.compile.ThemeMode
+import com.hexnext.engine.compile.ThemeSpec
+import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.pack.PackOption
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.CatalogueEntry
 import com.hexnext.themer.theme.InstalledPack
@@ -122,10 +138,14 @@ fun MainScreen(viewModel: MainViewModel) {
                 PackCard(
                     packs = ui.packs,
                     errors = ui.packErrors,
-                    selectedId = ui.selectedPackId,
+                    spec = ui.spec,
                     busy = ui.busy,
                     catalogue = ui.catalogue,
                     onSelect = viewModel::selectPack,
+                    onMode = viewModel::setMode,
+                    onOption = viewModel::setOption,
+                    onElementPack = viewModel::setElementPack,
+                    onElementEnabled = viewModel::setElementEnabled,
                     onImport = viewModel::importPack,
                     onDelete = viewModel::deletePack,
                     onCatalogueUrl = viewModel::setCatalogueUrl,
@@ -133,6 +153,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     onDownload = viewModel::downloadPack,
                 )
             }
+            item { PreviewCard(ui.preview) }
             item {
                 CompiledThemeCard(
                     enabled = ready != null && !ui.busy,
@@ -174,15 +195,32 @@ private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismis
     }
 }
 
+/** The shared card: title (with an optional [trailing] control at its right) over [content]. */
 @Composable
-private fun SectionCard(title: String, content: @Composable () -> Unit) {
+private fun SectionCard(
+    title: String,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (trailing == null) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    trailing()
+                }
+            }
             content()
         }
     }
@@ -294,15 +332,24 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
     )
 }
 
-/** Pack choice for the next apply: colours only, or one of the installed packs; import and catalogue. */
+/**
+ * Pack choice for the next apply. Simple mode: colours only or one installed pack, with the live
+ * options of the selected pack under its row. Advanced mode: the default pack plus a pack per
+ * part of One UI. Import and catalogue in both.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PackCard(
     packs: List<InstalledPack>,
     errors: Map<String, String>,
-    selectedId: String?,
+    spec: ThemeSpec,
     busy: Boolean,
     catalogue: CatalogueState,
     onSelect: (String?) -> Unit,
+    onMode: (ThemeMode) -> Unit,
+    onOption: (Pack, LiveOption, String, String?) -> Unit,
+    onElementPack: (String, String?) -> Unit,
+    onElementEnabled: (String, Boolean) -> Unit,
     onImport: (Uri) -> Unit,
     onDelete: (String) -> Unit,
     onCatalogueUrl: (String) -> Unit,
@@ -313,32 +360,80 @@ private fun PackCard(
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
-    SectionCard("Theme pack") {
+    val advanced = spec.mode == ThemeMode.ADVANCED
+    SectionCard(
+        title = "Theme pack",
+        trailing = {
+            SingleChoiceSegmentedButtonRow {
+                SegmentedButton(
+                    selected = !advanced,
+                    onClick = { onMode(ThemeMode.SIMPLE) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    enabled = !busy,
+                    label = { Text("Simple") },
+                )
+                SegmentedButton(
+                    selected = advanced,
+                    onClick = { onMode(ThemeMode.ADVANCED) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    enabled = !busy,
+                    label = { Text("Advanced") },
+                )
+            }
+        },
+    ) {
         Text(
-            "The pack supplies the Settings dashboard icons and other drawables; colours always come from the accent. " +
-                "Packs import as .zip files or download from the catalogue.",
+            "Simple uses one pack for everything. Advanced picks a pack per part of One UI.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PackRow(selected = selectedId == null, enabled = !busy, onClick = { onSelect(null) }) {
+        if (advanced) {
+            Text("Default pack", style = MaterialTheme.typography.labelLarge)
+        }
+        PackRow(selected = spec.simplePackId == null, enabled = !busy, onClick = { onSelect(null) }) {
             Text("Colours only", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         }
         packs.forEach { pack ->
-            PackRow(selected = selectedId == pack.id, enabled = !busy, onClick = { onSelect(pack.id) }) {
+            val selected = spec.simplePackId == pack.id
+            PackRow(selected = selected, enabled = !busy, onClick = { onSelect(pack.id) }) {
                 Column(Modifier.weight(1f)) {
                     Text(pack.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text(
-                        listOfNotNull(
-                            pack.author.takeIf { it.isNotBlank() },
-                            pack.version.takeIf { it.isNotBlank() },
-                            "${pack.drawableCount} drawables",
-                            if (pack.hasSettingsIcons) "Settings icons" else null,
-                        ).joinToString(" · "),
+                        packSummary(pack),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 TextButton(onClick = { onDelete(pack.id) }, enabled = !busy) { Text("Remove") }
+            }
+            if (selected && !advanced) {
+                val options = remember(pack.pack) { PackOptions.live(pack.pack) }
+                OptionList(
+                    pack = pack.pack,
+                    options = options,
+                    spec = spec,
+                    elementId = null,
+                    enabled = !busy,
+                    onOption = onOption,
+                )
+            }
+        }
+        if (advanced) {
+            val parts = remember(packs) { coveredParts(packs) }
+            if (parts.isNotEmpty()) {
+                Text("Parts", style = MaterialTheme.typography.labelLarge)
+            }
+            parts.forEach { (element, covering) ->
+                ElementRow(
+                    element = element,
+                    covering = covering,
+                    packs = packs,
+                    spec = spec,
+                    busy = busy,
+                    onOption = onOption,
+                    onElementPack = onElementPack,
+                    onElementEnabled = onElementEnabled,
+                )
             }
         }
         errors.forEach { (file, why) ->
@@ -376,6 +471,265 @@ private fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, co
     ) {
         RadioButton(selected = selected, onClick = onClick, enabled = enabled)
         content()
+    }
+}
+
+/** Subtitle of a pack row: author · version · drawables · Settings icons. */
+private fun packSummary(pack: InstalledPack): String = listOfNotNull(
+    pack.author.takeIf { it.isNotBlank() },
+    pack.version.takeIf { it.isNotBlank() },
+    "${pack.drawableCount} drawables",
+    if (pack.hasSettingsIcons) "Settings icons" else null,
+).joinToString(" · ")
+
+/** A switch row written like [PackRow]: label left, [Switch] right, the whole row clickable. */
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(enabled = enabled, onClick = { onCheckedChange(!checked) }),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+/**
+ * The live [options] of [pack], indented under the row they belong to: a select as a label and
+ * one radio row per choice, a switch as a [SwitchRow]. Writes go to every element the option
+ * gates when [elementId] is null (simple mode), else to that element only. Nothing is shown
+ * when there are no options.
+ */
+@Composable
+private fun OptionList(
+    pack: Pack,
+    options: List<LiveOption>,
+    spec: ThemeSpec,
+    elementId: String?,
+    enabled: Boolean,
+    onOption: (Pack, LiveOption, String, String?) -> Unit,
+) {
+    if (options.isEmpty()) return
+    Column(Modifier.padding(start = 40.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { live ->
+            val current = PackOptions.value(spec, pack, live.option, elementId)
+            if (live.option.type == PackOption.SELECT) {
+                Text(live.option.label, style = MaterialTheme.typography.labelLarge)
+                live.option.keys.forEachIndexed { index, key ->
+                    PackRow(selected = current == key, enabled = enabled, onClick = { onOption(pack, live, key, elementId) }) {
+                        Text(
+                            live.option.choices.getOrNull(index)?.takeIf { it.isNotBlank() } ?: key,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            } else {
+                SwitchRow(
+                    label = live.option.label,
+                    checked = current == "true",
+                    enabled = enabled,
+                    onCheckedChange = { on -> onOption(pack, live, if (on) "true" else "false", elementId) },
+                )
+            }
+        }
+    }
+}
+
+/** The parts of One UI, in registry order, that at least one installed pack covers, with those packs. */
+private fun coveredParts(packs: List<InstalledPack>): List<Pair<Element, List<InstalledPack>>> {
+    val coverage = packs.associateWith { installed -> PackOptions.coveredElements(installed.pack).mapTo(HashSet()) { it.id } }
+    return Elements.ALL.mapNotNull { element ->
+        val covering = packs.filter { element.id in coverage.getValue(it) }
+        if (covering.isEmpty()) null else element to covering
+    }
+}
+
+/**
+ * One part in advanced mode: enable switch, label and effective pack, "Change" opening
+ * [ElementPackDialog]; the live options of the effective pack for this part underneath.
+ *
+ * "Colours only" for a part is the part switched off ([ThemeSpec.elementEnabled]): the compiler
+ * then takes no drawables for it from any pack, while colours still apply.
+ */
+@Composable
+private fun ElementRow(
+    element: Element,
+    covering: List<InstalledPack>,
+    packs: List<InstalledPack>,
+    spec: ThemeSpec,
+    busy: Boolean,
+    onOption: (Pack, LiveOption, String, String?) -> Unit,
+    onElementPack: (String, String?) -> Unit,
+    onElementEnabled: (String, Boolean) -> Unit,
+) {
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    val enabled = spec.isElementEnabled(element.id)
+    val setId = spec.elementPacks[element.id]
+    val effective = if (enabled) packs.firstOrNull { it.id == (setId ?: spec.simplePackId) } else null
+    val subtitle = when {
+        !enabled -> "Colours only"
+        // A pack that is not installed yields no drawables, so "Colours only" is the effective state.
+        setId != null -> effective?.name ?: "Colours only"
+        else -> "Default pack · " + (effective?.name ?: "Colours only")
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Switch(checked = enabled, onCheckedChange = { on -> onElementEnabled(element.id, on) }, enabled = !busy)
+        Column(Modifier.weight(1f)) {
+            Text(element.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = { showDialog = true }, enabled = !busy) { Text("Change") }
+    }
+    if (effective != null) {
+        val options = remember(effective.pack, element.id) {
+            PackOptions.live(effective.pack).filter { element.id in it.elementIds }
+        }
+        OptionList(
+            pack = effective.pack,
+            options = options,
+            spec = spec,
+            elementId = element.id,
+            enabled = !busy,
+            onOption = onOption,
+        )
+    }
+    if (showDialog) {
+        ElementPackDialog(
+            element = element,
+            covering = covering,
+            enabled = enabled,
+            setId = setId,
+            busy = busy,
+            onElementPack = onElementPack,
+            onElementEnabled = onElementEnabled,
+            onDismiss = { showDialog = false },
+        )
+    }
+}
+
+/** Pack picker of one part: same as the default pack, colours only, or a pack covering the part. */
+@Composable
+private fun ElementPackDialog(
+    element: Element,
+    covering: List<InstalledPack>,
+    enabled: Boolean,
+    setId: String?,
+    busy: Boolean,
+    onElementPack: (String, String?) -> Unit,
+    onElementEnabled: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text(element.label) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 420.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    PackRow(selected = enabled && setId == null, enabled = !busy, onClick = { onElementPack(element.id, null) }) {
+                        Text("Same as default pack", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                item {
+                    PackRow(selected = !enabled, enabled = !busy, onClick = { onElementEnabled(element.id, false) }) {
+                        Text("Colours only", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                items(covering) { pack ->
+                    PackRow(selected = enabled && setId == pack.id, enabled = !busy, onClick = { onElementPack(element.id, pack.id) }) {
+                        Column(Modifier.weight(1f)) {
+                            Text(pack.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                packSummary(pack),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+    )
+}
+
+/** Settings dashboard icons of the theme to apply, rendered from the last device scan. Nothing is clickable. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PreviewCard(preview: PreviewState) {
+    SectionCard("Preview") {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Settings dashboard icons as they will apply, rendered from the last device scan.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            preview.accent?.let { accent ->
+                Text("Accent", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(
+                    Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(Color(accent))
+                )
+            }
+        }
+        if (preview.loading) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text("Rendering…", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (preview.icons.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                preview.icons.forEach { icon ->
+                    Column(
+                        modifier = Modifier.width(72.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        val bitmap = icon.bitmap
+                        if (bitmap != null) {
+                            Image(bitmap.asImageBitmap(), contentDescription = icon.label, modifier = Modifier.size(48.dp))
+                        } else {
+                            Box(Modifier.size(48.dp))
+                        }
+                        Text(
+                            icon.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+        preview.note?.let { note ->
+            Text(
+                note,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (note.startsWith("Could not")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -457,7 +811,7 @@ private fun CatalogueRow(entry: CatalogueEntry, progress: Float?, busy: Boolean,
     }
 }
 
-/** Full compiled theme from the last device scan (default theme until the theme editor lands). */
+/** Applies the compiled theme to every scanned target, or removes it. */
 @Composable
 private fun CompiledThemeCard(
     enabled: Boolean,
@@ -466,32 +820,24 @@ private fun CompiledThemeCard(
     onApply: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-    ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Compiled theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(
-                "Builds one HexNext overlay per scanned One UI target from the last device scan, " +
-                    "disables Samsung's SemWT overlay for it and keeps it off after wallpaper changes. " +
-                    "Debloated apps are skipped. Run Diagnostics > Run scan first.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (summary != null) {
-                Text("Last apply: $summary", style = MaterialTheme.typography.bodySmall)
-            }
-            Actions(
-                enabled = enabled,
-                busy = busy,
-                applyLabel = "Apply theme",
-                onApply = onApply,
-                onRemove = onRemove,
-                removeLabel = "Remove theme",
-            )
+    SectionCard("Apply") {
+        Text(
+            "Builds one HexNext overlay per scanned One UI app, takes each over from Samsung's SemWT overlay, " +
+                "and keeps it that way after wallpaper changes. Debloated apps are skipped.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (summary != null) {
+            Text("Last apply: $summary", style = MaterialTheme.typography.bodySmall)
         }
+        Actions(
+            enabled = enabled,
+            busy = busy,
+            applyLabel = "Apply theme",
+            onApply = onApply,
+            onRemove = onRemove,
+            removeLabel = "Remove theme",
+        )
     }
 }
 

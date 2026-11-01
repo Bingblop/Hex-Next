@@ -6,7 +6,13 @@ import android.net.Uri
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hexnext.engine.compile.LiveOption
+import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
+import com.hexnext.engine.compile.withElementEnabled
+import com.hexnext.engine.compile.withElementPack
+import com.hexnext.engine.compile.withOption
+import com.hexnext.engine.pack.Pack
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
@@ -18,12 +24,17 @@ import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.PackStore
 import com.hexnext.themer.theme.SemWtController
 import com.hexnext.themer.theme.ThemeApplier
+import com.hexnext.themer.theme.ThemePreviewer
 import com.hexnext.themer.theme.ThemeStore
 import com.hexnext.themer.theme.formatOneUi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,9 +53,21 @@ data class UiState(
     val packs: List<InstalledPack> = emptyList(),
     /** Pack zips that could not be read: file name → message. */
     val packErrors: Map<String, String> = emptyMap(),
-    /** [EngineThemeSpec.simplePackId] of the stored theme; null is "colours only". */
-    val selectedPackId: String? = null,
+    /** The stored theme (`files/theme.json`) without the seed; [EngineThemeSpec.default] until loaded. */
+    val spec: EngineThemeSpec = EngineThemeSpec.default(),
     val catalogue: CatalogueState = CatalogueState(),
+    val preview: PreviewState = PreviewState(),
+) {
+    /** [EngineThemeSpec.simplePackId] of the stored theme; null is "colours only". */
+    val selectedPackId: String? get() = spec.simplePackId
+}
+
+/** The "Preview" card: Settings dashboard icons of the theme to apply, from [ThemePreviewer]. */
+data class PreviewState(
+    val loading: Boolean = false,
+    val icons: List<ThemePreviewer.PreviewIcon> = emptyList(),
+    val accent: Int? = null,
+    val note: String? = null,
 )
 
 /** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
@@ -63,8 +86,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val applier = ThemeApplier(app)
     private val themeStore = ThemeStore(app)
     private val packStore = PackStore(app)
+    private val previewer = ThemePreviewer(app)
     private var safeModeChecked = false
     private var semwtReasserted = false
+
+    /** The debounced preview render in flight; only touched on the main thread. */
+    private var previewJob: Job? = null
+
+    /** True when a preview was requested while [UiState.busy]; it runs once busy ends. */
+    private var previewPending = false
 
     val shizuku: StateFlow<ShizukuState> = ShizukuManager.state
 
@@ -73,8 +103,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            val selected = themeStore.load().simplePackId
-            _ui.update { it.copy(selectedPackId = selected) }
+            val stored = themeStore.load()
+            _ui.update { it.copy(spec = stored) }
+            refreshPreview()
             val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
             if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
             seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
@@ -86,6 +117,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     checkSafeMode()
                     reassertSemWt()
                     loadDeviceInfo()
+                }
+            }
+        }
+        viewModelScope.launch {
+            _ui.map { it.busy }.distinctUntilChanged().collect { busy ->
+                if (busy) {
+                    // An apply must not compete with a render for CPU and pack reads.
+                    previewJob?.cancel()
+                    previewPending = true
+                } else if (previewPending) {
+                    refreshPreview()
                 }
             }
         }
@@ -157,6 +199,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val seed = color or OPAQUE
         prefs.edit().putInt(PREF_SEED, seed).apply()
         _ui.update { it.copy(seed = seed) }
+        refreshPreview()
     }
 
     fun requestPermission() = ShizukuManager.requestPermission()
@@ -175,11 +218,91 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         report.success
     }
 
-    /** The stored theme with the seed preference and the selected pack applied on top. */
+    /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
     private fun specToApply(): EngineThemeSpec {
-        val stored = themeStore.load()
         val state = _ui.value
-        return stored.copy(source = stored.source.copy(seedArgb = state.seed), simplePackId = state.selectedPackId)
+        return state.spec.copy(source = state.spec.source.copy(seedArgb = state.seed))
+    }
+
+    // ---- Theme spec ----
+
+    /**
+     * Applies [block] to [UiState.spec] at once and persists the result on IO. The write takes
+     * the spec from the state under the store's lock, so concurrent saves can never leave an
+     * older spec in `theme.json`. Every spec mutation goes through here, so each one refreshes
+     * the preview.
+     */
+    private fun updateSpec(block: (EngineThemeSpec) -> EngineThemeSpec) {
+        _ui.update { it.copy(spec = block(it.spec)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                themeStore.update { _ui.value.spec }
+            }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
+        }
+        refreshPreview()
+    }
+
+    /**
+     * Simple (one pack for everything) or advanced (a pack per element). Simple mode shows no
+     * per-part control, so switching to it turns every part back on; the advanced pack and
+     * option choices are kept for the next switch to advanced.
+     */
+    fun setMode(mode: ThemeMode) = updateSpec {
+        it.copy(mode = mode, elementEnabled = if (mode == ThemeMode.SIMPLE) emptyMap() else it.elementEnabled)
+    }
+
+    /**
+     * Sets [live] of [pack] to [value]: for every element the option gates when [elementId] is
+     * null (simple mode), for that element only otherwise (advanced mode).
+     */
+    fun setOption(pack: Pack, live: LiveOption, value: String, elementId: String? = null) = updateSpec {
+        it.withOption(pack, live, value, elementIds = if (elementId == null) live.elementIds else setOf(elementId))
+    }
+
+    /**
+     * Advanced mode: [elementId] uses [packId] (null = same as the default pack). Choosing a pack
+     * for a part also switches the part back on, so the choice takes effect.
+     */
+    fun setElementPack(elementId: String, packId: String?) = updateSpec {
+        it.withElementPack(elementId, packId).withElementEnabled(elementId, true)
+    }
+
+    /** Advanced mode: a part that is off gets no drawables from any pack (colours only). */
+    fun setElementEnabled(elementId: String, enabled: Boolean) = updateSpec { it.withElementEnabled(elementId, enabled) }
+
+    // ---- Preview ----
+
+    /**
+     * Re-renders the preview of [specToApply] after a short debounce, cancelling a render that is
+     * still waiting or running. While an apply is in progress the request is deferred and runs
+     * once when [UiState.busy] clears. Safe to call from any thread.
+     */
+    fun refreshPreview() {
+        viewModelScope.launch { schedulePreview() }
+    }
+
+    /** Main thread only (viewModelScope). */
+    private fun schedulePreview() {
+        if (_ui.value.busy) {
+            previewPending = true
+            return
+        }
+        previewPending = false
+        previewJob?.cancel()
+        previewJob = viewModelScope.launch {
+            delay(PREVIEW_DEBOUNCE_MS)
+            if (_ui.value.busy) {
+                // Busy flipped during the debounce: defer to the busy collector.
+                previewPending = true
+                return@launch
+            }
+            _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
+            val spec = specToApply()
+            val rendered = withContext(Dispatchers.Default) { previewer.render(spec) }
+            _ui.update {
+                it.copy(preview = PreviewState(loading = false, icons = rendered.icons, accent = rendered.accent, note = rendered.note))
+            }
+        }
     }
 
     // ---- Theme packs ----
@@ -197,24 +320,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         catalogue = it.catalogue.copy(entries = it.catalogue.entries.map { e -> e.copy(installed = e.id in ids) }),
                     )
                 }
-                val selected = _ui.value.selectedPackId
-                if (selected != null && installed.packs.none { it.id == selected }) {
+                val spec = _ui.value.spec
+                val selected = spec.simplePackId
+                if (selected != null && selected !in ids) {
                     log(LogLine(LogLevel.WARN, "Theme pack $selected is no longer installed; colours only"))
                     selectPack(null)
                 }
+                val gone = spec.elementPacks.filterValues { it !in ids }
+                if (gone.isNotEmpty()) {
+                    log(LogLine(LogLevel.WARN, "Pack ${gone.values.distinct().joinToString()} is no longer installed; ${gone.keys.joinToString()} use the default pack"))
+                    updateSpec { it.copy(elementPacks = it.elementPacks.filterValues { v -> v in ids }) }
+                }
+                refreshPreview()
             }.onFailure { log(LogLine(LogLevel.ERROR, "Listing packs failed: ${it.javaClass.simpleName}: ${it.message}")) }
         }
     }
 
     /** Chooses the pack of the next apply (null = colours only) and persists it in the theme. */
-    fun selectPack(id: String?) {
-        _ui.update { it.copy(selectedPackId = id) }
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                themeStore.update { it.copy(simplePackId = id) }
-            }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
-        }
-    }
+    fun selectPack(id: String?) = updateSpec { it.copy(simplePackId = id) }
 
     /** Copies the chosen document into `files/packs` and lists it. */
     fun importPack(uri: Uri) {
@@ -342,6 +465,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
         private const val MAX_LOG_LINES = 400
         private const val MAX_LOG_CHARS = 2000
+        private const val PREVIEW_DEBOUNCE_MS = 400L
         private const val OPAQUE = 0xFF000000.toInt()
         private const val SAFE_MODE_TEXT = "Safe mode: Hex overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =

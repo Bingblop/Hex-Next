@@ -29,6 +29,8 @@ data class InstalledPack(
     /** True when the pack has a Settings dashboard icon layer (`settingsicon*` category). */
     val hasSettingsIcons: Boolean,
     val features: List<String>,
+    /** The parsed `pack.json`, for option and element coverage lookups. */
+    val pack: Pack,
 )
 
 /** [InstalledPack]s plus the zips that could not be read (file name → message). */
@@ -272,6 +274,7 @@ class PackStore(context: Context) {
         drawableCount = drawableCount,
         hasSettingsIcons = layers.any { it.category.startsWith(SETTINGS_ICON_PREFIX) },
         features = features,
+        pack = this,
     )
 
     private fun PackIndexEntry.toEntry(installed: Boolean) = CatalogueEntry(
