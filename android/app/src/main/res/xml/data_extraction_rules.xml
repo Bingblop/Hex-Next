@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Encrypted AI provider keys (ai/AiKeyStore, prefs file hexnext_ai_keys.xml) never leave the phone:
+  the Keystore key that protects them is not transferable, so a copy would be unreadable anyway.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />
+    </device-transfer>
+</data-extraction-rules>

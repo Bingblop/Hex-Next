@@ -118,9 +118,10 @@ class ThemeCompilerTest {
         val t = compile().target(sysui)!!
         assertNull(t.color("wallpaper_tint"))
         assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/wallpaper_tint"))
-        // With the policy off the colour is kept.
-        val off = compile(rules = OneUiRules.load(9).copy(quickSettingsColoursOnly = false)).target(sysui)!!
+        // With the colour filter off the colour is kept.
+        val off = compile(rules = rules9.copy(quickSettings = rules9.quickSettings.copy(filterColours = false))).target(sysui)!!
         assertNotNull(off.color("wallpaper_tint"))
+        assertNull(off.reason("$sysui:color/wallpaper_tint"))
         // Other targets are never filtered.
         assertNotNull(compile().target(settings)!!.color("sec_widget_round_and_bgcolor"))
     }
@@ -281,14 +282,86 @@ class ThemeCompilerTest {
     }
 
     @Test
-    fun `quick settings tiles build no drawables but navbar does`() {
+    fun `a pack with System UI drawables yields zero System UI drawable jobs`() {
         val spec = baseSpec.copy(simplePackId = "icons-1")
-        val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(sysui)!!
+        val result = compile(spec, InMemoryPackResolver(listOf(iconPack)))
+        val t = result.target(sysui)!!
+        // The pack covers a tile shape (colours-only element), the navbar and a generic framework drawable.
+        assertTrue(t.drawables.isEmpty(), "System UI drawables planned: ${t.drawables.map { it.resourceName }}")
+        assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:drawable/qs_tile_shape"))
+        assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:drawable/ic_sysbar_back"))
+        // Colours are still written.
+        assertNotNull(t.color("qs_tile_bg"))
+        // The same pack still builds drawables elsewhere.
+        assertTrue(result.target(settings)!!.drawables.isNotEmpty())
+        // Every bundled version behaves the same.
+        for (major in 7..9) {
+            val rules = OneUiRules.load(major).copy(renamed = emptyMap())
+            assertTrue(compile(spec, InMemoryPackResolver(listOf(iconPack)), rules).target(sysui)!!.drawables.isEmpty(), "One UI $major")
+        }
+    }
+
+    @Test
+    fun `custom System UI drawables are dropped under the colours only policy`() {
+        val spec = baseSpec.copy(customIcons = mapOf("$sysui:drawable/qs_tile_shape" to "tile.png", "$settings:drawable/ic_settings_wifi" to "wifi.png"))
+        val result = compile(spec)
+        val t = result.target(sysui)!!
+        assertTrue(t.drawables.isEmpty(), "System UI drawables planned: ${t.drawables.map { it.resourceName }}")
+        assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:drawable/qs_tile_shape"))
+        // The same spec still writes the custom Settings icon.
+        assertTrue(result.target(settings)!!.drawables.any { it.resourceName == "$settings:drawable/ic_settings_wifi" && it.custom == "wifi.png" })
+    }
+
+    @Test
+    fun `drawablesAllowed builds navbar drawables but never tile shapes`() {
+        val spec = baseSpec.copy(simplePackId = "icons-1")
+        val rules = rules9.copy(quickSettings = rules9.quickSettings.copy(drawablesAllowed = true))
+        val result = compile(spec, InMemoryPackResolver(listOf(iconPack)), rules)
+        val t = result.target(sysui)!!
         assertTrue(t.drawables.none { it.resourceName.endsWith("qs_tile_shape") })
         assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:drawable/qs_tile_shape"))
         val back = t.drawables.filter { it.resourceName == "$sysui:drawable/ic_sysbar_back" }
         assertEquals(setOf("xxhdpi", "night-xxhdpi"), back.map { it.configuration }.toSet())
         assertTrue(back.all { it.elementId == "navigation_bar" })
+        val line = result.events.single { it.target == sysui && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) }
+        assertEquals("Quick Settings: colours and drawables (One UI 9 layout)", line.message)
+    }
+
+    @Test
+    fun `System UI compile report names the Quick Settings layout`() {
+        val result = compile()
+        val line = result.events.single { it.target == sysui && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) }
+        assertEquals("Quick Settings: colours only (One UI 9 layout)", line.message)
+        assertEquals("oneui9", line.data["layout"])
+        assertEquals("false", line.data["rulesFallback"])
+        assertEquals("9.0", line.data["deviceOneUi"])
+        assertEquals("pattern", line.data["allowlist"])
+        assertEquals("1", line.data["dropped"]) // wallpaper_tint
+        assertTrue(result.events.none { it.target == settings && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) })
+
+        // Unknown or newer One UI: the newest rules apply and the report says so.
+        val newer = Fixtures.profile9.copy(version = Fixtures.profile9.version!!.copy(major = 12, minor = 1))
+        val dev = device().copy(oneUi = newer)
+        val fallback = ThemeCompiler.compile(baseSpec, dev, noPacks, OneUiRules.forProfile(newer).copy(renamed = emptyMap())) { 42L }
+        val fb = fallback.events.single { it.target == sysui && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) }
+        assertEquals("Quick Settings: colours only (One UI 9 layout)", fb.message)
+        assertEquals("true", fb.data["rulesFallback"])
+        assertEquals("12.1", fb.data["deviceOneUi"])
+    }
+
+    @Test
+    fun `a colour allowlist replaces the pattern filter for System UI`() {
+        val rules = rules9.copy(quickSettings = rules9.quickSettings.copy(colours = listOf("qs_tile_bg")))
+        val result = compile(rules = rules)
+        val t = result.target(sysui)!!
+        assertNotNull(t.color("qs_tile_bg"))
+        assertNotNull(t.color("qs_tile_bg", "night"))
+        assertNull(t.color("notification_bg"))
+        assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/notification_bg"))
+        assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/wallpaper_tint"))
+        val line = result.events.single { it.target == sysui && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) }
+        assertEquals("1", line.data["allowlist"])
+        assertEquals("2", line.data["colours"])
     }
 
     @Test
@@ -312,7 +385,10 @@ class ThemeCompilerTest {
             listOf(iconPack),
             mapOf("icons-1" to setOf("layers/once/base/xx1/navbar/ic_sysbar_back.9.png", "layers/once/base/xx1/navbar/ic_sysbar_back.png")),
         )
-        val t = compile(baseSpec.copy(simplePackId = "icons-1"), packs).target(sysui)!!
+        // The navbar element also themes the framework; System UI itself never gets pack drawables.
+        val android = "android"
+        val dev = device(mapOf(android to TargetSnapshot(android, installed = true, table = table(android, emptyList(), mapOf("ic_sysbar_back" to listOf(480))))))
+        val t = compile(baseSpec.copy(simplePackId = "icons-1"), packs, dev = dev).target(android)!!
         val back = t.drawables.first { it.resourceName.endsWith("ic_sysbar_back") }
         assertTrue(back.ninePatch)
     }

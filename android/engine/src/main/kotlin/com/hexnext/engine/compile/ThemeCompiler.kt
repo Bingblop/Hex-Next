@@ -127,9 +127,9 @@ public data class CompiledTheme(
  *    from the dark scheme when its configuration contains `night`, else from the light scheme;
  *    entries without a match stay Samsung's ([REASON_FIXED]). [ThemeSpec.colorPins] then win
  *    (a pinned resource absent from SemWT is written in `""` and, for shade pins, `night`).
- *    For System UI under [OneUiRules.quickSettingsColoursOnly] only names matching
- *    [QS_COLOUR_NAMES] are kept ([REASON_QS_POLICY]). Names missing from the target table are
- *    skipped by [ResourceMapper].
+ *    For System UI only names [QuickSettingsRules.allowsColour] accepts are kept
+ *    ([REASON_QS_POLICY]): the version's allowlist, or [QS_COLOUR_NAMES] when it is empty.
+ *    Names missing from the target table are skipped by [ResourceMapper].
  * 2. **Drawables.** For each enabled element of the target, its pack ([ThemeSpec.packFor])
  *    layer categories ([Elements.elementForCategory]; option tokens must be on, in
  *    [Pack.defaultOptions] overlaid by [ThemeSpec.elementOptions]) are planned with
@@ -137,6 +137,11 @@ public data class CompiledTheme(
  *    planned once per density the target defines; night categories go to `night-<density>`. A
  *    day category without a night counterpart also gets a night twin planned with dark tints.
  *    More specific categories (more option tokens) and targeted elements win over generic ones.
+ *    **System UI never gets pack drawables** unless [QuickSettingsRules.drawablesAllowed] is on
+ *    (no bundled version allows them; Quick Settings layouts differ per One UI release), and
+ *    [QuickSettingsPolicy.COLOURS_ONLY] elements never do. Each is skipped with
+ *    [REASON_QS_POLICY], and the System UI target logs one `Quick Settings: colours only
+ *    (One UI N layout)` event.
  * 3. **Custom overrides.** Each [ThemeSpec.customIcons] / [ThemeSpec.customBackgrounds] entry of
  *    the target replaces every pack job of its resource with one custom job per configuration
  *    the pack jobs used (else per density/night configuration the target defines, else `""`).
@@ -186,7 +191,10 @@ public object ThemeCompiler {
     /** Resource-name prefix of the Settings dashboard row icons. */
     public const val DASHBOARD_ICON_PREFIX: String = "sec_ic_settings_"
 
-    /** System UI colour names kept under the quick-settings policy. */
+    /** Build-event message prefix of the System UI Quick Settings policy line. */
+    public const val QS_REPORT_PREFIX: String = "Quick Settings: "
+
+    /** System UI colour names kept under the quick-settings policy when the version has no allowlist. */
     public val QS_COLOUR_NAMES: Regex =
         Regex("qs_|quick|tile|panel|notification|status_bar|statusbar|navigation|nav_bar|volume|power|lock|keyguard|brightness", RegexOption.IGNORE_CASE)
 
@@ -355,15 +363,32 @@ public object ThemeCompiler {
             }
             skipped += fixed.values
 
-            if (pkg == SYSTEMUI && rules.quickSettingsColoursOnly) {
+            if (pkg == SYSTEMUI) {
+                val qs = rules.quickSettings
+                var dropped = 0
                 val it = values.keys.iterator()
                 while (it.hasNext()) {
                     val (typeName, config) = it.next()
-                    if (!QS_COLOUR_NAMES.containsMatchIn(typeName.substringAfter('/'))) {
+                    if (!qs.allowsColour(typeName.substringAfter('/'))) {
                         skipped += Skipped(display(typeName, config), REASON_QS_POLICY)
                         it.remove()
+                        dropped++
                     }
                 }
+                val deviceMajor = device.oneUi.version?.major
+                event(
+                    LogLevel.INFO, pkg,
+                    QS_REPORT_PREFIX + (if (qs.coloursOnly) "colours only" else "colours and drawables") + " (${qs.layoutLabel} layout)",
+                    mapOf(
+                        "layout" to qs.layout,
+                        "rulesMajor" to rules.major.toString(),
+                        "deviceOneUi" to (device.oneUi.version?.name ?: "unknown"),
+                        "rulesFallback" to (deviceMajor != rules.major).toString(),
+                        "allowlist" to if (qs.colours.isEmpty()) "pattern" else qs.colours.size.toString(),
+                        "colours" to values.size.toString(),
+                        "dropped" to dropped.toString(),
+                    ),
+                )
             }
 
             val out = mutableListOf<PlannedColor>()
@@ -413,6 +438,12 @@ public object ThemeCompiler {
             for ((key, file) in entries) {
                 if (key.substringBefore(':', "") != pkg) continue
                 val typeName = rules.rename(key.substringAfter(':'))
+                if (pkg == SYSTEMUI && !rules.quickSettings.drawablesAllowed) {
+                    // Colours only: a custom System UI drawable (from an older or hand-edited spec) is dropped like a pack one.
+                    skipped += Skipped(display(typeName, ""), REASON_QS_POLICY)
+                    event(LogLevel.INFO, pkg, "custom drawable dropped by Quick Settings policy", mapOf("key" to key, "file" to file))
+                    continue
+                }
                 val entry = table.find(typeName)
                 if (entry == null || '/' !in typeName) {
                     skipped += Skipped(key, REASON_NOT_IN_TARGET)
@@ -481,7 +512,10 @@ public object ThemeCompiler {
                 .sortedWith(compareBy<CategoryName>({ it.optionTokens.size }, { it.raw }))
             if (categories.isEmpty()) return emptyMap()
 
-            val qsBlocked = element.quickSettingsPolicy == QuickSettingsPolicy.COLOURS_ONLY && rules.quickSettingsColoursOnly
+            // System UI: pack drawables only when the version's Quick Settings rules allow them,
+            // and never for colours-only elements (tile shapes).
+            val qsBlocked = pkg == SYSTEMUI &&
+                (!rules.quickSettings.drawablesAllowed || element.quickSettingsPolicy == QuickSettingsPolicy.COLOURS_ONLY)
             val palette = if (options["palette"] == "pack") emptyMap() else pack.paletteArgb + derived()
             val entryNames = packs.entryNames(pack.id).ifEmpty { null }
             val jobs = LinkedHashMap<Pair<String, String>, PlannedDrawableJob>()

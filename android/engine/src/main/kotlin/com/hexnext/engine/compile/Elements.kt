@@ -6,8 +6,8 @@ public enum class QuickSettingsPolicy {
     NONE,
 
     /**
-     * Colours only: when the One UI rules enable [OneUiRules.quickSettingsColoursOnly], the
-     * element's drawables (tile shapes) are never built; dimensions and layouts never are anyway.
+     * Colours only: the element's System UI drawables (tile shapes) are never built, even when
+     * [QuickSettingsRules.drawablesAllowed] is on; dimensions and layouts never are anyway.
      */
     COLOURS_ONLY,
 }

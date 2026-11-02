@@ -37,6 +37,7 @@ import com.hexnext.themer.theme.ThemeApplier
 import com.hexnext.themer.theme.ThemePreviewer
 import com.hexnext.themer.theme.ThemeStore
 import com.hexnext.themer.theme.formatOneUi
+import com.hexnext.themer.ui.settings.AppSettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,10 +51,34 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** The full-screen destinations of the app; [MainViewModel.screen] holds the current one. */
+enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING }
+
+/** What a [Notice] offers to do besides dismissing itself. */
+enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE }
+
+/**
+ * One transient message for the snackbar: the outcome of an apply, remove or import, with an
+ * action the user can take right there. The log card keeps the detailed lines.
+ */
+data class Notice(
+    val message: String,
+    val actionLabel: String? = null,
+    val action: NoticeAction? = null,
+    /** True for a failed outcome (stronger haptic, error colours). */
+    val isError: Boolean = false,
+    /** True for a confirmed success (success haptic). */
+    val isSuccess: Boolean = false,
+    /** Distinguishes two identical notices in a row so each one shows. */
+    val id: Long = System.nanoTime(),
+)
+
 data class UiState(
     /** Accent seed (opaque ARGB) of the compiled theme and the Diagnostics Settings test. */
     val seed: Int,
     val busy: Boolean = false,
+    /** The pending snackbar message; null once shown (see [MainViewModel.consumeNotice]). */
+    val notice: Notice? = null,
     val oneUiVersion: String? = null,
     val log: List<LogLine> = emptyList(),
     /** Non-null while the "Hex overlays were turned off after repeated restarts" banner shows. */
@@ -118,6 +143,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val packStore = PackStore(app)
     private val previewer = ThemePreviewer(app)
     private val assets = CustomAssetStore(app)
+    private val appSettings = AppSettingsStore.get(app)
     private var safeModeChecked = false
     private var semwtReasserted = false
 
@@ -134,6 +160,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _ui = MutableStateFlow(initialState())
     val ui: StateFlow<UiState> = _ui.asStateFlow()
+
+    /** Screens the user came through, so back returns to them (settings → AI providers → back → settings). */
+    private val backStack = ArrayDeque<Screen>()
+
+    private val _screen = MutableStateFlow(if (appSettings.settings.value.onboardingDone) Screen.MAIN else Screen.ONBOARDING)
+
+    /** The screen on display; the setup guide on the very first launch, the editor otherwise. */
+    val screen: StateFlow<Screen> = _screen.asStateFlow()
+
+    // ---- Navigation ----
+
+    /** Shows [screen], remembering the current one for [navigateBack]. Navigating to the current screen is a no-op. */
+    fun navigate(screen: Screen) {
+        val current = _screen.value
+        if (current == screen) return
+        if (screen == Screen.MAIN) backStack.clear() else backStack.addLast(current)
+        _screen.value = screen
+    }
+
+    /** Returns to the previous screen, or to the editor when there is none. */
+    fun navigateBack() {
+        _screen.value = backStack.removeLastOrNull() ?: Screen.MAIN
+    }
+
+    /** Marks the setup guide as seen (finished or skipped) and leaves it. */
+    fun finishOnboarding() {
+        appSettings.setOnboardingDone(true)
+        navigateBack()
+    }
+
+    /** Clears [UiState.notice] once the snackbar has shown it. */
+    fun consumeNotice(id: Long) = _ui.update { if (it.notice?.id == id) it.copy(notice = null) else it }
+
+    private fun postNotice(notice: Notice) = _ui.update { it.copy(notice = notice) }
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -253,12 +313,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * seed and pack) to every scanned target. Works without packs (colours only); drawables and
      * night colours need the privileged service.
      */
-    fun applyTheme() = runTask { service, _ ->
+    fun applyTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
         val spec = specToApply()
         val report = applier.apply(service, spec, ::log)
         _ui.update { it.copy(lastApplySummary = report.summary()) }
+        if (report.success) {
+            postNotice(Notice("Theme applied", isSuccess = true))
+        } else {
+            postNotice(Notice("Theme could not be applied", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
+        }
         report.success
     }
+
+    /** Replaces the whole stored theme (the "Describe your theme" card hands back a mapped spec). */
+    fun replaceSpec(spec: EngineThemeSpec) = updateSpec { spec }
 
     /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
     private fun specToApply(): EngineThemeSpec {
@@ -442,6 +510,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 log(LogLine(LogLevel.OK, "Imported $what ${asset.displayName}$size as ${asset.fileName}"))
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Importing the $what failed: ${t.message ?: t.javaClass.simpleName}"))
+                postNotice(Notice("Couldn't import the $what", isError = true))
             } finally {
                 _ui.update { it.copy(busy = false) }
                 refreshAssets()
@@ -550,6 +619,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 log(LogLine(LogLevel.OK, "Imported pack ${pack.name} (${pack.id}, ${pack.drawableCount} drawables)"))
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Import failed: ${t.message ?: t.javaClass.simpleName}"))
+                postNotice(Notice("Couldn't import the pack file", isError = true))
             } finally {
                 _ui.update { it.copy(busy = false) }
                 refreshPacks()
@@ -609,6 +679,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)"))
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Download of ${entry.name} failed: ${t.message ?: t.javaClass.simpleName}"))
+                postNotice(Notice("Couldn't download ${entry.name}", isError = true))
             } finally {
                 _ui.update { it.copy(busy = false, catalogue = it.catalogue.copy(downloading = it.catalogue.downloading - entry.id)) }
                 refreshPacks()
@@ -617,15 +688,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
-    fun removeTheme() = runTask { service, _ ->
+    fun removeTheme() = runTask(retry = NoticeAction.RETRY_REMOVE) { service, _ ->
         val ok = applier.remove(service, ::log)
         _ui.update { it.copy(lastApplySummary = null) }
+        if (ok) {
+            postNotice(Notice("Theme removed", isSuccess = true))
+        } else {
+            postNotice(Notice("Theme could not be removed", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
+        }
         ok
     }
 
-    private fun runTask(block: (com.hexnext.themer.IThemeService, ShizukuState.Ready) -> Boolean) {
+    /**
+     * Runs [block] on the privileged service with the busy flag held. [retry] is the snackbar
+     * action offered when [block] throws; null shows the failure without an action.
+     */
+    private fun runTask(retry: NoticeAction?, block: (com.hexnext.themer.IThemeService, ShizukuState.Ready) -> Boolean) {
         val ready = ShizukuManager.state.value as? ShizukuState.Ready ?: run {
             log(LogLine(LogLevel.ERROR, "Shizuku (UID 0 / UID 1000) or SU isn't ready."))
+            val state = ShizukuManager.state.value
+            postNotice(
+                if (state == ShizukuState.PermissionNeeded || state == ShizukuState.PermissionDenied) {
+                    Notice("Hex Next needs Shizuku access first", actionLabel = "Allow", action = NoticeAction.REQUEST_PERMISSION, isError = true)
+                } else {
+                    Notice("Start Shizuku with root or grant root access first", isError = true)
+                },
+            )
             return
         }
         if (_ui.value.busy) return
@@ -636,6 +724,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 withContext(Dispatchers.IO) { block(service, ready) }
             } catch (t: Throwable) {
                 log(LogLine(LogLevel.ERROR, "${t.javaClass.simpleName}: ${t.message}"))
+                postNotice(
+                    Notice(
+                        "Something went wrong. Check the log for details",
+                        actionLabel = if (retry != null) "Retry" else null,
+                        action = retry,
+                        isError = true,
+                    ),
+                )
             } finally {
                 _ui.update { it.copy(busy = false) }
             }

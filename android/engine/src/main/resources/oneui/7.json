@@ -21,7 +21,11 @@
     "com.samsung.android.app.reminder"
   ],
   "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
-  "quickSettingsColoursOnly": true,
+  "quickSettings": {
+    "layout": "oneui7",
+    "colours": [],
+    "drawablesAllowed": false
+  },
   "renamed": {},
   "dashboardRows": [
     "cloud_and_account",

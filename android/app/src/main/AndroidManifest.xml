@@ -7,8 +7,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->
+    <!-- dataExtractionRules keeps the encrypted AI provider keys out of backups and transfers. -->
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
