@@ -12,7 +12,7 @@ Hex Next: One UI Themer
 ## Short description (max 80)
 
 ```
-Theme One UI system apps: colours, icon packs, fonts. Needs root or Shizuku.
+Theme One UI system apps: colours, icon packs, fonts. Needs root + Shizuku.
 ```
 76 characters.
 
@@ -46,9 +46,9 @@ Hex Next includes free colour themes. Additional icon and theme packs are availa
 
 REQUIREMENTS
 • A Samsung Galaxy phone running One UI 7, 8 or 9 (Android 15 to 17)
-• Root access, or Shizuku for the colours-only mode
-  – With root: colours, icon packs, custom icons, fonts and backgrounds
-  – With Shizuku and no root: colours across One UI
+• Shizuku (free on Google Play). For full theming, start Shizuku with root
+  – Shizuku started with root: per-app colours, icon packs, custom icons, fonts and backgrounds
+  – Shizuku over Wireless debugging (no root): your accent colour as the system palette only
 Phones from other brands and older One UI versions are not supported; the app tells you so on first launch.
 
 PRIVACY
@@ -74,4 +74,4 @@ Hex Next is an independent app and is not affiliated with or endorsed by Samsung
 - Ads: No ads
 - Target audience: 18 and over (root tooling, system modification); not designed for children
 - Content rating (IARC): no violence, sexual content, language, controlled substances, gambling, user interaction or location sharing; expect "Everyone" / PEGI 3. "Digital purchases" is declared.
-- App access for review: the reviewer needs a rooted Samsung test device or Shizuku; provide instructions in App content > App access: "Install Shizuku from Google Play, start it with Wireless debugging, open Hex Next, grant access; colour themes then apply without root."
+- App access for review: the reviewer needs a rooted Samsung test device or Shizuku; provide instructions in App content > App access: "Install Shizuku from Google Play, start it with Wireless debugging, open Hex Next and grant access. Without root, Apply sets the accent colour as the system palette; per-app colours, icons and fonts need Shizuku started with root."
