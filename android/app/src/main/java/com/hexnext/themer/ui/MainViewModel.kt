@@ -23,6 +23,7 @@ import com.hexnext.engine.pack.Pack
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
+import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
@@ -363,7 +364,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             runCatching {
                 val service = ShizukuManager.service()
-                withContext(Dispatchers.IO) { service.stopStabilityMonitor() }
+                withContext(Dispatchers.IO) {
+                    service.stopStabilityMonitor()
+                    EarlyRecoveryHook.uninstall(service)
+                }
             }.onFailure { log(LogLine(LogLevel.WARN, "Could not stop the stability monitor: ${it.message}")) }
         }
     }

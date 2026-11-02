@@ -17,7 +17,6 @@ class ApplyGuard(context: Context) {
 
     private val appContext = context.applicationContext
     private val deviceProtectedContext = appContext.createDeviceProtectedStorageContext()
-    private val credentialProtectedContext = appContext.createCredentialProtectedStorageContext()
     private val prefs: SharedPreferences =
         deviceProtectedContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -42,7 +41,7 @@ class ApplyGuard(context: Context) {
 
     /** "It works": clears the pending apply so no restart can trigger safe mode for it. */
     fun confirm() {
-        prefs.edit().putBoolean(KEY_CONFIRMED, true).commit()
+        prefs.edit().putBoolean(KEY_CONFIRMED, true).apply()
     }
 
     /** Appends the current boot id if it is new. Returns the stored list. */
@@ -91,29 +90,35 @@ class ApplyGuard(context: Context) {
             "boots=${bootIds.joinToString { it.take(8) }}, current=${currentBootId()?.take(8)}"
     }
 
+    /**
+     * Builds before the move to device-protected storage kept this state in the default
+     * (credential-protected) preferences. Copies it over once, then clears the old file so the
+     * copy never runs again. Only possible after unlock; before that the old file is unreadable.
+     */
     private fun migrateCredentialProtectedState() {
-        val userManager = deviceProtectedContext.getSystemService(UserManager::class.java)
-        if (userManager?.isUserUnlocked != true || prefs.contains(KEY_APPLIED_AT)) return
-
-        val legacy = credentialProtectedContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val userManager = appContext.getSystemService(UserManager::class.java)
+        if (userManager?.isUserUnlocked != true) return
+        val legacy = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val oldValues = legacy.all
         if (oldValues.isEmpty()) return
 
-        val deviceBootIds = bootIds
         val editor = prefs.edit()
-        oldValues.forEach { (key, value) ->
-            when (value) {
-                is Boolean -> editor.putBoolean(key, value)
-                is Float -> editor.putFloat(key, value)
-                is Int -> editor.putInt(key, value)
-                is Long -> editor.putLong(key, value)
-                is String -> if (key != KEY_BOOT_IDS) editor.putString(key, value)
-                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+        if (!prefs.contains(KEY_APPLIED_AT)) {
+            oldValues.forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is String -> if (key != KEY_BOOT_IDS) editor.putString(key, value)
+                    is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+                }
             }
         }
-        val mergedBootIds = (deviceBootIds + legacy.getString(KEY_BOOT_IDS, "").orEmpty()
-            .split(',').filter { it.isNotBlank() }).distinct().takeLast(MAX_BOOT_IDS)
-        editor.putString(KEY_BOOT_IDS, mergedBootIds.joinToString(",")).commit()
+        val legacyBootIds = legacy.getString(KEY_BOOT_IDS, "").orEmpty().split(',').filter { it.isNotBlank() }
+        val merged = (legacyBootIds + bootIds).distinct().takeLast(MAX_BOOT_IDS)
+        editor.putString(KEY_BOOT_IDS, merged.joinToString(",")).commit()
+        legacy.edit().clear().commit()
     }
 
     companion object {

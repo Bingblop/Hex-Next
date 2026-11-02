@@ -201,7 +201,7 @@ class ThemeApplier(context: Context) {
         cleanupLegacy(service) { level, text -> say(level, text, emptyMap()) }?.let { notes += it }
 
         guard.recordApply()
-        if (service.uid == 0 && !EarlyRecoveryHook.install(service)) {
+        if (EarlyRecoveryHook.install(service) == false) {
             note(LogLevel.WARN, "Early root recovery hook could not be installed")
         }
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
@@ -518,6 +518,7 @@ class ThemeApplier(context: Context) {
         cleanupLegacy(service, say)
         runCatching { FontInstaller(service).remove(log) }
             .onFailure { say(LogLevel.WARN, "Font removal failed: ${it.javaClass.simpleName}: ${it.message}") }
+        EarlyRecoveryHook.uninstall(service)
         guard.confirm()
         say(LogLevel.INFO, "Build log: ${buildLog.file.path}")
         return ok

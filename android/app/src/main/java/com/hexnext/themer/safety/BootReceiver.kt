@@ -28,9 +28,12 @@ class BootReceiver : BroadcastReceiver() {
         val lockedBoot = intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
         val guard = ApplyGuard(context)
         guard.noteBoot()
-        val safeMode = guard.shouldEnterSafeMode() || EarlyRecoveryHook.wasTriggeredThisBoot()
+        val guardSafeMode = guard.shouldEnterSafeMode()
+        // The early root hook may have disabled the overlays already; its marker is only
+        // readable through the service, so it is checked on the worker thread below.
+        val mayHaveEarlyMarker = !guard.confirmed && guard.appliedAt > 0L && !guard.safeModeActive()
         val takeover = !lockedBoot && ThemeApplier.isTakeoverActive(context)
-        if (!safeMode && (!takeover || guard.safeModeActive())) return
+        if (!guardSafeMode && !mayHaveEarlyMarker && (!takeover || guard.safeModeActive())) return
         if (SU_PATHS.none { File(it).exists() }) return
 
         val appContext = context.applicationContext
@@ -38,6 +41,9 @@ class BootReceiver : BroadcastReceiver() {
         Thread({
             try {
                 val service = ThemeService()
+                val safeMode = guardSafeMode ||
+                    (mayHaveEarlyMarker && EarlyRecoveryHook.wasTriggeredThisBoot(service))
+                if (!safeMode && (!takeover || guard.safeModeActive())) return@Thread
                 if (safeMode) {
                     val result = service.disableHexOverlays()
                     if (!lockedBoot && result.getInt(ThemeService.KEY_CODE, -1) == 0) {

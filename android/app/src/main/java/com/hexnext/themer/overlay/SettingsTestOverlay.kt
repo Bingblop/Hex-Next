@@ -180,7 +180,7 @@ class SettingsTestOverlay(context: Context) {
 
         ApplyGuard(appContext).recordApply()
         log("Apply recorded for the boot-loop guard. Tap \"It works\" once Settings looks right.")
-        if (service.uid == 0 && !EarlyRecoveryHook.install(service)) {
+        if (EarlyRecoveryHook.install(service) == false) {
             log("Early root recovery hook could not be installed")
         }
 

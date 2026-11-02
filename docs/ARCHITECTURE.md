@@ -173,10 +173,12 @@ A **Pack** is the zip produced by `tools/hex_pack_builder.py`: greyscale PNG lay
 * **Safe mode watchdog**: apply state is stored in device-protected preferences. A root shell
   watchdog started with `setsid` watches `system_server` and `com.android.systemui` PIDs for 120 s;
   two restarts disable every `HexNext_*` overlay. Root applies also install the early-recovery
-  module at `/data/adb/modules/hexnext_early_recovery/`; its detached `post-fs-data` hook disables
-  Hex overlays after a reboot with an unconfirmed apply, before user unlock. `LOCKED_BOOT_COMPLETED`
-  records boot ids and completes safe-mode handling; the app opens in Safe Mode. The user confirms
-  "it works" to clear the pending apply.
+  module at `/data/adb/modules/hexnext_early_recovery/`; its detached `post-fs-data` hook applies
+  the same rule as the app (second restart within 10 minutes of an unconfirmed apply) before user
+  unlock, disables Hex overlays and leaves a marker the boot receiver reads through the service.
+  `LOCKED_BOOT_COMPLETED` records boot ids and completes safe-mode handling; the app opens in Safe
+  Mode. "It works" and Remove theme delete the module; it removes itself if the app is
+  uninstalled. It needs persistent root: a temporary root that is gone after reboot runs nothing.
 * **Panic**: `Remove everything` disables and unregisters all `HexNext_*` overlays.
 
 ## One UI version handling
