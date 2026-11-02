@@ -180,7 +180,7 @@ A **Pack** is the zip produced by `tools/hex_pack_builder.py`: greyscale PNG lay
 ## One UI version handling
 
 `DeviceProfile` reads `ro.build.version.oneui` / `SEM_PLATFORM_INT`, Android SDK, and the
-device model. Version-specific rules live in `engine/src/main/resources/oneui/<major>.json`:
+device model. Version-specific rules live in `android/engine/src/main/resources/oneui/<major>.json`:
 target package list, quick-settings policy (tiles only on 7/8/9), known renamed resources. One
 UI 9 ships first; 7 and 8 reuse the same discovery path with their own rule files.
 

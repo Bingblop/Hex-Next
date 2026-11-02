@@ -1,86 +1,126 @@
-# Samsung One UI 9.0 Modern Theme Engine
+# Hex Next
 
-A next-generation theming framework, diagnostic suite, and compatibility layer for **Samsung Galaxy devices running One UI 7, 8, and 9.0 (Android 15, 16, and 17)**.
+Hex Next is a theme engine for Samsung Galaxy phones running One UI 7, 8 and 9. It is a native
+Android app (Kotlin, Jetpack Compose, Material 3) that recolours and re-skins One UI system apps
+with fabricated runtime resource overlays built on the phone itself. Nothing is flashed, no
+system partition is modified, and every change can be removed from inside the app.
 
----
+The app is the product. The engine that plans and compiles overlays is a pure-JVM Kotlin module
+that is unit-tested without an Android SDK.
 
-## 📱 HexNext app (native, `android/`)
+## What it does
 
-The main product is now a native Kotlin + Jetpack Compose app in [`android/`](android/), built by
-GitHub Actions on pushes and pull requests. Install the **signed universal APK from GitHub Releases**;
-the unsigned CI candidate is for validation, not installation. It needs Android 14+ and
-[Shizuku](https://shizuku.rikka.app/).
+- **Colours.** A Material You palette (seed colour, style, contrast, pure black) written into One
+  UI packages only, so Google and third-party apps keep the system palette.
+- **Icons and artwork.** Theme packs supply greyscale layers that the app tints with the palette
+  and composites per density into Settings dashboard icons, My Files icons and other drawables.
+- **Custom icons.** Any icon slot can take an imported image, or an icon generated from a short
+  text prompt with your own AI provider key (bring your own key; keys stay encrypted on the phone).
+- **Quick Settings.** Colours only, matched to the One UI version's layout. Quick Settings
+  artwork from packs is never applied because the panel layout changes with every One UI release.
+- **Live preview.** The editor renders the same output the phone will receive before you apply.
+- **Safety.** Apply reports, a safe-mode watchdog, one-tap "Remove everything", and a
+  diagnostics screen that collects what support needs.
 
-- **Shizuku running as root (or Sui):** HexNext registers real fabricated overlays on the framework:
-  all 65 Monet shades (`system_accent1..3_*`, `system_neutral1..2_*`) plus the Android 14+ Material role
-  colors, generated from your accent color and palette style. Pure-black dark mode is available.
-  Every step shows the real result, and the app reads the color back to verify it applied.
-- **Shizuku over wireless debugging (no root):** the current native app rejects theme application from
-  the ordinary shell UID. Fabricated overlay application requires root or a supported privileged
-  system session; there is no non-root Monet fallback in this release.
+## Supported phones
 
-Build locally with `cd android && ./gradlew assembleDebug`. The old WebView app in `apps/hex-next/`
-is kept only as a design reference.
+| One UI | Android | Status |
+|---|---|---|
+| 9.0 | 16 / 17 | Primary target, tested on a Galaxy S26 Ultra (SM-S948U1) |
+| 8.x | 16 | Supported, own rule file |
+| 7.x | 15 | Supported, own rule file |
 
-## Universal APK release
+The app requires Android 15 or newer (`minSdk 35`). Phones on One UI 6 or older should use the
+original Hex Installer from Google Play (`project.vivid.hex.bodhi`); Hex Next does not target them.
 
-The release is the compiled native app in `android/`, not a web dashboard export. Its universal APK
-supports ARM and x86, both 32-bit and 64-bit, and includes English resources. Managed-code builds
-need no native `.so` files; any native dependencies must include all four supported ABIs.
+## Access tiers
 
-Use JDK 17 and the Android SDK with `platforms;android-36` and `build-tools;36.0.0`.
-For a local signed build, supply `HEXNEXT_KEYSTORE_PATH` (absolute path recommended),
-`HEXNEXT_STORE_PASSWORD`, `HEXNEXT_KEY_ALIAS`, and `HEXNEXT_KEY_PASSWORD` as environment variables,
-or in an ignored `android/keystore.properties` file using the same names. Then run:
+Hex Next talks to the system through [Shizuku](https://shizuku.rikka.app/) and adapts to the
+privilege it is given.
+
+| Tier | How | What works |
+|---|---|---|
+| Full (root) | Shizuku started with root, Sui, or a root manager | Everything: colours, PNG icons and backgrounds, fonts, repair, watchdog |
+| Colours only (Shizuku) | Shizuku over wireless debugging (shell uid 2000) | Fabricated colour overlays and the Monet seed; icon and artwork features are shown disabled with a "Needs root" badge |
+| Not connected | Shizuku not running or permission denied | Preview and editing only |
+
+The status pill in the top bar shows the current tier, Android release and One UI version.
+
+## Build from source
+
+Requirements: JDK 17, Android SDK with `platforms;android-36` and `build-tools;36.0.0`.
 
 ```bash
+cd android
+./gradlew assembleDebug                                   # installable debug build
+./gradlew :app:testDebugUnitTest :app:lintRelease         # app unit tests and release lint
+cd engine && gradle test                                  # engine tests (no Android SDK needed)
+```
+
+Debug builds are signed with the debug key and unobfuscated. Release builds are shrunk and
+obfuscated by R8 (`android/app/proguard-rules.pro`) and must be signed with your own key:
+
+```bash
+export HEXNEXT_KEYSTORE_PATH=/absolute/path/release.keystore
+export HEXNEXT_STORE_PASSWORD=... HEXNEXT_KEY_ALIAS=... HEXNEXT_KEY_PASSWORD=...
 ./bin/build-and-sign-release-apk.sh
 ```
 
-The output is `dist/HexNext_OneUI9_Universal_EN_Signed.apk`, with a SHA-256 checksum and a verification
-report. The build runs unit tests and release lint, and verifies compiled resources, launcher,
-SDK versions, universal architecture coverage, 16 KB ELF/ZIP alignment, and real v1/v2/v3 signatures.
-Missing or incomplete signing configuration fails; there is no debug-key or generated-key fallback.
+The script runs the tests and lint, builds the universal APK (arm64-v8a, armeabi-v7a, x86_64,
+x86; English resources), verifies it with `bin/verify-release-apk.py` (SDK versions, launcher,
+16 KB alignment, v1/v2/v3 signatures) and writes `dist/HexNext_OneUI9_Universal_EN_Signed.apk`
+with a SHA-256 checksum and a JSON report. Signing values may also live in an ignored
+`android/keystore.properties`. Never commit a keystore or password.
 
-For GitHub publishing, configure repository Actions secrets `HEXNEXT_KEYSTORE_BASE64` (the Base64
-encoding of your production keystore), `HEXNEXT_STORE_PASSWORD`, `HEXNEXT_KEY_ALIAS`, and
-`HEXNEXT_KEY_PASSWORD`. Keep the production key private and backed up; future updates must use the
-same signing identity. Previously committed placeholder keystores have been removed and must not
-be used for releases. Never commit real signing keys or passwords.
+### Continuous integration and releases
 
-After merging a passing PR, ensure `versionName` in `android/app/build.gradle.kts` matches the release
-tag without its `v` prefix, and increase `versionCode` for every subsequent release.
+- `.github/workflows/android.yml` runs the tooling tests (`tests/`), the app unit tests, release
+  lint, an unsigned universal candidate, an installable debug build, and a signing dry run with
+  an ephemeral CI-only key.
+- `.github/workflows/release.yml` publishes a GitHub Release from a `v*` tag or a manual run:
+  `python3 bin/prepare-release.py` checks the tag against `versionName`, then the signed APK,
+  checksum, report and R8 mapping are attached. Secrets: `HEXNEXT_KEYSTORE_BASE64`,
+  `HEXNEXT_STORE_PASSWORD`, `HEXNEXT_KEY_ALIAS`, `HEXNEXT_KEY_PASSWORD`.
+- Before publishing, smoke-test the signed APK on a supported phone: install or upgrade, grant
+  Shizuku, apply and remove a theme, and check both the root and the colours-only tier.
 
-Run **Actions > Release Universal APK > Run workflow**, select `main`, and enter a tag such as
-`v2.1.0`. Manual runs default to a **draft release**, allowing device smoke testing before publication.
-Uncheck the draft option only when ready to publish. An existing tag must point to the selected
-commit; new releases target that exact commit rather than a moving branch. Alternatively:
+## Testing on a phone
 
-```bash
-gh workflow run release.yml --ref main -f tag=v2.1.0 -f draft=true
+Scripts in `tools/device/` run from Termux (or `adb shell`) on the phone. All need root except
+`diag.sh`.
+
+| Script | Purpose |
+|---|---|
+| `install.sh` | Download the pinned CI debug build, check its SHA-256, `pm install -r` |
+| `pack.sh` | Copy or download a theme pack zip into the app's pack folder |
+| `diag.sh` | Read-only diagnostics: One UI version, Samsung `SemWT_*` overlays, root/Shizuku state, one sample `.frro` |
+| `collect.sh` | Collect the app's reports, logs and overlay state into one file after a test |
+| `icons-probe.sh` | Find the real Settings dashboard icon names and check whether Settings caches icons |
+| `test-overlay.sh` | End-to-end overlay precedence test against `SemWT_com.android.settings`, then revert |
+
+Captured device data lives in `docs/device/`.
+
+## Repository layout
+
+```
+android/
+  app/        Android app: Compose UI, settings, AI icon generation, Shizuku service,
+              device discovery, apply, watchdog, diagnostics
+  engine/     pure-JVM Kotlin: arsc and frro parsers, pack model, palette, resource mapping,
+              theme compiler and One UI rule files (android/engine/src/main/resources/oneui/)
+bin/          release tooling: build-and-sign-release-apk.sh, prepare-release.py,
+              verify-release-apk.py
+tests/        unit tests for the release tooling (python3 -m unittest discover -s tests -p 'test_*.py')
+tools/        pack builder, catalogue tools, glyph generator, device scripts (see tools/README.md)
+docs/         ARCHITECTURE.md, PALETTE.md, PERFORMANCE.md, reference/ notes, device/ captures,
+              plugin-catalog/ (resource map used by engine tests), branding/, site/ (privacy policy)
 ```
 
-Pushing a matching `v*` tag also runs this dedicated workflow and publishes automatically. Versions
-with a prerelease suffix such as `-rc.1` are marked as GitHub prereleases. The workflow reuses Android
-CI, then builds and verifies the production-signed APK before attaching the APK, checksum,
-verification report, and R8 mapping file. Release signing secrets are never passed to reusable CI.
-Ordinary CI builds unsigned candidates and separately tests signing with an ephemeral CI-only key;
-those test-signed APKs are never uploaded or published.
+Documentation starts at [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[docs/PALETTE.md](docs/PALETTE.md). The fabricated overlay file format is in
+[docs/reference/frro-binary-format.md](docs/reference/frro-binary-format.md).
 
-Before publishing, smoke-test the signed APK on a supported Samsung device: install/upgrade, launch,
-grant Shizuku access, apply and remove a theme, and check both privileged and non-root behavior.
-Automated packaging checks do not establish Samsung overlay compatibility.
+## Licence
 
----
-
-## 🌟 Features
-
-- **Fabricated Runtime Resource Overlays (RRO):** Dynamic, instantaneous color and resource styling via native Android `cmd overlay fabricate`—no slow compilation, no reboot required.
-- **Native HexNext App:** Kotlin and Jetpack Compose controls for privileged overlay application.
-- **Web Preview Dashboard:** Theme configuration, palette previews, and JSON exports; APK releases are built by Gradle.
-- **Theme Profiles:** Ready-to-use JSON theme templates (AMOLED Pure Black, Neon Violet, Cyberpunk Gold).
-
-
-
----
-For detailed analysis, refer to [docs/HEX_INSTALLER_REVERSE_ENGINEERING.md](docs/HEX_INSTALLER_REVERSE_ENGINEERING.md).
+MIT, see [LICENSE](LICENSE). Hex Next ships only original artwork and glyphs. Theme packs are
+converted from content the user already owns; the repository stores no third-party artwork.

@@ -16,14 +16,11 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  test-web:
+  # Unit tests for the release tooling in bin/ (prepare-release.py, verify-release-apk.py).
+  test-tools:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: node --check server.js && node --test tests/*.test.js
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
 
   build-android:

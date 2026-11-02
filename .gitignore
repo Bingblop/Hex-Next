@@ -1,26 +1,54 @@
+# Python (release tooling in bin/, pack tools in tools/)
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 .pytest_cache/
-apps/**/bin/
-apps/**/obj/
-apps/**/build/
-*.keystore
-*.idsig
-*.apk
-.hex_temp/
-.cache_apks/
+.venv/
+venv/
+
+# Node (tools/glyphs/build.js only; nothing in the repo is a Node project)
+node_modules/
+
+# Android / Gradle
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.kotlin/
+android/captures/
+.gradle/
+build/
+*.hprof
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Build outputs and signing material: never tracked.
 dist/
-daemon.pid
-daemon.log
+*.apk
+*.aab
+*.idsig
 *.jar
-
-# Native Android app: keep the Gradle wrapper, never signing keys.
-!android/gradle/wrapper/gradle-wrapper.jar
-
-# Never commit CI signing secret property files materialized from GitHub repository secrets.
+*.keystore
+*.jks
+*.p12
+*.pem
 *.secrets.properties
 keystore.properties
+android/keystore.properties
 android/keystore.secrets.properties
 android/app/keystore.secrets.properties
+
+# Keep the Gradle wrapper jar (the only jar that belongs in the repo).
+!android/gradle/wrapper/gradle-wrapper.jar
+
+# Scratch output of the device scripts and pack tools
+.hex_temp/
+.cache_apks/
+daemon.pid
+daemon.log
+
+# AI Studio scratch (the prototype that lived here has been removed)
+.aistudio/
