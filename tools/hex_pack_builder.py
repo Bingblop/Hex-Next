@@ -77,8 +77,13 @@ def build_pack(path: Path, out_dir: Path) -> dict:
     meta = catalog_one(path)
     raw = base_apk_bytes(path)
     source_id = slug(f"{meta['name'] or meta['label']}-{meta['version']}")
-    # The catalogue never shows the source plugin's name (tools/pack_names.json).
-    pack_id, pack_name = catalogue_identity(source_id) or (source_id, meta["name"] or meta["label"])
+    # The catalogue never shows the source plugin's name (tools/pack_names.json): a plugin
+    # without a mapping is refused instead of shipping under its original name.
+    identity = catalogue_identity(source_id)
+    if identity is None:
+        raise ValueError(f"{path.name}: no catalogue name for {source_id!r}; "
+                         "add it to tools/pack_names.json")
+    pack_id, pack_name = identity
     palette, defaults, options, category_options = {}, {}, [], {}
     layers: dict[tuple, dict] = {}
     ui_drawables: dict[str, zipfile.ZipInfo] = {}

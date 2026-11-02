@@ -51,9 +51,16 @@ enum class Capability {
             else -> NONE
         }
 
-        /** The tier of the current connection, before the service is bound (from the Shizuku uid). */
+        /**
+         * The tier of the current connection, before the service is bound (from the Shizuku uid).
+         *
+         * SU mode ([ShizukuState.Ready.viaSu]: `su` found, Shizuku not running) is [NONE]: its
+         * Ready uid of 0 is only a stand-in, the service then lives in the app process (uid 10xxx)
+         * and reaches root through `su -c` for commands alone, so it cannot commit overlays and
+         * [ThemeApplier] stops before applying anything.
+         */
         fun of(state: ShizukuState): Capability = when (state) {
-            is ShizukuState.Ready -> fromUid(state.uid)
+            is ShizukuState.Ready -> if (state.viaSu) NONE else fromUid(state.uid)
             else -> NONE
         }
     }
@@ -87,11 +94,19 @@ object MonetSeed {
     /** `RRGGBB` (no `#`), the form ThemePicker writes. */
     fun hex(argb: Int): String = "%06X".format(argb and 0xFFFFFF)
 
-    /** The current setting text, or "" when unset ("null" from `settings get`). */
-    fun read(service: IThemeService): String {
+    /**
+     * The current setting text, "" when it is unset ("null" from `settings get`), or null when the
+     * read itself failed (non-zero exit, timeout, no output at all). A failed read must never be
+     * taken for "unset": [restore] would then delete the user's real palette setting.
+     */
+    fun read(service: IThemeService): String? {
         val (code, text) = ExecOutput.exec(service, "settings get secure $SETTING")
         val value = text.trim()
-        return if (code != 0 || value.isEmpty() || value == "null") "" else value
+        return when {
+            code != 0 || value.isEmpty() -> null
+            value == "null" -> ""
+            else -> value
+        }
     }
 
     /**
@@ -129,6 +144,10 @@ object MonetSeed {
      */
     fun apply(service: IThemeService, seedArgb: Int, log: (LogLine) -> Unit): Boolean {
         val current = read(service)
+        if (current == null) {
+            log(LogLine(LogLevel.WARN, "System palette not set: could not read the current $SETTING value (settings get failed). Try applying again."))
+            return false
+        }
         if (readState(service) == null) {
             val state = JSONObject()
                 .put(STATE_PREVIOUS, current)
@@ -141,7 +160,8 @@ object MonetSeed {
                         LogLevel.WARN,
                         "System palette not set: could not save the previous palette to $FILE_NAME " +
                             "(${saved.output().lineSequence().firstOrNull().orEmpty()}). " +
-                            "Apply once with root, or clear ${MonitorScript.DIR} with adb, then try again.",
+                            "Apply once with root (Hex Next then hands ${MonitorScript.DIR} to the shell), " +
+                            "or remove it with `su -c rm -rf ${MonitorScript.DIR}`, then try again.",
                     ),
                 )
                 return false
@@ -157,7 +177,7 @@ object MonetSeed {
             log(LogLine(LogLevel.WARN, "settings put secure $SETTING failed (exit ${put.code()}): ${put.output().lineSequence().firstOrNull().orEmpty()}"))
             return false
         }
-        val after = read(service)
+        val after = read(service).orEmpty()
         val ok = holdsSeed(after, seedArgb)
         log(
             LogLine(

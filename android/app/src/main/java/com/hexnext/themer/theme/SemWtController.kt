@@ -122,18 +122,41 @@ object SemWtController {
 
     /**
      * Stops the guard, re-enables every SemWT overlay that was enabled before Hex Next disabled it
-     * and clears the state. Returns the number of SemWT overlays re-enabled.
+     * and clears the state. Records whose re-enable failed (busy system_server, timeout) stay in
+     * the state file, so the next Remove (or safe mode) tries them again and a later apply keeps
+     * their original [com.hexnext.engine.device.SemWtRecord.wasEnabled]. Returns the number of
+     * SemWT overlays re-enabled.
      */
     fun restore(service: IThemeService, log: (LogLine) -> Unit): Int {
         stopGuard(service, log)
         val state = readState(service, log)
-        val commands = SemWtPlanner.restore(state)
-        val ok = run(service, commands, log)
-        if (state.records.isNotEmpty()) {
-            log(LogLine(LogLevel.OK, "Re-enabled $ok/${commands.size} Samsung SemWT overlays (${state.records.size} were taken over)"))
+        val failed = HashSet<String>()
+        var ok = 0
+        for (semwtId in state.toRestore.map { it.semwtId }.filter(SemWtPlanner::isSafeId).distinct()) {
+            val command = SemWtPlanner.enable(semwtId)
+            val r = service.exec(command)
+            if (r.code() == 0) {
+                ok++
+                log(LogLine(LogLevel.INFO, "$ $command"))
+            } else {
+                failed += semwtId
+                log(LogLine(LogLevel.WARN, "$ $command -> exit ${r.code()}: ${r.output().ifBlank { "no output" }}"))
+            }
         }
-        if (!writeState(service, SemWtState(updatedAt = System.currentTimeMillis()))) {
-            log(LogLine(LogLevel.WARN, "Could not clear ${SemWtState.FILE_NAME}"))
+        val total = ok + failed.size
+        if (state.records.isNotEmpty()) {
+            log(
+                LogLine(
+                    if (failed.isEmpty()) LogLevel.OK else LogLevel.WARN,
+                    "Re-enabled $ok/$total Samsung SemWT overlays (${state.records.size} were taken over)" +
+                        if (failed.isEmpty()) "" else "; ${failed.size} kept in ${SemWtState.FILE_NAME}, Remove again to retry",
+                ),
+            )
+        }
+        val now = System.currentTimeMillis()
+        val remaining = SemWtState(updatedAt = now, records = state.records.filter { it.wasEnabled && it.semwtId in failed })
+        if (!writeState(service, remaining)) {
+            log(LogLine(LogLevel.WARN, "Could not update ${SemWtState.FILE_NAME}"))
         }
         return ok
     }

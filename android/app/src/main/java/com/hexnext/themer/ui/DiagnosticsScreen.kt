@@ -83,6 +83,9 @@ fun DiagnosticsScreen(
     val context = LocalContext.current
     val ready = shizuku as? ShizukuState.Ready
     val enabled = ready != null && !state.busy
+    // The Settings test commits an overlay, which only a service running as uid 0 or 1000 can do:
+    // not the ADB shell (uid 2000) and not SU mode (the service then runs in the app process).
+    val canCommit = ready != null && ready.isPrivileged && !ready.viaSu
     val snackbar = remember { SnackbarHostState() }
     var confirmTurnOff by rememberSaveable { mutableStateOf(false) }
     BackHandler(onBack = onBack)
@@ -96,8 +99,13 @@ fun DiagnosticsScreen(
     val scanFinished = state.scanFinishedId
     LaunchedEffect(scanFinished) {
         if (scanFinished == 0L) return@LaunchedEffect
-        viewModel.consumeScanFinished(scanFinished)
-        val result = snackbar.showSnackbar("Scan finished", actionLabel = "Back to editor", duration = SnackbarDuration.Long)
+        // Consumed once the snackbar is gone: consuming first would change this effect's key and
+        // the key change cancels showSnackbar, which takes the snackbar down within a frame.
+        val result = try {
+            snackbar.showSnackbar("Scan finished", actionLabel = "Back to editor", duration = SnackbarDuration.Long)
+        } finally {
+            viewModel.consumeScanFinished(scanFinished)
+        }
         if (result == SnackbarResult.ActionPerformed) onBack()
     }
 
@@ -127,7 +135,7 @@ fun DiagnosticsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
+            item(key = "phone") {
                 SectionCard("Your phone") {
                     Text(connectionSummary(shizuku), style = MaterialTheme.typography.bodyMedium)
                     Text(
@@ -165,7 +173,7 @@ fun DiagnosticsScreen(
                 }
             }
             state.applyReport?.let { report ->
-                item {
+                item(key = "whatToDo") {
                     WhatToDoCard(
                         report = report,
                         enabled = enabled,
@@ -175,7 +183,7 @@ fun DiagnosticsScreen(
                     )
                 }
             }
-            item {
+            item(key = "restartProtection") {
                 SectionCard("Restart protection") {
                     Text(
                         if (state.applyConfirmed) {
@@ -196,11 +204,12 @@ fun DiagnosticsScreen(
                     }
                 }
             }
-            state.report?.let { report -> item { ScanCard(report) } }
-            item {
+            state.report?.let { report -> item(key = "scan") { ScanCard(report) } }
+            item(key = "advanced") {
                 AdvancedCard(
                     state = state,
                     enabled = enabled,
+                    canCommit = canCommit,
                     onRunSettingsTest = { viewModel.runSettingsTest(accent) },
                     onRepair = viewModel::repairSettings,
                     onMonitor = viewModel::refreshMonitor,
@@ -208,7 +217,7 @@ fun DiagnosticsScreen(
                 )
             }
             if (state.log.isNotEmpty()) {
-                item { LogCard(state.log, onClear = viewModel::clearLog, title = "Live log") }
+                item(key = "log") { LogCard(state.log, onClear = viewModel::clearLog, title = "Live log") }
             }
         }
     }
@@ -312,6 +321,7 @@ private fun ScanCard(report: DeviceReport) {
 private fun AdvancedCard(
     state: DiagnosticsState,
     enabled: Boolean,
+    canCommit: Boolean,
     onRunSettingsTest: () -> Unit,
     onRepair: () -> Unit,
     onMonitor: () -> Unit,
@@ -341,9 +351,16 @@ private fun AdvancedCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilledTonalButton(onClick = onRunSettingsTest, enabled = enabled) { Text("Run Settings test") }
-                    OutlinedButton(onClick = onRepair, enabled = enabled) { Text("Repair Settings test overlay") }
+                    FilledTonalButton(onClick = onRunSettingsTest, enabled = enabled && canCommit) { Text("Run Settings test") }
+                    OutlinedButton(onClick = onRepair, enabled = enabled && canCommit) { Text("Repair Settings test overlay") }
                     TextButton(onClick = onMonitor, enabled = enabled) { Text("Monitor status") }
+                }
+                if (enabled && !canCommit) {
+                    Text(
+                        "Needs root: the Settings test commits an overlay, which needs Shizuku started with root.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 state.lastResult?.let { r ->
                     Text(

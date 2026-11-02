@@ -63,8 +63,8 @@ class DeviceScanner(context: Context) {
 
         val scanDir = File(filesDir, "scan").apply { mkdirs() }
 
-        progress("Copying ${frroPaths.size} .frro candidates…")
-        val frroCopied = copyFrros(service, frroPaths, basePackages.filter { it.installed }.map { it.pkg }, File(scanDir, "frro"), errors)
+        progress("Copying SemWT .frro files…")
+        val frroCopied = copyFrros(service, frroPaths, File(scanDir, "frro"), errors)
 
         val semWtTargets = (
             basePackages.map { it.pkg } +
@@ -335,80 +335,64 @@ class DeviceScanner(context: Context) {
     }
 
     /**
-     * Copies every `.frro` whose path or first 64 KB mentions an installed target, or whose
-     * name contains `SemWT`. Falls back to a root `cat > ` into our own files dir when the
-     * descriptor cannot be read (SELinux).
+     * Copies Samsung's `SemWT_*` `.frro` files (the only ones the scan and [SnapshotBuilder] read)
+     * into [outDir], which is emptied first so copies from earlier scans (old random suffixes,
+     * shifted indices) never pile up. Every other fabricated overlay is left alone: matching by
+     * target name cannot work, since "android" is a substring of nearly every overlay path.
+     * Falls back to a root `cat > ` into our own files dir when the descriptor cannot be read
+     * (SELinux).
      */
     private fun copyFrros(
         service: IThemeService,
         paths: List<String>,
-        targets: List<String>,
         outDir: File,
         errors: MutableList<String>,
     ): List<String> {
+        if (outDir.exists() && !outDir.deleteRecursively()) errors.add("could not clear ${outDir.absolutePath}")
         if (paths.isEmpty()) return emptyList()
         outDir.mkdirs()
         val copied = ArrayList<String>()
         paths.forEachIndexed { index, path ->
             val base = path.substringAfterLast('/')
-            val nameMatch = base.contains("SemWT") || targets.any { path.contains(it) }
+            if (!base.contains("SemWT")) return@forEachIndexed
             val dest = File(outDir, "${index}_${sanitize(base)}")
-            when (streamViaService(service, path, dest, nameMatch, targets)) {
-                FrroCopy.COPIED -> copied.add(dest.absolutePath)
-                FrroCopy.SKIPPED -> Unit
-                FrroCopy.UNREADABLE -> {
-                    // Unreadable through the descriptor: a name match is worth the root copy, anything else is dropped.
-                    if (!nameMatch) return@forEachIndexed
-                    if (shellCopy(service, path, dest)) copied.add(dest.absolutePath) else errors.add("frro not copied: $path")
-                }
+            if (streamViaService(service, path, dest)) {
+                copied.add(dest.absolutePath)
+            } else if (shellCopy(service, path, dest)) {
+                copied.add(dest.absolutePath)
+            } else {
+                errors.add("frro not copied: $path")
             }
         }
         return copied
     }
 
-    private enum class FrroCopy { COPIED, SKIPPED, UNREADABLE }
-
     /**
-     * Streams [path] through the service's descriptor into [dest]. The first [HEADER_SCAN_BYTES]
-     * decide whether the file is kept ([nameMatch], or one of [targets] named in the header); the
-     * rest is copied in 64 KB chunks, so a 16 MB `.frro` never sits in the heap as a whole. An
-     * empty, unreadable or over-[MAX_FRRO_BYTES] file is [FrroCopy.UNREADABLE] and [dest] is removed.
+     * Streams [path] through the service's descriptor into [dest] in 64 KB chunks, so a 16 MB
+     * `.frro` never sits in the heap as a whole. False for an empty, unreadable or
+     * over-[MAX_FRRO_BYTES] file, and [dest] is removed.
      */
-    private fun streamViaService(service: IThemeService, path: String, dest: File, nameMatch: Boolean, targets: List<String>): FrroCopy {
-        val pfd = runCatching { service.openFile(path) }.getOrNull() ?: return FrroCopy.UNREADABLE
+    private fun streamViaService(service: IThemeService, path: String, dest: File): Boolean {
+        val pfd = runCatching { service.openFile(path) }.getOrNull() ?: return false
         return runCatching {
             ParcelFileDescriptor.AutoCloseInputStream(pfd).use { input ->
-                val header = ByteArray(HEADER_SCAN_BYTES)
-                var headerLength = 0
-                while (headerLength < header.size) {
-                    val n = input.read(header, headerLength, header.size - headerLength)
-                    if (n < 0) break
-                    headerLength += n
-                }
-                val keep = nameMatch || targets.any { containsAscii(header, headerLength, it) }
-                when {
-                    headerLength == 0 -> FrroCopy.UNREADABLE
-                    !keep -> FrroCopy.SKIPPED
-                    else -> {
-                        var total = headerLength.toLong()
-                        dest.outputStream().use { out ->
-                            out.write(header, 0, headerLength)
-                            val chunk = ByteArray(64 * 1024)
-                            while (true) {
-                                val n = input.read(chunk)
-                                if (n < 0) break
-                                total += n
-                                if (total > MAX_FRRO_BYTES) error("larger than $MAX_FRRO_BYTES bytes")
-                                out.write(chunk, 0, n)
-                            }
-                        }
-                        FrroCopy.COPIED
+                var total = 0L
+                dest.outputStream().use { out ->
+                    val chunk = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(chunk)
+                        if (n < 0) break
+                        total += n
+                        if (total > MAX_FRRO_BYTES) error("larger than $MAX_FRRO_BYTES bytes")
+                        out.write(chunk, 0, n)
                     }
                 }
+                if (total == 0L) error("empty")
+                true
             }
         }.getOrElse {
             dest.delete()
-            FrroCopy.UNREADABLE
+            false
         }
     }
 
@@ -424,20 +408,6 @@ class DeviceScanner(context: Context) {
         return r.code() == 0 && dest.isFile && dest.length() > 0
     }
 
-    /** True when [needle] occurs in the first [length] bytes of [bytes] (at most [HEADER_SCAN_BYTES]). */
-    private fun containsAscii(bytes: ByteArray, length: Int, needle: String): Boolean {
-        val n = needle.toByteArray(Charsets.US_ASCII)
-        val limit = minOf(bytes.size, length, HEADER_SCAN_BYTES) - n.size
-        var i = 0
-        while (i <= limit) {
-            var j = 0
-            while (j < n.size && bytes[i + j] == n[j]) j++
-            if (j == n.size) return true
-            i++
-        }
-        return false
-    }
-
     private fun sanitize(name: String) = name.replace(Regex("[^A-Za-z0-9_.-]"), "_")
 
     private fun isShellSafe(path: String) =
@@ -449,7 +419,6 @@ class DeviceScanner(context: Context) {
     companion object {
         private const val ARSC = "resources.arsc"
         private const val MAX_FRRO_BYTES = 16L * 1024 * 1024
-        private const val HEADER_SCAN_BYTES = 64 * 1024
         private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*")
         private const val DUMP_ATTEMPTS = 2
         private const val DUMP_RETRY_DELAY_MS = 750L

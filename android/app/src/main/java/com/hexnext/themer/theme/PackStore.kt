@@ -170,7 +170,9 @@ class PackStore(context: Context) {
     fun fetchCatalogue(baseUrl: String): List<CatalogueEntry> {
         val base = normaliseBaseUrl(baseUrl)
         val buffer = ByteArrayOutputStream()
-        fetchTo(base + DirectoryPackResolver.INDEX, buffer, -1L) { _, _ -> }
+        // index.json is a few KB: cap its size and total time so a wrong or hostile URL cannot
+        // grow the in-memory buffer until OutOfMemoryError or keep the dialog loading forever.
+        fetchTo(base + DirectoryPackResolver.INDEX, buffer, -1L, maxBytes = MAX_INDEX_BYTES, maxMillis = INDEX_DEADLINE_MS) { _, _ -> }
         val text = String(buffer.toByteArray(), Charsets.UTF_8)
         val index = try {
             PackIndex.parse(text)
@@ -192,7 +194,7 @@ class PackStore(context: Context) {
         val part = partFor(entry.id)
         try {
             part.outputStream().use { out ->
-                fetchTo(base + entry.file, out, if (entry.bytes > 0) entry.bytes else -1L, onProgress)
+                fetchTo(base + entry.file, out, if (entry.bytes > 0) entry.bytes else -1L, onProgress = onProgress)
             }
             val pack = try {
                 PackReader.read(part)
@@ -237,8 +239,20 @@ class PackStore(context: Context) {
 
     private fun zipFor(id: String): File = File(dir, "$id.zip")
 
-    /** GET [url] into [out]; non-200 responses and network errors become [IOException]s. */
-    private fun fetchTo(url: String, out: OutputStream, expected: Long, onProgress: (Long, Long) -> Unit) {
+    /**
+     * GET [url] into [out]; non-200 responses and network errors become [IOException]s. A body
+     * longer than [maxBytes], or a transfer still running after [maxMillis] (0 = no limit), is
+     * aborted with an [IOException].
+     */
+    private fun fetchTo(
+        url: String,
+        out: OutputStream,
+        expected: Long,
+        maxBytes: Long = Long.MAX_VALUE,
+        maxMillis: Long = 0L,
+        onProgress: (Long, Long) -> Unit,
+    ) {
+        val startedAt = System.currentTimeMillis()
         val connection = try {
             URL(url).openConnection() as HttpURLConnection
         } catch (e: Exception) {
@@ -259,14 +273,21 @@ class PackStore(context: Context) {
                 throw IOException(if (code == 404) "Not found (404): $url" else "$reason ($code): $url")
             }
             val total = if (expected > 0) expected else connection.contentLengthLong
+            if (connection.contentLengthLong > maxBytes) {
+                throw IOException("Response too large (${connection.contentLengthLong} bytes, limit $maxBytes): $url")
+            }
             var read = 0L
             connection.inputStream.use { input ->
                 val chunk = ByteArray(64 * 1024)
                 while (true) {
                     val n = input.read(chunk)
                     if (n < 0) break
-                    out.write(chunk, 0, n)
                     read += n
+                    if (read > maxBytes) throw IOException("Response too large (over $maxBytes bytes): $url")
+                    if (maxMillis > 0 && System.currentTimeMillis() - startedAt > maxMillis) {
+                        throw IOException("Timed out after ${maxMillis / 1000} s: $url")
+                    }
+                    out.write(chunk, 0, n)
                     onProgress(read, total)
                 }
             }
@@ -310,6 +331,8 @@ class PackStore(context: Context) {
         private const val ASSET_DIR = "packs"
 
         private const val TIMEOUT_MS = 10_000
+        private const val MAX_INDEX_BYTES = 4L * 1024 * 1024
+        private const val INDEX_DEADLINE_MS = 60_000L
         private const val SETTINGS_ICON_PREFIX = "settingsicon"
 
         /** [url] with a single trailing slash. */

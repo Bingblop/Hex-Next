@@ -54,6 +54,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // The user may have started Shizuku or changed its permission while we were away.
-        if (compat == Compatibility.Supported) ShizukuManager.refresh()
+        if (compat == Compatibility.Supported) {
+            ShizukuManager.refresh()
+            // The boot receiver or safe mode may have changed restart protection meanwhile.
+            viewModel.refreshGuard()
+        }
     }
 }

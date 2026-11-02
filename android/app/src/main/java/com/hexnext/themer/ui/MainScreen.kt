@@ -204,6 +204,8 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
             onScanStarted = viewModel::consumeScanRequest,
             onApplyAgain = {
                 viewModel.navigate(Screen.MAIN)
+                // As on Back: a scan may have happened, and the slot lists come from it.
+                viewModel.invalidateSlots()
                 viewModel.applyTheme()
             },
             onBack = {
@@ -234,6 +236,8 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
 private fun statusPillText(versionLine: String, state: ShizukuState): String {
     val connection = when (state) {
         is ShizukuState.Ready -> when {
+            // su was found but Shizuku is not running: the service cannot commit overlays.
+            state.viaSu -> "SU only"
             state.isRoot -> "Root"
             state.isSystemUid1000 -> "System"
             Capability.fromUid(state.uid) == Capability.SHELL -> "Colours only"
@@ -275,21 +279,26 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
     val haptic = LocalHapticFeedback.current
     val snackbar = remember { SnackbarHostState() }
 
-    // One snackbar per notice: the notice is consumed as soon as it is picked up (so leaving the
-    // editor while it shows does not replay it on return), then haptic on arrival and the action when tapped.
+    // One snackbar per notice: haptic on arrival, the action when tapped. The notice is consumed
+    // only once the snackbar is gone (shown, dismissed, or the editor left while it showed, so it
+    // does not replay on return). Consuming it earlier would change this effect's key, and the
+    // key change cancels showSnackbar, which takes the snackbar down within a frame.
     val notice = ui.notice
     LaunchedEffect(notice?.id) {
         val current = notice ?: return@LaunchedEffect
-        viewModel.consumeNotice(current.id)
         if (appSettings.haptics && (current.isError || current.isSuccess)) {
             haptic.performHapticFeedback(if (current.isError) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
         }
-        val result = snackbar.showSnackbar(
-            message = current.message,
-            actionLabel = current.actionLabel,
-            withDismissAction = current.actionLabel == null,
-            duration = if (current.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
-        )
+        val result = try {
+            snackbar.showSnackbar(
+                message = current.message,
+                actionLabel = current.actionLabel,
+                withDismissAction = current.actionLabel == null,
+                duration = if (current.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+        } finally {
+            viewModel.consumeNotice(current.id)
+        }
         if (result == SnackbarResult.ActionPerformed) {
             when (current.action) {
                 NoticeAction.OPEN_DIAGNOSTICS -> viewModel.navigate(Screen.DIAGNOSTICS)
@@ -346,10 +355,10 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ui.safeModeBanner?.let { banner ->
-                item { SafeModeBanner(banner, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode) }
+                item(key = "safeMode") { SafeModeBanner(banner, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode) }
             }
-            item { StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
-            item {
+            item(key = "connection") { StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
+            item(key = "describe") {
                 DescribeThemeCard(
                     packs = ui.packs,
                     spec = ui.spec,
@@ -362,8 +371,8 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
                 )
             }
-            item { ColorCard(seed = ui.seed, onSeed = viewModel::setSeed) }
-            item {
+            item(key = "colour") { ColorCard(seed = ui.seed, onSeed = viewModel::setSeed) }
+            item(key = "packs") {
                 PackCard(
                     packs = ui.packs,
                     errors = ui.packErrors,
@@ -382,7 +391,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     onDownload = viewModel::downloadPack,
                 )
             }
-            item {
+            item(key = "icons") {
                 CustomIconsCard(
                     assets = ui.customIcons,
                     slots = ui.iconSlots,
@@ -401,7 +410,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     onScan = viewModel::openScan,
                 )
             }
-            item {
+            item(key = "backgrounds") {
                 BackgroundsCard(
                     assets = ui.customBackgrounds,
                     slots = ui.backgroundSlots,
@@ -416,7 +425,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     onScan = viewModel::openScan,
                 )
             }
-            item {
+            item(key = "fonts") {
                 FontCard(
                     fonts = ui.customFonts,
                     spec = ui.spec,
@@ -429,10 +438,11 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     onDelete = viewModel::deleteAsset,
                 )
             }
-            item { PreviewCard(ui.preview, onScan = viewModel::openScan) }
-            item {
+            item(key = "preview") { PreviewCard(ui.preview, onScan = viewModel::openScan) }
+            item(key = "apply") {
                 CompiledThemeCard(
-                    connected = ready != null,
+                    // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
+                    connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE,
                     busy = ui.busy,
                     report = ui.lastApply,
                     unconfirmed = ui.applyUnconfirmed,
@@ -445,7 +455,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                 )
             }
             if (ui.log.isNotEmpty()) {
-                item { LogCard(ui.log, onClear = viewModel::clearLog) }
+                item(key = "log") { LogCard(ui.log, onClear = viewModel::clearLog) }
             }
         }
     }
@@ -637,7 +647,9 @@ private fun StatusCard(
                 Button(onClick = onRequestPermission) { Text("Try again") }
                 OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
             }
-            is ShizukuState.Ready -> if (!state.isPrivileged) {
+            is ShizukuState.Ready -> if (state.viaSu) {
+                OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
+            } else if (!state.isPrivileged) {
                 OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
             }
         }
@@ -660,6 +672,9 @@ internal fun connectionSummary(state: ShizukuState): String = when (state) {
     ShizukuState.PermissionNeeded -> "Allow Hex Next to use Shizuku to continue."
     ShizukuState.PermissionDenied -> "Shizuku access was denied. Open Shizuku and allow Hex Next under Authorised apps."
     is ShizukuState.Ready -> when {
+        state.viaSu ->
+            "Root (su) was found, but Shizuku is not running. Applying a theme needs Hex Next's theme service, " +
+                "which Shizuku starts: start Shizuku with root, then come back."
         state.isSystemUid1000 ->
             "Connected with system access. Apply builds one overlay for each scanned One UI app and takes over from Samsung's built-in theme overlays."
         state.isRoot ->
@@ -2092,7 +2107,7 @@ private fun CompiledThemeCard(
         if (!connected) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Connect first: start Shizuku with root, or allow root access.",
+                    "Connect first: start Shizuku with root (or over ADB for colours only).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),

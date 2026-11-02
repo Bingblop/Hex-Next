@@ -5,6 +5,8 @@ import com.hexnext.engine.compile.Fixtures.pack
 import com.hexnext.engine.compile.Fixtures.ref
 import com.hexnext.engine.compile.Fixtures.semwt
 import com.hexnext.engine.compile.Fixtures.table
+import com.hexnext.engine.frro.FrroReader
+import com.hexnext.engine.frro.FrroWriter
 import com.hexnext.engine.map.PlannedColor
 import com.hexnext.engine.map.ResourceMapper
 import com.hexnext.engine.map.Skipped
@@ -107,10 +109,30 @@ class ThemeCompilerTest {
     fun `unmatched colours stay fixed and are reported`() {
         val result = compile()
         val t = result.target(sysui)!!
-        assertNull(t.color("lock_icon_color"))
+        // SemWT is disabled on apply, so Samsung's observed value is carried into the overlay verbatim.
+        assertEquals(orange, t.color("lock_icon_color")!!.argb)
         assertEquals(ThemeCompiler.REASON_FIXED, t.reason("$sysui:color/lock_icon_color"))
         assertTrue(result.events.any { it.target == sysui && it.message == "colours kept fixed" && it.data["count"] == "1" })
         assertTrue(result.events.all { it.timestamp == 42L })
+    }
+
+    @Test
+    fun `fixed colours keep their configuration next to matched ones`() {
+        val semwt = FrroReader.read(
+            FrroWriter("android", "SemWT_$settings", settings)
+                .setColor("color/dashboard_tint", ref("system_accent1_500"))
+                .setColor("color/dashboard_tint", orange, "night")
+                // RGB8 (0x1d) with the alpha byte left clear.
+                .setResourceValue("color/sec_widget_round_and_bgcolor", 0x1d, 0x00FF00FF)
+                .toByteArray(),
+        )
+        val dev = device(mapOf(settings to TargetSnapshot(settings, installed = true, table = settingsTable, semwt = semwt)))
+        val t = compile(dev = dev).target(settings)!!
+        assertEquals(resolved.light.shade(PaletteRole.ACCENT1, 500), t.color("dashboard_tint")!!.argb)
+        assertEquals(orange, t.color("dashboard_tint", "night")!!.argb)
+        assertEquals(ThemeCompiler.REASON_FIXED, t.reason("$settings:color/dashboard_tint [night]"))
+        // An RGB8 value is written opaque.
+        assertEquals(0xFFFF00FF.toInt(), t.color("sec_widget_round_and_bgcolor")!!.argb)
     }
 
     @Test
@@ -419,8 +441,8 @@ class ThemeCompilerTest {
 
     @Test
     fun `semwt coverage counts distinct overridden resources`() {
-        // qs_tile_bg (2 configs) and notification_bg are planned and in SemWT.
-        assertEquals(2, compile().target(sysui)!!.semwtCoverage)
+        // qs_tile_bg (2 configs), notification_bg and the fixed lock_icon_color (copied verbatim) are planned and in SemWT.
+        assertEquals(3, compile().target(sysui)!!.semwtCoverage)
         assertEquals(1, compile().target(settings)!!.semwtCoverage)
     }
 

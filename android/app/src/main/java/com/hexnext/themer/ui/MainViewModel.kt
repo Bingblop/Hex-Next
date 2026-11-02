@@ -192,11 +192,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (current == screen) return
         if (screen == Screen.MAIN) backStack.clear() else backStack.addLast(current)
         _screen.value = screen
+        refreshGuard()
     }
 
     /** Returns to the previous screen, or to the editor when there is none. */
     fun navigateBack() {
         _screen.value = backStack.removeLastOrNull() ?: Screen.MAIN
+        refreshGuard()
+    }
+
+    /**
+     * Re-reads the restart-protection guard into [UiState.applyUnconfirmed]. Diagnostics ("It
+     * works", the Settings test) and safe mode change the guard behind this view model's back, so
+     * the editor syncs on every screen change and when the activity resumes.
+     */
+    fun refreshGuard() {
+        val unconfirmed = !guard.confirmed
+        _ui.update { if (it.applyUnconfirmed == unconfirmed) it else it.copy(applyUnconfirmed = unconfirmed) }
     }
 
     /** Marks the setup guide as seen (finished or skipped) and leaves it. */
@@ -266,6 +278,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val bundle = result.getOrNull()
             if (bundle != null && bundle.getInt(ThemeService.KEY_CODE, -1) == 0) {
                 guard.markSafeModeEntered(by = "app start")
+                // Safe mode confirms the guard: the "not confirmed yet" line must go with the overlays.
+                refreshGuard()
                 log(LogLine(LogLevel.WARN, "Safe mode: ${bundle.getString(ThemeService.KEY_OUTPUT).orEmpty()}"))
                 runCatching {
                     val service = ShizukuManager.service()
@@ -752,6 +766,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
     fun removeTheme() = runTask(retry = NoticeAction.RETRY_REMOVE) { service, _ ->
         val ok = applier.remove(service, ::log)
+        // The saved report would otherwise come back as "Applied to N apps" on the next start
+        // (and in Diagnostics) although nothing is applied any more.
+        if (ok) runCatching { ThemeApplier.reportFile(getApplication<Application>()).delete() }
         _ui.update { it.copy(lastApply = null, applyUnconfirmed = !guard.confirmed) }
         if (ok) {
             postNotice(Notice("Theme removed", isSuccess = true))

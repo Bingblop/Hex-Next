@@ -172,8 +172,11 @@ class ThemeApplier(context: Context) {
         val capability = Capability.fromUid(uid)
         if (capability == Capability.NONE) {
             // Neither root nor the shell: nothing can be committed. Stop before touching anything.
+            // uid 10000 and up is the app process itself: SU mode (su found, Shizuku not running),
+            // where only exec() reaches root and overlays cannot be committed.
+            val suMode = if (uid >= 10000) " Hex Next found su but Shizuku is not running; su alone (SU mode) cannot apply themes." else ""
             throw ApplyAborted(
-                "The theme service runs as uid $uid, but applying a theme needs root (uid 0 or 1000) or the Shizuku shell (uid 2000). " +
+                "The theme service runs as uid $uid, but applying a theme needs root (uid 0 or 1000) or the Shizuku shell (uid 2000).$suMode " +
                     "Start Shizuku (with root for icons, backgrounds and fonts) and apply again.",
             )
         }

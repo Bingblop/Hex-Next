@@ -125,7 +125,9 @@ public data class CompiledTheme(
  * 1. **Colours.** Each colour entry (`Res_value` types `0x1c`–`0x1f`) of the target's SemWT
  *    overlay is recoloured with [RoleInference.recolor] against [DeviceSnapshot.systemShades],
  *    from the dark scheme when its configuration contains `night`, else from the light scheme;
- *    entries without a match stay Samsung's ([REASON_FIXED]). [ThemeSpec.colorPins] then win
+ *    entries without a match keep Samsung's observed value, copied verbatim into the overlay in
+ *    the same configuration because apply disables SemWT ([REASON_FIXED], still reported).
+ *    [ThemeSpec.colorPins] then win
  *    (a pinned resource absent from SemWT is written in `""` and, for shade pins, `night`).
  *    For System UI only names [QuickSettingsRules.allowsColour] accepts are kept
  *    ([REASON_QS_POLICY]): the version's allowlist, or [QS_COLOUR_NAMES] when it is empty.
@@ -144,7 +146,8 @@ public data class CompiledTheme(
  *    (One UI N layout)` event.
  * 3. **Custom overrides.** Each [ThemeSpec.customIcons] / [ThemeSpec.customBackgrounds] entry of
  *    the target replaces every pack job of its resource with one custom job per configuration
- *    the pack jobs used (else per density/night configuration the target defines, else `""`).
+ *    the pack jobs used (else per density/night configuration the target defines, else `""`, each
+ *    day configuration with its `night` twin).
  *    Resources the target lacks are skipped with [REASON_NOT_IN_TARGET].
  * 4. **Icon synthesis.** For Settings, when [ThemeSpec.synthesizeMissingIcons] is on and the
  *    `settings_icons` element has a pack: every [OneUiRules.dashboardRows] row the target
@@ -155,7 +158,10 @@ public data class CompiledTheme(
  * [OneUiRules.renamed] is applied to every resource name before lookup.
  */
 public object ThemeCompiler {
-    /** Skip reason: SemWT colour without a palette match within ΔE 6; Samsung's value stays. */
+    /**
+     * Skip reason: SemWT colour without a palette match within ΔE 6. Not recoloured: Samsung's
+     * observed value is copied verbatim into the overlay (SemWT is disabled on apply).
+     */
     public const val REASON_FIXED: String = "fixed"
 
     /** Skip reason: removed by the quick-settings policy. */
@@ -203,6 +209,9 @@ public object ThemeCompiler {
     private const val MYFILES = "com.sec.android.app.myfiles"
     private const val SETTINGS_ICONS = "settings_icons"
     private val COLOR_TYPES = 0x1c..0x1f
+    private const val TYPE_RGB8 = 0x1d
+    private const val TYPE_RGB4 = 0x1f
+    private const val OPAQUE = 0xFF000000.toInt()
 
     /** `HexNext_` + [packageName] with dots replaced by underscores. */
     public fun overlayName(packageName: String): String = "HexNext_" + packageName.replace('.', '_')
@@ -338,7 +347,13 @@ public object ThemeCompiler {
                 val config = e.configuration.orEmpty()
                 val key = typeName to config
                 val out = RoleInference.recolor(e.data, device.systemShades, resolved(), isNight(config))
-                if (out == null) fixed[key] = Skipped(display(typeName, config), REASON_FIXED) else values[key] = out
+                if (out == null) {
+                    // Apply disables SemWT, so its value is copied verbatim or the stock APK colour returns.
+                    fixed[key] = Skipped(display(typeName, config), REASON_FIXED)
+                    values[key] = if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) e.data or OPAQUE else e.data
+                } else {
+                    values[key] = out
+                }
             }
             if (fixed.isNotEmpty()) {
                 event(
@@ -454,7 +469,11 @@ public object ThemeCompiler {
                 val replaced = jobs.values.filter { it.resourceName == resourceName }
                 replaced.forEach { jobs.remove(it.resourceName to it.configuration) }
                 val configs = replaced.map { it.configuration }.distinct().ifEmpty {
+                    // The app's THEME table read keeps one value per density and drops night variants,
+                    // so every day configuration also gets a night twin (as elementJobs does); without it
+                    // the target's own night drawable wins in dark mode.
                     entry.values.map { configFor(it.resConfig.isNight, it.resConfig.densityQualifier) }.distinct().ifEmpty { listOf("") }
+                        .flatMap { c -> if (isNight(c)) listOf(c) else listOf(c, configFor(true, c)) }.distinct()
                 }
                 val name = typeName.substringAfter('/')
                 val elementId = replaced.firstOrNull()?.elementId ?: when {

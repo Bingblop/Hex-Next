@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import java.security.KeyStore
+import java.security.UnrecoverableEntryException
 import java.security.UnrecoverableKeyException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
@@ -40,7 +41,12 @@ class AiKeyStore(context: Context) {
     /** True when [providerId] has a stored key (no decryption). */
     fun has(providerId: String): Boolean = prefs.contains(providerId)
 
-    /** The plaintext key of [providerId], or null when none is stored or it can no longer be decrypted. */
+    /**
+     * The plaintext key of [providerId], or null when none is stored or it can no longer be
+     * decrypted (the entry is then removed). Throws [AiProviderException] when an entry exists but
+     * the key store cannot read it right now (busy or briefly unavailable), so callers do not
+     * report a stored key as missing.
+     */
     fun get(providerId: String): String? {
         val stored = prefs.getString(providerId, null) ?: return null
         val sep = stored.indexOf(':')
@@ -63,7 +69,7 @@ class AiKeyStore(context: Context) {
         } catch (e: Exception) {
             // KeyStoreException, ProviderException, IllegalStateException and the like: the key
             // store is busy or briefly unavailable. Keep the entry so a later call can succeed.
-            null
+            throw AiProviderException(UNAVAILABLE_READ, e)
         }
     }
 
@@ -73,17 +79,24 @@ class AiKeyStore(context: Context) {
         return null
     }
 
-    /** Encrypts and stores [apiKey] for [providerId]; a blank key clears the entry instead. */
+    /**
+     * Encrypts and stores [apiKey] for [providerId]; a blank key clears the entry instead. Throws
+     * [AiProviderException] when the key store fails; nothing is stored then.
+     */
     fun set(providerId: String, apiKey: String) {
         val key = apiKey.trim()
         if (key.isEmpty()) {
             clear(providerId)
             return
         }
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val ciphertext = cipher.doFinal(key.toByteArray(Charsets.UTF_8))
-        val stored = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+        val stored = try {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+            val ciphertext = cipher.doFinal(key.toByteArray(Charsets.UTF_8))
+            Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            throw AiProviderException(UNAVAILABLE_SAVE, e)
+        }
         prefs.edit().putString(providerId, stored).apply()
         _configured.value = readConfigured()
     }
@@ -96,7 +109,7 @@ class AiKeyStore(context: Context) {
 
     /**
      * A display form of the stored key: its first four and last four characters around an ellipsis
-     * ("sk-a…9f3Q"), or null when none is stored.
+     * ("sk-a…9f3Q"), or null when none is stored. Throws [AiProviderException] like [get].
      */
     fun masked(providerId: String): String? {
         val key = get(providerId) ?: return null
@@ -107,7 +120,15 @@ class AiKeyStore(context: Context) {
 
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
+        val entry = try {
+            keyStore.getEntry(KEY_ALIAS, null)
+        } catch (e: UnrecoverableEntryException) {
+            // The alias itself is corrupt and will never load again: drop it and start over.
+            // Entries encrypted with it then fail their tag check and are cleared by [get].
+            keyStore.deleteEntry(KEY_ALIAS)
+            null
+        }
+        (entry as? KeyStore.SecretKeyEntry)?.let { return it.secretKey }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         generator.init(
             KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
@@ -127,6 +148,8 @@ class AiKeyStore(context: Context) {
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
+        private const val UNAVAILABLE_READ = "The saved key can't be read right now (the phone's key store is busy). Try again in a moment."
+        private const val UNAVAILABLE_SAVE = "The key couldn't be saved (the phone's key store is busy or unavailable). Try again in a moment."
 
         /** "sk-a…9f3Q" for keys of 12+ characters, "••••" otherwise. */
         fun mask(key: String): String =

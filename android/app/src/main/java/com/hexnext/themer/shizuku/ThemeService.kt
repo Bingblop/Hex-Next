@@ -1196,7 +1196,7 @@ class ThemeService() : IThemeService.Stub() {
             writeRootFile(File(MonitorScript.PATH), MonitorScript.text)
             val script = MonitorScript.PATH
             val launch = shell(
-                settle + "chmod 755 $script; rm -f ${MonitorScript.SAFE_MODE_FILE}; " +
+                settle + "chmod 755 $script; rm -f ${MonitorScript.SAFE_MODE_FILE} ${MonitorScript.PID_FILE}; " +
                     "if command -v setsid >/dev/null 2>&1; then " +
                     "nohup setsid sh $script $window >/dev/null 2>&1 & " +
                     "else nohup sh $script $window >/dev/null 2>&1 & fi"
@@ -1246,27 +1246,45 @@ class ThemeService() : IThemeService.Stub() {
         return File(MonitorScript.DIR, name)
     }
 
-    /** Writes a world-readable file: directly as root, system or shell (the state directory is the shell's), else through `su -c cat >`. */
+    /**
+     * Writes a world-readable file: directly as root, system or shell, else through `su -c cat >`.
+     *
+     * The state directory must stay writable for the shell (uid 2000): the same phone can run the
+     * service as root one day and as the ADB shell the next (Shizuku restarted over wireless
+     * debugging). A directory root created is root:root 0755 and the shell could not write a single
+     * state file in it, so root hands every directory and file it writes here to the shell
+     * (`chown 2000:2000`); uid 1000, which cannot chown, opens its directories to all instead.
+     * This also repairs a directory an older build left root-owned, on the next root write.
+     */
     private fun writeRootFile(file: File, content: String) {
         if (runsDirectly()) {
             val dir = file.parentFile ?: error("no parent for ${file.path}")
             if (!dir.isDirectory && !dir.mkdirs()) error("Cannot create ${dir.path}")
-            dir.setReadable(true, false)
-            dir.setExecutable(true, false)
+            for (d in stateDirsOf(dir)) {
+                d.setReadable(true, false)
+                d.setExecutable(true, false)
+                handToShell(d, isDirectory = true)
+            }
             val tmp = File(dir, file.name + ".tmp")
+            // A leftover tmp another uid owns cannot be truncated, but it can be unlinked.
+            if (tmp.exists() && !tmp.canWrite()) tmp.delete()
             tmp.writeText(content)
             tmp.setReadable(true, false)
             if (!tmp.renameTo(file)) {
+                if (file.exists() && !file.canWrite()) file.delete()
                 file.writeText(content)
                 tmp.delete()
             }
             file.setReadable(true, false)
+            handToShell(file, isDirectory = false)
             return
         }
         val dir = file.parent ?: error("no parent for ${file.path}")
+        val chownDirs = stateDirsOf(File(dir)).joinToString(" ") { "'${it.path}'" }
         val process = ProcessBuilder(
             "su", "-c",
-            "mkdir -p '$dir' && chmod 755 '$dir' && cat > '${file.path}' && chmod 644 '${file.path}'"
+            "mkdir -p '$dir' && chmod 755 '$dir' && cat > '${file.path}' && chmod 644 '${file.path}'" +
+                (if (chownDirs.isEmpty()) "" else " && chown $SHELL_UID:$SHELL_UID $chownDirs '${file.path}'")
         ).redirectErrorStream(true).start()
         process.outputStream.use { it.write(content.toByteArray()) }
         val out = process.inputStream.bufferedReader().use { it.readText() }
@@ -1275,6 +1293,30 @@ class ThemeService() : IThemeService.Stub() {
             error("su write of ${file.path} timed out")
         }
         if (process.exitValue() != 0) error("su write of ${file.path} failed (${process.exitValue()}): $out")
+    }
+
+    /** [dir] and its parents up to and including [MonitorScript.DIR]; empty when [dir] is outside it. */
+    private fun stateDirsOf(dir: File): List<File> {
+        val root = File(MonitorScript.DIR)
+        val dirs = mutableListOf<File>()
+        var d: File? = dir
+        while (d != null) {
+            dirs += d
+            if (d.path == root.path) return dirs
+            d = d.parentFile
+        }
+        return emptyList()
+    }
+
+    /**
+     * Makes [f] writable for the shell tier: root chowns it to uid 2000, uid 1000 (no CAP_CHOWN)
+     * makes a directory writable for all. Failures are ignored: the write itself already succeeded.
+     */
+    private fun handToShell(f: File, isDirectory: Boolean) {
+        when (Process.myUid()) {
+            0 -> runCatching { Os.chown(f.path, SHELL_UID, SHELL_UID) }
+            1000 -> if (isDirectory) runCatching { f.setWritable(true, false) }
+        }
     }
 
     private fun readRootFile(file: File): String? {

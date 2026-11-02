@@ -1,5 +1,9 @@
 package com.hexnext.engine.compile
 
+import com.hexnext.engine.arsc.ArscReadOptions
+import com.hexnext.engine.arsc.ArscReader
+import com.hexnext.engine.arsc.ArscTestBuilder
+import com.hexnext.engine.arsc.ArscTestBuilder.Entry
 import com.hexnext.engine.compile.Fixtures.layer
 import com.hexnext.engine.compile.Fixtures.pack
 import com.hexnext.engine.compile.Fixtures.table
@@ -96,7 +100,7 @@ class ThemeCompilerCustomTest {
     }
 
     @Test
-    fun `custom icon without pack jobs uses the table densities and falls back to the default config`() {
+    fun `custom icon without pack jobs uses the table densities with night twins and falls back to the default config`() {
         val spec = baseSpec.copy(
             synthesizeMissingIcons = false,
             customIcons = mapOf(
@@ -108,14 +112,31 @@ class ThemeCompilerCustomTest {
         )
         val result = compile(spec)
         val t = result.target(settings)!!
-        assertEquals(setOf("xxhdpi", "xxxhdpi"), t.drawables.named("sec_ic_settings_battery").map { it.configuration }.toSet())
+        assertEquals(setOf("xxhdpi", "xxxhdpi", "night-xxhdpi", "night-xxxhdpi"), t.drawables.named("sec_ic_settings_battery").map { it.configuration }.toSet())
         assertEquals("settings_icons", t.drawables.named("sec_ic_settings_battery").first().elementId)
-        assertEquals(listOf(""), t.drawables.named("sec_ic_settings_tips").map { it.configuration })
-        assertEquals("system_drawables", t.drawables.named("other_drawable").single().elementId)
+        assertEquals(listOf("", "night"), t.drawables.named("sec_ic_settings_tips").map { it.configuration })
+        assertTrue(t.drawables.named("other_drawable").all { it.elementId == "system_drawables" })
 
         val m = result.target(myFiles)!!
-        assertEquals(setOf("xxhdpi", "xxxhdpi"), m.drawables.map { it.configuration }.toSet())
+        assertEquals(setOf("xxhdpi", "xxxhdpi", "night-xxhdpi", "night-xxxhdpi"), m.drawables.map { it.configuration }.toSet())
         assertTrue(m.drawables.all { it.elementId == "my_files_icons" && it.custom == "img-00000004.png" })
+    }
+
+    @Test
+    fun `custom icon keeps a night configuration when the THEME table read drops night variants`() {
+        // drawable-xxhdpi and drawable-night-xxhdpi, read the way the app reads target tables.
+        val b = ArscTestBuilder(settings)
+        b.typeNames += listOf("drawable")
+        b.typeSpec(1, 1)
+        val key = b.key("ic_settings_wifi")
+        b.type(1, 1, b.config(density = 480), mapOf(0 to Entry.Simple(key, 0x03, b.string("res/drawable-xxhdpi/ic_settings_wifi.png"))))
+        b.type(1, 1, b.config(density = 480, uiMode = 0x20), mapOf(0 to Entry.Simple(key, 0x03, b.string("res/drawable-night-xxhdpi/ic_settings_wifi.png"))))
+        val table = ArscReader.read(b.build(), ArscReadOptions.THEME)
+        val dev = DeviceSnapshot(Fixtures.profile9, mapOf(settings to TargetSnapshot(settings, installed = true, table = table)), Fixtures.reference)
+        val spec = ThemeSpec.default().copy(customIcons = mapOf("$settings:drawable/ic_settings_wifi" to "wifi-00000001.png"))
+        val t = ThemeCompiler.compile(spec, dev, InMemoryPackResolver(emptyList()), rules) { 1L }.target(settings)!!
+        assertEquals(setOf("xxhdpi", "night-xxhdpi"), t.drawables.named("ic_settings_wifi").map { it.configuration }.toSet())
+        assertTrue(t.drawables.all { it.custom == "wifi-00000001.png" })
     }
 
     @Test
@@ -128,8 +149,8 @@ class ThemeCompilerCustomTest {
             ),
         )
         val t = compile(spec).target(settings)!!
-        val bg = t.drawables.named("sec_bg_settings").single()
-        assertEquals("xxhdpi", bg.configuration)
+        assertEquals(setOf("xxhdpi", "night-xxhdpi"), t.drawables.named("sec_bg_settings").map { it.configuration }.toSet())
+        val bg = t.drawables.named("sec_bg_settings").first { it.configuration == "xxhdpi" }
         assertEquals("backgrounds", bg.elementId)
         assertEquals(CustomAssets.CATEGORY_BACKGROUND, bg.source.category)
         assertEquals("wall-11223344.png", bg.custom)

@@ -6,7 +6,9 @@
 #
 # Usage (Termux):  sh test-overlay.sh                 -> writes hexnext-overlay-test.txt
 #                  sh test-overlay.sh /sdcard/Download
-#                  APK_URL=... sh test-overlay.sh      (override the download URL)
+#                  GH_TOKEN=github_pat_... sh test-overlay.sh   (private repo, as in install.sh)
+#                  SKIP_INSTALL=1 sh test-overlay.sh   (test the build already installed)
+#                  RUN_ID=... APK_ZIP_SHA256=... sh test-overlay.sh   (another CI run)
 set -u
 OUT_DIR="${1:-$PWD}"
 OUT="$OUT_DIR/hexnext-overlay-test.txt"
@@ -17,11 +19,12 @@ SEMWT="android:SemWT_$TARGET"
 PROBE=HexNext_probe
 PROBE_ID="com.android.shell:$PROBE"
 COLOR=sec_widget_round_and_bgcolor
-# Pinned CI artifact (GitHub Actions run 41329717937, artifact HexNext-Debug-Test-Installable)
-# and its SHA-256 as reported by the GitHub artifacts API. Override both together:
-#   APK_URL=... APK_ZIP_SHA256=... sh test-overlay.sh
-APK_URL="${APK_URL:-https://nightly.link/Bingblop/Hex-Next/actions/runs/41329717937/HexNext-Debug-Test-Installable.zip}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-b34508e95b1c71bd9ff7bdc9f67ef21fa58a166165c7c1df4bda5272509869f6}"
+# Pinned CI artifact and its SHA-256 as reported by the GitHub artifacts API. Keep these
+# equal to RUN_ID / APK_ZIP_SHA256 in install.sh so both scripts test the same build.
+RUN_ID="${RUN_ID:-41401228089}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-5ccffc2055db9177214b6c239b75dda304cf6154daf488d2e7050c51529e03a2}"
+ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
+REPO=Bingblop/Hex-Next
 WORK="$OUT_DIR/hexnext-apk"
 
 sha256_file() {
@@ -54,9 +57,30 @@ step "Build" "getprop ro.build.version.oneui; getprop ro.product.model; getprop 
 mkdir -p "$WORK"
 log ""; log "### Download"
 ok=0
-log "# curl $APK_URL"
-if curl -fsSL -o "$WORK/hexnext-debug.zip" "$APK_URL"; then ok=1; log "downloaded from $APK_URL"; else log "download failed: $APK_URL"; fi
-if [ $ok -eq 1 ]; then
+if [ -n "${SKIP_INSTALL:-}" ]; then
+  log "SKIP_INSTALL set; testing the build that is already installed."
+elif [ -n "${GH_TOKEN:-}" ]; then
+  # Private repo: resolve the artifact through the API (the token is passed on stdin, never in argv).
+  log "# GitHub API: artifact $ARTIFACT of run $RUN_ID"
+  LIST=$(printf 'header = "Authorization: Bearer %s"\n' "$GH_TOKEN" | curl --config - -fsSL -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts") || LIST=""
+  APK_URL=$(printf '%s' "$LIST" | tr -d '\n' | sed "s/.*\"name\": *\"$ARTIFACT\"[^}]*\"archive_download_url\": *\"\([^\"]*\)\".*/\1/")
+  case "$APK_URL" in
+    https://*)
+      if printf 'header = "Authorization: Bearer %s"\n' "$GH_TOKEN" | curl --config - -fsSL -o "$WORK/hexnext-debug.zip" "$APK_URL"; then
+        ok=1; log "downloaded run $RUN_ID through the GitHub API"
+      else log "download failed for run $RUN_ID (GitHub API)"; fi ;;
+    *) log "artifact $ARTIFACT not found in run $RUN_ID (token scope? run id?)" ;;
+  esac
+else
+  APK_URL="${APK_URL:-https://nightly.link/$REPO/actions/runs/$RUN_ID/$ARTIFACT.zip}"
+  log "# curl $APK_URL"
+  if curl -fsSL -o "$WORK/hexnext-debug.zip" "$APK_URL"; then ok=1; log "downloaded from $APK_URL"
+  else log "download failed: $APK_URL (a private repo needs GH_TOKEN=...)"; fi
+fi
+if [ -n "${SKIP_INSTALL:-}" ]; then
+  :
+elif [ $ok -eq 1 ]; then
   got=$(sha256_file "$WORK/hexnext-debug.zip")
   log "zip sha256: $got (expected $APK_ZIP_SHA256)"
   if [ "$got" != "$APK_ZIP_SHA256" ]; then
@@ -66,6 +90,11 @@ if [ $ok -eq 1 ]; then
     if [ -n "${APK:-}" ]; then
       root "cp '$APK' /data/local/tmp/hexnext-debug.apk && chmod 644 /data/local/tmp/hexnext-debug.apk"
       step "Install" "pm install -r /data/local/tmp/hexnext-debug.apk"
+      case "$res" in
+        *Success*) log "installed run $RUN_ID" ;;
+        *) log "WARNING: install of run $RUN_ID FAILED; the app sections below describe the build that was already installed."
+           log "(INSTALL_FAILED_UPDATE_INCOMPATIBLE: a different CI run's debug key; pm uninstall $PKG first, or use SKIP_INSTALL=1.)" ;;
+      esac
     else
       log "no apk inside zip"
     fi
@@ -73,7 +102,7 @@ if [ $ok -eq 1 ]; then
 else
   log "Could not download the APK; continuing with the shell-level overlay test only."
 fi
-step "Installed package" "pm list packages | grep -i hexnext; dumpsys package $PKG | grep -E 'versionName|versionCode' | head -2"
+step "Installed package" "pm list packages | grep -i hexnext; dumpsys package $PKG | grep -E 'versionName|versionCode|lastUpdateTime' | head -3"
 
 # 2. Baseline.
 step "Baseline overlay list" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings\$|aam_monet'"

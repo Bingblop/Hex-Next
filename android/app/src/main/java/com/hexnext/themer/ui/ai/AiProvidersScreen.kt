@@ -76,10 +76,22 @@ fun AiProvidersScreen(onBack: () -> Unit) {
     val testing = remember { mutableStateMapOf<String, Boolean>() }
     var editing by remember { mutableStateOf<IconProvider?>(null) }
     var clearing by remember { mutableStateOf<IconProvider?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
     BackHandler(onBack = onBack)
 
     LaunchedEffect(configured) {
-        val fresh = withContext(Dispatchers.IO) { configured.associateWith { id -> keys.masked(id) ?: "" } }
+        val fresh = withContext(Dispatchers.IO) {
+            configured.associateWith { id ->
+                // A key that is stored but unreadable right now still counts as set, so Test and
+                // Clear stay available instead of the card claiming "Not set".
+                try {
+                    keys.masked(id) ?: ""
+                } catch (e: Exception) {
+                    UNREADABLE_KEY
+                }
+            }
+        }
         masked.clear()
         masked.putAll(fresh.filterValues { it.isNotEmpty() })
     }
@@ -136,7 +148,10 @@ fun AiProvidersScreen(onBack: () -> Unit) {
                     maskedKey = masked[provider.id],
                     test = tests[provider.id],
                     testing = testing[provider.id] == true,
-                    onSet = { editing = provider },
+                    onSet = {
+                        saveError = null
+                        editing = provider
+                    },
                     onClear = { clearing = provider },
                     onTest = { test(provider) },
                 )
@@ -147,10 +162,24 @@ fun AiProvidersScreen(onBack: () -> Unit) {
     editing?.let { provider ->
         KeyDialog(
             provider = provider,
+            saving = saving,
+            error = saveError,
             onSave = { value ->
-                editing = null
+                // The dialog stays open until the key is stored, so a key store failure keeps
+                // the typed key and shows why instead of losing it.
+                saving = true
+                saveError = null
                 tests.remove(provider.id)
-                scope.launch { withContext(Dispatchers.IO) { keys.set(provider.id, value) } }
+                scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) { keys.set(provider.id, value) }
+                        if (editing == provider) editing = null
+                    } catch (t: Exception) {
+                        if (editing == provider) saveError = describeFailure(t)
+                    } finally {
+                        saving = false
+                    }
+                }
             },
             onDismiss = { editing = null },
         )
@@ -241,9 +270,15 @@ private fun capabilities(provider: IconProvider): String {
     return listOfNotNull(icon, text).joinToString(" · ")
 }
 
-/** Enter or replace a key. The field is masked until "Show" is pressed; Save needs a non-empty key (Clear removes one). */
+/** Shown in place of the masked key when a key is stored but the key store cannot read it right now. */
+private const val UNREADABLE_KEY = "Saved (can't be read right now)"
+
+/**
+ * Enter or replace a key. The field is masked until "Show" is pressed; Save needs a non-empty key
+ * (Clear removes one) and is disabled while [saving]. [error] explains a failed save.
+ */
 @Composable
-private fun KeyDialog(provider: IconProvider, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+private fun KeyDialog(provider: IconProvider, saving: Boolean, error: String?, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var value by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     val trimmed = value.trim()
@@ -276,9 +311,12 @@ private fun KeyDialog(provider: IconProvider, onSave: (String) -> Unit, onDismis
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (error != null) {
+                    Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(trimmed) }, enabled = trimmed.isNotEmpty()) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(trimmed) }, enabled = trimmed.isNotEmpty() && !saving) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
