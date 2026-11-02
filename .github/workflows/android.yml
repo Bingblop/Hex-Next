@@ -230,6 +230,8 @@ jobs:
           name: HexNext-Owner-Release
           path: android/app/build/outputs/apk/owner/release/*.apk
           if-no-files-found: error
+          # The owner build unlocks every pack: keep it only long enough to install.
+          retention-days: 2
       - name: Warn that the owner build needs the upload-key secrets
         if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS != 'true'
         run: echo "::warning::The owner release build is not uploaded because the upload-key secrets (HEXNEXT_KEYSTORE_BASE64, HEXNEXT_STORE_PASSWORD, HEXNEXT_KEY_ALIAS, HEXNEXT_KEY_PASSWORD) are not configured, and the HexNext-Play-AAB artifact is unsigned. Set them to get a signed owner APK and an uploadable Play bundle."

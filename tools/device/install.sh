@@ -15,13 +15,16 @@
 #                  (a fine-grained token with read access to Contents and Actions; it is
 #                  used only for the download and never stored)
 #   Overrides:     RUN_ID=... APK_ZIP_SHA256=... sh install.sh
+#   Owner build:   ARTIFACT=HexNext-Owner-Release RUN_ID=... APK_ZIP_SHA256=... sh install.sh
+#                  (release-signed, all packs unlocked; installs beside the Play build as
+#                  com.hexnext.themer.owner, but only one of the two may theme the phone)
 # When you change the pin, change RUN_ID / APK_ZIP_SHA256 in test-overlay.sh too.
 set -u
-RUN_ID="${RUN_ID:-41511487946}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-078a8162bf4f5cafffd7b3eab26c8bc750dc5df342c1712434602129fe08c1c0}"
+RUN_ID="${RUN_ID:-41533489493}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-10acef067815862cfa5d75efaed647982480e4055d6c3c76563126dd656d571e}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
-PKG=com.hexnext.themer
+case "$ARTIFACT" in *Owner*) PKG=com.hexnext.themer.owner ;; *) PKG=com.hexnext.themer ;; esac
 # Download into the home directory: Termux's $TMPDIR can be small or unwritable
 # (curl error 23 "client returned ERROR on write" means exactly that).
 WORK="${HOME:-$PWD}/hexnext-apk"
