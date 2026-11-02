@@ -5,3 +5,6 @@ local.properties
 *.iml
 .kotlin/
 captures/
+
+# Test packs the CI copies from the packs branch into the debug build
+app/src/debug/assets/packs/

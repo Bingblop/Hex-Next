@@ -39,10 +39,10 @@ android {
     defaultConfig {
         applicationId = "com.hexnext.themer"
         // Public FabricatedOverlay / OverlayManagerTransaction APIs for One UI 7/8/9.0 (Android 14–16 / SDK 36).
-        minSdk = 34
+        minSdk = 35
         targetSdk = 36
-        versionCode = 210
-        versionName = "2.1.0"
+        versionCode = 220
+        versionName = "2.2.0"
 
         // English-only release configuration
         resourceConfigurations += listOf("en")
@@ -79,9 +79,15 @@ android {
 
     buildTypes {
         debug {
+            // Debug builds stay unshrunk and unobfuscated so stack traces and the Shizuku
+            // service are readable on a test phone.
+            isMinifyEnabled = false
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
+            // R8 shrinks and obfuscates; proguard-rules.pro keeps the Binder/AIDL surface, the
+            // engine's serialised models and the Material colour utilities.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -216,6 +222,10 @@ dependencies {
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
+
+    // Pure-JVM engine (FRRO reader, `cmd overlay dump` parser, One UI rules); substituted by
+    // includeBuild("engine") in settings.gradle.kts.
+    implementation("com.hexnext:engine")
 
     testImplementation("junit:junit:4.13.2")
 }

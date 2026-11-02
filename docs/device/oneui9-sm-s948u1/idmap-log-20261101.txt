@@ -1,0 +1,120 @@
+11-01 12:58:36.209  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.214  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.218  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.220  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.220  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.220  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.220  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.227  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.227  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.227  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.227  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.235  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.235  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.244  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.246  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.250  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.251  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.259  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.264  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.264  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.264  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.269  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.279  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.279  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.279  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.279  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.283  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.285  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.294  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.294  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.295  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.295  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.295  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.295  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.295  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.304  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.306  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.306  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.306  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.316  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.318  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.318  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.318  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.319  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.322  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.322  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.329  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.331  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.333  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.335  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.335  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.342  6303  6303 E idmap2d : failed to parse idmap header
+11-01 12:58:36.342  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.342  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.342  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.345  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.345  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.345  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.347  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:36.350  6303  6385 E idmap2d : failed to parse idmap header
+11-01 12:58:36.529  6303  6379 E idmap2d : failed to parse idmap header
+11-01 12:58:48.591  3272  3703 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x02 (TYPE_REGISTER_FABRICATED), overlay=com.android.shell:HexNext_com_android_settings, userId=-1, constraints=None}] }
+11-01 12:58:48.592  3272  3703 E OverlayManager: failed to fabricate overlay android.os.FabricatedOverlayInternal@64fc64f
+11-01 12:58:48.592  3272  3703 E OverlayManager: android.os.DeadObjectException: Transaction failed on small parcel; remote process probably died, but this could also be caused by running out of binder buffer space
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at android.os.BinderProxy.transactNative(Native Method)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at android.os.BinderProxy.transact(BinderProxy.java:695)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at android.os.IIdmap2$Stub$Proxy.createFabricatedOverlay(IIdmap2.java:427)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at com.android.server.om.OverlayManagerServiceImpl.registerFabricatedOverlay(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:341)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at com.android.server.om.OverlayManagerService$1.executeAllRequestsLocked(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:468)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at com.android.server.om.OverlayManagerService$1.commit(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:32)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at android.content.om.IOverlayManager$Stub.onTransact(IOverlayManager.java:657)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at android.os.Binder.execTransactInternal(Binder.java:1400)
+11-01 12:58:48.592  3272  3703 E OverlayManager: 	at android.os.Binder.execTransact(Binder.java:1359)
+11-01 12:58:48.592  3272  3703 E OverlayManager: restoreSettingsLocked
+11-01 12:58:48.594  3272  3703 D OverlayManager: commit failed: failed to create fabricated overlay
+11-01 12:58:48.594  3272  3703 D OverlayManager: com.android.server.om.OverlayManagerServiceImpl$OperationFailedException: failed to create fabricated overlay
+11-01 12:58:48.594  3272  3703 D OverlayManager: 	at com.android.server.om.OverlayManagerServiceImpl.registerFabricatedOverlay(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:348)
+11-01 12:58:48.594  3272  3703 D OverlayManager: 	at com.android.server.om.OverlayManagerService$1.executeAllRequestsLocked(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:468)
+11-01 12:58:48.594  3272  3703 D OverlayManager: 	at com.android.server.om.OverlayManagerService$1.commit(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:32)
+11-01 12:58:48.594  3272  3703 D OverlayManager: 	at android.content.om.IOverlayManager$Stub.onTransact(IOverlayManager.java:657)
+11-01 12:58:48.594  3272  3703 D OverlayManager: 	at android.os.Binder.execTransactInternal(Binder.java:1400)
+11-01 12:58:48.594  3272  3703 D OverlayManager: 	at android.os.Binder.execTransact(Binder.java:1359)
+11-01 12:58:48.596  3272  3335 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x02 (TYPE_REGISTER_FABRICATED), overlay=com.android.shell:HexNext_com_android_settings, userId=-1, constraints=None}] }
+11-01 12:58:48.596  3272  3335 E OverlayManager: failed to fabricate overlay android.os.FabricatedOverlayInternal@82c6074
+11-01 12:58:48.596  3272  3335 E OverlayManager: android.os.DeadObjectException: Transaction failed on small parcel; remote process probably died, but this could also be caused by running out of binder buffer space
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at android.os.BinderProxy.transactNative(Native Method)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at android.os.BinderProxy.transact(BinderProxy.java:695)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at android.os.IIdmap2$Stub$Proxy.createFabricatedOverlay(IIdmap2.java:427)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at com.android.server.om.OverlayManagerServiceImpl.registerFabricatedOverlay(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:341)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at com.android.server.om.OverlayManagerService$1.executeAllRequestsLocked(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:468)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at com.android.server.om.OverlayManagerService$1.commit(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:32)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at android.content.om.IOverlayManager$Stub.onTransact(IOverlayManager.java:657)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at android.os.Binder.execTransactInternal(Binder.java:1400)
+11-01 12:58:48.596  3272  3335 E OverlayManager: 	at android.os.Binder.execTransact(Binder.java:1359)
+11-01 12:58:48.596  3272  3335 E OverlayManager: restoreSettingsLocked
+11-01 12:58:48.597  3272  3335 D OverlayManager: commit failed: failed to create fabricated overlay
+11-01 12:58:48.597  3272  3335 D OverlayManager: com.android.server.om.OverlayManagerServiceImpl$OperationFailedException: failed to create fabricated overlay
+11-01 12:58:48.597  3272  3335 D OverlayManager: 	at com.android.server.om.OverlayManagerServiceImpl.registerFabricatedOverlay(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:348)
+11-01 12:58:48.597  3272  3335 D OverlayManager: 	at com.android.server.om.OverlayManagerService$1.executeAllRequestsLocked(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:468)
+11-01 12:58:48.597  3272  3335 D OverlayManager: 	at com.android.server.om.OverlayManagerService$1.commit(qb/115061045 5a163ae8b165b87d090c9ad9448d5b82d451546c366d452c3ce306fa9c168fc8:32)
+11-01 12:58:48.597  3272  3335 D OverlayManager: 	at android.content.om.IOverlayManager$Stub.onTransact(IOverlayManager.java:657)
+11-01 12:58:48.597  3272  3335 D OverlayManager: 	at android.os.Binder.execTransactInternal(Binder.java:1400)
+11-01 12:58:48.597  3272  3335 D OverlayManager: 	at android.os.Binder.execTransact(Binder.java:1359)
+11-01 12:58:48.598  3272  3335 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x02 (TYPE_REGISTER_FABRICATED), overlay=com.android.shell:HexNext_com_android_settings, userId=-1, constraints=None}] }
+11-01 12:58:48.599  3272  3335 D OverlayManager: create idmap for com.android.settings and com.android.shell
+11-01 12:58:48.600  6303  6379 W idmap2d : failed to parse idmap header of '/data/resource-cache/data@resource-cache@com.android.shell-HexNext_com_android_settings-Fc3a.frro@idmap'
+11-01 12:58:48.612  3272  3335 D OverlayManager: In registerFabricatedOverlay, OverlayInfo=OverlayInfo {packageName=com.android.shell, overlayName=HexNext_com_android_settings, targetPackage=com.android.settings, targetOverlayable=, category=null, state=3 (STATE_ENABLED),, userId=0, isFabricated=true, constraints=None } mustReinitializeOverlay=false updated=true
+11-01 12:58:48.612  3272  3335 D OverlayManager: Executed request=Request{type=0x02 (TYPE_REGISTER_FABRICATED), overlay=com.android.shell:HexNext_com_android_settings, userId=-1, constraints=None} affected packages from request={<0>com.android.settings}
+11-01 12:58:48.612  3272  3335 D OverlayManager: Writing overlay settings
+11-01 12:58:48.615  3272  3335 D OverlayManager: Update package manager about changed overlays
+11-01 12:58:48.616  3272  3335 D OverlayManager: -> Updating overlay: target=com.android.settings overlays=[OverlayPaths { resourceDirs = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk], overlayPaths = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk, /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro, /data/resource-cache/android-SemWT_android-dX00.frro, /data/resource-cache/com.android.shell-HexNextMonetShades-Vtwc.frro, /data/resource-cache/android-ThemePark_dummy-w6vG.frro, /data/resource-cache/com.android.shell-HexNext_com_android_settings-Fc3a.frro] }] userId=0
+11-01 12:58:48.641  3272  4489 D OverlayManager: commit OverlayManagerTransaction { mRequests = [Request{type=0x00 (TYPE_SET_ENABLED), overlay=com.android.shell:HexNext_com_android_settings, userId=-2, constraints=None}] }
+11-01 12:58:48.641  3272  4489 D OverlayManager: setEnabled overlay=com.android.shell:HexNext_com_android_settings enable=true userId=0 constraints=None
+11-01 12:58:48.641  3272  4489 D OverlayManager: create idmap for com.android.settings and com.android.shell
+11-01 12:58:48.642  3272  4489 D OverlayManager: setHighestPriority overlay=com.android.shell:HexNext_com_android_settings userId=0
+11-01 12:58:48.642  3272  4489 D OverlayManager: Executed request=Request{type=0x00 (TYPE_SET_ENABLED), overlay=com.android.shell:HexNext_com_android_settings, userId=-2, constraints=None} affected packages from request={<0>com.android.settings}
+11-01 12:58:48.642  3272  4489 D OverlayManager: Writing overlay settings
+11-01 12:58:48.649  3272  4489 D OverlayManager: Update package manager about changed overlays
+11-01 12:58:48.649  3272  4489 D OverlayManager: -> Updating overlay: target=com.android.settings overlays=[OverlayPaths { resourceDirs = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk], overlayPaths = [/product/overlay/NavigationBarModeGesturalNoHint/NavigationBarModeGesturalNoHintOverlay.apk, /product/overlay/TransparentNavigationBar/TransparentNavigationBarOverlay.apk, /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro, /data/resource-cache/android-SemWT_android-dX00.frro, /data/resource-cache/com.android.shell-HexNextMonetShades-Vtwc.frro, /data/resource-cache/android-ThemePark_dummy-w6vG.frro, /data/resource-cache/com.android.shell-HexNext_com_android_settings-Fc3a.frro] }] userId=0
+11-01 12:58:58.648  3272  7007 W OverlayManager: service 'idmap' died

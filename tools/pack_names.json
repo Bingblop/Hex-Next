@@ -1,0 +1,223 @@
+{
+  "_comment": "Hex Next catalogue names. Keys are the ids hex_pack_builder.py derives from the source plugin (slug of plugin name + version); the values are the id, name and (derived) package com.hexnext.pack.<id> the pack ships under, plus the source plugin's package for the converter. Nothing from the source plugin (name or package) is ever shown in the app or written into a pack.",
+  "aosp-r-78": {
+    "id": "riverstone",
+    "name": "Riverstone",
+    "sourcePackage": "project.vivid.ui.plugin.aospq.daynight"
+  },
+  "aosp-r-8": {
+    "id": "riverstone-classic",
+    "name": "Riverstone Classic",
+    "sourcePackage": "project.vivid.ui.plugin.aospq"
+  },
+  "aosp-ui-release-fnal": {
+    "id": "clearwater",
+    "name": "Clearwater",
+    "sourcePackage": "project.vivid.ui.plugin.aosps"
+  },
+  "asylum-seclusion": {
+    "id": "moonlit-hollow",
+    "name": "Moonlit Hollow",
+    "sourcePackage": "project.vivid.ui.plugin.asylum"
+  },
+  "blend-day-night-5-0": {
+    "id": "dusk-and-dawn",
+    "name": "Dusk & Dawn",
+    "sourcePackage": "project.vivid.ui.plugin.blenddn"
+  },
+  "blend-3-0": {
+    "id": "watercolor",
+    "name": "Watercolor",
+    "sourcePackage": "project.vivid.ui.plugin.blend"
+  },
+  "broly-super-broly-2-5": {
+    "id": "supernova",
+    "name": "Supernova",
+    "sourcePackage": "project.vivid.ui.plugin.broly"
+  },
+  "dsp-1-9": {
+    "id": "pixel-pop",
+    "name": "Pixel Pop",
+    "sourcePackage": "project.vivid.ui.plugin.spiderverse"
+  },
+  "dsp-2-5": {
+    "id": "pixel-pop-remix",
+    "name": "Pixel Pop Remix",
+    "sourcePackage": "project.vivid.ui.plugin.spider"
+  },
+  "darpoint-3-5": {
+    "id": "compass-rose",
+    "name": "Compass Rose",
+    "sourcePackage": "project.vivid.ui.plugin.darpoint"
+  },
+  "delirium-d-2-0": {
+    "id": "fever-dream",
+    "name": "Fever Dream",
+    "sourcePackage": "project.vivid.ui.plugin.delirium"
+  },
+  "deliun-4-6": {
+    "id": "lagoon",
+    "name": "Lagoon",
+    "sourcePackage": "project.vivid.ui.plugin.deliun"
+  },
+  "deluxe-3-8": {
+    "id": "velvet-rope",
+    "name": "Velvet Rope",
+    "sourcePackage": "project.vivid.ui.plugin.deluxedn"
+  },
+  "deluxe-4-2": {
+    "id": "velvet-rope-encore",
+    "name": "Velvet Rope Encore",
+    "sourcePackage": "project.vivid.ui.plugin.deluxe"
+  },
+  "dna-bungee-gum-hisoka-6": {
+    "id": "bubblegum-bandit",
+    "name": "Bubblegum Bandit",
+    "sourcePackage": "project.vivid.ui.plugin.dna.bungeegum"
+  },
+  "dolian-3-0": {
+    "id": "dandelion",
+    "name": "Dandelion",
+    "sourcePackage": "project.vivid.ui.plugin.dolian"
+  },
+  "dounbler-2-9": {
+    "id": "double-scoop",
+    "name": "Double Scoop",
+    "sourcePackage": "project.vivid.ui.plugin.dante"
+  },
+  "drastik-3-5": {
+    "id": "thunderclap",
+    "name": "Thunderclap",
+    "sourcePackage": "project.vivid.ui.plugin.drasticko"
+  },
+  "genisys-dn-6-oneui6-1": {
+    "id": "first-light",
+    "name": "First Light",
+    "sourcePackage": "project.vivid.ui.plugin.genisys_byals"
+  },
+  "haumea-5-0": {
+    "id": "stardust",
+    "name": "Stardust",
+    "sourcePackage": "project.vivid.ui.plugin.haumea"
+  },
+  "helling-4-2": {
+    "id": "ember-glow",
+    "name": "Ember Glow",
+    "sourcePackage": "project.vivid.ui.plugin.helling"
+  },
+  "hilly-1-8": {
+    "id": "highland-mist",
+    "name": "Highland Mist",
+    "sourcePackage": "project.vivid.ui.plugin.hilly"
+  },
+  "homly-3-0": {
+    "id": "hearthside",
+    "name": "Hearthside",
+    "sourcePackage": "project.vivid.ui.plugin.homely"
+  },
+  "hopper-4-9": {
+    "id": "leapfrog",
+    "name": "Leapfrog",
+    "sourcePackage": "project.vivid.ui.plugin.hopper"
+  },
+  "houndly-2-2": {
+    "id": "night-patrol",
+    "name": "Night Patrol",
+    "sourcePackage": "project.vivid.ui.plugin.dondo"
+  },
+  "line-ui-1-7": {
+    "id": "thin-ice",
+    "name": "Thin Ice",
+    "sourcePackage": "project.vivid.ui.plugin.lineui.anuprode"
+  },
+  "luminosa-illuminated": {
+    "id": "lantern-light",
+    "name": "Lantern Light",
+    "sourcePackage": "project.vivid.ui.plugin.glow"
+  },
+  "madara-rinnegan": {
+    "id": "crimson-eye",
+    "name": "Crimson Eye",
+    "sourcePackage": "project.vivid.ui.plugin.madara"
+  },
+  "miui-11-1-3": {
+    "id": "lotus-garden",
+    "name": "Lotus Garden",
+    "sourcePackage": "project.vivid.ui.plugin.miui"
+  },
+  "nitro-1-6": {
+    "id": "rocket-fuel",
+    "name": "Rocket Fuel",
+    "sourcePackage": "project.vivid.ui.plugin.free"
+  },
+  "oriton-dn-1": {
+    "id": "north-star",
+    "name": "North Star",
+    "sourcePackage": "project.vivid.ui.plugin.oriton"
+  },
+  "paragus-paragus-pro-v1": {
+    "id": "solar-flare",
+    "name": "Solar Flare",
+    "sourcePackage": "project.vivid.ui.plugin.paragus"
+  },
+  "primeos-prime-2-5": {
+    "id": "midnight-express",
+    "name": "Midnight Express",
+    "sourcePackage": "project.vivid.ui.plugin.prime"
+  },
+  "quantum-atomic-xiii": {
+    "id": "particle-zoo",
+    "name": "Particle Zoo",
+    "sourcePackage": "project.vivid.ui.plugin.quantumbravo"
+  },
+  "roughly-1-1": {
+    "id": "sandpaper",
+    "name": "Sandpaper",
+    "sourcePackage": "project.vivid.ui.plugin.roughly"
+  },
+  "spark-4-9-delta": {
+    "id": "firefly",
+    "name": "Firefly",
+    "sourcePackage": "project.vivid.ui.plugin.spark"
+  },
+  "titanium-titan-pro": {
+    "id": "iron-lotus",
+    "name": "Iron Lotus",
+    "sourcePackage": "project.vivid.ui.plugin.titanium"
+  },
+  "ayos-6": {
+    "id": "aurora",
+    "name": "Aurora",
+    "sourcePackage": "project.vivid.ui.plugin.ayoslight"
+  },
+  "ayos-retina-16": {
+    "id": "aurora-borealis",
+    "name": "Aurora Borealis",
+    "sourcePackage": "project.vivid.ui.plugin.ayosdark.retina"
+  },
+  "hounter-2-8": {
+    "id": "fox-hunt",
+    "name": "Fox Hunt",
+    "sourcePackage": "project.vivid.ui.plugin.hamster"
+  },
+  "hysteria-pro27": {
+    "id": "carnival",
+    "name": "Carnival",
+    "sourcePackage": "project.vivid.ui.plugin.hysteria"
+  },
+  "jajanken-gon8": {
+    "id": "jackpot",
+    "name": "Jackpot",
+    "sourcePackage": "project.vivid.ui.plugin.rockpaperscissor"
+  },
+  "terpsichora-blythe-16": {
+    "id": "ballroom",
+    "name": "Ballroom",
+    "sourcePackage": "project.vivid.ui.plugin.niferpitou"
+  },
+  "uhu-dn-3-2": {
+    "id": "owl-hours",
+    "name": "Owl Hours",
+    "sourcePackage": "project.vivid.ui.plugin.uhu"
+  }
+}

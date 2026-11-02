@@ -16,14 +16,11 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  test-web:
+  # Unit tests for the release tooling in bin/ (prepare-release.py, verify-release-apk.py).
+  test-tools:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: node --check server.js && node --test tests/*.test.js
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
 
   build-android:
@@ -45,8 +42,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+      # Debug builds carry a few small packs from the `packs` branch (history-free pack hosting),
+      # so the test build can theme Settings icons on a private repo without a catalogue download.
+      # Release builds never bundle packs (they come from the entitlement server).
+      - name: Bundle test packs into the debug build
+        run: |
+          set -euo pipefail
+          git fetch --depth 1 origin packs
+          mkdir -p app/src/debug/assets/packs
+          for pack in velvet-rope particle-zoo firefly stardust; do
+            git show "origin/packs:$pack.zip" > "app/src/debug/assets/packs/$pack.zip"
+          done
+          ls -l app/src/debug/assets/packs
       - name: Test and build unsigned universal candidate
-        run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+        run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleDebug
       - name: Verify installable universal candidate
         run: |
           python3 ../bin/verify-release-apk.py \
@@ -58,6 +67,13 @@ jobs:
             android/app/build/outputs/apk/release/app-universal-release-unsigned.apk
             android/app/build/outputs/mapping/release/mapping.txt
             android/app/build/reports/lint-results-release.html
+          if-no-files-found: error
+
+      - name: Upload installable debug-signed test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Debug-Test-Installable
+          path: android/app/build/outputs/apk/debug/app-universal-debug.apk
           if-no-files-found: error
 
       - name: Exercise signed release path with an ephemeral CI-only key
