@@ -1,6 +1,7 @@
 package com.hexnext.themer.theme
 
 import android.os.Bundle
+import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ExecOutput
 import com.hexnext.themer.shizuku.ThemeService
@@ -21,6 +22,13 @@ import java.io.File
  * service state file [STATE_FILE]. When one variable file serves every weight, the bold font is
  * added as [BOLD_FILE] with rewritten font XMLs ([installSharedBold]), active after a reboot.
  * [remove] unmounts what is still mounted, deletes the module and clears the state.
+ *
+ * The Play and owner builds can be installed side by side, but two font modules would fight over
+ * the same `/system/fonts` files, so both use the one [MODULE_DIR]. Its `module.prop` records the
+ * installing application id under [OWNER_KEY]; the last build to install a font owns it, and
+ * [remove] (also on "It works", Remove theme and the boot-time safe mode) leaves a module the
+ * other build owns alone. A module without the key predates the owner build and is the Play
+ * build's.
  *
  * Every path piece interpolated into a shell command is validated against `[A-Za-z0-9_.-]+`
  * and single-quoted. All functions block on the service; call them off the main thread.
@@ -171,6 +179,13 @@ class FontInstaller(private val service: IThemeService) {
         if (uid() != 0) {
             // Nothing runs without root; a stale record is worth one line, a clean device none.
             if (recorded.isNotEmpty()) log(LogLine(LogLevel.WARN, "Font changes need a root service (uid 0); running as uid ${uid()}. ${recorded.size} bound font files were left as they are"))
+            return
+        }
+        val (propCode, prop) = ExecOutput.exec(service, "cat '$MODULE_DIR/module.prop'")
+        if (!isOwnedBy(if (propCode == 0) prop else null, APP_ID, OWNS_LEGACY_MODULE)) {
+            // The other Hex Next build installed a font since: its module and binds are not ours.
+            log(LogLine(LogLevel.INFO, "The font module belongs to the other Hex Next build; left in place"))
+            if (recorded.isNotEmpty()) service.writeStateFile(STATE_FILE, EMPTY_STATE)
             return
         }
         // Null when init's mountinfo cannot be read: then every path is unmounted as before.
@@ -373,6 +388,13 @@ class FontInstaller(private val service: IThemeService) {
     private fun Bundle.output() = getString(ThemeService.KEY_OUTPUT).orEmpty()
 
     companion object {
+        /** `module.prop` key that names the application id that installed the module. */
+        const val OWNER_KEY = "hexnextOwner"
+        private const val APP_ID = BuildConfig.APPLICATION_ID
+
+        /** The Play build owns a module from before [OWNER_KEY] existed (the owner build is newer). */
+        private val OWNS_LEGACY_MODULE = BuildConfig.ROOT_STATE_SUFFIX.isEmpty()
+
         const val MODULE_ID = "hexnext_font"
         const val MODULE_DIR = "/data/adb/modules/$MODULE_ID"
         const val FONTS_DIR = "$MODULE_DIR/system/fonts"
@@ -400,12 +422,38 @@ class FontInstaller(private val service: IThemeService) {
         /** `module.prop` lines, each single-quoted for `printf '%s\n'`. */
         private val MODULE_PROP_LINES = listOf(
             "id=$MODULE_ID",
+            "$OWNER_KEY=$APP_ID",
             "name=Hex Next font",
             "version=1",
             "versionCode=1",
             "author=Hex Next",
             "description=Custom system font applied by Hex Next",
         ).joinToString(" ") { "'$it'" }
+
+        /**
+         * POSIX sh condition, true when [MODULE_DIR]'s `module.prop` names this build as its
+         * owner, as [isOwnedBy] decides. [APP_ID] holds only `[a-z0-9.]`, and `-F` matches it literally.
+         */
+        val OWNED_HERE_TEST: String = run {
+            val prop = "'$MODULE_DIR/module.prop'"
+            val mine = "grep -qxF '$OWNER_KEY=$APP_ID' $prop"
+            if (OWNS_LEGACY_MODULE) "{ $mine || ! grep -q '^$OWNER_KEY=' $prop; }" else mine
+        }
+
+        /**
+         * True when a font module whose `module.prop` text is [moduleProp] (null: no module) may be
+         * replaced or removed by the build [appId]: it names [appId] under [OWNER_KEY], or it names
+         * no owner and [ownsLegacy]. Pure.
+         */
+        fun isOwnedBy(moduleProp: String?, appId: String, ownsLegacy: Boolean): Boolean {
+            if (moduleProp == null) return true
+            val owner = moduleProp.lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.startsWith("$OWNER_KEY=") }
+                ?.substringAfter('=')
+                ?: return ownsLegacy
+            return owner == appId
+        }
 
         /** One path segment; `.` and `..` are rejected so no piece can escape its directory. */
         private val SAFE_PIECE = Regex("^(?!\\.\\.?$)[A-Za-z0-9_.-]+$")

@@ -27,14 +27,17 @@ import com.hexnext.themer.theme.FontInstaller
  * symlink before root uses it.
  *
  * The module is installed with each root apply and removed on "It works" and on Remove theme.
- * If the app is uninstalled the module removes itself on the next boot.
+ * If the app is uninstalled the module removes itself on the next boot. The owner build, which
+ * installs beside the Play build, has its own module ([MODULE_ID] with
+ * [BuildConfig.ROOT_STATE_SUFFIX]), so a confirm or remove in one build never removes the other's.
  */
 internal object EarlyRecoveryHook {
 
     private const val SCRIPT_NAME = "early-recovery.sh"
     private const val LAUNCHER_NAME = "post-fs-data.sh"
     private const val MODULE_PROP_NAME = "module.prop"
-    private const val MODULE_ID = "hexnext_early_recovery"
+    /** `hexnext_early_recovery` in the Play build (unchanged for existing installs), `hexnext_early_recovery_owner` in the owner build. */
+    private const val MODULE_ID = "hexnext_early_recovery" + BuildConfig.ROOT_STATE_SUFFIX
     private const val MARKER_NAME = "early_safe_mode"
     private const val MODULE_DIR = "/data/adb/modules/$MODULE_ID"
 
@@ -50,7 +53,7 @@ internal object EarlyRecoveryHook {
         if [ -d /data/user_de/0/com.android.settings ] && [ ! -d /data/user_de/0/$APP_ID ] &&
           [ ! -d "/data/user_de/£USER_ID/$APP_ID" ]; then
           # The app was uninstalled: remove this module.
-          rm -rf /data/adb/modules/hexnext_early_recovery
+          rm -rf $MODULE_DIR
           exit 0
         fi
         PREFS="/data/user_de/£USER_ID/$APP_ID/shared_prefs/hexnext_apply.xml"
@@ -85,7 +88,9 @@ internal object EarlyRecoveryHook {
         # The font may be what keeps the phone restarting: the root manager drops the module at
         # the next boot. The boot receiver unmounts and deletes it as soon as this boot completes.
         FONT_DIR=${FontInstaller.MODULE_DIR}
-        if [ -f "£FONT_DIR/module.prop" ] && grep -qx 'id=${FontInstaller.MODULE_ID}' "£FONT_DIR/module.prop"; then
+        # Only a font module this build installed: the other Hex Next build may own it.
+        if [ -f "£FONT_DIR/module.prop" ] && grep -qx 'id=${FontInstaller.MODULE_ID}' "£FONT_DIR/module.prop" &&
+          ${FontInstaller.OWNED_HERE_TEST}; then
           touch "£FONT_DIR/remove"
         fi
 
@@ -128,9 +133,9 @@ internal object EarlyRecoveryHook {
         fi
     """.trimIndent().replace('£', '$') + "\n"
 
-    private const val MODULE_PROP =
+    private val MODULE_PROP =
         "id=$MODULE_ID\n" +
-            "name=Hex Next Early Recovery\n" +
+            "name=Hex Next Early Recovery" + (if (BuildConfig.ROOT_STATE_SUFFIX.isEmpty()) "" else " (owner build)") + "\n" +
             "version=1.0.0\n" +
             "versionCode=1\n" +
             "author=Hex Next\n" +
@@ -179,8 +184,9 @@ internal object EarlyRecoveryHook {
             service.exec(
                 "[ \"$(id -u)\" = 0 ] || exit 0; " +
                     "if [ -f '$MODULE_DIR/$MODULE_PROP_NAME' ] && grep -qx 'id=$MODULE_ID' '$MODULE_DIR/$MODULE_PROP_NAME'; then " +
-                    "rm -rf '$MODULE_DIR'; fi; " +
-                    "rm -f '/data/adb/service.d/hexnext-recovery.sh'",
+                    "rm -rf '$MODULE_DIR'; fi" +
+                    // The pre-module hook of older Play releases; the owner build never had one.
+                    (if (BuildConfig.ROOT_STATE_SUFFIX.isEmpty()) "; rm -f '/data/adb/service.d/hexnext-recovery.sh'" else ""),
             )
         }
     }

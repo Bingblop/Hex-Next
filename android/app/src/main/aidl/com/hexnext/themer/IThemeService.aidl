@@ -55,7 +55,7 @@ interface IThemeService {
     // "json": [{overlayId, disabled, unregistered, message}].
     Bundle disableHexOverlays() = 11;
 
-    // Small JSON state files in /data/local/tmp/hexnext/ (name: [A-Za-z0-9_.-]+).
+    // Small JSON state files in MonitorScript.DIR (/data/local/tmp/hexnext/, hexnext_owner/ in the owner build; name: [A-Za-z0-9_.-]+).
     Bundle writeStateFile(String name, String content) = 12;
     // "content" holds the file text; code 1 when the file does not exist.
     Bundle readStateFile(String name) = 13;

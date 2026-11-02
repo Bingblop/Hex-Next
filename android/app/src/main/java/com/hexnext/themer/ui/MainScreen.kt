@@ -366,7 +366,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
     val locks = PackLocks.of(ui)
     val onUnlock: (String) -> Unit = { productId -> activity?.let { viewModel.unlock(it, productId) } }
     // "Describe your theme" may only pick packs this install can apply.
-    val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
+    val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
 
     val paletteHint = remember(ui.packs, ui.spec.simplePackId) {
         ui.packs.firstOrNull { it.id == ui.spec.simplePackId }

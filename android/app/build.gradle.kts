@@ -31,10 +31,25 @@ require(releaseStoreFile == null || releaseStoreFile.isFile) {
 // Play build only: the license server URL and the Play Console base64 RSA public key used to
 // check purchase signatures. Neither is a secret, but both stay out of the repository and come
 // from the environment or keystore.properties; empty when not configured.
-fun buildConfigString(value: String): String =
-    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-val licenseServerUrl = signingValue("HEXNEXT_LICENSE_SERVER_URL").orEmpty()
-val playLicenseKey = signingValue("HEXNEXT_PLAY_LICENSE_KEY").orEmpty()
+// Escapes a value for a Java string literal in BuildConfig: backslash, quote, and line breaks
+// or tabs (a raw newline would end the literal and break the build).
+fun buildConfigString(value: String): String {
+    val escaped = StringBuilder(value.length + 2)
+    for (c in value) {
+        when (c) {
+            '\\' -> escaped.append("\\\\")
+            '"' -> escaped.append("\\\"")
+            '\n' -> escaped.append("\\n")
+            '\r' -> escaped.append("\\r")
+            '\t' -> escaped.append("\\t")
+            else -> if (c < ' ') escaped.append(String.format("\\u%04x", c.code)) else escaped.append(c)
+        }
+    }
+    return "\"" + escaped + "\""
+}
+val licenseServerUrl = signingValue("HEXNEXT_LICENSE_SERVER_URL").orEmpty().trim()
+// Base64 ignores whitespace, and a key pasted from Play Console is often line-wrapped.
+val playLicenseKey = signingValue("HEXNEXT_PLAY_LICENSE_KEY").orEmpty().filterNot { it.isWhitespace() }
 
 require(providers.gradleProperty("requireReleaseSigning").orNull != "true" || releaseSigningConfigured) {
     "Release signing is required. Configure HEXNEXT_KEYSTORE_PATH, HEXNEXT_STORE_PASSWORD, HEXNEXT_KEY_ALIAS and HEXNEXT_KEY_PASSWORD."
@@ -71,9 +86,14 @@ android {
             dimension = "store"
             buildConfigField("String", "LICENSE_SERVER_URL", buildConfigString(licenseServerUrl))
             buildConfigField("String", "PLAY_LICENSE_KEY", buildConfigString(playLicenseKey))
+            // Root state (recovery module, monitor directory) keeps its original names here.
+            buildConfigField("String", "ROOT_STATE_SUFFIX", buildConfigString(""))
         }
         create("owner") {
             dimension = "store"
+            // Installed beside the Play build: its own recovery module and monitor directory, so a
+            // confirm or remove in one build never tears down the other's restart protection.
+            buildConfigField("String", "ROOT_STATE_SUFFIX", buildConfigString("_owner"))
             // Installs beside the Play build; the label comes from src/owner/res/values/strings.xml.
             applicationIdSuffix = ".owner"
             versionNameSuffix = "-owner"
@@ -82,7 +102,10 @@ android {
 
     splits {
         abi {
-            isEnable = true
+            // ABI splits break bundle tasks ("Sequence contains more than one matching element"
+            // in buildPreBundle), and a bundle is split by Play anyway: turn them off when this
+            // Gradle invocation builds a bundle. CI therefore runs bundle tasks on their own.
+            isEnable = gradle.startParameter.taskNames.none { it.contains("bundle", ignoreCase = true) }
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
             // Always generate a single Universal APK supporting both 64-bit and 32-bit devices

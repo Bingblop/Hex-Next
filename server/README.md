@@ -18,9 +18,27 @@ The app sends the purchase token it got from Play Billing, and the Worker asks G
 | 200 | `{"valid":false,"reason":"purchase_not_found"}` | The store answered no. Other reasons: `purchase_cancelled`, `purchase_pending`, `not_purchased`, `product_mismatch`. |
 | 400 | `{"valid":false,"reason":"..."}` | The request was malformed: `invalid_json`, `body_not_object`, `invalid_package_name`, `wrong_package`, `invalid_product_id`, `invalid_purchase_token`. |
 | 413 | `reason: body_too_large` | The body was over 4 KB. |
-| 429 | `reason: rate_limited` | Too many requests from this IP in the current minute. |
+| 429 | `reason: rate_limited` | Too many requests from this IP in the current minute. A `Retry-After` header gives the seconds until the window resets. |
 | 503 | `reason: provider_unavailable` or `unknown_provider` | The Worker could not reach the store, or it is misconfigured. The client should treat this as "unknown" and keep its cached state, not as "not purchased". |
 | 404, 405 | `not_found`, `method_not_allowed` | Wrong path or method. |
+
+`POST /v1/verify-batch` checks up to 50 purchases in one request, so restoring every owned pack on a new install counts once against the rate limit. The body may be up to 128 KB:
+
+```json
+{ "packageName": "com.hexnext.themer", "purchases": [{ "productId": "pack_neon", "purchaseToken": "..." }] }
+```
+
+It answers HTTP 200 with one result per purchase, in request order, and never echoes tokens:
+
+```json
+{ "results": [
+  { "valid": true, "productId": "pack_neon", "orderId": "GPA.1234-..." },
+  { "valid": false, "reason": "purchase_not_found", "productId": "pack_other" },
+  { "valid": false, "reason": "provider_unavailable", "productId": "pack_third" }
+] }
+```
+
+An item with `provider_unavailable` (or `internal_error`) means "unknown" for that purchase only. A malformed batch is rejected whole with 400 and the reasons above, plus `invalid_purchases` (missing, empty or a non-object entry) and `too_many_purchases` (over 50). The 413, 429, 503, 404 and 405 answers are the same as for `/v1/verify`. The app uses the batch endpoint and falls back to `/v1/verify` when a server answers 404, and on 429 it waits for `Retry-After` (bounded) before retrying a few times.
 
 The Worker checks that `packageName` equals `PACKAGE_NAME`, then calls `purchases.products.get` on the Google Play Developer API. It returns `valid: true` only when `purchaseState` is `0`. Purchase tokens are never logged.
 
@@ -30,7 +48,7 @@ Variables live in `wrangler.toml` and hold nothing secret:
 
 - `PACKAGE_NAME`: the only application id the Worker accepts (`com.hexnext.themer`). The owner build unlocks every pack locally and never calls the Worker.
 - `PROVIDER`: `google_play` (the default) or `direct_sale`. `direct_sale` is a stub in `src/providers/directSale.ts` for a later Paddle or Lemon Squeezy integration, and it answers `provider_not_configured` until it is implemented.
-- `RATE_LIMIT_PER_MINUTE`: the per-IP limit (default 30, and `0` turns it off). It is a naive count kept in the Cache API, so it applies separately at each Cloudflare location. The Cache API does nothing on `*.workers.dev` hostnames, so the limit only works once the Worker has a custom domain.
+- `RATE_LIMIT_PER_MINUTE`: the per-IP limit on requests to either endpoint (default 60, and `0` turns it off; a batch counts as one request). It is a naive count kept in the Cache API, so it applies separately at each Cloudflare location. The Cache API does nothing on `*.workers.dev` hostnames, so the limit only works once the Worker has a custom domain.
 
 The only secret is `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
@@ -71,7 +89,7 @@ The tests never touch the network. They use a throwaway RSA key generated on eac
 
 ## Layout
 
-- `src/index.ts`: routing, the body-size limit, the rate limit, validation, and provider dispatch.
+- `src/index.ts`: routing for `/v1/verify` and `/v1/verify-batch`, the body-size limits, the rate limit, validation, and provider dispatch.
 - `src/validate.ts`: request validation and the capped body reader.
 - `src/rateLimit.ts`: the Cache API rate limiter.
 - `src/providers/types.ts`: the `PurchaseProvider` interface and the `Env` bindings.

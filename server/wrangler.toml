@@ -9,5 +9,6 @@ compatibility_date = "2025-09-01"
 PACKAGE_NAME = "com.hexnext.themer"
 # Purchase provider: "google_play" (default) or "direct_sale" (stub).
 PROVIDER = "google_play"
-# Naive per-IP limit on POST /v1/verify, per minute, per Cloudflare location.
-RATE_LIMIT_PER_MINUTE = "30"
+# Naive per-IP limit on POST /v1/verify and /v1/verify-batch (a batch counts as one request),
+# per minute, per Cloudflare location.
+RATE_LIMIT_PER_MINUTE = "60"

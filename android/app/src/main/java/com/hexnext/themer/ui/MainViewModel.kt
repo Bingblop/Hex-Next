@@ -26,6 +26,7 @@ import com.hexnext.engine.pack.Pack
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.EntitlementsProvider
+import com.hexnext.themer.billing.OfficialPacks
 import com.hexnext.themer.billing.PackAccess
 import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.device.CompatibilityCheck
@@ -150,6 +151,8 @@ data class UiState(
     val entitlement: EntitlementState = EntitlementState(),
     /** Test packs bundled into a debuggable build, which count as unlocked there; empty otherwise. */
     val bundledPackIds: Set<String> = emptySet(),
+    /** Packs seen in a fetched catalogue or downloaded from one: paid even when their id is not in PaidPacks. */
+    val officialPackIds: Set<String> = emptySet(),
     /** False in a build with no store (everything is unlocked): no prices, no Unlock buttons. */
     val canPurchase: Boolean = false,
 ) {
@@ -157,10 +160,10 @@ data class UiState(
     val selectedPackId: String? get() = spec.simplePackId
 
     /** True when pack [id] may be downloaded, selected and applied. */
-    fun isPackUnlocked(id: String): Boolean = PackAccess.isUnlocked(entitlement, id, bundledPackIds)
+    fun isPackUnlocked(id: String): Boolean = PackAccess.isUnlocked(entitlement, id, bundledPackIds, officialPackIds)
 
     /** [isPackUnlocked], or the cached purchase hint while the store has not answered: for display only. */
-    fun packLooksUnlocked(id: String): Boolean = PackAccess.looksUnlocked(entitlement, id, bundledPackIds)
+    fun packLooksUnlocked(id: String): Boolean = PackAccess.looksUnlocked(entitlement, id, bundledPackIds, officialPackIds)
 }
 
 /** The "Preview" card: Settings dashboard icons of the theme to apply, from [ThemePreviewer]. */
@@ -198,6 +201,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     /** Pack unlocks of this build's store flavor; one instance per process, already started. */
     private val entitlements = EntitlementsProvider.get(app)
+
+    /** Catalogue pack ids seen by this install (see [PackAccess.isPaid]). */
+    private val officialPacks = OfficialPacks.get(app)
     private val debuggable = (app.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private var safeModeChecked = false
     private var semwtReasserted = false
@@ -359,6 +365,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             refreshPacks()
             refreshAssets()
+            learnOfficialPacks()
         }
         viewModelScope.launch {
             for (tool in RootTools.ALL) {
@@ -383,6 +390,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             ServiceTasks.running.drop(1).filter { it == null }.collect {
                 refreshGuard()
                 refreshLastApply()
+            }
+        }
+        viewModelScope.launch {
+            officialPacks.ids.collect { ids ->
+                _ui.update { if (it.officialPackIds == ids) it else it.copy(officialPackIds = ids) }
             }
         }
         viewModelScope.launch {
@@ -500,6 +512,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     private fun initialState(): UiState = UiState(
         entitlement = entitlements.state.value,
+        officialPackIds = officialPacks.ids.value,
         canPurchase = entitlements.canPurchase,
         seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
         oneUiVersion = CompatibilityCheck.oneUiName(),
@@ -960,6 +973,21 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
     }
 
+    /**
+     * Store builds only, once at start-up on IO: reads the default catalogue's `index.json` so that
+     * packs added to it after this APK shipped count as paid even if the user never opens "Get
+     * packs" (see [OfficialPacks]). Best effort: offline or a bad answer changes nothing.
+     */
+    private fun learnOfficialPacks() {
+        if (!entitlements.canPurchase) return
+        runCatching { packStore.fetchCatalogue(PackStore.DEFAULT_CATALOGUE_URL) }
+            .onSuccess { entries -> officialPacks.record(entries.map { it.id }) }
+            .onFailure { log(LogLine(LogLevel.INFO, "Catalogue check skipped: ${it.javaClass.simpleName}")) }
+    }
+
+    private fun isOfficialCatalogue(url: String): Boolean =
+        PackStore.normaliseBaseUrl(url) == PackStore.normaliseBaseUrl(PackStore.DEFAULT_CATALOGUE_URL)
+
     fun setCatalogueUrl(url: String) = _ui.update { it.copy(catalogue = it.catalogue.copy(url = url)) }
 
     /** Fetches `index.json` from the catalogue URL; errors show in the dialog, not only the log. */
@@ -970,6 +998,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val entries = packStore.fetchCatalogue(url)
+                // Only the official catalogue marks packs as paid: a catalogue of the user's own
+                // packs elsewhere stays free (official ids also come from learnOfficialPacks).
+                if (isOfficialCatalogue(url)) officialPacks.record(entries.map { it.id })
                 entitlements.setCatalogue(entries.map { it.id })
                 _ui.update { it.copy(catalogue = it.catalogue.copy(entries = entries, loading = false, error = null)) }
                 log(LogLine(LogLevel.OK, "Catalogue: ${entries.size} packs at ${PackStore.normaliseBaseUrl(url)}"))
@@ -996,6 +1027,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                     val fraction = if (total > 0) (read.toFloat() / total).coerceIn(0f, 1f) else 0f
                     _ui.update { it.copy(catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to fraction))) }
                 }
+                if (isOfficialCatalogue(url)) officialPacks.record(listOf(entry.id, pack.id))
                 log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)"))
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Download of ${entry.name} failed: ${t.message ?: t.javaClass.simpleName}"))

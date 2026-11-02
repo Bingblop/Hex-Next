@@ -41,7 +41,8 @@ workflows:
           ./gradlew --no-daemon --console=plain \
             :app:verifyAndroidSdkTools :app:testPlayDebugUnitTest \
             :app:lintPlayRelease :app:assemblePlayDebug :app:assemblePlayRelease \
-            :app:assembleOwnerRelease :app:bundlePlayRelease
+            :app:assembleOwnerRelease
+          ./gradlew --no-daemon --console=plain :app:bundlePlayRelease
         test_report: android/app/build/test-results/testPlayDebugUnitTest/*.xml
       - name: Verify unsigned universal release candidate
         script: |

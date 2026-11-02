@@ -164,8 +164,9 @@ jobs:
         run: >-
           ./gradlew --no-daemon --console=plain :engine:test :app:verifyAndroidSdkTools
           :app:testPlayDebugUnitTest :app:lintPlayRelease
-          :app:assemblePlayRelease :app:assembleOwnerRelease :app:bundlePlayRelease
+          :app:assemblePlayRelease :app:assembleOwnerRelease
           :app:assemblePlayDebug :app:assembleOwnerDebug
+          && ./gradlew --no-daemon --console=plain :app:bundlePlayRelease
       - name: Verify installable universal candidate
         run: |
           python3 ../bin/verify-release-apk.py \
@@ -220,7 +221,8 @@ jobs:
           printf '%s' "$HEXNEXT_KEYSTORE_BASE64" | base64 --decode > "$HEXNEXT_KEYSTORE_PATH"
           unset HEXNEXT_KEYSTORE_BASE64
           ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true \
-            :app:assembleOwnerRelease :app:bundlePlayRelease
+            :app:assembleOwnerRelease
+          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:bundlePlayRelease
       - name: Upload owner release APK
         if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'
         uses: actions/upload-artifact@v4

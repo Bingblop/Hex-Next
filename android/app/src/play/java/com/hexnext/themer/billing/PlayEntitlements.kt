@@ -22,11 +22,13 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -40,7 +42,8 @@ import java.net.URL
  * Entitlements are recomputed from `queryPurchasesAsync` on every start, refresh and resume, so
  * a refunded purchase disappears. Only purchases in the PURCHASED state that pass verification
  * unlock anything, and only those are acknowledged; PENDING purchases are shown as pending.
- * Verification uses the license server when [BuildConfig.LICENSE_SERVER_URL] is set, otherwise
+ * Verification uses the license server when [BuildConfig.LICENSE_SERVER_URL] is set (one
+ * `/v1/verify-batch` request for a whole restore, see [LicenseServer]), otherwise
  * the purchase signature against [BuildConfig.PLAY_LICENSE_KEY]. Without either, a debuggable
  * build grants with a logged warning and any other build grants nothing.
  *
@@ -93,6 +96,13 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     /** Product → [sequence] at which the purchase listener granted it in this run. */
     private val listenerGrants = HashMap<String, Long>()
     private var sequence = 0L
+
+    /** Generation of the newest full purchase query started, and of the newest one applied. */
+    private var queryGeneration = 0L
+    private var appliedGeneration = 0L
+
+    /** False once the license server answered 404 for `/v1/verify-batch` (an older server). */
+    private var batchSupported = true
 
     // ---- PackEntitlements ----
 
@@ -261,7 +271,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
 
     private fun queryPurchases() {
         current.update { it.copy(checking = true) }
-        val startedAt = synchronized(lock) { sequence }
+        val query = synchronized(lock) { FullQuery(generation = ++queryGeneration, since = sequence) }
         val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
         client.queryPurchasesAsync(params) { result, purchases ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
@@ -271,7 +281,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 return@queryPurchasesAsync
             }
             val snapshot = purchases.toList()
-            scope.launch { handlePurchases(snapshot, fullSnapshotSince = startedAt) }
+            scope.launch { handlePurchases(snapshot, full = query) }
         }
     }
 
@@ -279,7 +289,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 val snapshot = purchases.orEmpty().toList()
-                if (snapshot.isNotEmpty()) scope.launch { handlePurchases(snapshot, fullSnapshotSince = null) }
+                if (snapshot.isNotEmpty()) scope.launch { handlePurchases(snapshot, full = null) }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> setError(baseError())
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> queryPurchases()
@@ -295,11 +305,21 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     }
 
     /**
-     * Verifies [purchases] and publishes the result. [fullSnapshotSince] is non-null for a full
-     * `queryPurchasesAsync` answer: owned products are then replaced by what it holds (refunds
-     * disappear), keeping only listener grants made after that query started.
+     * One full `queryPurchasesAsync` call: [generation] grows with every call, [since] is the
+     * listener [sequence] when it started.
      */
-    private fun handlePurchases(purchases: List<Purchase>, fullSnapshotSince: Long?) {
+    private class FullQuery(val generation: Long, val since: Long)
+
+    /**
+     * Verifies [purchases] and publishes the result. [full] is non-null for a full
+     * `queryPurchasesAsync` answer: owned products are then replaced by what it holds (refunds
+     * disappear), keeping only listener grants made after that query started. Verification can
+     * take a while, so full answers can finish out of order: one older than the newest full answer
+     * already applied is dropped, and the state is published under [lock] so publications keep
+     * the order of the updates.
+     */
+    private suspend fun handlePurchases(purchases: List<Purchase>, full: FullQuery?) {
+        val serverAnswers = verifyOnServer(purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED })
         val granted = HashSet<String>()
         val pendingNow = HashSet<String>()
         var failure: String? = null
@@ -307,7 +327,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             when (purchase.purchaseState) {
                 Purchase.PurchaseState.PENDING -> pendingNow += purchase.products
                 Purchase.PurchaseState.PURCHASED -> {
-                    val verdict = verify(purchase)
+                    val verdict = verify(purchase, serverAnswers)
                     if (verdict.products.isNotEmpty()) {
                         granted += verdict.products
                         if (!purchase.isAcknowledged) acknowledge(purchase)
@@ -319,8 +339,13 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             }
         }
         synchronized(lock) {
-            if (fullSnapshotSince != null) {
-                listenerGrants.values.removeAll { it <= fullSnapshotSince }
+            if (full != null) {
+                if (full.generation <= appliedGeneration) {
+                    Log.i(TAG, "Dropping purchase check ${full.generation}: check $appliedGeneration is newer")
+                    return
+                }
+                appliedGeneration = full.generation
+                listenerGrants.values.removeAll { it <= full.since }
                 owned.clear()
                 owned += granted
                 owned += listenerGrants.keys
@@ -334,14 +359,27 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 pending += pendingNow
             }
             pending -= owned
+            // Still checking while a newer full query has not answered yet.
+            val newestAnswered = full != null && full.generation == queryGeneration
+            publishLocked(
+                ready = full != null,
+                checkingDone = newestAnswered,
+                error = failure,
+                clearError = full != null || granted.isNotEmpty(),
+            )
         }
-        publish(ready = fullSnapshotSince != null, error = failure, clearError = fullSnapshotSince != null || granted.isNotEmpty())
     }
 
     private class Verdict(val products: Set<String>, val error: String? = null)
 
-    /** The products [purchase] may unlock; empty (with a reason for the user) when it fails verification. */
-    private fun verify(purchase: Purchase): Verdict {
+    /** A purchase token and one product of it, as the license server checks them. */
+    private data class ServerKey(val purchaseToken: String, val productId: String)
+
+    /**
+     * The products [purchase] may unlock; empty (with a reason for the user) when it fails
+     * verification. [serverAnswers] holds the license server's answers ([verifyOnServer]).
+     */
+    private fun verify(purchase: Purchase, serverAnswers: Map<ServerKey, Boolean?>): Verdict {
         synchronized(lock) { verifiedTokens[purchase.purchaseToken] }?.let { return Verdict(it) }
         if (purchase.packageName != context.packageName) {
             Log.w(TAG, "Purchase for another package ignored")
@@ -353,7 +391,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             serverUrl.isNotEmpty() -> {
                 val ok = HashSet<String>()
                 for (productId in purchase.products) {
-                    when (verifyWithServer(serverUrl, purchase, productId)) {
+                    when (serverAnswers[ServerKey(purchase.purchaseToken, productId)]) {
                         true -> ok += productId
                         false -> Unit
                         null -> {
@@ -392,30 +430,138 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     }
 
     /**
-     * POSTs the purchase to `<server>/v1/verify` (server/README.md) and expects
-     * `{"valid":true,"productId":...}`. Returns true or false for an answer (HTTP 200, or 400 for a
-     * request the server rejects), null when the server could not say (unreachable, 429, 5xx).
-     * Runs on [Dispatchers.IO] only (called from [handlePurchases]).
+     * Asks the license server about every product of [purchases] not verified yet in this run:
+     * true or false for an answer, null when the server could not say. Uses `/v1/verify-batch`
+     * (one rate-limited request per [LicenseServer.MAX_BATCH] products) and falls back to one
+     * `/v1/verify` request per product when the server has no batch endpoint (HTTP 404). Empty
+     * when no license server is configured. Runs on [Dispatchers.IO] only.
      */
-    private fun verifyWithServer(serverUrl: String, purchase: Purchase, productId: String): Boolean? {
-        // The configured value may be the server's base URL or the full endpoint.
-        val base = serverUrl.trimEnd('/')
-        val endpoint = if (base.endsWith(VERIFY_PATH)) base else base + VERIFY_PATH
-        if (!endpoint.startsWith("https://", ignoreCase = true)) {
-            Log.e(TAG, "The license server URL is not HTTPS; purchases are not granted")
-            return false
+    private suspend fun verifyOnServer(purchases: List<Purchase>): Map<ServerKey, Boolean?> {
+        val serverUrl = BuildConfig.LICENSE_SERVER_URL.trim()
+        if (serverUrl.isEmpty()) return emptyMap()
+        val keys = LinkedHashSet<ServerKey>()
+        for (purchase in purchases) {
+            if (purchase.packageName != context.packageName) continue
+            if (synchronized(lock) { purchase.purchaseToken in verifiedTokens }) continue
+            purchase.products.forEach { keys += ServerKey(purchase.purchaseToken, it) }
         }
+        if (keys.isEmpty()) return emptyMap()
+        if (!serverUrl.startsWith("https://", ignoreCase = true)) {
+            Log.e(TAG, "The license server URL is not HTTPS; purchases are not granted")
+            return keys.associateWith { false }
+        }
+        val answers = HashMap<ServerKey, Boolean?>()
+        var single: List<ServerKey> = emptyList()
+        if (synchronized(lock) { batchSupported }) {
+            val chunks = keys.toList().chunked(LicenseServer.MAX_BATCH)
+            for ((index, chunk) in chunks.withIndex()) {
+                val batch = verifyBatch(LicenseServer.endpoint(serverUrl, LicenseServer.VERIFY_BATCH_PATH), chunk)
+                if (batch == null) {
+                    // No batch endpoint on this server: check the rest one by one from now on.
+                    synchronized(lock) { batchSupported = false }
+                    single = chunks.drop(index).flatten()
+                    break
+                }
+                answers += batch
+            }
+        } else {
+            single = keys.toList()
+        }
+        if (single.isNotEmpty()) {
+            val endpoint = LicenseServer.endpoint(serverUrl, LicenseServer.VERIFY_PATH)
+            for (key in single) answers[key] = verifyOne(endpoint, key)
+        }
+        return answers
+    }
+
+    /**
+     * POSTs [keys] to `/v1/verify-batch` and maps its `results` (request order) to answers. Null
+     * when the server answers 404 (no batch endpoint); every answer is null when it could not say.
+     */
+    private suspend fun verifyBatch(endpoint: String, keys: List<ServerKey>): Map<ServerKey, Boolean?>? {
+        val items = JSONArray()
+        keys.forEach { items.put(JSONObject().put("productId", it.productId).put("purchaseToken", it.purchaseToken)) }
+        val body = JSONObject().put("packageName", context.packageName).put("purchases", items).toString()
+        val answer = postJson(endpoint, body)
+        val unknown = keys.associateWith<ServerKey, Boolean?> { null }
+        return when (answer.code) {
+            HttpURLConnection.HTTP_NOT_FOUND -> null
+            HttpURLConnection.HTTP_OK -> {
+                val results = runCatching { JSONObject(answer.body).getJSONArray("results") }.getOrNull()
+                if (results == null || results.length() != keys.size) {
+                    Log.w(TAG, "License server batch answer could not be read")
+                    unknown
+                } else {
+                    val mapped = HashMap<ServerKey, Boolean?>()
+                    keys.forEachIndexed { i, key ->
+                        val item: JSONObject? = results.optJSONObject(i)
+                        mapped[key] = item?.let {
+                            LicenseServer.itemVerdict(
+                                valid = it.optBoolean("valid", false),
+                                answeredProductId = it.optString("productId", ""),
+                                reason = it.optString("reason", ""),
+                                requestedProductId = key.productId,
+                            )
+                        }
+                    }
+                    mapped
+                }
+            }
+            // 400 rejects the whole request (the same check as /v1/verify).
+            HttpURLConnection.HTTP_BAD_REQUEST, CODE_BAD_URL -> keys.associateWith { false }
+            else -> unknown
+        }
+    }
+
+    /**
+     * POSTs one product to `/v1/verify` and expects `{"valid":true,"productId":...}`. True or
+     * false for an answer (HTTP 200, or 400 for a request the server rejects), null when the
+     * server could not say (unreachable, 429 after the retries, 5xx).
+     */
+    private suspend fun verifyOne(endpoint: String, key: ServerKey): Boolean? {
         val body = JSONObject()
-            .put("packageName", purchase.packageName)
-            .put("productId", productId)
-            .put("purchaseToken", purchase.purchaseToken)
+            .put("packageName", context.packageName)
+            .put("productId", key.productId)
+            .put("purchaseToken", key.purchaseToken)
             .toString()
-            .toByteArray(Charsets.UTF_8)
+        val answer = postJson(endpoint, body)
+        return when (answer.code) {
+            HttpURLConnection.HTTP_OK -> {
+                val json = runCatching { JSONObject(answer.body) }.getOrNull() ?: return false
+                json.optBoolean("valid", false) && json.optString("productId") == key.productId
+            }
+            HttpURLConnection.HTTP_BAD_REQUEST, CODE_BAD_URL -> false
+            else -> null
+        }
+    }
+
+    /** An HTTP answer; [code] is [CODE_UNREACHABLE] or [CODE_BAD_URL] when there was none. */
+    private class HttpAnswer(val code: Int, val body: String = "", val retryAfter: String? = null)
+
+    /**
+     * POSTs [json] to [endpoint]. On HTTP 429 it waits as `Retry-After` asks (bounded, see
+     * [LicenseServer.retryWaitMs]) and tries again, at most [LicenseServer.MAX_RATE_LIMIT_RETRIES]
+     * times; the last answer is returned.
+     */
+    private suspend fun postJson(endpoint: String, json: String): HttpAnswer {
+        val body = json.toByteArray(Charsets.UTF_8)
+        var attempt = 0
+        while (true) {
+            val answer = postOnce(endpoint, body)
+            if (answer.code != HTTP_TOO_MANY_REQUESTS || attempt >= LicenseServer.MAX_RATE_LIMIT_RETRIES) return answer
+            val wait = LicenseServer.retryWaitMs(answer.retryAfter, attempt)
+            Log.w(TAG, "License server is rate limiting; retrying in ${wait / 1000} s")
+            delay(wait)
+            attempt++
+        }
+    }
+
+    private fun postOnce(endpoint: String, body: ByteArray): HttpAnswer {
         val connection = try {
             URL(endpoint).openConnection() as HttpURLConnection
         } catch (e: Exception) {
             Log.e(TAG, "Invalid license server URL: ${e.javaClass.simpleName}")
-            return false
+            return HttpAnswer(CODE_BAD_URL)
         }
         return try {
             connection.requestMethod = "POST"
@@ -431,8 +577,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             val code = connection.responseCode
             if (code != HttpURLConnection.HTTP_OK) {
                 Log.w(TAG, "License server answered HTTP $code")
-                // 400 rejects this request; 429, 5xx and anything else mean "unknown".
-                return if (code == HttpURLConnection.HTTP_BAD_REQUEST) false else null
+                return HttpAnswer(code, retryAfter = connection.getHeaderField("Retry-After"))
             }
             val text = connection.inputStream.use { input ->
                 val out = ByteArrayOutputStream()
@@ -445,11 +590,10 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 }
                 String(out.toByteArray(), Charsets.UTF_8)
             }
-            val json = runCatching { JSONObject(text) }.getOrNull() ?: return false
-            json.optBoolean("valid", false) && json.optString("productId") == productId
+            HttpAnswer(code, text)
         } catch (e: IOException) {
             Log.w(TAG, "License server unreachable: ${e.javaClass.simpleName}")
-            null
+            HttpAnswer(CODE_UNREACHABLE)
         } finally {
             connection.disconnect()
         }
@@ -476,23 +620,23 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     private fun setError(message: String?) = current.update { if (it.error == message) it else it.copy(error = message) }
 
     /** Publishes the guarded fields to [state]; saves the owned hint once purchases were read. */
-    private fun publish(ready: Boolean = false, error: String? = null, clearError: Boolean = false) {
-        val ownedNow: Set<String>
-        val pendingNow: Set<String>
-        val packIds: Set<String>
-        val prices: Map<String, String>
-        synchronized(lock) {
-            ownedNow = owned.toSet()
-            pendingNow = pending.toSet()
-            packIds = catalogueIds.toSet()
-            prices = details.mapNotNull { (id, d) -> offerOf(d)?.formattedPrice?.let { id to it } }.toMap()
-        }
+    private fun publish() = synchronized(lock) { publishLocked() }
+
+    /**
+     * [publish] with [lock] held, so publications happen in the order of the updates. [ready]
+     * marks a full purchase answer; [checkingDone] ends "checking" (the newest full query answered).
+     */
+    private fun publishLocked(ready: Boolean = false, checkingDone: Boolean = false, error: String? = null, clearError: Boolean = false) {
+        val ownedNow = owned.toSet()
+        val pendingNow = pending.toSet()
+        val packIds = catalogueIds.toSet()
+        val prices = details.mapNotNull { (id, d) -> offerOf(d)?.formattedPrice?.let { id to it } }.toMap()
         val unlockAll = ProductIds.ALL_PACKS in ownedNow
         current.update {
             val isReady = it.ready || ready
             it.copy(
                 ready = isReady,
-                checking = if (ready) false else it.checking,
+                checking = if (checkingDone) false else it.checking,
                 unlockAll = unlockAll,
                 ownedProductIds = ownedNow,
                 ownedPackIds = packIds.filterTo(HashSet()) { id -> unlockAll || ProductIds.forPack(id) in ownedNow },
@@ -525,12 +669,18 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         const val TAG = "HexNextBilling"
         const val PREFS = "hexnext_billing"
         const val KEY_OWNED_HINT = "owned_hint"
-        const val VERIFY_PATH = "/v1/verify"
         const val UNVERIFIABLE = "Purchases can't be verified in this build"
         const val INITIAL_RETRY_MS = 1_000L
         const val MAX_RETRY_MS = 5L * 60 * 1000
         const val PRODUCTS_PER_QUERY = 20
         const val TIMEOUT_MS = 10_000
         const val MAX_RESPONSE_BYTES = 64 * 1024
+        const val HTTP_TOO_MANY_REQUESTS = 429
+
+        /** [HttpAnswer.code] when the server could not be reached. */
+        const val CODE_UNREACHABLE = -1
+
+        /** [HttpAnswer.code] when the configured URL cannot be opened. */
+        const val CODE_BAD_URL = -2
     }
 }

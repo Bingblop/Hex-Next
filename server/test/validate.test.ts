@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { MAX_BODY_BYTES, readBodyLimited, validateVerifyBody } from "../src/validate";
+import {
+  MAX_BATCH_ITEMS,
+  MAX_BODY_BYTES,
+  readBodyLimited,
+  validateBatchBody,
+  validateVerifyBody,
+} from "../src/validate";
 
 const PKG = "com.hexnext.themer";
 const good = { packageName: PKG, productId: "pack_neon.v2", purchaseToken: "abc.DEF-123_xyz" };
@@ -60,5 +66,32 @@ describe("readBodyLimited", () => {
   it("counts bytes, not characters", async () => {
     // 2 bytes per character in UTF-8.
     expect(await readBodyLimited(post("é".repeat(MAX_BODY_BYTES / 2 + 1)))).toBeNull();
+  });
+});
+
+describe("validateBatchBody", () => {
+  const item = { productId: "pack_neon", purchaseToken: "abc.DEF-123_xyz" };
+
+  it("accepts up to MAX_BATCH_ITEMS purchases and adds the package name to each", () => {
+    const purchases = Array.from({ length: MAX_BATCH_ITEMS }, () => item);
+    const result = validateBatchBody({ packageName: PKG, purchases }, PKG);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(MAX_BATCH_ITEMS);
+      expect(result.value[0]).toEqual({ packageName: PKG, ...item });
+    }
+  });
+
+  it.each([
+    [null, "body_not_object"],
+    [{ packageName: "com.hexnext.themer.owner", purchases: [item] }, "wrong_package"],
+    [{ packageName: PKG }, "invalid_purchases"],
+    [{ packageName: PKG, purchases: [] }, "invalid_purchases"],
+    [{ packageName: PKG, purchases: [null] }, "invalid_purchases"],
+    [{ packageName: PKG, purchases: Array.from({ length: MAX_BATCH_ITEMS + 1 }, () => item) }, "too_many_purchases"],
+    [{ packageName: PKG, purchases: [item, { ...item, productId: "Bad" }] }, "invalid_product_id"],
+    [{ packageName: PKG, purchases: [{ ...item, purchaseToken: "has space" }] }, "invalid_purchase_token"],
+  ])("rejects %j with %s", (body, reason) => {
+    expect(validateBatchBody(body, PKG)).toEqual({ ok: false, reason });
   });
 });

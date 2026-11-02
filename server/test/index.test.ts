@@ -94,7 +94,11 @@ describe("handleRequest", () => {
         return false;
       },
     };
-    expect((await call(post(body), { provider, rateLimiter: deny })).status).toBe(429);
+    const response = await handleRequest(post(body), env, { provider, rateLimiter: deny });
+    expect(response.status).toBe(429);
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(60);
     expect(keys).toEqual(["203.0.113.7"]);
     expect(calls).toHaveLength(0);
   });
@@ -107,6 +111,90 @@ describe("handleRequest", () => {
       status: 503,
       json: { valid: false, reason: "provider_unavailable" },
     });
+  });
+});
+
+describe("handleRequest /v1/verify-batch", () => {
+  const batchBody = {
+    packageName: "com.hexnext.themer",
+    purchases: [
+      { productId: "pack_neon", purchaseToken: "token-1" },
+      { productId: "pack_gone", purchaseToken: "token-2" },
+      { productId: "pack_down", purchaseToken: "token-3" },
+    ],
+  };
+
+  it("answers every item in request order without echoing tokens", async () => {
+    const { provider, calls } = fakeProvider(async (req) => {
+      if (req.productId === "pack_gone") return { valid: false, reason: "purchase_not_found" };
+      if (req.productId === "pack_down") throw new ProviderUnavailableError("down");
+      return { valid: true, productId: req.productId, orderId: "GPA.1" };
+    });
+    const result = await call(post(batchBody, "/v1/verify-batch"), { provider, rateLimiter: allowAll });
+    expect(result).toEqual({
+      status: 200,
+      json: {
+        results: [
+          { valid: true, productId: "pack_neon", orderId: "GPA.1" },
+          { valid: false, reason: "purchase_not_found", productId: "pack_gone" },
+          { valid: false, reason: "provider_unavailable", productId: "pack_down" },
+        ],
+      },
+    });
+    expect(calls.map((c) => c.purchaseToken)).toEqual(["token-1", "token-2", "token-3"]);
+    expect(JSON.stringify(result.json)).not.toContain("token-");
+  });
+
+  it("counts a whole batch as one rate-limited request", async () => {
+    const { provider } = fakeProvider(async (req) => ({ valid: true, productId: req.productId, orderId: "" }));
+    let count = 0;
+    const counting = {
+      allow: async () => {
+        count++;
+        return true;
+      },
+    };
+    const many = {
+      packageName: "com.hexnext.themer",
+      purchases: Array.from({ length: 50 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
+    };
+    const result = await call(post(many, "/v1/verify-batch"), { provider, rateLimiter: counting });
+    expect(result.status).toBe(200);
+    expect((result.json as { results: unknown[] }).results).toHaveLength(50);
+    expect(count).toBe(1);
+  });
+
+  it("rejects more than 50 purchases, an empty list and a wrong package", async () => {
+    const { provider, calls } = fakeProvider(async () => ({}));
+    const tooMany = {
+      packageName: "com.hexnext.themer",
+      purchases: Array.from({ length: 51 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
+    };
+    expect(await call(post(tooMany, "/v1/verify-batch"), { provider, rateLimiter: allowAll })).toEqual({
+      status: 400,
+      json: { valid: false, reason: "too_many_purchases" },
+    });
+    expect(
+      await call(post({ ...batchBody, purchases: [] }, "/v1/verify-batch"), { provider, rateLimiter: allowAll }),
+    ).toEqual({ status: 400, json: { valid: false, reason: "invalid_purchases" } });
+    expect(
+      await call(post({ ...batchBody, packageName: "com.other.app" }, "/v1/verify-batch"), {
+        provider,
+        rateLimiter: allowAll,
+      }),
+    ).toEqual({ status: 400, json: { valid: false, reason: "wrong_package" } });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("returns 429 with Retry-After when the rate limiter refuses", async () => {
+    const { provider, calls } = fakeProvider(async () => ({}));
+    const response = await handleRequest(post(batchBody, "/v1/verify-batch"), env, {
+      provider,
+      rateLimiter: { allow: async () => false },
+    });
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).not.toBeNull();
+    expect(calls).toHaveLength(0);
   });
 });
 

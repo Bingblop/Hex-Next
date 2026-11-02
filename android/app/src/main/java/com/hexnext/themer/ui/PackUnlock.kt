@@ -31,10 +31,11 @@ import com.hexnext.themer.billing.ProductIds
 internal data class PackLocks(
     val entitlement: EntitlementState,
     val bundled: Set<String>,
+    val official: Set<String>,
     val canPurchase: Boolean,
 ) {
     /** True when pack [id] shows a lock (the cached purchase hint counts until the store answers). */
-    fun locked(id: String): Boolean = !PackAccess.looksUnlocked(entitlement, id, bundled)
+    fun locked(id: String): Boolean = !PackAccess.looksUnlocked(entitlement, id, bundled, official)
 
     fun pending(id: String): Boolean = entitlement.isPending(id)
 
@@ -46,7 +47,7 @@ internal data class PackLocks(
     val offerUnlockAll: Boolean get() = canPurchase && !entitlement.unlockAll
 
     companion object {
-        fun of(ui: UiState) = PackLocks(ui.entitlement, ui.bundledPackIds, ui.canPurchase)
+        fun of(ui: UiState) = PackLocks(ui.entitlement, ui.bundledPackIds, ui.officialPackIds, ui.canPurchase)
     }
 }
 

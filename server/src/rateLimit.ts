@@ -9,7 +9,12 @@ export interface RateLimiter {
   allow(clientKey: string, origin: string): Promise<boolean>;
 }
 
-const WINDOW_SECONDS = 60;
+export const WINDOW_SECONDS = 60;
+
+/** Whole seconds until the current window ends (at least 1), for a Retry-After header. */
+export function secondsUntilNextWindow(nowMs = Date.now()): number {
+  return Math.max(1, WINDOW_SECONDS - (Math.floor(nowMs / 1000) % WINDOW_SECONDS));
+}
 
 export function cacheRateLimiter(cache: Cache, limitPerWindow: number): RateLimiter {
   return {
