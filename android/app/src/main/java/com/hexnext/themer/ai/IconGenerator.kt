@@ -71,6 +71,17 @@ object IconGenerator {
     fun listGallery(context: Context): List<File> =
         galleryDir(context).listFiles { f -> f.isFile && f.name.endsWith(".png") }.orEmpty().sortedByDescending { it.lastModified() }
 
+    /**
+     * Deletes [file] from the gallery. Refuses anything that is not a direct child of
+     * [galleryDir]; returns true when the file is gone afterwards. Blocks on file I/O.
+     */
+    fun deleteFromGallery(context: Context, file: File): Boolean {
+        val dir = galleryDir(context).canonicalFile
+        val target = file.canonicalFile
+        if (target.parentFile != dir) return false
+        return target.delete() || !target.exists()
+    }
+
     /** `AI <first 40 chars of the prompt>` as a file-safe stem. */
     private fun fileStem(icon: GeneratedIcon): String {
         val slug = icon.prompt.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').take(40).trim('-')

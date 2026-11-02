@@ -264,6 +264,9 @@ class ThemeApplier(context: Context) {
         // root hook (uid 0) or the boot receiver (needs su on the phone). Without either (Shizuku
         // in ADB mode on a phone without su) nothing could turn the theme off after two restarts,
         // so the apply is not left unconfirmed and the UI does not promise that.
+        // A new theme goes on: a safe mode left from an earlier trip (banner never dismissed)
+        // would otherwise keep switching off the app-start and boot re-assert for this theme.
+        guard.dismissSafeMode()
         if (uid == 0 || SU_PATHS.any { File(it).exists() }) {
             guard.recordApply()
         } else {
@@ -282,8 +285,9 @@ class ThemeApplier(context: Context) {
         // Once it has, nothing may build on top: later targets would be unwatched, and the SemWT
         // guard started at the end would put Samsung's overlays back over them at once.
         // Only a monitor this apply started cleared the old safe_mode.json; without one, a file
-        // left by an earlier apply would stop this one for nothing.
-        val watched = monitor.code() == 0
+        // left by an earlier apply would stop this one for nothing. A monitor whose pid file was
+        // not there yet was still launched (and the old file deleted), so it is watched too.
+        val watched = monitor.code() == 0 || monitor.code() == ThemeService.MONITOR_PID_MISSING
         if (watched) onMonitor(monitorAt)
         var tripped = false
         DrawableRenderer(packs, CustomAssetStore.rootDir(appContext), IconSynthesizer(appContext)).use { renderer ->
@@ -1019,11 +1023,21 @@ class ThemeApplier(context: Context) {
         // An apply running in this process watches its own monitor.
         if (RUNNING_APPLIES.get() > 0) return false
         val read = runCatching { service.readStateFile(SAFE_MODE_NAME) }.getOrNull() ?: return false
+        val windowEnd = monitorAt + (MONITOR_SECONDS + WATCH_GRACE_SECONDS) * 1000L
+        // code 1: the file does not exist. Once the window is over that means no trip: the
+        // watch is dropped, so it no longer keeps [isTakeoverActive] (and the boot check) on.
+        if (read.code() == 1 && System.currentTimeMillis() > windowEnd) {
+            expireTripWatch(applyAt, monitorAt)
+            return false
+        }
         if (read.code() != 0) return false
         val content = read.getString(ThemeService.KEY_CONTENT).orEmpty()
         val tripAt = TRIP_TIME.find(content)?.groupValues?.get(1)?.toLongOrNull()?.times(1000L) ?: return false
         // `date +%s` has whole seconds; a later monitor (another apply, the Settings test) deletes the file first.
-        if (tripAt < monitorAt - 1000L || tripAt > monitorAt + (MONITOR_SECONDS + WATCH_GRACE_SECONDS) * 1000L) return false
+        if (tripAt < monitorAt - 1000L || tripAt > windowEnd) {
+            if (System.currentTimeMillis() > windowEnd) expireTripWatch(applyAt, monitorAt)
+            return false
+        }
         synchronized(TRIP_LOCK) {
             // Checked again under the lock: an apply, a removal or the watcher may have got here first.
             if (RUNNING_APPLIES.get() > 0) return false
@@ -1048,6 +1062,15 @@ class ThemeApplier(context: Context) {
     private fun recordTripWatch(applyAt: Long, monitorAt: Long) {
         // commit(): a system_server restart can kill this process right after the monitor starts.
         prefs.edit().putLong(KEY_TRIP_APPLY_AT, applyAt).putLong(KEY_TRIP_MONITOR_AT, monitorAt).commit()
+    }
+
+    /** Drops the trip watch of [applyAt]/[monitorAt] unless an apply or removal replaced it meanwhile. */
+    private fun expireTripWatch(applyAt: Long, monitorAt: Long) {
+        synchronized(TRIP_LOCK) {
+            if (RUNNING_APPLIES.get() > 0) return
+            if (prefs.getLong(KEY_TRIP_APPLY_AT, 0L) != applyAt || prefs.getLong(KEY_TRIP_MONITOR_AT, 0L) != monitorAt) return
+            clearTripWatch()
+        }
     }
 
     private fun clearTripWatch() {
@@ -1162,10 +1185,18 @@ class ThemeApplier(context: Context) {
 
         fun reportFile(context: Context): File = File(File(context.filesDir, "reports"), "apply-last.json")
 
-        /** True while a compiled theme has SemWT overlays taken over (the boot receiver re-asserts then). */
+        /**
+         * True while a compiled theme has SemWT overlays taken over, or while the last apply's
+         * stability monitor may have tripped unseen (a trip watch is recorded). App start and the
+         * boot receiver run [SemWtController.reassert] then, which runs [recoverMissedTrip] first;
+         * without the second part an apply with no SemWT records (shell tier, font only) would
+         * never have a missed trip recovered. [recoverMissedTrip] drops the watch once its window
+         * is over without a trip.
+         */
         fun isTakeoverActive(context: Context): Boolean {
             rememberContext(context)
-            return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TAKEOVER_ACTIVE, false)
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_TAKEOVER_ACTIVE, false) || prefs.getLong(KEY_TRIP_APPLY_AT, 0L) > 0L
         }
 
         fun setTakeoverActive(context: Context, active: Boolean) {

@@ -372,11 +372,20 @@ class ThemePreviewer(context: Context) {
         return out
     }
 
-    /** The job of the first custom background of [target] in the spec (non-night, best density), or null. */
+    /**
+     * The job of the first custom background of [target] in the spec that the compiler kept
+     * (non-night, best density), or null. A key the compiler skipped (not in the target any
+     * more) does not hide a later one; a key the rules renamed is found by its category.
+     */
     private fun backgroundJob(spec: ThemeSpec, target: CompiledTarget): PlannedDrawableJob? {
-        val key = spec.customBackgrounds.keys.firstOrNull { it.startsWith(target.packageName + ":") } ?: return null
-        val candidates = target.drawables.filter { it.resourceName == key && it.custom != null }
-        return bestOf(candidates)
+        val keys = spec.customBackgrounds.keys.filter { it.startsWith(target.packageName + ":") }
+        if (keys.isEmpty()) return null
+        val custom = target.drawables.filter { it.custom != null && it.source.category == CustomAssets.CATEGORY_BACKGROUND }
+        for (key in keys) {
+            bestOf(custom.filter { it.resourceName == key })?.let { return it }
+        }
+        val first = custom.firstOrNull()?.resourceName ?: return null
+        return bestOf(custom.filter { it.resourceName == first })
     }
 
     private fun accentOf(target: CompiledTarget): Int? {

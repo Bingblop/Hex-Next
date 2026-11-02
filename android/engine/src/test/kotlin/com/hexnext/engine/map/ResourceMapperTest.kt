@@ -28,6 +28,12 @@ class ResourceMapperTest {
                 listOf(file("a", 480), file("b", 640), file("c", 480, uiMode = 0x20)),
             ),
             ResourceEntry("drawable", "qs_bg", 0x7f020001, listOf(ConfiguredValue("", ResourceValue.FileRef("res/drawable/qs_bg.xml")))),
+            ResourceEntry(
+                "mipmap", "ic_launcher", 0x7f030000,
+                listOf(file("res/mipmap-anydpi-v26/ic_launcher.xml", 0xFFFE), file("d", 480)),
+            ),
+            ResourceEntry("drawable", "ic_vector", 0x7f020002, listOf(file("res/drawable-anydpi/ic_vector.xml", 0xFFFE))),
+            ResourceEntry("drawable", "ic_hdpi", 0x7f020003, listOf(file("e", 240), file("f", 0xFFFE))),
         ),
     )
 
@@ -64,7 +70,7 @@ class ResourceMapperTest {
         assertEquals(
             listOf(
                 PlannedDrawable("com.android.systemui:drawable/ic_sysbar_back", src, listOf("xxhdpi", "xxxhdpi")),
-                PlannedDrawable("com.android.systemui:drawable/qs_bg", src.copy(resourceName = "qs_bg"), listOf("")),
+                PlannedDrawable("com.android.systemui:drawable/qs_bg", src.copy(resourceName = "qs_bg"), listOf("xxhdpi")),
             ),
             plan.drawableEntries,
         )
@@ -85,5 +91,32 @@ class ResourceMapperTest {
         val plan = ResourceMapper.map(table, null, ThemeRequest(colors = mapOf("color/qs_tile_active" to 1)))
         assertEquals(0, plan.semwtCoverage)
         assertEquals(1, plan.colorEntries.size)
+    }
+
+    @Test
+    fun `png jobs never use the default configuration or anydpi`() {
+        val plan = ResourceMapper.map(
+            table, null,
+            ThemeRequest(
+                drawables = linkedMapOf(
+                    "drawable/qs_bg" to src,
+                    "mipmap/ic_launcher" to src,
+                    "drawable/ic_vector" to src,
+                    "drawable/ic_hdpi" to src,
+                ),
+            ),
+        )
+        assertEquals(
+            listOf(listOf("xxhdpi"), listOf("xxhdpi"), listOf("xxhdpi"), listOf("hdpi", "xxhdpi")),
+            plan.drawableEntries.map { it.configs },
+        )
+    }
+
+    @Test
+    fun `png densities keep real densities and nodpi`() {
+        assertEquals(listOf("xxhdpi", "xxxhdpi"), ResourceMapper.pngDensities(listOf("xxhdpi", "xxxhdpi", "xxhdpi")))
+        assertEquals(listOf("nodpi"), ResourceMapper.pngDensities(listOf("nodpi")))
+        assertEquals(listOf(ResourceMapper.FALLBACK_DENSITY), ResourceMapper.pngDensities(emptyList()))
+        assertEquals(listOf("xxhdpi"), ResourceMapper.pngDensities(listOf("", "anydpi")))
     }
 }

@@ -167,7 +167,21 @@ class DeviceScanner(context: Context) {
             throw IOException("Could not save the scan report ${json.absolutePath}")
         }
         runCatching { txt.writeText(report.summaryText()) }
+        runCatching { pruneOldReports(reportsDir) }
         return report.copy(jsonPath = json.absolutePath, txtPath = txt.absolutePath)
+    }
+
+    /**
+     * Keeps the newest [KEEP_REPORTS] scan reports (same order as [latestReport]) and deletes the
+     * older ones with their `.txt` summary. Other files, such as the apply report, are left alone.
+     */
+    private fun pruneOldReports(reportsDir: File) {
+        val reports = reportsDir.listFiles { f -> f.isFile && SCAN_REPORT_NAME.matches(f.name) }.orEmpty()
+            .sortedWith(compareByDescending<File> { it.lastModified() }.thenByDescending { it.name })
+        for (old in reports.drop(KEEP_REPORTS)) {
+            File(reportsDir, old.name.removeSuffix(".json") + ".txt").delete()
+            old.delete()
+        }
     }
 
     /** Replaces [liveDir] with the finished [stagingDir]; restores the old dir when that fails. */
@@ -497,6 +511,9 @@ class DeviceScanner(context: Context) {
 
         /** Age after which an untouched report `.json.part` is treated as left by a killed scan. */
         private const val STALE_PART_MS = 60L * 60 * 1000
+
+        /** Scan reports kept in `files/reports/`; older ones are deleted after each scan. */
+        private const val KEEP_REPORTS = 10
 
         /** One UI targets the scan always checks. */
         val TARGETS = listOf(

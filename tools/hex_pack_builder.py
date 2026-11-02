@@ -184,6 +184,27 @@ def _write_pack(raw: bytes, out_zip: Path, meta: dict, pack_id: str, pack_name: 
     return pack
 
 
+def _read_index(out: Path) -> list:
+    try:
+        packs = json.loads((out / "index.json").read_text()).get("packs", [])
+    except (OSError, ValueError, AttributeError):
+        return []
+    return packs if isinstance(packs, list) else []
+
+
+def _write_index(out: Path, packs: list) -> None:
+    # Write beside index.json and rename over it, so an interrupted run never leaves a
+    # truncated catalogue behind.
+    target = out / "index.json"
+    tmp = target.with_name(target.name + ".tmp")
+    try:
+        tmp.write_text(json.dumps({"format": 1, "packs": packs}, indent=1) + "\n")
+        os.replace(tmp, target)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print(__doc__)
@@ -200,8 +221,22 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001
             errors.append({"file": path.name, "error": repr(exc)})
             print("  error", path.name, exc)
-    (out / "index.json").write_text(json.dumps({"format": 1, "packs": index}, indent=1) + "\n")
-    print(f"built {len(index)} packs, {len(errors)} errors")
+    built_count = len(index)
+    if errors:
+        # A failed rebuild keeps its old <id>.zip (build_pack writes beside it), so keep its old
+        # index entry too: otherwise the published catalogue stops listing a pack that is still
+        # there. A failed plugin's id may be unknown (no mapping), so every previous entry whose
+        # zip is still on disk and that was not rebuilt this run is carried over.
+        built = {entry["id"] for entry in index}
+        for entry in _read_index(out):
+            name = entry.get("file") if isinstance(entry, dict) else None
+            if (isinstance(name, str) and name == Path(name).name and entry.get("id") not in built
+                    and (out / name).is_file()):
+                index.append(entry)
+                print("  kept previous entry", name)
+    _write_index(out, index)
+    print(f"built {built_count} packs, {len(errors)} errors, "
+          f"{len(index)} in index.json")
     return 1 if errors else 0
 
 

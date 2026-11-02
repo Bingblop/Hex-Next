@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.security.KeyStoreException as AndroidKeyStoreException
 import java.security.KeyStore
 import java.security.UnrecoverableEntryException
 import java.security.UnrecoverableKeyException
@@ -123,6 +124,12 @@ class AiKeyStore(context: Context) {
         val entry = try {
             keyStore.getEntry(KEY_ALIAS, null)
         } catch (e: UnrecoverableEntryException) {
+            // keystore2 wraps every lookup failure in UnrecoverableKeyException, including
+            // transient ones (SYSTEM_ERROR, a busy backend). Deleting the alias then would make
+            // every saved key undecryptable, so only drop it when the cause says the key is gone
+            // for good; anything else is rethrown as a plain KeyStoreException, which [get] and
+            // [set] report as "unavailable" without touching the stored entries.
+            if (!isPermanentKeyLoss(e)) throw java.security.KeyStoreException("Keystore lookup failed", e)
             // The alias itself is corrupt and will never load again: drop it and start over.
             // Entries encrypted with it then fail their tag check and are cleared by [get].
             keyStore.deleteEntry(KEY_ALIAS)
@@ -139,6 +146,25 @@ class AiKeyStore(context: Context) {
                 .build(),
         )
         return generator.generateKey()
+    }
+
+    /**
+     * True when the cause chain of [e] shows the alias can never load again: the key was
+     * permanently invalidated or keystore2 reports it corrupted. Transient and unknown causes
+     * return false so the alias, and with it every stored provider key, is kept.
+     */
+    private fun isPermanentKeyLoss(e: Throwable): Boolean {
+        var cause: Throwable? = e
+        var depth = 0
+        while (cause != null && depth < 8) {
+            if (cause is KeyPermanentlyInvalidatedException) return true
+            if (cause is AndroidKeyStoreException) {
+                return cause.numericErrorCode == AndroidKeyStoreException.ERROR_KEY_CORRUPTED && !cause.isTransientFailure
+            }
+            cause = cause.cause
+            depth++
+        }
+        return false
     }
 
     companion object {

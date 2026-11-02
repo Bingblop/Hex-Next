@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -164,6 +165,14 @@ fun GenerateIconSheet(
         }
     }
 
+    fun deleteSaved(file: File) {
+        scope.launch {
+            val deleted = withContext(Dispatchers.IO) { runCatching { IconGenerator.deleteFromGallery(context, file) }.getOrDefault(false) }
+            if (!deleted) state.error = "The saved icon couldn't be deleted."
+            state.galleryVersion++
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
@@ -288,6 +297,7 @@ fun GenerateIconSheet(
                     version = state.galleryVersion,
                     busy = state.busy,
                     onUse = { file -> use(-1, null, file) },
+                    onDelete = { file -> deleteSaved(file) },
                 )
             }
 
@@ -442,24 +452,44 @@ private fun ResultTile(
     }
 }
 
-/** Icons saved earlier under `files/custom/generated`, each with a "Use" button. */
+/**
+ * Icons saved earlier under `files/custom/generated`, each with "Use" and "Delete". Shows
+ * [MAX_GALLERY] at a time with "Show more", so every saved icon stays reachable.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun GallerySection(version: Int, busy: Boolean, onUse: (File) -> Unit) {
+private fun GallerySection(version: Int, busy: Boolean, onUse: (File) -> Unit, onDelete: (File) -> Unit) {
     val context = LocalContext.current
     var files by remember { mutableStateOf<List<File>>(emptyList()) }
     LaunchedEffect(version) {
-        files = withContext(Dispatchers.IO) { IconGenerator.listGallery(context).take(MAX_GALLERY) }
+        files = withContext(Dispatchers.IO) { IconGenerator.listGallery(context) }
     }
     if (files.isEmpty()) return
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var limit by rememberSaveable { mutableIntStateOf(MAX_GALLERY) }
+    var pendingDelete by remember { mutableStateOf<File?>(null) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Saved icons", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
         TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide" else "Show ${files.size}") }
     }
+    pendingDelete?.let { file ->
+        val name = file.nameWithoutExtension.removePrefix("ai-").substringBeforeLast('-')
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete saved icon?") },
+            text = { Text("\"$name\" is removed from Saved icons. Icons already added to Custom icons stay.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = null
+                    onDelete(file)
+                }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        )
+    }
     if (!expanded) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        files.forEach { file ->
+        files.take(limit).forEach { file ->
             val name = file.nameWithoutExtension.removePrefix("ai-").substringBeforeLast('-')
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 val bitmap = rememberFileThumbnail(file)
@@ -484,8 +514,16 @@ private fun GallerySection(version: Int, busy: Boolean, onUse: (File) -> Unit) {
                     enabled = !busy,
                     modifier = Modifier.semantics { contentDescription = "Use $name" },
                 ) { Text("Use") }
+                TextButton(
+                    onClick = { pendingDelete = file },
+                    enabled = !busy,
+                    modifier = Modifier.semantics { contentDescription = "Delete $name" },
+                ) { Text("Delete") }
             }
         }
+    }
+    if (files.size > limit) {
+        TextButton(onClick = { limit += MAX_GALLERY }) { Text("Show more (${files.size - limit} left)") }
     }
     Spacer(Modifier.height(4.dp))
 }

@@ -3,7 +3,6 @@ package com.hexnext.themer.theme
 import android.os.Bundle
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ExecOutput
-import com.hexnext.themer.shizuku.MonitorScript
 import com.hexnext.themer.shizuku.ThemeService
 import java.io.File
 
@@ -233,29 +232,25 @@ class FontInstaller(private val service: IThemeService) {
         var ok = true
         var rewritten = 0
         for (path in listOf(FONTS_XML, FALLBACK_XML)) {
-            val (code, text) = ExecOutput.exec(service, "cat '$path'")
-            if (code != 0 || text.isBlank()) continue
+            // The text must come inline: an output the service spilled to a file sits in the
+            // shell-owned state directory, where a uid 2000 process could change it before it is
+            // read back, and it would then be written as root into the module.
+            val read = service.exec("cat '$path'")
+            if (read.getString(ThemeService.KEY_OUTPUT_PATH) != null) {
+                ExecOutput.fullText(service, read)
+                log(LogLine(LogLevel.WARN, "$path is too large to rewrite safely; skipped"))
+                ok = false
+                continue
+            }
+            val text = read.output()
+            if (read.code() != 0 || text.isBlank()) continue
             val xml = rewriteSharedBold(text, BOLD_FILE)
                 ?: text.takeIf { live -> parseSansSerif(live).any { it.file == BOLD_FILE } }
                 ?: continue
             val name = path.substringAfterLast('/')
-            val stateName = "font_$name"
-            if (service.writeStateFile(stateName, xml).code() != 0) {
-                log(LogLine(LogLevel.WARN, "Could not stage the rewritten $name"))
-                ok = false
-                continue
-            }
-            val moduleXml = "$ETC_DIR/$name"
-            val stagedXml = "$moduleXml$STAGED_SUFFIX"
-            val copied = run(
-                "rm -f '$stagedXml' && cp '${MonitorScript.DIR}/$stateName' '$stagedXml' && chmod 644 '$stagedXml' && chown root:root '$stagedXml' && chcon u:object_r:system_file:s0 '$stagedXml' && mv -f '$stagedXml' '$moduleXml'",
-                log,
-            )
-            run("rm -f '${MonitorScript.DIR}/$stateName'", log)
-            if (copied) {
+            if (writeModuleText("$ETC_DIR/$name", xml, log)) {
                 rewritten++
             } else {
-                run("rm -f '$stagedXml'", log)
                 ok = false
             }
         }
@@ -265,6 +260,48 @@ class FontInstaller(private val service: IThemeService) {
         }
         log(LogLine(LogLevel.INFO, "The default font is one file for every weight; the bold font was added as $BOLD_FILE and applies after a reboot"))
         return ok
+    }
+
+    /**
+     * Writes [text] as root to [target], a path inside the root-only module directory. The text
+     * travels inside the commands themselves, single-quoted for `printf '%s'`, never through a
+     * file in the shell-owned state directory that a uid 2000 process could swap before root
+     * copies it. It goes in chunks well under the kernel's per-argument limit to a staged file
+     * (created under umask 022), which is then renamed over [target]: a module file that may be
+     * mounted is never rewritten in place. Returns false when a step failed.
+     */
+    private fun writeModuleText(target: String, text: String, log: (LogLine) -> Unit): Boolean {
+        val staged = "$target$STAGED_SUFFIX"
+        if (text.isEmpty() || text.indexOf('\u0000') >= 0) {
+            log(LogLine(LogLevel.WARN, "Refusing to write $target: the text is empty or holds a NUL byte"))
+            return false
+        }
+        var at = 0
+        while (at < text.length) {
+            var end = minOf(text.length, at + TEXT_CHUNK)
+            // Never split a surrogate pair: half of one would not encode.
+            if (end < text.length && Character.isHighSurrogate(text[end - 1])) end--
+            val chunk = "'" + text.substring(at, end).replace("'", "'\\''") + "'"
+            val command = if (at == 0) {
+                "umask 022 && rm -f '$staged' && printf '%s' $chunk > '$staged'"
+            } else {
+                "umask 022 && printf '%s' $chunk >> '$staged'"
+            }
+            val r = service.exec(command)
+            if (r.code() != 0) {
+                log(LogLine(LogLevel.WARN, "Writing $staged failed -> exit ${r.code()}: ${r.output().trim().ifBlank { "no output" }}"))
+                run("rm -f '$staged'", log)
+                return false
+            }
+            at = end
+        }
+        log(LogLine(LogLevel.INFO, "Wrote ${text.length} characters to $staged"))
+        val done = run(
+            "chmod 644 '$staged' && chown root:root '$staged' && chcon u:object_r:system_file:s0 '$staged' && mv -f '$staged' '$target'",
+            log,
+        )
+        if (!done) run("rm -f '$staged'", log)
+        return done
     }
 
     /** True when a previous [install] left bound files recorded. */
@@ -353,6 +390,12 @@ class FontInstaller(private val service: IThemeService) {
 
         /** Suffix of the file a font is written to before it is renamed over the module file. */
         private const val STAGED_SUFFIX = ".hexnext-new"
+
+        /**
+         * Characters of text per root command in [writeModuleText]. Quoting can at most
+         * quadruple a chunk, which keeps every argument far below the kernel's 128 KiB limit.
+         */
+        private const val TEXT_CHUNK = 16_384
 
         /** `module.prop` lines, each single-quoted for `printf '%s\n'`. */
         private val MODULE_PROP_LINES = listOf(

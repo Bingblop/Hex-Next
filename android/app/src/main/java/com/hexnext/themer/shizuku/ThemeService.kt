@@ -1274,13 +1274,19 @@ class ThemeService() : IThemeService.Stub() {
                     "nohup setsid $script >/dev/null 2>&1 & " +
                     "else nohup $script >/dev/null 2>&1 & fi"
             )
-            if (launch.getInt(KEY_CODE) != 0) {
-                return result(launch.getInt(KEY_CODE), "Could not start the monitor: ${launch.getString(KEY_OUTPUT)}")
+            val launchCode = launch.getInt(KEY_CODE)
+            if (launchCode != 0) {
+                // Never MONITOR_PID_MISSING: that code means "launched, so watch it".
+                return result(if (launchCode == MONITOR_PID_MISSING) -1 else launchCode, "Could not start the monitor (exit $launchCode): ${launch.getString(KEY_OUTPUT)}")
             }
-            val pid = shell("sleep 1; cat ${MonitorScript.PID_FILE} 2>/dev/null").getString(KEY_OUTPUT).orEmpty().trim()
+            // A phone busy with the apply can take more than a second to get to the pid file.
+            val pid = shell(
+                "i=0; while [ \$i -lt $PID_WAIT_SECONDS ] && [ ! -s ${MonitorScript.PID_FILE} ]; do sleep 1; i=\$((i + 1)); done; " +
+                    "cat ${MonitorScript.PID_FILE} 2>/dev/null"
+            ).getString(KEY_OUTPUT).orEmpty().trim()
             val pidValue = pid.toIntOrNull()
             if (pidValue == null) {
-                result(1, "Monitor launched but ${MonitorScript.PID_FILE} is missing: $pid")
+                result(MONITOR_PID_MISSING, "Monitor launched but ${MonitorScript.PID_FILE} is missing: $pid")
             } else {
                 result(0, "Stability monitor pid $pidValue watching system_server + SystemUI for $window s").apply {
                     putInt("pid", pidValue)
@@ -1614,6 +1620,15 @@ class ThemeService() : IThemeService.Stub() {
 
     companion object {
         const val KEY_CODE = "code"
+
+        /**
+         * [startStabilityMonitor]: the launch succeeded (the old safe_mode.json is gone) but the
+         * pid file was not there yet. The monitor is most likely running, so callers watch it.
+         */
+        const val MONITOR_PID_MISSING = 2
+
+        /** How long [startStabilityMonitor] waits for the monitor's pid file. */
+        private const val PID_WAIT_SECONDS = 5
         const val KEY_OUTPUT = "output"
         const val KEY_OUTPUT_PATH = "outputPath"
         const val KEY_OUTPUT_LENGTH = "outputLength"

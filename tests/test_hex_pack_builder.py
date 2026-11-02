@@ -96,6 +96,43 @@ class UnmappedPluginTest(unittest.TestCase):
             self.assertEqual(good.read_bytes(), b"published pack")
             self.assertEqual([p.name for p in Path(out).iterdir()], [good.name])
 
+    def test_failed_rebuild_keeps_its_index_entry(self):
+        # main() must not drop a pack from index.json when its rebuild fails and its zip stays.
+        import json
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as out:
+            Path(src, "a.apk").write_bytes(b"")
+            Path(src, "b.apk").write_bytes(b"")
+            Path(out, "riverstone.zip").write_bytes(b"published pack")
+            old = {"id": "riverstone", "name": "Riverstone", "file": "riverstone.zip", "bytes": 14}
+            gone = {"id": "gone", "name": "Gone", "file": "gone.zip", "bytes": 1}
+            Path(out, "index.json").write_text(json.dumps({"format": 1, "packs": [old, gone]}))
+            fresh = {"id": "lagoon", "name": "Lagoon", "file": "lagoon.zip", "bytes": 1}
+
+            def fake_build(path, out_dir):
+                if path.name == "a.apk":
+                    raise ValueError("bad CRC")
+                return fresh
+
+            with patch.object(builder, "build_pack", side_effect=fake_build), \
+                    patch.object(sys, "argv", ["hex_pack_builder.py", src, out]):
+                self.assertEqual(builder.main(), 1)
+            packs = json.loads(Path(out, "index.json").read_text())["packs"]
+            self.assertEqual(packs, [fresh, old])
+            self.assertFalse(Path(out, "index.json.tmp").exists())
+
+    def test_clean_run_writes_only_built_packs(self):
+        import json
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as out:
+            Path(src, "b.apk").write_bytes(b"")
+            Path(out, "riverstone.zip").write_bytes(b"old")
+            old = {"id": "riverstone", "file": "riverstone.zip"}
+            Path(out, "index.json").write_text(json.dumps({"format": 1, "packs": [old]}))
+            fresh = {"id": "lagoon", "file": "lagoon.zip", "bytes": 1}
+            with patch.object(builder, "build_pack", return_value=fresh), \
+                    patch.object(sys, "argv", ["hex_pack_builder.py", src, out]):
+                self.assertEqual(builder.main(), 0)
+            self.assertEqual(json.loads(Path(out, "index.json").read_text())["packs"], [fresh])
+
     def test_source_names_are_lists_of_names(self):
         for source_id, entry in builder_names().items():
             if isinstance(entry, dict):

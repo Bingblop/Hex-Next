@@ -265,7 +265,15 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val expired = guard.protectionExpired()
         val safeModeAt = guard.safeModeAt
         _ui.update {
-            val banner = if (safeModeAt > 0L && it.safeModeBanner == null) SAFE_MODE_TEXT else it.safeModeBanner
+            // The "could not turn its overlays off" banner shows only for an unconfirmed apply;
+            // once the guard is confirmed (Diagnostics turned the overlays off, or "It works"),
+            // it no longer holds.
+            val failedResolved = it.safeModeFailed && !unconfirmed
+            val banner = when {
+                safeModeAt > 0L && (it.safeModeBanner == null || failedResolved) -> SAFE_MODE_TEXT
+                failedResolved -> null
+                else -> it.safeModeBanner
+            }
             val failed = if (banner === it.safeModeBanner) it.safeModeFailed else false
             val lastApply = staleAfterSafeMode(it.lastApply, safeModeAt)
             if (it.applyUnconfirmed == unconfirmed && it.applyProtectionExpired == expired &&
@@ -304,7 +312,16 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Clears [UiState.notice] once the snackbar has shown it. */
     fun consumeNotice(id: Long) = _ui.update { if (it.notice?.id == id) it.copy(notice = null) else it }
 
-    private fun postNotice(notice: Notice) = _ui.update { it.copy(notice = notice) }
+    /**
+     * Only the editor and the setup guide show [UiState.notice]. One posted while another screen
+     * is on display (an apply ending after "Details", a download failing in App settings) is
+     * dropped, or it would replay as a stale snackbar on the next visit; the log keeps the lines.
+     */
+    private fun postNotice(notice: Notice) {
+        val screen = _screen.value
+        if (screen != Screen.MAIN && screen != Screen.ONBOARDING) return
+        _ui.update { it.copy(notice = notice) }
+    }
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -474,7 +491,20 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun applyTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
         val spec = specToApply()
         val report = applier.apply(service, spec, ::log)
-        _ui.update { it.copy(lastApply = report, applyUnconfirmed = !guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
+        // A safe mode from before this apply is over once the new theme is on: left set, it keeps
+        // the SemWT re-assert (here and at boot) and early-hook detection off for the new theme,
+        // and its banner back on every start. A safe mode that tripped during this apply is kept.
+        val endsSafeMode = report.success && guard.safeModeAt.let { it == 0L || it < report.startedAt }
+        if (endsSafeMode && guard.safeModeActive()) guard.dismissSafeMode()
+        _ui.update {
+            it.copy(
+                lastApply = report,
+                applyUnconfirmed = !guard.confirmed,
+                applyProtectionExpired = guard.protectionExpired(),
+                safeModeBanner = if (endsSafeMode) null else it.safeModeBanner,
+                safeModeFailed = if (endsSafeMode) false else it.safeModeFailed,
+            )
+        }
         if (report.success && !guard.confirmed) {
             postNotice(
                 Notice(

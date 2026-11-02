@@ -142,7 +142,8 @@ public data class CompiledTheme(
  *    layer categories ([Elements.elementForCategory]; option tokens must be on, in
  *    [Pack.defaultOptions] overlaid by [ThemeSpec.elementOptions]) are planned with
  *    [LayerPlanner] using the pack palette overlaid by [SlotPalette.derive]. Each resource is
- *    planned once per density the target defines; night categories go to `night-<density>`. A
+ *    planned once per density the target defines ([ResourceMapper.pngDensities]: the default
+ *    configuration and `anydpi` become `xxhdpi`); night categories go to `night-<density>`. A
  *    day category without a night counterpart also gets a night twin planned with dark tints;
  *    so does one that is more specific (more option tokens, or a newer Android release) than the
  *    night category covering its resource, whose base artwork it replaces in dark mode too.
@@ -157,7 +158,8 @@ public data class CompiledTheme(
  * 3. **Custom overrides.** Each [ThemeSpec.customIcons] / [ThemeSpec.customBackgrounds] entry of
  *    the target replaces every pack job of its resource with custom jobs: a day and a `night`
  *    job for each density the pack jobs used (also when they were night-only), else for each
- *    density the target defines, else `""` and `night`.
+ *    density the target defines. Densities go through [ResourceMapper.pngDensities]: a target
+ *    value in the default configuration or in `anydpi` gives `xxhdpi` and `night-xxhdpi`.
  *    Resources the target lacks are skipped with [REASON_NOT_IN_TARGET].
  * 4. **Icon synthesis.** For Settings, when [ThemeSpec.synthesizeMissingIcons] is on and the
  *    `settings_icons` element has a pack: every [OneUiRules.dashboardRows] row the target
@@ -525,9 +527,10 @@ public object ThemeCompiler {
                 // (a pack can theme a resource in its night category only, so they may all be night jobs).
                 // Otherwise the table does: the app's THEME table read keeps one placeholder per density,
                 // carrying the config of whichever chunk came first (that can be a night one).
-                val densities = replaced.map { job -> job.configuration.split('-').filter { it != "night" }.joinToString("-") }
-                    .ifEmpty { entry.values.map { it.resConfig.densityQualifier } }
-                    .distinct().ifEmpty { listOf("") }
+                val densities = ResourceMapper.pngDensities(
+                    replaced.map { job -> job.configuration.split('-').filter { it != "night" }.joinToString("-") }
+                        .ifEmpty { entry.values.map { it.resConfig.densityQualifier } },
+                )
                 val configs = densities.flatMap { d -> listOf(configFor(false, d), configFor(true, d)) }.distinct()
                 val name = typeName.substringAfter('/')
                 val elementId = replaced.firstOrNull()?.elementId ?: when {

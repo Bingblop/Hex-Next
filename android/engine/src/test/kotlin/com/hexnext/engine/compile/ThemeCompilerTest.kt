@@ -270,8 +270,8 @@ class ThemeCompilerTest {
         assertTrue("ic_settings_wifi@night-xxxhdpi" in jobs)
 
         // Default-config drawable, and a night twin from the day category with dark tints.
-        assertEquals(listOf(light.getValue("lxx1")), jobs.getValue("ic_settings_display@").plan.steps.map { it.tintArgb })
-        val twin = jobs.getValue("ic_settings_display@night")
+        assertEquals(listOf(light.getValue("lxx1")), jobs.getValue("ic_settings_display@xxhdpi").plan.steps.map { it.tintArgb })
+        val twin = jobs.getValue("ic_settings_display@night-xxhdpi")
         assertEquals("settingsicon", twin.source.category)
         assertEquals(listOf(light.getValue("xx1")), twin.plan.steps.map { it.tintArgb })
 
@@ -288,7 +288,7 @@ class ThemeCompilerTest {
     fun `option tokens select variant categories`() {
         val spec = baseSpec.copy(simplePackId = "icons-1", elementOptions = mapOf("settings_icons" to mapOf("1sett" to "true")))
         val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(settings)!!
-        val display = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
+        val display = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "xxhdpi" }
         assertEquals("settingsicon-1sett", display.source.category)
         assertEquals(SlotPalette.derive(resolved).getValue("lxx5"), display.plan.steps.single().tintArgb)
     }
@@ -368,11 +368,11 @@ class ThemeCompilerTest {
         val packs = InMemoryPackResolver(listOf(selectPack))
 
         val byDefault = compile(baseSpec.copy(simplePackId = "select-1"), packs).target(settings)!!
-        val display = byDefault.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
+        val display = byDefault.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "xxhdpi" }
         assertEquals("settingsicon-1sett", display.source.category)
 
         val off = baseSpec.copy(simplePackId = "select-1", elementOptions = mapOf("settings_icons" to mapOf("1sett" to "false")))
-        val plain = compile(off, packs).target(settings)!!.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
+        val plain = compile(off, packs).target(settings)!!.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "xxhdpi" }
         assertEquals("settingsicon", plain.source.category)
     }
 
@@ -489,7 +489,7 @@ class ThemeCompilerTest {
     fun `pack palette option keeps pack colours`() {
         val spec = baseSpec.copy(simplePackId = "icons-1", elementOptions = mapOf("settings_icons" to mapOf("palette" to "pack")))
         val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(settings)!!
-        val twin = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "night" }
+        val twin = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "night-xxhdpi" }
         assertEquals(0xFF123456.toInt(), twin.plan.steps.single().tintArgb)
     }
 

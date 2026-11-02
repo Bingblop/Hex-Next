@@ -100,7 +100,7 @@ class ThemeCompilerCustomTest {
     }
 
     @Test
-    fun `custom icon without pack jobs uses the table densities with night twins and falls back to the default config`() {
+    fun `custom icon without pack jobs uses the table densities with night twins and falls back to xxhdpi`() {
         val spec = baseSpec.copy(
             synthesizeMissingIcons = false,
             customIcons = mapOf(
@@ -114,7 +114,7 @@ class ThemeCompilerCustomTest {
         val t = result.target(settings)!!
         assertEquals(setOf("xxhdpi", "xxxhdpi", "night-xxhdpi", "night-xxxhdpi"), t.drawables.named("sec_ic_settings_battery").map { it.configuration }.toSet())
         assertEquals("settings_icons", t.drawables.named("sec_ic_settings_battery").first().elementId)
-        assertEquals(listOf("", "night"), t.drawables.named("sec_ic_settings_tips").map { it.configuration })
+        assertEquals(listOf("xxhdpi", "night-xxhdpi"), t.drawables.named("sec_ic_settings_tips").map { it.configuration })
         assertTrue(t.drawables.named("other_drawable").all { it.elementId == "system_drawables" })
 
         val m = result.target(myFiles)!!

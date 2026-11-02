@@ -253,6 +253,57 @@ class SemWtTakeoverTest {
     }
 
     @Test
+    fun `guard script writes its state files only through put inside the checked dir`() {
+        val text = SemWtGuardScript.text(state)
+        assertTrue("umask 022\n" in text)
+        assertTrue("PIDFILE=semwt_guard.pid\n" in text)
+        assertTrue("STATUS=semwt_guard_status.json\n" in text)
+        val cd = text.indexOf("cd -P \"\$DIR\" 2>/dev/null && [ \"\$(pwd -P)\" = \"\$DIR\" ] || exit 1")
+        val pidWrite = text.indexOf("put \"\$PIDFILE\" \"\$\$\"")
+        assertTrue(cd in 0 until pidWrite)
+        assertTrue(text.indexOf("mkdir -p \"\$DIR\"") in 0 until cd)
+        assertTrue("put \"\$STATUS\"" in text)
+        assertFalse("chmod" in text)
+        assertFalse(Regex(""">\s*"?\${'$'}(PIDFILE|STATUS)""").containsMatchIn(text))
+        assertFalse(Regex(""">\s*"?\${'$'}DIR/""").containsMatchIn(text))
+    }
+
+    @Test
+    fun `guard put replaces planted symlinks instead of writing through them`() {
+        val sh = File("/bin/sh")
+        if (!sh.canExecute()) return
+        val script = SemWtGuardScript.text(state)
+        val functions = script.substring(0, script.indexOf("mkdir -p \"\$DIR\""))
+        val dir = createTempDirectory("semwt-put").toFile()
+        val outside = createTempDirectory("semwt-outside").toFile()
+        try {
+            val victim = File(outside, "victim").apply { writeText("keep\n") }
+            java.nio.file.Files.createSymbolicLink(File(dir, "semwt_guard_status.json").toPath(), victim.toPath())
+            java.nio.file.Files.createSymbolicLink(File(dir, "semwt_guard.pid").toPath(), outside.toPath())
+            File(dir, "run.sh").writeText(functions + "put \"\$PIDFILE\" 42 || exit 3\nwrite_status running || exit 4\n")
+            val process = ProcessBuilder(sh.path, File(dir, "run.sh").path)
+                .directory(dir)
+                .redirectErrorStream(true)
+                .start()
+            val out = process.inputStream.bufferedReader().readText()
+            assertEquals(0, process.waitFor(), out)
+            assertEquals("keep\n", victim.readText())
+            assertEquals(listOf("victim"), outside.list()!!.toList())
+            val pid = File(dir, "semwt_guard.pid").toPath()
+            val status = File(dir, "semwt_guard_status.json").toPath()
+            assertFalse(java.nio.file.Files.isSymbolicLink(pid))
+            assertFalse(java.nio.file.Files.isSymbolicLink(status))
+            assertEquals("42\n", pid.toFile().readText())
+            assertTrue(status.toFile().readText().startsWith("{\"state\":\"running\","))
+            assertTrue(status.toFile().readText().endsWith("}\n"))
+            assertTrue(dir.list()!!.none { it.endsWith(".tmp") })
+        } finally {
+            dir.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `guard start and stop commands`() {
         val start = SemWtGuardScript.startCommand(1)
         assertTrue(start.contains("setsid sh ${SemWtGuardScript.PATH} 5 "))
