@@ -182,7 +182,10 @@ class FontInstaller(private val service: IThemeService) {
             return
         }
         val (propCode, prop) = ExecOutput.exec(service, "cat '$MODULE_DIR/module.prop'")
-        if (!isOwnedBy(if (propCode == 0) prop else null, APP_ID, OWNS_LEGACY_MODULE)) {
+        // A module left by the other build is only protected while that build is still installed:
+        // once it is uninstalled nothing else would ever remove its font.
+        val otherInstalled = service.exec("pm path '${com.hexnext.themer.safety.OtherBuild.packageName}'").code() == 0
+        if (otherInstalled && !isOwnedBy(if (propCode == 0) prop else null, APP_ID, OWNS_LEGACY_MODULE)) {
             // The other Hex Next build installed a font since: its module and binds are not ours.
             log(LogLine(LogLevel.INFO, "The font module belongs to the other Hex Next build; left in place"))
             if (recorded.isNotEmpty()) service.writeStateFile(STATE_FILE, EMPTY_STATE)

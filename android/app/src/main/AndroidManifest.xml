@@ -10,6 +10,9 @@
          launch intent instead of falling back to the download page. -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <!-- The Play and owner builds detect each other (safety/OtherBuild.kt). -->
+        <package android:name="com.hexnext.themer" />
+        <package android:name="com.hexnext.themer.owner" />
     </queries>
 
     <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->
