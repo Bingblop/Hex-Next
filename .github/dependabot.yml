@@ -15,8 +15,9 @@ updates:
       # (Narrow patterns: org.jetbrains.kotlinx libraries keep getting updates.)
       - dependency-name: org.jetbrains.kotlin.*
       - dependency-name: "org.jetbrains.kotlin:*"
-      # kotlin("jvm") in android/engine shows up under its short id.
+      # kotlin("jvm") and kotlin("plugin.serialization") show up under their short ids.
       - dependency-name: jvm
+      - dependency-name: plugin.serialization
       # Newer kotlinx-serialization needs a newer Kotlin; it moves with the toolchain upgrade.
       - dependency-name: org.jetbrains.kotlinx:kotlinx-serialization*
         update-types: [version-update:semver-major, version-update:semver-minor]
