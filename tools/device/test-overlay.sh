@@ -93,7 +93,7 @@ elif [ $ok -eq 1 ]; then
       case "$res" in
         *Success*) log "installed run $RUN_ID" ;;
         *) log "WARNING: install of run $RUN_ID FAILED; the app sections below describe the build that was already installed."
-           log "(INSTALL_FAILED_UPDATE_INCOMPATIBLE: a different CI run's debug key; pm uninstall $PKG first, or use SKIP_INSTALL=1.)" ;;
+           log "(INSTALL_FAILED_UPDATE_INCOMPATIBLE: installed build has another signing key (older CI or local build); pm uninstall $PKG first, or use SKIP_INSTALL=1.)" ;;
       esac
     else
       log "no apk inside zip"
@@ -107,6 +107,33 @@ step "Installed package" "pm list packages | grep -i hexnext; dumpsys package $P
 # 2. Baseline.
 step "Baseline overlay list" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings\$|aam_monet'"
 baseline_semwt=$(semwt_line); log "baseline SemWT line: $baseline_semwt"
+
+# From here on the script changes overlay state. revert() puts it back; the trap runs it on
+# any exit, including Ctrl-C, closing the Termux session (HUP) and TERM, so an interrupted
+# run does not leave the red probe on and SemWT off. (SIGKILL cannot be trapped; if Android
+# kills Termux outright, run: su -c 'cmd overlay disable --user 0 com.android.shell:HexNext_probe'
+# and re-enable android:SemWT_com.android.settings if it was on before.)
+reverted=0
+revert() {
+  [ "$reverted" -eq 1 ] && return 0
+  reverted=1
+  step "Revert: disable probe" "cmd overlay disable --user 0 $PROBE_ID"
+  case "$baseline_semwt" in
+    "[x]"*) step "Revert: re-enable SemWT" "cmd overlay enable --user 0 $SEMWT";;
+    *) step "Revert: SemWT was disabled at baseline, disabling again" "cmd overlay disable --user 0 $SEMWT";;
+  esac
+}
+on_exit() {
+  if [ "$reverted" -eq 0 ]; then
+    log ""; log "### Interrupted: reverting overlay changes"
+    revert
+    echo "Interrupted; overlay changes reverted. Partial report: $OUT"
+  fi
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 129' HUP
+trap 'exit 143' TERM
 step "Baseline SemWT dump (head)" "cmd overlay dump $SEMWT | head -30"
 step "Baseline lookup" "cmd overlay lookup --user 0 $TARGET $TARGET:color/$COLOR"
 case "$baseline_semwt" in
@@ -142,12 +169,8 @@ step "App build logs" "for f in /data/data/$PKG/files/logs/*.jsonl; do [ -f \"\$
 step "logcat" "logcat -d | grep -iE 'hexnext|FabricatedOverlay|OverlayManager|idmap' | tail -120"
 step "SELinux denials" "dmesg | grep -i avc | grep -iE 'hexnext|shizuku|overlay' | tail -40"
 
-# 6. Revert.
-step "Revert: disable probe" "cmd overlay disable --user 0 $PROBE_ID"
-case "$baseline_semwt" in
-  "[x]"*) step "Revert: re-enable SemWT" "cmd overlay enable --user 0 $SEMWT";;
-  *) step "Revert: SemWT was disabled at baseline, disabling again" "cmd overlay disable --user 0 $SEMWT";;
-esac
+# 6. Revert (the same function the EXIT trap runs if the test is interrupted).
+revert
 step "Final state" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings\$'"
 log ""; log "Note: the fabricated probe $PROBE_ID stays registered but disabled; it is harmless and the app removes HexNext* overlays."
 

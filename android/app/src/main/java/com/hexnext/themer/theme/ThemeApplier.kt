@@ -53,10 +53,10 @@ import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
  * aborts the apply and is recorded (`aborted`, with the error) in the report and the build log.
  *
  * Tiers ([Capability]): with root (uid 0/1000) everything above happens. With Shizuku over ADB
- * (uid 2000, [Capability.SHELL]) only colours apply: each target's plain colours go through
- * `cmd overlay fabricate --file` (best effort; when the shell is refused the target is recorded
- * as skipped and the rest are not tried) and the theme's seed becomes the system palette through
- * [MonetSeed]. Drawables, fonts and night colours are skipped with a "needs root" note.
+ * (uid 2000, [Capability.SHELL]) the theme's seed becomes the system palette through [MonetSeed].
+ * Each target's plain colours are also tried through `cmd overlay fabricate --file`, but AOSP
+ * refuses that to non-root callers, so normally the first target is refused, recorded as skipped
+ * and the rest are not tried. Drawables, fonts and night colours are skipped with a "needs root" note.
  *
  * [remove]: stop the guard, disable (and when privileged unregister) every HexNext overlay,
  * re-enable the SemWT overlays Hex Next disabled, put the previous system palette back
@@ -193,33 +193,80 @@ class ThemeApplier(context: Context) {
         if (capability == Capability.SHELL) {
             note(
                 LogLevel.WARN,
-                "Colours only: Shizuku runs without root (uid $uid). " +
+                "System palette only: Shizuku runs without root (uid $uid). " +
+                    "Per-app colour overlays need root on most builds (the shell may not fabricate overlays); " +
                     (if (drawableCount > 0) "$drawableCount drawables, " else "") +
                     "night colours, fonts and backgrounds need root and are skipped.",
             )
         }
+        // Read before anything changes: a state file that exists but cannot be read holds what
+        // earlier applies disabled and must not be replaced by this apply's records.
+        val stateRead = SemWtController.readStateChecked(service, log)
+        var semwt = stateRead.state ?: run {
+            val raw = stateRead.raw
+            val why = when {
+                raw == null -> "Could not read ${SemWtState.FILE_NAME} (the record of the Samsung overlays Hex Next disabled). Nothing was changed; try again."
+                !SemWtController.preserveUnreadable(service, raw) ->
+                    "${SemWtState.FILE_NAME} is corrupt and could not be set aside. Nothing was changed; try again."
+                else -> null
+            }
+            if (why != null) {
+                note(LogLevel.ERROR, why)
+                throw ApplyAborted(why)
+            }
+            note(LogLevel.WARN, "${SemWtState.FILE_NAME} was corrupt; kept as ${SemWtController.UNREADABLE_FILE_NAME} and started a new record.")
+            SemWtState()
+        }
+        onSemWt(semwt)
+        // Every takeover is saved (and the takeover flag set) before its disable command runs:
+        // a system_server restart kills this process mid-apply, and removal, safe mode and the
+        // boot re-assert only know about SemWT overlays that are on disk. False when it could not
+        // be saved; the SemWT overlay is then left enabled (ours is still enabled last, on top).
+        val persistTakeover: (String, String, Boolean) -> Boolean = { pkg, hexId, enabledBefore ->
+            semwt = semwt.withTakeover(pkg, hexId, enabledBefore, System.currentTimeMillis())
+            onSemWt(semwt)
+            val saved = SemWtController.writeState(service, semwt)
+            if (saved) setTakeoverActive(appContext, true)
+            saved
+        }
+
         val shell = ShellFabricator()
         onProgress(ApplyReport.STATUS_STARTED, compiled.targets.map { it.packageName })
 
         cleanupLegacy(service) { level, text -> say(level, text, emptyMap()) }?.let { notes += it }
 
-        guard.recordApply()
+        // The restart guard only works when something survives a reboot to act on it: the early
+        // root hook (uid 0) or the boot receiver (needs su on the phone). Without either (Shizuku
+        // in ADB mode on a phone without su) nothing could turn the theme off after two restarts,
+        // so the apply is not left unconfirmed and the UI does not promise that.
+        if (uid == 0 || SU_PATHS.any { File(it).exists() }) {
+            guard.recordApply()
+        } else {
+            guard.confirm()
+            note(LogLevel.WARN, "No restart protection without root: if the phone restarts repeatedly, start Shizuku and remove the theme.")
+        }
         if (EarlyRecoveryHook.install(service) == false) {
             note(LogLevel.WARN, "Early root recovery hook could not be installed")
         }
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
         say(LogLevel.INFO, "Stability monitor: ${monitor.output()}", emptyMap())
 
-        var semwt = SemWtController.readState(service, log)
-        onSemWt(semwt)
         val before = SemWtController.listOverlays(service)
+        // The monitor turns the HexNext overlays off when SystemUI or system_server restarts twice.
+        // Once it has, nothing may build on top: later targets would be unwatched, and the SemWT
+        // guard started at the end would put Samsung's overlays back over them at once.
+        // Only a monitor this apply started cleared the old safe_mode.json; without one, a file
+        // left by an earlier apply would stop this one for nothing.
+        val watched = monitor.code() == 0
+        var tripped = false
         DrawableRenderer(packs, CustomAssetStore.rootDir(appContext), IconSynthesizer(appContext)).use { renderer ->
             compiled.targets.forEachIndexed { index, target ->
+                if (tripped || (watched && monitorTripped(service))) {
+                    tripped = true
+                    return@forEachIndexed
+                }
                 val outcome = try {
-                    applyTarget(service, target, renderer, capability, shell, owner, before, buildLog, log) { pkg, hexId, enabledBefore ->
-                        semwt = semwt.withTakeover(pkg, hexId, enabledBefore, System.currentTimeMillis())
-                        onSemWt(semwt)
-                    }
+                    applyTarget(service, target, renderer, capability, shell, owner, before, buildLog, log, persistTakeover)
                 } catch (t: Exception) {
                     val message = "${t.javaClass.simpleName}: ${t.message}"
                     buildLog.write("ERROR", target.packageName, "target failed", mapOf("error" to message))
@@ -231,10 +278,9 @@ class ThemeApplier(context: Context) {
             }
         }
 
-        ensureSemWtDisabled(service, outcomes, owner, before, log) { pkg, hexId, enabledBefore ->
-            semwt = semwt.withTakeover(pkg, hexId, enabledBefore, System.currentTimeMillis())
-            onSemWt(semwt)
-        }?.let { note(LogLevel.WARN, it) }
+        if (tripped || (watched && monitorTripped(service))) stopAfterSafeMode(service, log, note, onSemWt, semwt)
+        ensureSemWtDisabled(service, outcomes, owner, before, log, persistTakeover)?.let { note(LogLevel.WARN, it) }
+        if (watched && monitorTripped(service)) stopAfterSafeMode(service, log, note, onSemWt, semwt)
 
         if (!SemWtController.writeState(service, semwt)) {
             note(LogLevel.WARN, "Could not save ${SemWtState.FILE_NAME}; removal cannot restore SemWT overlays automatically.")
@@ -364,7 +410,7 @@ class ThemeApplier(context: Context) {
         before: List<OverlayListEntry>,
         buildLog: BuildLog,
         log: (LogLine) -> Unit,
-        recordTakeover: (target: String, hexOverlayId: String, semwtEnabledBefore: Boolean) -> Unit,
+        recordTakeover: (target: String, hexOverlayId: String, semwtEnabledBefore: Boolean) -> Boolean,
     ): TargetOutcome {
         val pkg = target.packageName
         if (target.isEmpty) {
@@ -418,7 +464,7 @@ class ThemeApplier(context: Context) {
             builder.apply(service, request, buildLog) { line -> log(LogLine(LogLevel.INFO, line)) }
         }
         if (capability == Capability.SHELL && shell.unavailable != null) {
-            // The shell refused to fabricate (root required on this build): not a failure of the theme.
+            // The shell refused to fabricate (AOSP requires root for it): not a failure of the theme.
             log(LogLine(LogLevel.WARN, "$pkg: colour overlay needs root here (${shell.unavailable}); only the system palette seed applies"))
             return TargetOutcome(pkg, TargetResult.SKIPPED, target.overlayName, colors.size, message = "needs root: ${shell.unavailable}")
         }
@@ -445,10 +491,14 @@ class ThemeApplier(context: Context) {
         if (semwtRow != null && semwtRow.marker != MARKER_NOT_APPLICABLE) {
             // Disable SemWT; raise ours (disable/enable cycle) only when the list shows it below another overlay.
             val commands = SemWtPlanner.takeover(pkg, hexId, after)
-            val disableOk = SemWtController.run(service, commands.take(1), log)
+            // Recorded before the disable runs, so a death mid-apply still leaves it on disk.
+            val recorded = commands.isNotEmpty() && recordTakeover(pkg, hexId, semwtRow.enabled)
+            if (commands.isNotEmpty() && !recorded) {
+                log(LogLine(LogLevel.WARN, "$pkg: $semwtId left enabled: the takeover could not be saved to ${SemWtState.FILE_NAME}"))
+            }
+            val disableOk = if (recorded) SemWtController.run(service, commands.take(1), log) else 0
             val raiseOk = SemWtController.run(service, commands.drop(1), log)
-            semwtDisabled = commands.isNotEmpty() && disableOk == 1
-            if (semwtDisabled) recordTakeover(pkg, hexId, semwtRow.enabled)
+            semwtDisabled = recorded && disableOk == 1
             val ok = disableOk + raiseOk
             buildLog.write(
                 if (ok == commands.size) "INFO" else "WARN", pkg, "SemWT takeover",
@@ -500,8 +550,9 @@ class ThemeApplier(context: Context) {
 
     /**
      * Stops the guard, disables every HexNext overlay, re-enables the SemWT overlays Hex Next
-     * disabled and removes the legacy shades overlay. Returns true when the Hex overlays were
-     * turned off.
+     * disabled and removes the legacy shades overlay. Returns true only when the Hex overlays were
+     * turned off, every SemWT overlay was re-enabled (and its record could be read), the system
+     * palette was put back (or never changed) and no Hex Next font is left installed.
      */
     fun remove(service: IThemeService, log: (LogLine) -> Unit): Boolean {
         val buildLog = BuildLog(appContext)
@@ -512,19 +563,49 @@ class ThemeApplier(context: Context) {
         say(LogLevel.INFO, "Removing the Hex Next theme")
         SemWtController.stopGuard(service) { say(it.level, it.text) }
         val disabled = service.disableHexOverlays()
-        val ok = disabled.code() == 0
-        say(if (ok) LogLevel.OK else LogLevel.WARN, disabled.output().ifBlank { "disableHexOverlays exit ${disabled.code()}" })
+        val disabledOk = disabled.code() == 0
+        say(if (disabledOk) LogLevel.OK else LogLevel.WARN, disabled.output().ifBlank { "disableHexOverlays exit ${disabled.code()}" })
+        // An unreadable state file is not "nothing to restore": restore() leaves it (or sets a
+        // corrupt one aside) and re-enables nothing, so Remove must not report success.
+        val semwtUnreadable = SemWtController.readStateChecked(service).state == null
         SemWtController.restore(service) { say(it.level, it.text) }
+        // restore() keeps every SemWT overlay it could not re-enable in the state file; those
+        // targets now have neither the Hex overlay nor Samsung's.
+        val semwtAfter = SemWtController.readStateChecked(service).state
+        val semwtLeft = semwtAfter?.records?.size ?: 0
+        if (semwtLeft > 0) {
+            say(LogLevel.WARN, "$semwtLeft Samsung SemWT overlays are still disabled; run Remove again.")
+        }
+        val semwtOk = !semwtUnreadable && semwtAfter != null && semwtLeft == 0
         setTakeoverActive(appContext, false)
-        runCatching { MonetSeed.restore(service, log) }
+        // null: nothing was captured (no shell-tier apply); false: the setting still holds Hex Next's seed.
+        val palette = runCatching { MonetSeed.restore(service, log) }
             .onFailure { say(LogLevel.WARN, "System palette restore failed: ${it.javaClass.simpleName}: ${it.message}") }
+            .getOrDefault(false)
+        val paletteOk = palette != false
+        if (!paletteOk) {
+            say(LogLevel.WARN, "The system palette still holds the Hex Next seed; run Remove again.")
+        }
         cleanupLegacy(service, say)
-        runCatching { FontInstaller(service).remove(log) }
+        val fonts = FontInstaller(service)
+        runCatching { fonts.remove(log) }
             .onFailure { say(LogLevel.WARN, "Font removal failed: ${it.javaClass.simpleName}: ${it.message}") }
-        EarlyRecoveryHook.uninstall(service)
-        guard.confirm()
+        // remove() leaves the record in place when it could not unbind the files (no root, or an
+        // unmount failed), so a remaining record means the Hex Next font is still installed.
+        val fontLeft = runCatching { fonts.hasState() }.getOrDefault(false)
+        if (fontLeft) {
+            say(LogLevel.WARN, "The Hex Next font is still installed; run Remove again with Shizuku running as root.")
+        }
+        // The restart protection stays armed while Hex overlays may still be enabled: a failed
+        // Remove is exactly when the phone may go on restarting.
+        if (disabledOk) {
+            EarlyRecoveryHook.uninstall(service)
+            guard.confirm()
+        } else {
+            say(LogLevel.WARN, "Restart protection left on: the Hex Next overlays could not all be turned off.")
+        }
         say(LogLevel.INFO, "Build log: ${buildLog.file.path}")
-        return ok
+        return disabledOk && semwtOk && paletteOk && !fontLeft
     }
 
     /**
@@ -539,7 +620,7 @@ class ThemeApplier(context: Context) {
         owner: String,
         before: List<OverlayListEntry>,
         log: (LogLine) -> Unit,
-        recordTakeover: (target: String, hexOverlayId: String, semwtEnabledBefore: Boolean) -> Unit,
+        recordTakeover: (target: String, hexOverlayId: String, semwtEnabledBefore: Boolean) -> Boolean,
     ): String? {
         val themed = outcomes.filter { it.result == TargetResult.OK || it.result == TargetResult.PARTIAL }
         if (themed.isEmpty()) return null
@@ -549,11 +630,11 @@ class ThemeApplier(context: Context) {
             val semwtId = OneUi9Facts.semWtOverlayId(outcome.target)
             if (now.none { it.overlayId == semwtId && it.enabled }) continue
             if (!SemWtPlanner.isSafeId(semwtId)) continue
-            val ok = SemWtController.run(service, listOf(SemWtPlanner.disable(semwtId)), log) == 1
-            if (ok) {
-                val hexId = now.firstOrNull { it.target == outcome.target && it.overlayId.substringAfter(':') == outcome.overlay }?.overlayId
-                    ?: "$owner:${outcome.overlay}"
-                recordTakeover(outcome.target, hexId, before.firstOrNull { it.overlayId == semwtId }?.enabled ?: true)
+            val hexId = now.firstOrNull { it.target == outcome.target && it.overlayId.substringAfter(':') == outcome.overlay }?.overlayId
+                ?: "$owner:${outcome.overlay}"
+            // Recorded before the disable, like in applyTarget.
+            val recorded = recordTakeover(outcome.target, hexId, before.firstOrNull { it.overlayId == semwtId }?.enabled ?: true)
+            if (recorded && SemWtController.run(service, listOf(SemWtPlanner.disable(semwtId)), log) == 1) {
                 log(LogLine(LogLevel.INFO, "${outcome.target}: $semwtId was still enabled; disabled"))
             } else {
                 stillOn += semwtId
@@ -570,8 +651,8 @@ class ThemeApplier(context: Context) {
                 val pseudoTarget = name.removePrefix(OneUi9Facts.SEMWT_PREFIX)
                 val id = OneUi9Facts.semWtOverlayId(pseudoTarget)
                 if (now.none { it.overlayId == id && it.enabled } || !SemWtPlanner.isSafeId(id)) continue
-                if (SemWtController.run(service, listOf(SemWtPlanner.disable(id)), log) == 1) {
-                    recordTakeover(pseudoTarget, hexAndroid, before.firstOrNull { it.overlayId == id }?.enabled ?: true)
+                val recorded = recordTakeover(pseudoTarget, hexAndroid, before.firstOrNull { it.overlayId == id }?.enabled ?: true)
+                if (recorded && SemWtController.run(service, listOf(SemWtPlanner.disable(id)), log) == 1) {
                     log(LogLine(LogLevel.INFO, "android: $id (Monet palette) was enabled; disabled"))
                 } else {
                     stillOn += id
@@ -628,8 +709,9 @@ class ThemeApplier(context: Context) {
      * [target] with `cmd overlay fabricate --file` (the XML is written to the state directory,
      * which the shell owns, and removed again) and enables `com.android.shell:<name>`. Night
      * colours need the privileged service and are left out. When the shell refuses to fabricate
-     * (a build that keeps `fabricate` for root) [shell] remembers why, so the remaining targets are
-     * skipped instead of failing one by one. Returns a [BuildResult] like [OverlayBuilder.apply].
+     * (AOSP keeps `fabricate` for root: "must be root to fabricate overlays through the shell")
+     * [shell] remembers why, so the remaining targets are skipped instead of failing one by one.
+     * Returns a [BuildResult] like [OverlayBuilder.apply].
      */
     private fun fabricateViaShell(
         service: IThemeService,
@@ -705,6 +787,38 @@ class ThemeApplier(context: Context) {
         }
     }
 
+    /**
+     * True once this apply's stability monitor has written `safe_mode.json` (it is deleted when
+     * the monitor starts, so the file can only come from this apply). A failed read is not a trip.
+     */
+    private fun monitorTripped(service: IThemeService): Boolean =
+        runCatching { service.readStateFile(SAFE_MODE_NAME).code() == 0 }.getOrDefault(false)
+
+    /**
+     * The monitor fired during the apply: turns off the HexNext overlays built after it did,
+     * gives the SemWT overlays taken over so far back (as the guard would) and ends the apply
+     * as aborted, so the report never says success.
+     */
+    private fun stopAfterSafeMode(
+        service: IThemeService,
+        log: (LogLine) -> Unit,
+        note: (LogLevel, String) -> Unit,
+        onSemWt: (SemWtState) -> Unit,
+        semwt: SemWtState,
+    ): Nothing {
+        val why = "SystemUI or system_server restarted twice during the apply; the stability monitor turned the theme off and the apply was stopped."
+        note(LogLevel.ERROR, why)
+        val disabled = runCatching { service.disableHexOverlays() }.getOrNull()
+        if (disabled == null || disabled.code() != 0) {
+            note(LogLevel.WARN, "Some Hex Next overlays may still be enabled; run Remove theme. ${disabled?.output().orEmpty()}".trim())
+        }
+        runCatching { SemWtController.restore(service, log) }
+        val left = runCatching { SemWtController.readStateChecked(service, log).state }.getOrNull() ?: semwt
+        onSemWt(left)
+        setTakeoverActive(appContext, left.records.isNotEmpty())
+        throw ApplyAborted(why)
+    }
+
     private fun Bundle.code() = getInt(ThemeService.KEY_CODE, -1)
     private fun Bundle.output() = getString(ThemeService.KEY_OUTPUT).orEmpty()
 
@@ -713,6 +827,9 @@ class ThemeApplier(context: Context) {
 
     companion object {
         const val MONITOR_SECONDS = 120
+
+        /** The monitor's trip record, as a state file name ([IThemeService.readStateFile]). */
+        private val SAFE_MODE_NAME = MonitorScript.SAFE_MODE_FILE.substringAfterLast('/')
         private const val MIB = 1024 * 1024
         private const val PREFS = "hexnext_theme_applier"
         private const val KEY_LEGACY_DONE = "legacyShadesCleaned"
@@ -727,6 +844,9 @@ class ThemeApplier(context: Context) {
 
         /** `pkg:type/name` resource names that may go into the fabricate XML. */
         private val SAFE_RESOURCE = Regex("^[A-Za-z0-9_.]+:[A-Za-z0-9_]+/[A-Za-z0-9_.]+$")
+
+        /** The su binaries the boot receiver looks for before it can act (same list as BootReceiver). */
+        private val SU_PATHS = listOf("/system/bin/su", "/system/xbin/su", "/sbin/su", "/debug_ramdisk/su")
 
         /** Pack zips (`<id>.zip`, `<id>.hexnext`, optional `index.json`). */
         fun packsDir(context: Context): File = File(context.filesDir, "packs").apply { mkdirs() }

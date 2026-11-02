@@ -21,17 +21,44 @@ import com.hexnext.themer.shizuku.ThemeService
  */
 object SemWtController {
 
-    /** The saved state; empty when there is none or it cannot be parsed. */
-    fun readState(service: IThemeService, log: (LogLine) -> Unit = {}): SemWtState {
+    /**
+     * One read of `semwt_state.json`. [state] is the saved state (empty when there is no file) or
+     * null when the file could not be read ([raw] null: su denied, timeout) or parsed ([raw] holds
+     * the text). An unreadable file must never be overwritten as if it were empty: it is the only
+     * record of which Samsung overlays Hex Next disabled.
+     */
+    class StateRead(val state: SemWtState?, val raw: String?)
+
+    fun readStateChecked(service: IThemeService, log: (LogLine) -> Unit = {}): StateRead {
         val bundle = service.readStateFile(SemWtState.FILE_NAME)
-        if (bundle.code() != 0) return SemWtState()
+        when (bundle.code()) {
+            0 -> Unit
+            // Code 1: the file does not exist, nothing was ever taken over.
+            1 -> return StateRead(SemWtState(), null)
+            else -> {
+                log(LogLine(LogLevel.WARN, "Could not read ${SemWtState.FILE_NAME}: ${bundle.output().ifBlank { "exit ${bundle.code()}" }}"))
+                return StateRead(null, null)
+            }
+        }
+        val raw = bundle.getString(ThemeService.KEY_CONTENT).orEmpty()
         return try {
-            SemWtState.fromJson(bundle.getString(ThemeService.KEY_CONTENT).orEmpty())
+            StateRead(SemWtState.fromJson(raw), raw)
         } catch (e: IllegalArgumentException) {
-            log(LogLine(LogLevel.WARN, "Ignoring unreadable ${SemWtState.FILE_NAME}: ${e.message}"))
-            SemWtState()
+            log(LogLine(LogLevel.WARN, "Unreadable ${SemWtState.FILE_NAME}: ${e.message}"))
+            StateRead(null, raw)
         }
     }
+
+    /** The saved state; empty when there is none or it cannot be read or parsed (read-only callers). */
+    fun readState(service: IThemeService, log: (LogLine) -> Unit = {}): SemWtState =
+        readStateChecked(service, log).state ?: SemWtState()
+
+    /** Keeps the text of an unparsable state file as [UNREADABLE_FILE_NAME] before it is replaced; true when saved. */
+    fun preserveUnreadable(service: IThemeService, raw: String): Boolean =
+        service.writeStateFile(UNREADABLE_FILE_NAME, raw).code() == 0
+
+    /** Where [preserveUnreadable] keeps an unparsable `semwt_state.json`. */
+    const val UNREADABLE_FILE_NAME = "semwt_state.unreadable.json"
 
     fun writeState(service: IThemeService, state: SemWtState): Boolean =
         service.writeStateFile(SemWtState.FILE_NAME, state.toJson()).code() == 0
@@ -129,7 +156,21 @@ object SemWtController {
      */
     fun restore(service: IThemeService, log: (LogLine) -> Unit): Int {
         stopGuard(service, log)
-        val state = readState(service, log)
+        val read = readStateChecked(service, log)
+        val state = read.state ?: run {
+            val raw = read.raw
+            if (raw == null) {
+                // A failed read (su not ready, timeout): leave the file as it is for the next try.
+                log(LogLine(LogLevel.WARN, "Samsung SemWT overlays not restored: ${SemWtState.FILE_NAME} could not be read; it was kept, run Remove again."))
+            } else if (preserveUnreadable(service, raw) && writeState(service, SemWtState(updatedAt = System.currentTimeMillis()))) {
+                // Corrupt beyond parsing: its records are unusable either way. Keep a copy and
+                // start clean so a later apply does not trip over it, but say so.
+                log(LogLine(LogLevel.WARN, "Samsung SemWT overlays not restored: ${SemWtState.FILE_NAME} was corrupt (copy kept as $UNREADABLE_FILE_NAME); re-enable them in Samsung's theme settings if a screen looks wrong."))
+            } else {
+                log(LogLine(LogLevel.WARN, "Samsung SemWT overlays not restored: ${SemWtState.FILE_NAME} is corrupt and could not be set aside; it was kept."))
+            }
+            return 0
+        }
         val failed = HashSet<String>()
         var ok = 0
         for (semwtId in state.toRestore.map { it.semwtId }.filter(SemWtPlanner::isSafeId).distinct()) {

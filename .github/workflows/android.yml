@@ -7,13 +7,25 @@ on:
     branches: [main, master]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      # Set by a caller (release.yml passes the release tag). When called, github.workflow and
+      # github.ref belong to the caller, so without this key two release dispatches from the same
+      # branch would share one group and the newer validation would cancel the older one.
+      concurrency_key:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      # Called workflows only see secrets the caller passes in; release.yml passes this one.
+      HEXNEXT_DEBUG_KEYSTORE_BASE64:
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: android-${{ github.workflow }}-${{ inputs.concurrency_key || github.ref }}
+  cancel-in-progress: ${{ !inputs.concurrency_key && !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   # Unit tests for the release tooling in bin/ (prepare-release.py, verify-release-apk.py).
@@ -25,6 +37,8 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
+    env:
+      HEXNEXT_HAS_DEBUG_KEYSTORE_SECRET: ${{ secrets.HEXNEXT_DEBUG_KEYSTORE_BASE64 != '' }}
     defaults:
       run:
         working-directory: android
@@ -42,6 +56,64 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+      # Test builds must keep one debug certificate across runs, or `pm install -r` over another
+      # run's build fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE and the tester has to uninstall
+      # (losing themes, packs, keys and settings). AGP signs debug builds with
+      # ~/.android/debug.keystore, so pin it. The HEXNEXT_DEBUG_KEYSTORE_BASE64 secret (store/key
+      # password "android", alias "androiddebugkey") is the only durable pin. Without it the
+      # keystore lives in the Actions cache, which GitHub evicts (7 days unread, or LRU over the
+      # quota) and scopes per ref, so: only a push to the default branch may create the cached
+      # pin (every ref can read it), and tools/device/debug-keystore.sha256, once it holds the
+      # pinned certificate's SHA-256, fails the build when the keystore in use differs instead of
+      # silently shipping a build that cannot update over the installed one.
+      - name: Restore pinned debug keystore from cache
+        id: debug-keystore-cache
+        if: env.HEXNEXT_HAS_DEBUG_KEYSTORE_SECRET != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: hexnext-debug-keystore-v1
+      - name: Restore pinned debug keystore from secret
+        if: env.HEXNEXT_HAS_DEBUG_KEYSTORE_SECRET == 'true'
+        env:
+          HEXNEXT_DEBUG_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.android
+          printf '%s' "$HEXNEXT_DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          chmod 600 ~/.android/debug.keystore
+      - name: Check debug keystore against the pinned certificate
+        run: |
+          set -euo pipefail
+          if [ ! -f ~/.android/debug.keystore ]; then
+            echo "::warning::No pinned debug keystore (cache miss and no HEXNEXT_DEBUG_KEYSTORE_BASE64 secret); generating a new one. Its builds will not update over builds signed with an earlier key."
+            mkdir -p ~/.android
+            keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android \
+              -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          actual=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass android \
+            -alias androiddebugkey | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -n 1)
+          echo "Debug certificate SHA-256: $actual"
+          expected=$(grep -v '^#' ../tools/device/debug-keystore.sha256 | tr -d '[:space:]' || true)
+          if [ -z "$expected" ]; then
+            echo "::warning::tools/device/debug-keystore.sha256 is empty, so a replaced debug key would go unnoticed. Commit this certificate's SHA-256 there: $actual"
+          elif [ "$actual" != "$expected" ]; then
+            echo "::error::The debug keystore's certificate ($actual) is not the pinned one ($expected). The cached pin was probably evicted; set the HEXNEXT_DEBUG_KEYSTORE_BASE64 secret to the original debug.keystore, or update tools/device/debug-keystore.sha256 if the key change is intended (testers must then uninstall once)."
+            exit 1
+          fi
+      # Only a push to the default branch creates the cached pin, so PR and release/** refs never
+      # save a pin of their own that the default branch cannot see.
+      - name: Save pinned debug keystore to cache
+        if: >-
+          env.HEXNEXT_HAS_DEBUG_KEYSTORE_SECRET != 'true'
+          && steps.debug-keystore-cache.outputs.cache-hit != 'true'
+          && github.event_name == 'push'
+          && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: hexnext-debug-keystore-v1
       # Debug builds carry a few small packs from the `packs` branch (history-free pack hosting),
       # so the test build can theme Settings icons on a private repo without a catalogue download.
       # Release builds never bundle packs (they come from the entitlement server).

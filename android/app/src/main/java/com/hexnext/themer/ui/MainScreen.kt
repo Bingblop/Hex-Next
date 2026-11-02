@@ -201,6 +201,11 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
             shizuku = shizuku,
             accent = ui.seed,
             autoScan = ui.scanRequested,
+            // Only Apply theme or Remove theme shares the service; a pack download or import does not.
+            editorBusy = ui.serviceBusy,
+            // As the editor's Apply card: SU mode and no access cannot apply, and applyTheme ignores a busy editor.
+            canApplyAgain = (shizuku as? ShizukuState.Ready)?.let { !it.viaSu } == true &&
+                ui.capability != Capability.NONE && !ui.busy,
             onScanStarted = viewModel::consumeScanRequest,
             onApplyAgain = {
                 viewModel.navigate(Screen.MAIN)
@@ -211,6 +216,10 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
             onBack = {
                 viewModel.navigateBack()
                 // A scan may have happened: the slot lists come from it.
+                viewModel.invalidateSlots()
+            },
+            onBackToEditor = {
+                viewModel.navigate(Screen.MAIN)
                 viewModel.invalidateSlots()
             },
         )
@@ -355,7 +364,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ui.safeModeBanner?.let { banner ->
-                item(key = "safeMode") { SafeModeBanner(banner, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode) }
+                item(key = "safeMode") { SafeModeBanner(banner, failed = ui.safeModeFailed, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode) }
             }
             item(key = "connection") { StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
             item(key = "describe") {
@@ -462,7 +471,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
 }
 
 @Composable
-private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismiss: () -> Unit) {
+private fun SafeModeBanner(text: String, failed: Boolean, onOpenDiagnostics: () -> Unit, onDismiss: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Assertive },
         shape = MaterialTheme.shapes.large,
@@ -474,9 +483,14 @@ private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismis
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(text, style = MaterialTheme.typography.titleSmall)
             Text(
-                "Your phone restarted twice within 10 minutes of an apply that was not confirmed, so Hex Next turned " +
-                    "its overlays off. When your phone is stable, tap Apply theme again, then \"It works\". " +
-                    "Diagnostics has the details.",
+                if (failed) {
+                    "Your phone restarted twice within 10 minutes of an apply that was not confirmed, but Hex Next " +
+                        "could not turn its overlays off. Open Diagnostics and tap \"Turn off all Hex Next overlays\"."
+                } else {
+                    "Your phone restarted twice within 10 minutes of an apply that was not confirmed, so Hex Next turned " +
+                        "its overlays off. When your phone is stable, tap Apply theme again, then \"It works\". " +
+                        "Diagnostics has the details."
+                },
                 style = MaterialTheme.typography.bodySmall,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1291,10 +1305,45 @@ private fun rememberThumbnail(file: File, targetPx: Int = 192): ImageBitmap? {
     return state.value
 }
 
-/** A font family from a `.ttf` / `.otf` file, or null when it cannot be loaded (the text then falls back to the default). */
+/**
+ * A font family from a `.ttf` / `.otf` file, or null while it loads or when it cannot be loaded
+ * (the text then falls back to the default). The file is parsed off the main thread and kept in
+ * [FontFamilyCache], so list items that scroll back into view do not parse it again.
+ */
 @Composable
-private fun rememberFontFamily(path: String?): FontFamily? = remember(path) {
-    path?.let { runCatching { FontFamily(Typeface(AndroidTypeface.createFromFile(File(it)))) }.getOrNull() }
+private fun rememberFontFamily(path: String?): FontFamily? {
+    val state = produceState(initialValue = path?.let(FontFamilyCache::peek), key1 = path) {
+        value = path?.let { p ->
+            withContext(Dispatchers.IO) { FontFamilyCache.load(File(p)) }
+        }
+    }
+    return state.value
+}
+
+/** The last few font families [rememberFontFamily] loaded, by path; a changed file is parsed again. */
+private object FontFamilyCache {
+    private const val MAX_ENTRIES = 8
+
+    private class CachedFont(val stamp: String, val family: FontFamily)
+
+    private val entries = object : LinkedHashMap<String, CachedFont>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedFont>?): Boolean = size > MAX_ENTRIES
+    }
+
+    /** The cached family for [path] without touching the file; [load] checks it is still current. */
+    @Synchronized
+    fun peek(path: String): FontFamily? = entries[path]?.family
+
+    /** Parses [file] unless the cached copy matches its size and modification time. Call off the main thread. */
+    fun load(file: File): FontFamily? {
+        val stamp = "${file.length()}:${file.lastModified()}"
+        synchronized(this) { entries[file.path]?.takeIf { it.stamp == stamp }?.let { return it.family } }
+        val family = runCatching { FontFamily(Typeface(AndroidTypeface.createFromFile(file))) }.getOrNull()
+        synchronized(this) {
+            if (family != null) entries[file.path] = CachedFont(stamp, family) else entries.remove(file.path)
+        }
+        return family
+    }
 }
 
 /**
@@ -2102,7 +2151,8 @@ private fun CompiledThemeCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
             )
-            FilledTonalButton(onClick = onConfirmWorks) { Text("It works") }
+            // Off while an apply runs: it has armed the guard for overlays nobody has checked yet.
+            FilledTonalButton(onClick = onConfirmWorks, enabled = !busy) { Text("It works") }
         }
         if (!connected) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -2,9 +2,10 @@
 # Hex Next: install the pinned CI debug build (root required).
 # Downloads the GitHub Actions artifact, checks its SHA-256 against the value the GitHub
 # artifacts API reported, installs it with `pm install -r` (keeps app data), then prints
-# the installed version. Exits non-zero when pm rejects the APK. Builds from different CI
-# runs are signed with different debug keys, so an update over another run's build fails
-# with INSTALL_FAILED_UPDATE_INCOMPATIBLE and needs `pm uninstall` first (loses app data).
+# the installed version. Exits non-zero when pm rejects the APK. CI pins one debug keystore
+# across runs (android.yml), so test builds update in place. A build signed with another key
+# (one made before the key was pinned, or a local build) fails with
+# INSTALL_FAILED_UPDATE_INCOMPATIBLE and needs `pm uninstall` first (loses app data).
 #
 # Usage (Termux):  sh install.sh
 #   Private repo:  GH_TOKEN=github_pat_... sh install.sh
@@ -70,7 +71,7 @@ if [ $code -ne 0 ] || ! printf '%s\n' "$OUT" | grep -q 'Success'; then
   echo "Install FAILED (exit $code); run $RUN_ID is NOT installed."
   case "$OUT" in
     *INSTALL_FAILED_UPDATE_INCOMPATIBLE*)
-      echo "The installed Hex Next is signed with a different key (each CI run has its own debug key)."
+      echo "The installed Hex Next is signed with a different key (an older CI build or a local build)."
       echo "Uninstall it first (this deletes its app data), then run this script again:"
       echo "  su -c 'pm uninstall $PKG'" ;;
   esac

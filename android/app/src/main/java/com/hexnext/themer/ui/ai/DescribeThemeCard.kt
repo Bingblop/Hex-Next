@@ -29,7 +29,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,9 +39,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hexnext.engine.compile.ThemeSpec
+import com.hexnext.themer.ai.AiKeyStore
 import com.hexnext.themer.ai.AiProviders
+import com.hexnext.themer.ai.TextProvider
 import com.hexnext.themer.ai.ThemeSuggester
 import com.hexnext.themer.ai.ThemeSuggestion
 import com.hexnext.themer.theme.InstalledPack
@@ -79,13 +83,16 @@ fun DescribeThemeCard(
 ) {
     val keys = rememberAiKeyStore()
     val configured by keys.configured.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
+    // The request and its result live in a ViewModel, not in the item: the main screen is a
+    // LazyColumn, which disposes this card when it scrolls away, and that must neither cancel
+    // a paid request nor drop the suggestion.
+    val model: DescribeThemeModel = viewModel()
     var description by rememberSaveable { mutableStateOf("") }
     var providerId by rememberSaveable { mutableStateOf<String?>(null) }
-    var working by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var suggestion by remember { mutableStateOf<ThemeSuggestion?>(null) }
-    var applied by remember { mutableStateOf(false) }
+    val working = model.working
+    val error = model.error
+    val suggestion = model.suggestion
+    val applied = model.applied
 
     val providers = remember(configured) { AiProviders.text.filter { it.id in configured } }
     LaunchedEffect(providers) {
@@ -95,18 +102,7 @@ fun DescribeThemeCard(
 
     fun generate() {
         val chosen = provider ?: return
-        working = true
-        error = null
-        applied = false
-        scope.launch {
-            try {
-                suggestion = ThemeSuggester.suggest(keys, chosen, description)
-            } catch (t: Exception) {
-                error = describeFailure(t)
-            } finally {
-                working = false
-            }
-        }
+        model.generate(keys, chosen, description)
     }
 
     if (providers.isEmpty()) {
@@ -184,10 +180,41 @@ fun DescribeThemeCard(
                 applied = applied,
                 enabled = !busy && !working,
                 onApply = {
-                    applied = true
+                    model.applied = true
                     onApply(s, ThemeSuggester.toThemeSpec(s, spec, packs))
                 },
             )
+        }
+    }
+}
+
+/**
+ * The Describe card's request and result. Scoped to the screen's ViewModel owner so they outlive
+ * the LazyColumn item: scrolling the card away keeps the request running and its answer shown.
+ */
+internal class DescribeThemeModel : ViewModel() {
+    var working by mutableStateOf(false)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+    var suggestion by mutableStateOf<ThemeSuggestion?>(null)
+        private set
+    var applied by mutableStateOf(false)
+
+    /** Asks [provider] for a theme from [description]; ignored while a request is running. */
+    fun generate(keys: AiKeyStore, provider: TextProvider, description: String) {
+        if (working) return
+        working = true
+        error = null
+        applied = false
+        viewModelScope.launch {
+            try {
+                suggestion = ThemeSuggester.suggest(keys, provider, description)
+            } catch (t: Exception) {
+                error = describeFailure(t)
+            } finally {
+                working = false
+            }
         }
     }
 }

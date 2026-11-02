@@ -64,9 +64,14 @@ import java.io.File
  * phone, what to do next, restart protection) and the developer detail (Settings test overlay,
  * raw scan lines, state files) sits under "Advanced details".
  *
- * @param autoScan true when the editor asked for a scan ("Scan phone"); the scan starts at once
- *   and [onScanStarted] clears the request.
+ * @param autoScan true when the editor asked for a scan ("Scan phone"); the scan starts as soon as
+ *   no task holds the service, and [onScanStarted] clears the request only then.
+ * @param editorBusy true while the editor's Apply theme or Remove theme runs on the same service:
+ *   the actions here stay off until it ends.
+ * @param canApplyAgain false where the editor's Apply is off too (SU mode, no access, editor busy):
+ *   "Apply again" then stays off.
  * @param onApplyAgain goes back to the editor and applies the theme once more.
+ * @param onBackToEditor goes straight to the editor, whatever screen opened Diagnostics.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -74,24 +79,29 @@ fun DiagnosticsScreen(
     shizuku: ShizukuState,
     accent: Int,
     autoScan: Boolean,
+    editorBusy: Boolean,
+    canApplyAgain: Boolean,
     onScanStarted: () -> Unit,
     onApplyAgain: () -> Unit,
     onBack: () -> Unit,
+    onBackToEditor: () -> Unit,
     viewModel: DiagnosticsViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val ready = shizuku as? ShizukuState.Ready
-    val enabled = ready != null && !state.busy
+    val enabled = ready != null && !state.busy && !editorBusy
     // The Settings test commits an overlay, which only a service running as uid 0 or 1000 can do:
     // not the ADB shell (uid 2000) and not SU mode (the service then runs in the app process).
     val canCommit = ready != null && ready.isPrivileged && !ready.viaSu
     val snackbar = remember { SnackbarHostState() }
     var confirmTurnOff by rememberSaveable { mutableStateOf(false) }
     BackHandler(onBack = onBack)
-    LaunchedEffect(Unit) { viewModel.refreshApplyReport() }
-    LaunchedEffect(autoScan) {
-        if (autoScan) {
+    // On open, and again when an editor apply or remove ends: it rewrites the report and the guard.
+    LaunchedEffect(editorBusy) { viewModel.refreshApplyReport() }
+    // The request waits while a task holds the service, so it is never consumed and then dropped.
+    LaunchedEffect(autoScan, state.busy, editorBusy) {
+        if (autoScan && !state.busy && !editorBusy) {
             onScanStarted()
             viewModel.runScan()
         }
@@ -106,7 +116,7 @@ fun DiagnosticsScreen(
         } finally {
             viewModel.consumeScanFinished(scanFinished)
         }
-        if (result == SnackbarResult.ActionPerformed) onBack()
+        if (result == SnackbarResult.ActionPerformed) onBackToEditor()
     }
 
     fun share(file: File?) {
@@ -156,6 +166,20 @@ fun DiagnosticsScreen(
                             )
                         }
                     }
+                    if (editorBusy) {
+                        Text(
+                            "Apply theme or Remove theme is running in the editor. These actions turn back on when it finishes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (autoScan && (state.busy || editorBusy)) {
+                        Text(
+                            "Your scan starts when this finishes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -177,6 +201,7 @@ fun DiagnosticsScreen(
                     WhatToDoCard(
                         report = report,
                         enabled = enabled,
+                        canApplyAgain = canApplyAgain,
                         onScan = viewModel::runScan,
                         onApplyAgain = onApplyAgain,
                         onShareLog = { share(File(report.logFile).takeIf { it.isFile }) },
@@ -199,7 +224,11 @@ fun DiagnosticsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        FilledTonalButton(onClick = viewModel::confirmWorks, enabled = !state.applyConfirmed) { Text("It works") }
+                        // Off while a task runs: an apply still in progress cannot have been checked yet.
+                        FilledTonalButton(
+                            onClick = viewModel::confirmWorks,
+                            enabled = !state.applyConfirmed && !state.busy && !editorBusy,
+                        ) { Text("It works") }
                         OutlinedButton(onClick = { confirmTurnOff = true }, enabled = enabled) { Text("Turn off all Hex Next overlays") }
                     }
                 }
@@ -241,6 +270,7 @@ fun DiagnosticsScreen(
 private fun WhatToDoCard(
     report: ApplyReport,
     enabled: Boolean,
+    canApplyAgain: Boolean,
     onScan: () -> Unit,
     onApplyAgain: () -> Unit,
     onShareLog: () -> Unit,
@@ -276,7 +306,7 @@ private fun WhatToDoCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (problem) {
-                Button(onClick = onApplyAgain, enabled = enabled) { Text("Apply again") }
+                Button(onClick = onApplyAgain, enabled = enabled && canApplyAgain) { Text("Apply again") }
                 OutlinedButton(onClick = onScan, enabled = enabled) { Text("Scan phone") }
             }
             if (report.logFile.isNotBlank()) {

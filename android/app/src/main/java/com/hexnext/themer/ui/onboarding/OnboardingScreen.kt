@@ -31,18 +31,26 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,17 +68,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hexnext.themer.device.Compatibility
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.ui.EmptyState
 import com.hexnext.themer.ui.LocalAppSettings
+import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.RootGuide
 import com.hexnext.themer.ui.SHIZUKU_DOWNLOAD_URL
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.connectionSummary
 import com.hexnext.themer.ui.openShizuku
+import com.hexnext.themer.ui.settings.rememberSafeUriHandler
 
 /** The five pages of the setup guide, in order. */
 private enum class Step(val title: String) {
@@ -108,22 +120,56 @@ fun OnboardingScreen(
     onFinish: () -> Unit,
 ) {
     var index by rememberSaveable { mutableIntStateOf(0) }
+    // MainScreen's saveable holder keeps this screen's state for the whole process, so a guide
+    // left with Done or Skip would reopen on that page. Finishing marks it, and the next visit
+    // starts again on Welcome. A plain rotation keeps the page, because the mark is not set then.
+    var finished by rememberSaveable { mutableStateOf(false) }
+    remember {
+        if (finished) {
+            index = 0
+            finished = false
+        }
+    }
+    // The same activity-scoped view model MainScreen uses: the guide shows the import's progress
+    // and its failure notice here, instead of the notice waiting for the editor.
+    val mainViewModel: MainViewModel = viewModel()
+    val ui by mainViewModel.ui.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val notice = ui.notice
+    LaunchedEffect(notice?.id) {
+        val current = notice ?: return@LaunchedEffect
+        try {
+            snackbar.showSnackbar(
+                message = current.message,
+                withDismissAction = true,
+                duration = if (current.isError) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+        } finally {
+            mainViewModel.consumeNotice(current.id)
+        }
+    }
     val steps = Step.entries
     val step = steps[index.coerceIn(0, steps.lastIndex)]
     val last = index == steps.lastIndex
     val reduceMotion = LocalAppSettings.current.reduceMotion
 
+    fun finish() {
+        finished = true
+        onFinish()
+    }
+
     fun back() {
-        if (index > 0) index-- else onFinish()
+        if (index > 0) index-- else finish()
     }
     BackHandler(onBack = ::back)
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text("Set up Hex Next", fontWeight = FontWeight.SemiBold) },
                 actions = {
-                    if (!last) TextButton(onClick = onFinish) { Text("Skip") }
+                    if (!last) TextButton(onClick = ::finish) { Text("Skip") }
                 },
             )
         },
@@ -142,7 +188,7 @@ fun OnboardingScreen(
                         OutlinedButton(onClick = ::back, modifier = Modifier.heightIn(min = 52.dp)) { Text("Back") }
                     }
                     Button(
-                        onClick = { if (last) onFinish() else index++ },
+                        onClick = { if (last) finish() else index++ },
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                     ) { Text(if (last) "Done" else "Next") }
                 }
@@ -161,7 +207,7 @@ fun OnboardingScreen(
                     Step.WELCOME -> WelcomePage()
                     Step.COMPATIBILITY -> CompatibilityPage(versionLine)
                     Step.ACCESS -> AccessPage(shizuku, rootToolLinks, onRequestPermission)
-                    Step.PACK -> PackPage(packs, selectedPackId, onSelectPack, onImportPack)
+                    Step.PACK -> PackPage(packs, selectedPackId, ui.busy, onSelectPack, onImportPack)
                     Step.DONE -> DonePage(shizuku, packs, selectedPackId)
                 }
             }
@@ -197,7 +243,7 @@ private fun WelcomePage() {
 
 @Composable
 private fun CompatibilityPage(versionLine: String) {
-    val uriHandler = LocalUriHandler.current
+    val uriHandler = rememberSafeUriHandler()
     when (val compat = CompatibilityCheck.check()) {
         Compatibility.Supported -> {
             Hero(
@@ -235,13 +281,19 @@ private fun CompatibilityPage(versionLine: String) {
 
 @Composable
 private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequestPermission: () -> Unit) {
-    val uriHandler = LocalUriHandler.current
+    val uriHandler = rememberSafeUriHandler()
     val context = LocalContext.current
     val ready = shizuku as? ShizukuState.Ready
-    val connected = ready?.isPrivileged == true
+    // su without Shizuku (SU mode) cannot apply themes: the service then runs in the app process.
+    val suOnly = ready?.viaSu == true
+    val connected = ready?.isPrivileged == true && !suOnly
     Hero(
         icon = if (connected) Icons.Outlined.CheckCircle else Icons.Outlined.Lock,
-        title = if (connected) "Connected" else "Give Hex Next access",
+        title = when {
+            connected -> "Connected"
+            suOnly -> "Start Shizuku with root"
+            else -> "Give Hex Next access"
+        },
         body = connectionSummary(shizuku),
     )
     when (shizuku) {
@@ -266,7 +318,18 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
                 OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
             }
         }
-        is ShizukuState.Ready -> if (!connected) {
+        is ShizukuState.Ready -> if (suOnly) {
+            SectionCard("Shizuku") {
+                Text(
+                    "Your phone is rooted, but Hex Next applies themes through Shizuku. Install Shizuku, start it with root, then come back here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
+                    OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+                }
+            }
+        } else if (!connected) {
             SectionCard("Shizuku") {
                 Text(
                     "Shizuku is running without root. Open it and start it again with root.",
@@ -277,8 +340,15 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
         }
     }
     if (!connected) {
-        SectionCard("No root yet?") {
-            RootGuide(links, startExpanded = true)
+        // A rooted phone in SU mode only needs Shizuku, not the rooting guide.
+        if (!suOnly) {
+            SectionCard("No root yet?") {
+                // RootGuide opens its download links through LocalUriHandler; hand it the safe
+                // handler so a phone with every browser disabled shows a message, not a crash.
+                CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                    RootGuide(links, startExpanded = true)
+                }
+            }
         }
     } else {
         SectionCard("You're ready") {
@@ -291,7 +361,13 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
 }
 
 @Composable
-private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSelectPack: (String?) -> Unit, onImportPack: (Uri) -> Unit) {
+private fun PackPage(
+    packs: List<InstalledPack>,
+    selectedPackId: String?,
+    busy: Boolean,
+    onSelectPack: (String?) -> Unit,
+    onImportPack: (Uri) -> Unit,
+) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImportPack(uri)
     }
@@ -329,10 +405,21 @@ private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSele
             }
         }
         if (packs.isEmpty()) {
+            if (busy) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text("Importing the pack file…", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             EmptyState(
                 icon = Icons.Outlined.Info,
                 text = "No packs yet. Import a pack file now, or download some with \"Get packs\" on the main screen.",
                 actionLabel = "Import pack file",
+                enabled = !busy,
                 onAction = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
             )
         }
@@ -341,7 +428,9 @@ private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSele
 
 @Composable
 private fun DonePage(shizuku: ShizukuState, packs: List<InstalledPack>, selectedPackId: String?) {
-    val connected = (shizuku as? ShizukuState.Ready)?.isPrivileged == true
+    val ready = shizuku as? ShizukuState.Ready
+    val suOnly = ready?.viaSu == true
+    val connected = ready?.isPrivileged == true && !suOnly
     val packName = packs.firstOrNull { it.id == selectedPackId }?.name ?: "Colours only"
     Hero(
         icon = Icons.Outlined.CheckCircle,
@@ -350,7 +439,14 @@ private fun DonePage(shizuku: ShizukuState, packs: List<InstalledPack>, selected
             "The gear icon at the top opens App settings, including this guide.",
     )
     SectionCard("Summary") {
-        SummaryRow("Access", if (connected) "Connected" else "Not connected yet")
+        SummaryRow(
+            "Access",
+            when {
+                connected -> "Connected"
+                suOnly -> "Root found, Shizuku not running"
+                else -> "Not connected yet"
+            },
+        )
         SummaryRow("Theme pack", packName)
         if (!connected) {
             Text(

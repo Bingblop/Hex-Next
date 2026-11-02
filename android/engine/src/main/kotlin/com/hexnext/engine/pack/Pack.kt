@@ -230,7 +230,9 @@ public object LayerPlanner {
      * unknown passes/stages sort after the known ones, alphabetically.
      *
      * Tint: `slot` looks the slot up in [palette], then in the pack palette; in light mode
-     * (`night == false`) the `"l" + slot` variant is preferred when present. `fixed` uses the
+     * (`night == false`) the `"l" + slot` variant is preferred when present. A slot found in
+     * neither that reads as a colour (`H000000`, `#ffffff`, `FF33BEA2`, `C80000`) is drawn in
+     * that fixed colour instead of untinted. `fixed` uses the
      * layer's ARGB; `none` draws untinted.
      *
      * Steps whose layer file is missing are skipped: with [entryNames] (see
@@ -271,8 +273,19 @@ public object LayerPlanner {
                 val slot = tint.slot.orEmpty()
                 val candidates = if (night) listOf(slot) else listOf("l$slot", slot)
                 candidates.firstNotNullOfOrNull { palette[it] ?: pack.paletteArgb[it] }
+                    ?: fixedSlotColor(slot)
                     ?: null.also { unresolved += slot }
             }
             else -> null
         }
+
+    private val FIXED_SLOT_RE = Regex("^[Hh#]?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
+
+    /**
+     * A `slot` that is really a fixed colour, as the pack builder writes them (`H000000`,
+     * `Hffffff`, `#ffffff`, `FF33BEA2`, `C80000`): `H`/`#` plus 6 or 8 hex digits, or bare
+     * 6/8 hex digits. Six digits get alpha FF. Null when the slot is not of that form.
+     */
+    internal fun fixedSlotColor(slot: String): Int? =
+        FIXED_SLOT_RE.matchEntire(slot.trim())?.groupValues?.get(1)?.let(Pack::parseColor)
 }

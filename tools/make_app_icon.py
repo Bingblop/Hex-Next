@@ -1,6 +1,18 @@
+"""Render the adaptive launcher icon from the hex artwork.
+
+Usage: python3 tools/make_app_icon.py <src.png> <out-dir>
+Writes bg.png, fg.png, full.png, preview_circle.png and preview_squircle.png into <out-dir>,
+creating it if needed.
+"""
 import sys
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
+if len(sys.argv) != 3:
+    sys.exit(__doc__)
 SRC = sys.argv[1]; OUT = sys.argv[2]
+if Path(OUT).exists() and not Path(OUT).is_dir():
+    sys.exit(f"{OUT} is a file; the second argument is an output directory.\n{__doc__}")
+Path(OUT).mkdir(parents=True, exist_ok=True)
 S = 1024                                    # adaptive-icon master (108dp = 1024px)
 SAFE = int(S * 66 / 108)                    # 66dp safe zone
 FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"

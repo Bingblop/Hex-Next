@@ -117,10 +117,38 @@ class ThemeService() : IThemeService.Stub() {
         val process = ProcessBuilder(*cmdArray)
             .redirectErrorStream(true)
             .start()
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        if (!process.waitFor(60, TimeUnit.SECONDS)) {
+        // Nothing is fed on stdin; a command that reads it gets EOF instead of waiting forever.
+        runCatching { process.outputStream.close() }
+        // Read on a separate thread: reading to EOF here would block for as long as the child
+        // keeps its output open, so the timeout below could never fire for a hung command.
+        val sink = StringBuilder()
+        val reader = Thread({
+            try {
+                process.inputStream.bufferedReader().use { input ->
+                    val buffer = CharArray(8192)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        synchronized(sink) { sink.append(buffer, 0, n) }
+                    }
+                }
+            } catch (ignored: Throwable) {
+                // The stream closed under us (process destroyed); keep what was read.
+            }
+        }, "hexnext-shell")
+        reader.isDaemon = true
+        reader.start()
+        val finished = process.waitFor(SHELL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        if (!finished) {
             process.destroyForcibly()
-            result(124, output + "\n(timed out after 60s)")
+            runCatching { process.waitFor(5, TimeUnit.SECONDS) }
+        }
+        // A background grandchild that inherited the pipe can hold it open after the child
+        // exits; do not wait on it indefinitely.
+        reader.join(if (finished) READER_GRACE_MILLIS else 2_000L)
+        val output = synchronized(sink) { sink.toString() }
+        if (!finished) {
+            result(124, output + "\n(timed out after ${SHELL_TIMEOUT_SECONDS}s)")
         } else {
             result(process.exitValue(), output)
         }
@@ -608,10 +636,18 @@ class ThemeService() : IThemeService.Stub() {
                 log.appendLine(top.log)
                 // Apps keep decoded icons in their drawable caches: Settings kept drawing its old
                 // dashboard icons until it was restarted (build 53). A framework overlay change
-                // restarts everything anyway; for app targets drop the process so the new PNGs show.
+                // restarts everything anyway. A force-stop also drops the package's alarms and
+                // notifications and leaves it stopped, so only targets that hold neither get one;
+                // every other app target is only killed while in the background (`am kill`), which
+                // keeps its alarms, and reloads its drawables the next time it starts.
                 if (drawn.applied > 0 && target !in NEVER_FORCE_STOP) {
-                    val stop = shell("am force-stop --user current $target")
-                    log.appendLine("Restarted $target so it reloads its drawables (am force-stop exit ${stop.getInt(KEY_CODE)}).")
+                    if (target in SAFE_TO_FORCE_STOP) {
+                        val stop = shell("am force-stop --user current $target")
+                        log.appendLine("Restarted $target so it reloads its drawables (am force-stop exit ${stop.getInt(KEY_CODE)}).")
+                    } else {
+                        val kill = shell("am kill --user current $target")
+                        log.appendLine("Killed the background process of $target so it reloads its drawables (am kill exit ${kill.getInt(KEY_CODE)}); if it is open, close and reopen it.")
+                    }
                 }
                 // Step 5: every registration wrote a new `<owner>-<name>-XXXX.frro`; drop the files of
                 // earlier applies (and their idmaps) now that the live one is enabled and verified.
@@ -1118,6 +1154,16 @@ class ThemeService() : IThemeService.Stub() {
     override fun disableHexOverlays(): Bundle {
         return try {
             val list = shell("cmd overlay list --user current")
+            // A failed list (su denied, timeout) parses as "no overlays"; reporting that as
+            // success would let safe mode and Remove claim the theme is off while it is not.
+            val listCode = list.getInt(KEY_CODE)
+            if (listCode != 0) {
+                return result(
+                    listCode,
+                    "cmd overlay list failed (exit $listCode); no HexNext overlay was disabled [UID ${Process.myUid()}]\n" +
+                        list.getString(KEY_OUTPUT).orEmpty().trim(),
+                )
+            }
             val hex = parseOverlayList(list.getString(KEY_OUTPUT).orEmpty())
                 .filter { it.name.startsWith(HEX_PREFIX) }
             val json = JSONArray()
@@ -1319,12 +1365,20 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
+    /**
+     * The text of [file], or null when it does not exist. A read that fails (su denied or not
+     * ready, a timeout, an unreadable file) throws instead: callers such as the SemWT restore must
+     * never take a file they could not read for a missing one and overwrite it.
+     */
     private fun readRootFile(file: File): String? {
         if (runsDirectly()) {
             return if (file.isFile) file.readText() else null
         }
-        val r = shell("[ -f '${file.path}' ] && cat '${file.path}'")
-        return if (r.getInt(KEY_CODE) == 0) r.getString(KEY_OUTPUT).orEmpty() else null
+        val r = shell("if [ -f '${file.path}' ]; then cat '${file.path}'; else echo '$NO_FILE_MARKER'; fi")
+        val code = r.getInt(KEY_CODE)
+        val out = r.getString(KEY_OUTPUT).orEmpty()
+        if (code != 0) error("su read of ${file.path} failed ($code): ${out.lineSequence().firstOrNull().orEmpty()}")
+        return if (out.trim() == NO_FILE_MARKER) null else out
     }
 
     private fun isSafePath(path: String): Boolean =
@@ -1442,6 +1496,10 @@ class ThemeService() : IThemeService.Stub() {
         /** Characters of exec output returned inline; ~400 KB as UTF-16 in the parcel. */
         const val EXEC_INLINE_LIMIT = 200_000
         private const val EXEC_HEAD_CHARS = 4_000
+        /** Longest a single [shell] command may run before it is destroyed (exit 124). */
+        private const val SHELL_TIMEOUT_SECONDS = 60L
+        /** How long [shell] waits for the output to close after the command exited. */
+        private const val READER_GRACE_MILLIS = 10_000L
         const val KEY_JSON = "json"
         const val KEY_FRRO_PATHS = "frroPaths"
         const val KEY_RESOURCE_COUNT = "resourceCount"
@@ -1453,6 +1511,11 @@ class ThemeService() : IThemeService.Stub() {
         const val KEY_DRAWABLES_APPLIED = "drawablesApplied"
         /** Targets never force-stopped after an overlay: the framework and SystemUI restart on their own terms. */
         private val NEVER_FORCE_STOP = setOf("android", "com.android.systemui")
+        /**
+         * App targets a force-stop cannot hurt (no alarms, timers or notifications to lose). Any
+         * other target, such as Clock, Calendar, Reminder or Bluetooth, is only `am kill`ed.
+         */
+        private val SAFE_TO_FORCE_STOP = setOf("com.android.settings")
         const val KEY_CONTENT = "content"
         const val KEY_UID = "uid"
         const val SHELL_OWNER = "com.android.shell"
@@ -1497,6 +1560,10 @@ class ThemeService() : IThemeService.Stub() {
         private val OVERLAY_ID = Regex("^[A-Za-z0-9_.]+(:[A-Za-z0-9_.]+)?$")
         private val RESOURCE_NAME = Regex("^([A-Za-z0-9_.]+:)?[A-Za-z0-9_]+/[A-Za-z0-9_.]+$")
         private val STATE_NAME = Regex("^[A-Za-z0-9_.-]+$")
+
+        /** Printed by the su read of a state file that does not exist (exit 0, so a failed su is told apart). */
+        private const val NO_FILE_MARKER = "__hexnext_no_such_file__"
+
         private val CONFIG_NAME = Regex("^[A-Za-z0-9_+-]+$")
         private val FRRO_PATH = Regex("""/data/resource-cache/[A-Za-z0-9_.-]+\.frro""")
         private val FRRO_SUFFIX = Regex("""^[A-Za-z0-9]+\.frro$""")

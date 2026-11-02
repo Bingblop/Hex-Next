@@ -3,6 +3,8 @@ package com.hexnext.themer.theme
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.hexnext.engine.font.FontFile
@@ -20,6 +22,7 @@ import java.security.MessageDigest
  *
  * Images (PNG, JPG, WebP, GIF, BMP, ICO) are decoded and re-encoded as plain ARGB_8888 PNGs so
  * that every stored icon or background is overlay-ready (no EXIF, no ICC profile, no palette).
+ * The EXIF orientation is applied to the pixels first, so a portrait camera photo stays upright.
  * Fonts are validated as sfnt files (TrueType, OpenType CFF, Apple `true`) and copied as is.
  * Stored names are `<sanitized original stem>-<first 8 hex of sha256>.<png|ttf|otf>`; the
  * original display name is kept in a `<file>.name` sidecar.
@@ -55,6 +58,11 @@ class CustomAssetStore(context: Context) {
 
     /** Every asset of [kind], sorted by display name. */
     fun list(kind: Kind): List<Asset> {
+        // A store killed between write and rename leaves its `<name>.part`; drop old ones.
+        val staleBefore = System.currentTimeMillis() - STALE_PART_MS
+        dir(kind).listFiles { f -> f.isFile && f.name.endsWith(".part") && f.lastModified() < staleBefore }
+            .orEmpty()
+            .forEach { it.delete() }
         val files = dir(kind).listFiles { f -> f.isFile && hasAssetExtension(kind, f.name) }.orEmpty()
         val prefix = "${kind.dir}|"
         val live = HashSet<String>()
@@ -83,8 +91,9 @@ class CustomAssetStore(context: Context) {
 
     /**
      * Imports the image document at [uri] as an ARGB PNG of [kind]. Accepts PNG, JPG, WebP, GIF
-     * and BMP through [BitmapFactory] and `.ico` files (by extension or magic) through
-     * [IcoReader], taking the largest, deepest entry. Rejects images over 4096×4096 or 25 MB.
+     * and BMP through [BitmapFactory] and ICO/CUR files (by their `00 00 01|02 00` magic,
+     * whatever the file is named) through [IcoReader], taking the largest, deepest entry.
+     * Rejects images over 4096×4096 or 25 MB.
      */
     fun importImage(uri: Uri, kind: Kind): Asset {
         require(kind != Kind.FONT) { "importImage cannot store a font" }
@@ -146,8 +155,39 @@ class CustomAssetStore(context: Context) {
             inScaled = false
             inMutable = false
         }
-        return BitmapFactory.decodeStream(ByteArrayInputStream(bytes), null, options)
+        val decoded = BitmapFactory.decodeStream(ByteArrayInputStream(bytes), null, options)
             ?: throw IOException("The image could not be decoded.")
+        return applyExifOrientation(decoded, bytes)
+    }
+
+    /**
+     * Rotates or mirrors [bitmap] as the EXIF orientation tag in [bytes] says (BitmapFactory
+     * ignores it). Returns [bitmap] itself when there is no tag, and recycles it otherwise.
+     */
+    private fun applyExifOrientation(bitmap: Bitmap, bytes: ByteArray): Bitmap {
+        val orientation = runCatching {
+            ExifInterface(ByteArrayInputStream(bytes))
+                .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.setScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.setRotate(-90f); matrix.postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+            else -> return bitmap
+        }
+        val oriented = try {
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } catch (e: OutOfMemoryError) {
+            bitmap.recycle()
+            throw IOException("The image is too large to rotate.", e)
+        }
+        if (oriented !== bitmap) bitmap.recycle()
+        return oriented
     }
 
     private fun decodeIco(bytes: ByteArray): Bitmap {
@@ -250,6 +290,9 @@ class CustomAssetStore(context: Context) {
         private const val MAX_FONT_BYTES = 64L * MIB
         private const val MAX_DIMENSION = 4096
         private const val MAX_STEM = 40
+
+        /** Age after which an untouched `.part` temp file is treated as left by a killed process. */
+        private const val STALE_PART_MS = 60L * 60 * 1000
         private val SAFE_NAME = Regex("^[A-Za-z0-9_.-]+$")
         private val HASH_SUFFIX = Regex("-[0-9a-f]{8}$")
 
@@ -270,7 +313,8 @@ class CustomAssetStore(context: Context) {
         }
 
         internal fun isIco(name: String, bytes: ByteArray): Boolean {
-            if (name.lowercase().endsWith(".ico") || name.lowercase().endsWith(".cur")) return true
+            // The bytes decide, not [name]: many `favicon.ico` files are really PNG or BMP
+            // streams that BitmapFactory decodes but IcoReader rejects.
             if (bytes.size < 6) return false
             val type = (bytes[2].toInt() and 0xFF) or ((bytes[3].toInt() and 0xFF) shl 8)
             return bytes[0] == 0.toByte() && bytes[1] == 0.toByte() && (type == 1 || type == 2)

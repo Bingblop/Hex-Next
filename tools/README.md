@@ -24,9 +24,9 @@ engine (`android/engine/src/main/kotlin/com/hexnext/engine/pack/Pack.kt`).
 |---|---|---|
 | `hex_pack_builder.py` | Convert a source plugin directory into Hex Next packs: copies only readable PNG layers, writes `pack.json`, renames every pack to its catalogue identity and writes `index.json` for the pack folder. Encrypted templates are never read. | `python3 tools/hex_pack_builder.py <plugin-dir> <out-dir>` |
 | `hex_plugin_catalog.py` | Build the metadata catalogue in `docs/plugin-catalog/` (feature flags, target categories, resource names). Copies no artwork. The engine test `ElementsTest` reads `catalog.json`. | `python3 tools/hex_plugin_catalog.py <plugin-dir> <out-dir>` |
-| `rename_packs.py` | Give packs built before the naming table their catalogue id, name and `com.hexnext.pack.<id>` package, and regenerate `index.json`. `hex_pack_builder.py` already applies the same table. | `python3 tools/rename_packs.py <in-dir> <out-dir>` |
+| `rename_packs.py` | Give packs built before the naming table their catalogue id, name and `com.hexnext.pack.<id>` package, and regenerate `index.json`. Refuses (exit 1, writes nothing) if any pack id is neither a mapped source id nor a catalogue id. `hex_pack_builder.py` already applies the same table. | `python3 tools/rename_packs.py <in-dir> <out-dir>` |
 | `pack_names.json` | The naming table: source id to Hex Next id, display name and package. Nothing from a source plugin's name or package is shown in the app or written into a pack. | data file |
-| `make_app_icon.py` | Render the adaptive launcher icon master (1024 px) from the hex artwork. | `python3 tools/make_app_icon.py <src.png> <out.png>` |
+| `make_app_icon.py` | Render the adaptive launcher icon master (1024 px) from the hex artwork: writes `bg.png`, `fg.png`, `full.png` and circle/squircle previews into a directory (created if missing). | `python3 tools/make_app_icon.py <src.png> <out-dir>` |
 
 Requirements: `pip install androguard loguru colorama` for the catalogue and pack builder,
 `pip install pillow` for the icon script.

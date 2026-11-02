@@ -140,6 +140,24 @@ class ThemeCompilerCustomTest {
     }
 
     @Test
+    fun `custom icon gets a day configuration when the density placeholder is a night chunk`() {
+        // drawable-night-xxhdpi sorts before drawable-xxhdpi-v35 (version is compared before uiMode),
+        // so the THEME read keeps the night chunk as the xxhdpi placeholder.
+        val b = ArscTestBuilder(settings)
+        b.typeNames += listOf("drawable")
+        b.typeSpec(1, 1)
+        val key = b.key("ic_settings_wifi")
+        b.type(1, 1, b.config(density = 480, uiMode = 0x20), mapOf(0 to Entry.Simple(key, 0x03, b.string("res/drawable-night-xxhdpi/ic_settings_wifi.png"))))
+        b.type(1, 1, b.config(density = 480, sdk = 35), mapOf(0 to Entry.Simple(key, 0x03, b.string("res/drawable-xxhdpi-v35/ic_settings_wifi.png"))))
+        val table = ArscReader.read(b.build(), ArscReadOptions.THEME)
+        assertTrue(table.find("drawable/ic_settings_wifi")!!.values.single().resConfig.isNight)
+        val dev = DeviceSnapshot(Fixtures.profile9, mapOf(settings to TargetSnapshot(settings, installed = true, table = table)), Fixtures.reference)
+        val spec = ThemeSpec.default().copy(customIcons = mapOf("$settings:drawable/ic_settings_wifi" to "wifi-00000001.png"))
+        val t = ThemeCompiler.compile(spec, dev, InMemoryPackResolver(emptyList()), rules) { 1L }.target(settings)!!
+        assertEquals(setOf("xxhdpi", "night-xxhdpi"), t.drawables.named("ic_settings_wifi").map { it.configuration }.toSet())
+    }
+
+    @Test
     fun `custom background gets the backgrounds element and keys of other targets are ignored`() {
         val spec = baseSpec.copy(
             synthesizeMissingIcons = false,

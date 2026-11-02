@@ -59,7 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -356,7 +355,7 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
 
 @Composable
 private fun AboutCard(onOpenOnboarding: () -> Unit) {
-    val uriHandler = LocalUriHandler.current
+    val uriHandler = rememberSafeUriHandler()
     var showLicences by rememberSaveable { mutableStateOf(false) }
 
     SectionCard("About") {
@@ -380,7 +379,7 @@ private fun AboutCard(onOpenOnboarding: () -> Unit) {
         )
         NavRow(
             title = "Privacy policy",
-            summary = "No analytics, no account; everything stays on your phone. Opens in the browser.",
+            summary = "No analytics, no account. AI prompts go to the provider whose key you add; the policy lists what leaves the phone. Opens in the browser.",
             onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) },
         )
         NavRow(

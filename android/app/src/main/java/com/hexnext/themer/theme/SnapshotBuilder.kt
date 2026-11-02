@@ -170,11 +170,15 @@ class SnapshotBuilder(context: Context) {
             return out
         }
 
-        /** Saves [readSystemShades] beside the scan; called by [DeviceScanner] so inference uses scan-time colours. */
-        fun saveSystemShades(context: Context): Map<String, Int> {
+        /**
+         * Saves [readSystemShades] beside the scan; called by [DeviceScanner] so inference uses
+         * scan-time colours. [scanDir] is the dir the scan is writing (its staging dir, swapped
+         * into `files/scan` when the scan finishes); by default `files/scan` itself.
+         */
+        fun saveSystemShades(context: Context, scanDir: File = File(context.filesDir, "scan")): Map<String, Int> {
             val shades = readSystemShades(context)
             runCatching {
-                val file = shadesFile(context)
+                val file = File(scanDir, SHADES_FILE)
                 file.parentFile?.mkdirs()
                 file.writeText(JSONObject().apply { shades.forEach { (k, v) -> put(k, v) } }.toString())
             }

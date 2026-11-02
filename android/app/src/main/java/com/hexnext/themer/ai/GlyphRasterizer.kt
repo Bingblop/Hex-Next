@@ -2,6 +2,7 @@ package com.hexnext.themer.ai
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -138,11 +139,20 @@ object GlyphRasterizer {
         throw AiProviderException("A glyph path uses commands the app cannot draw. Try again.", e)
     }
 
-    /** `#RRGGBB` / `#AARRGGBB` → ARGB; `"none"`, missing or invalid → [default]. */
+    /**
+     * `#RRGGBB` / `#AARRGGBB` / `#RGB` or a CSS colour name (`white`) → ARGB; missing → [default];
+     * `"currentColor"` → the default foreground blue. `"none"`, `"transparent"` and anything else
+     * that cannot be read → null (not painted), so an outline answered with `"fill":"transparent"`
+     * stays an outline instead of turning into a solid blue shape.
+     */
     private fun colorOf(element: kotlinx.serialization.json.JsonElement?, default: Int?): Int? {
         val text = (element as? JsonPrimitive)?.contentOrNull()?.trim() ?: return default
-        if (text.equals("none", ignoreCase = true) || text.isEmpty()) return null
-        return Pack.parseColor(text) ?: default
+        if (text.isEmpty() || text.equals("none", ignoreCase = true) || text.equals("transparent", ignoreCase = true)) return null
+        if (text.equals("currentColor", ignoreCase = true)) return DEFAULT_FILL
+        Pack.parseColor(text)?.let { return it }
+        // Named colours (white, black, red, grey...); Color.parseColor throws for unknown names.
+        if (!text.all { it.isLetter() }) return null
+        return runCatching { Color.parseColor(text.lowercase()) }.getOrNull()
     }
 
     private const val DEFAULT_FILL: Int = 0xFF3E91FF.toInt()

@@ -133,6 +133,11 @@ class ThemeCompilerTest {
         assertEquals(ThemeCompiler.REASON_FIXED, t.reason("$settings:color/dashboard_tint [night]"))
         // An RGB8 value is written opaque.
         assertEquals(0xFFFF00FF.toInt(), t.color("sec_widget_round_and_bgcolor")!!.argb)
+        // The verbatim default-config copy matches SemWT, so lookup verification must not probe it;
+        // the recoloured default and the night-only fixed value are not listed.
+        assertEquals(setOf("$settings:color/sec_widget_round_and_bgcolor"), t.semwtMatches)
+        // dashboard_tint has a night variant, so nothing is left to probe.
+        assertNull(OverlayLookup.probe(t))
     }
 
     @Test
@@ -146,6 +151,20 @@ class ThemeCompilerTest {
         assertNull(off.reason("$sysui:color/wallpaper_tint"))
         // Other targets are never filtered.
         assertNotNull(compile().target(settings)!!.color("sec_widget_round_and_bgcolor"))
+    }
+
+    @Test
+    fun `fixed System UI colours dropped by the quick settings policy are not reported as kept fixed`() {
+        // An off-palette wallpaper_tint is unmatched (fixed) but outside the QS policy, so it is not written.
+        val semwt = semwt(sysui, listOf(Triple("wallpaper_tint", orange, ""), Triple("lock_icon_color", orange, "")))
+        val dev = device(mapOf(sysui to TargetSnapshot(sysui, installed = true, table = sysuiTable, semwt = semwt)))
+        val result = compile(dev = dev)
+        val t = result.target(sysui)!!
+        assertNull(t.color("wallpaper_tint"))
+        assertEquals(listOf(ThemeCompiler.REASON_QS_POLICY), t.skipped.filter { it.name == "$sysui:color/wallpaper_tint" }.map { it.reason })
+        val warn = result.events.single { it.target == sysui && it.message == "colours kept fixed" }
+        assertEquals("1", warn.data["count"])
+        assertEquals("$sysui:color/lock_icon_color", warn.data["names"])
     }
 
     @Test

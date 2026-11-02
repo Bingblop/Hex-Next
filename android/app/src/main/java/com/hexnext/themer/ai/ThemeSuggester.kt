@@ -1,5 +1,6 @@
 package com.hexnext.themer.ai
 
+import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.pack.Pack
 import com.hexnext.themer.theme.InstalledPack
@@ -90,7 +91,8 @@ object ThemeSuggester {
      * - mode → background lightness of the matching adjustments (dark: darker dark surfaces,
      *   light: brighter light surfaces); `system` leaves both as they are;
      * - packStyle → the installed pack whose name, features or categories match best, else the
-     *   current pack;
+     *   current pack; in [ThemeMode.ADVANCED] a matched pack also clears the per-element packs,
+     *   which would otherwise win over it, so every element really uses the pack the card names;
      * - name → theme name.
      */
     fun toThemeSpec(suggestion: ThemeSuggestion, current: ThemeSpec, packs: List<InstalledPack>): ThemeSpec {
@@ -109,13 +111,15 @@ object ThemeSuggester {
             suggestion.isDark -> current.lightAdjustments.copy(backgroundLightness = 100)
             else -> current.lightAdjustments
         }
-        val pack = matchPack(suggestion.packStyle, packs)?.id ?: current.simplePackId
+        val matched = matchPack(suggestion.packStyle, packs)?.id
+        val elementPacks = if (matched != null && current.mode == ThemeMode.ADVANCED) emptyMap() else current.elementPacks
         return current.copy(
             name = suggestion.name,
             source = source,
             darkAdjustments = dark,
             lightAdjustments = light,
-            simplePackId = pack,
+            simplePackId = matched ?: current.simplePackId,
+            elementPacks = elementPacks,
         )
     }
 
@@ -137,8 +141,15 @@ object ThemeSuggester {
             addAll(pack.pack.categories.keys)
             addAll(pack.pack.categories.values)
         }.joinToString(" ").lowercase()
-        return words.count { it in haystack }
+        return words.count { wordPattern(it).containsMatchIn(haystack) }
     }
+
+    /**
+     * [word] as a whole word (an optional plural "s"/"es" allowed), so "round" does not match
+     * "background", "old" does not match "bold" and "bubble" does not match "misc-wabubble".
+     */
+    private fun wordPattern(word: String): Regex =
+        Regex("(?<![a-z0-9])" + Regex.escape(word) + "(?:e?s)?(?![a-z0-9])")
 
     private val STYLE_WORDS: Map<String, List<String>> = mapOf(
         "minimal" to listOf("minimal", "clean", "simple", "line", "outline", "mono", "thin", "flat"),

@@ -88,6 +88,17 @@ class ApplyReportTest {
     }
 
     @Test
+    fun `probe skips colours whose value equals SemWT's`() {
+        val a = com.hexnext.engine.map.PlannedColor("p:color/a", 1)
+        val b = com.hexnext.engine.map.PlannedColor("p:color/b", 3)
+        fun target(matches: Set<String>) =
+            CompiledTarget("p", "HexNext_p", listOf(a, b), emptyList(), emptyList(), 0, "", semwtMatches = matches)
+        assertEquals(a, OverlayLookup.probe(target(emptySet())))
+        assertEquals(b, OverlayLookup.probe(target(setOf("p:color/a"))))
+        assertEquals(null, OverlayLookup.probe(target(setOf("p:color/a", "p:color/b"))))
+    }
+
+    @Test
     fun `in-progress and aborted reports`() {
         val running = report.copy(status = ApplyReport.STATUS_RUNNING, pendingTargets = listOf("com.android.settings"))
         assertEquals(running, ApplyReport.fromJson(running.toJson()))

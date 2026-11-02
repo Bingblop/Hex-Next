@@ -10,19 +10,26 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
 /**
- * The one HTTP path every provider uses: HTTPS only, 60 s timeouts, keys in headers only, errors
- * mapped to [AiProviderException] messages fit for the screen. Nothing here logs; a key never
+ * The one HTTP path every provider uses: HTTPS only, 60 s timeouts (5 min reads for image replies),
+ * keys in headers only, errors mapped to [AiProviderException] messages fit for the screen. Nothing here logs; a key never
  * appears in a URL, a message or an exception.
  *
  * Every call blocks; run on `Dispatchers.IO`.
  */
 internal object AiHttp {
     private const val TIMEOUT_MS = 60_000
+
+    /**
+     * Read timeout for image replies. A non-streamed multi-image request (gpt-image-1 with n = 4)
+     * sends nothing until every image is done, which often takes longer than a minute.
+     */
+    private const val IMAGE_READ_TIMEOUT_MS = 300_000
     private const val MAX_ERROR_CHARS = 200
 
     /** Body cap for text replies (glyph JSON, chat completions, model lists): a few KB of useful content. */
@@ -50,9 +57,15 @@ internal object AiHttp {
 
     /**
      * POSTs [fields] as `multipart/form-data` and returns the raw reply body (an image when the
-     * caller sends an image Accept header).
+     * caller sends an image Accept header). On a 2xx reply [checkHeaders] gets a lookup for the
+     * response headers before the body is read, and may throw [AiProviderException] to reject it.
      */
-    fun postMultipart(url: String, headers: Map<String, String>, fields: Map<String, String>): ByteArray {
+    fun postMultipart(
+        url: String,
+        headers: Map<String, String>,
+        fields: Map<String, String>,
+        checkHeaders: ((String) -> String?) -> Unit = {},
+    ): ByteArray {
         val boundary = "hexnext-" + UUID.randomUUID().toString().replace("-", "")
         val body = ByteArrayOutputStream()
         for ((name, value) in fields) {
@@ -62,10 +75,17 @@ internal object AiHttp {
             body.write("\r\n".toByteArray(Charsets.UTF_8))
         }
         body.write("--$boundary--\r\n".toByteArray(Charsets.UTF_8))
-        return request(url, "POST", headers + ("Content-Type" to "multipart/form-data; boundary=$boundary"), body.toByteArray(), MAX_IMAGE_BYTES)
+        return request(url, "POST", headers + ("Content-Type" to "multipart/form-data; boundary=$boundary"), body.toByteArray(), MAX_IMAGE_BYTES, checkHeaders)
     }
 
-    private fun request(url: String, method: String, headers: Map<String, String>, body: ByteArray?, maxBytes: Long): ByteArray {
+    private fun request(
+        url: String,
+        method: String,
+        headers: Map<String, String>,
+        body: ByteArray?,
+        maxBytes: Long,
+        checkHeaders: ((String) -> String?) -> Unit = {},
+    ): ByteArray {
         val parsed = try {
             URL(url)
         } catch (e: Exception) {
@@ -80,10 +100,10 @@ internal object AiHttp {
         try {
             connection.requestMethod = method
             connection.connectTimeout = TIMEOUT_MS
-            connection.readTimeout = TIMEOUT_MS
+            connection.readTimeout = if (maxBytes >= MAX_IMAGE_BYTES) IMAGE_READ_TIMEOUT_MS else TIMEOUT_MS
             connection.instanceFollowRedirects = false
             connection.useCaches = false
-            for ((name, value) in headers) connection.setRequestProperty(name, value)
+            for ((name, value) in headers) setHeader(connection, name, value)
             if (body != null) {
                 connection.doOutput = true
                 connection.setFixedLengthStreamingMode(body.size)
@@ -91,18 +111,45 @@ internal object AiHttp {
             }
             val code = connection.responseCode
             if (code in 200..299) {
+                checkHeaders { name -> connection.getHeaderField(name) }
                 return connection.inputStream.use { readAll(it, maxBytes) }
             }
             val errorText = connection.errorStream?.use { runCatching { String(readAll(it, MAX_TEXT_BYTES), Charsets.UTF_8) }.getOrDefault("") }.orEmpty()
             throw AiProviderException(describe(code, errorText, parsed.host))
         } catch (e: AiProviderException) {
             throw e
+        } catch (e: SocketTimeoutException) {
+            throw AiProviderException(
+                "${parsed.host} did not answer in time. The provider may still finish and bill the request, " +
+                    "so check your usage there before trying again.",
+                e,
+            )
         } catch (e: IOException) {
             throw AiProviderException("No connection to ${parsed.host}: ${e.message ?: e.javaClass.simpleName}", e)
         } finally {
             connection.disconnect()
         }
     }
+
+    /**
+     * Sets one header. The platform HTTP stack rejects control and non-ASCII characters with an
+     * IllegalArgumentException whose message quotes the whole value, key included; check first and
+     * throw a message that names no value. A stray line break or zero-width space from copy and
+     * paste is the usual cause.
+     */
+    private fun setHeader(connection: HttpsURLConnection, name: String, value: String) {
+        if (value.any { it < ' ' || it > '~' }) throw AiProviderException(BAD_HEADER_MESSAGE)
+        try {
+            connection.setRequestProperty(name, value)
+        } catch (e: IllegalArgumentException) {
+            // No cause: its message would carry the value.
+            throw AiProviderException(BAD_HEADER_MESSAGE)
+        }
+    }
+
+    private const val BAD_HEADER_MESSAGE =
+        "The saved key contains a hidden or unsupported character, often from copy and paste. " +
+            "Paste the key again in Settings > AI providers."
 
     private fun readAll(input: InputStream, maxBytes: Long): ByteArray {
         val out = ByteArrayOutputStream()
@@ -124,14 +171,36 @@ internal object AiHttp {
         throw AiProviderException("The provider sent a reply that is not JSON.", e)
     }
 
-    /** HTTP status → message: 401/403 "Key rejected", 429 "Rate limit", else the provider's message. */
-    private fun describe(code: Int, errorText: String, host: String): String = when (code) {
-        HttpURLConnection.HTTP_UNAUTHORIZED, HttpURLConnection.HTTP_FORBIDDEN -> "Key rejected. Check the key in Settings > AI providers."
-        429 -> "Rate limit reached. Wait a moment and try again."
-        HttpURLConnection.HTTP_PAYMENT_REQUIRED -> "The provider reports no credit left on this key."
-        else -> {
-            val detail = providerMessage(errorText)
-            if (detail.isNullOrBlank()) "$host answered with HTTP $code." else "$host: $detail"
+    /**
+     * HTTP status → message. 401 is "Key rejected". 403 and 429 keep the provider's own message,
+     * because a 403 is often a model or organisation restriction on a working key (gpt-image-1
+     * needs a verified organisation) and a 429 can mean no quota left (OpenAI `insufficient_quota`),
+     * where waiting never helps. Everything else shows the provider's message.
+     */
+    private fun describe(code: Int, errorText: String, host: String): String {
+        val detail = providerMessage(errorText)?.takeIf { it.isNotBlank() }
+        return when (code) {
+            HttpURLConnection.HTTP_UNAUTHORIZED -> "Key rejected. Check the key in Settings > AI providers."
+            HttpURLConnection.HTTP_FORBIDDEN ->
+                if (detail == null) "$host refused the request (HTTP 403). The key may not have access to this model or feature."
+                else "$host refused the request: $detail"
+            429 -> when {
+                isQuotaExhausted(errorText) ->
+                    "The provider reports no credit or quota left on this key." + (detail?.let { " $host: $it" } ?: "")
+                detail == null -> "Rate limit reached. Wait a moment and try again."
+                else -> "Rate limit reached: $detail"
+            }
+            HttpURLConnection.HTTP_PAYMENT_REQUIRED ->
+                "The provider reports no credit left on this key." + (detail?.let { " $host: $it" } ?: "")
+            else -> if (detail == null) "$host answered with HTTP $code." else "$host: $detail"
+        }
+    }
+
+    /** True when an error body's `error.code` or `error.type` says the quota or credit is used up. */
+    private fun isQuotaExhausted(errorText: String): Boolean {
+        val error = (runCatching { json.parseToJsonElement(errorText) }.getOrNull() as? JsonObject)?.obj("error") ?: return false
+        return listOfNotNull(error.string("code"), error.string("type")).any {
+            it.equals("insufficient_quota", ignoreCase = true) || it.equals("billing_hard_limit_reached", ignoreCase = true)
         }
     }
 

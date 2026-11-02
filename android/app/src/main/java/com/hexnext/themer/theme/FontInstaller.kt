@@ -13,10 +13,12 @@ import java.io.File
  * and lists the font files of the first `<family name="sans-serif">` block, so no file name is
  * hardcoded. [install] writes a KernelSU/Magisk-style module to [MODULE_DIR] (`module.prop` +
  * `system/fonts/<FILE>` for every slot: weight ≥ 600 → the bold file, else the regular one;
- * italic slots get the same files) by copying the app-private font files as root, then, for a
+ * italic slots get the same files) by copying the app-private font files as root to a new file
+ * that is renamed over the old one (a bound module file is never rewritten in place), then, for a
  * live effect without a reboot, bind-mounts every module file over `/system/fonts/<FILE>` in
- * init's mount namespace (`nsenter -t 1 -m`) unless `/proc/1/mountinfo` shows it bound already,
- * and restarts Settings only. The bound paths are saved in the service state file [STATE_FILE].
+ * init's mount namespace (`nsenter -t 1 -m`), first unmounting a bind from an earlier install
+ * that `/proc/1/mountinfo` shows, and restarts Settings only. The bound paths are saved in the
+ * service state file [STATE_FILE].
  * [remove] unmounts them, deletes the module and clears the state.
  *
  * Every path piece interpolated into a shell command is validated against `[A-Za-z0-9_.-]+`
@@ -93,19 +95,30 @@ class FontInstaller(private val service: IThemeService) {
         for (file in files) {
             val source = if (plan.isBold(file)) boldPath else regularPath
             val moduleFile = "$FONTS_DIR/$file"
+            val stagedFile = "$moduleFile$STAGED_SUFFIX"
             val systemFile = "$SYSTEM_FONTS/$file"
+            // The module file may be bound over /system/fonts and mmapped by every app: never
+            // rewrite it in place (cp truncates the inode; readers past the new end get SIGBUS).
+            // Write a new file and rename it over the old name, which leaves the old inode intact
+            // for the existing mount and mappings.
             val copied = run(
-                "cp -f '$source' '$moduleFile' && chmod 644 '$moduleFile' && chown root:root '$moduleFile' && chcon u:object_r:system_file:s0 '$moduleFile'",
+                "rm -f '$stagedFile' && cp '$source' '$stagedFile' && chmod 644 '$stagedFile' && chown root:root '$stagedFile' && chcon u:object_r:system_file:s0 '$stagedFile' && mv -f '$stagedFile' '$moduleFile'",
                 log,
             )
             if (!copied) {
+                run("rm -f '$stagedFile'", log)
                 ok = false
                 continue
             }
             if (systemFile in mounted) {
-                log(LogLine(LogLevel.INFO, "$systemFile is already bound; left as is"))
-                bound += systemFile
-                continue
+                // The existing bind still shows the old inode: detach it (lazily when busy, as
+                // remove() does) and bind the new file below.
+                if (!run("nsenter -t 1 -m -- umount '$systemFile'", log) && !run("nsenter -t 1 -m -- umount -l '$systemFile'", log)) {
+                    log(LogLine(LogLevel.WARN, "$systemFile could not be unmounted; it keeps the previous font until a reboot"))
+                    bound += systemFile
+                    ok = false
+                    continue
+                }
             }
             val exists = service.exec("[ -f '$systemFile' ]").code() == 0
             if (!exists) {
@@ -228,6 +241,9 @@ class FontInstaller(private val service: IThemeService) {
         const val BOLD_WEIGHT = 600
         private const val SETTINGS = "com.android.settings"
         private const val EMPTY_STATE = "{\"bound\":[]}"
+
+        /** Suffix of the file a font is written to before it is renamed over the module file. */
+        private const val STAGED_SUFFIX = ".hexnext-new"
 
         /** `module.prop` lines, each single-quoted for `printf '%s\n'`. */
         private val MODULE_PROP_LINES = listOf(

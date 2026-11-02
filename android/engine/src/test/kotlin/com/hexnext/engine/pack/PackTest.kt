@@ -112,6 +112,30 @@ class PackTest {
     }
 
     @Test
+    fun `slots that spell a colour are drawn in that fixed colour`() {
+        val slots = listOf("H000000", "Hffffff", "#ffffff", "FF33BEA2", "C80000", "5b5b5b", "H80FF0000", "zz9")
+        val layers = slots.mapIndexed { i, slot ->
+            """{"pass": "once", "stage": "s$i", "category": "background", "tint": {"kind": "slot", "slot": "$slot"},
+               "path": "layers/$i", "resources": ["background1"]}"""
+        }.joinToString(",")
+        val pack = PackReader.parse("""{"id": "fixed", "name": "Fixed", "palette": {"xx1": "#FF111111"}, "layers": [$layers]}""")
+        for (night in listOf(true, false)) {
+            val plan = LayerPlanner.plan(pack, "background", "background1", emptyMap(), night = night)
+            assertEquals(
+                listOf(0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFF33BEA2.toInt(),
+                    0xFFC80000.toInt(), 0xFF5B5B5B.toInt(), 0x80FF0000.toInt(), null),
+                plan.steps.map { it.tintArgb },
+            )
+            assertEquals(listOf("zz9"), plan.unresolvedSlots)
+        }
+        // a palette entry under the same name still wins
+        val override = LayerPlanner.plan(pack, "background", "background1", mapOf("H000000" to 7), night = true)
+        assertEquals(7, override.steps.first().tintArgb)
+        assertEquals(null, LayerPlanner.fixedSlotColor("xx1"))
+        assertEquals(null, LayerPlanner.fixedSlotColor("H0000"))
+    }
+
+    @Test
     fun `parses index json and rejects garbage`() {
         val index = PackIndex.parse(
             """{"format": 1, "packs": [{"id": "deluxe-4-2", "name": "Deluxe", "author": "C", "version": "4.2",

@@ -6,6 +6,12 @@
     <!-- Theme pack catalogue downloads (theme/PackStore). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Package visibility (targetSdk 30+): lets "Open Shizuku" find the Shizuku manager's
+         launch intent instead of falling back to the download page. -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
     <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->
     <!-- dataExtractionRules keeps the encrypted AI provider keys out of backups and transfers. -->
     <application

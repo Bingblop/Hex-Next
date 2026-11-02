@@ -132,9 +132,21 @@ object ShizukuManager {
 
     /** Binds the privileged user service (or local SU/UID 1000 service), starting it if needed. */
     suspend fun service(): IThemeService {
-        service?.let { if (it.asBinder().pingBinder()) return it }
-        val ready = _state.value as? ShizukuState.Ready ?: error("Privileged session (Shizuku UID 0/1000 or SU) isn't ready")
-        if (ready.viaSu || Process.myUid() == 0 || Process.myUid() == 1000) {
+        val current = _state.value as? ShizukuState.Ready
+        val wantLocal = current != null && (current.viaSu || Process.myUid() == 0 || Process.myUid() == 1000)
+        service?.let { cached ->
+            // An in-process ThemeService cached in SU mode always pings (it is a local Binder),
+            // so it would outlive the switch to Shizuku and keep handing back the app uid.
+            // Only reuse the cached service when it is the kind the current state calls for.
+            val cachedLocal = cached is ThemeService
+            if (current == null || cachedLocal == wantLocal) {
+                if (cached.asBinder().pingBinder()) return cached
+            } else if (cachedLocal) {
+                service = null
+            }
+        }
+        if (current == null) error("Privileged session (Shizuku UID 0/1000 or SU) isn't ready")
+        if (wantLocal) {
             return ThemeService().also { service = it }
         }
         val deferred = pending ?: CompletableDeferred<IThemeService>().also {

@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,10 +57,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hexnext.themer.ai.AiKeyStore
 import com.hexnext.themer.ai.AiProviders
 import com.hexnext.themer.ai.GeneratedIcon
 import com.hexnext.themer.ai.IconGenerator
+import com.hexnext.themer.ai.IconProvider
 import com.hexnext.themer.ai.IconRequest
 import com.hexnext.themer.ai.IconStyle
 import com.hexnext.themer.ai.ProviderKind
@@ -98,8 +104,28 @@ fun GenerateIconSheet(
     val keys = rememberAiKeyStore()
     val configured by keys.configured.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val state = remember { GenerateIconState() }
+    // The request and its results live in a ViewModel: rotating, folding or unfolding the phone
+    // or a dark-mode switch recreates the activity, the host reopens the sheet, and a paid request
+    // must keep running and its images must still show. The state is reset when the sheet closes.
+    val state: GenerateIconState = viewModel()
+    // The sheet stays open while a request runs. Closing it would not stop the blocking HTTP
+    // call, so the provider would still bill the images while nobody shows them.
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || !state.busy },
+    )
+    val dismiss: () -> Unit = {
+        if (!state.busy) {
+            state.reset()
+            onDismiss()
+        }
+    }
+    val openProviders: () -> Unit = {
+        if (!state.busy) {
+            state.reset()
+            onOpenProviders()
+        }
+    }
 
     val providers = remember(configured) { AiProviders.all.filter { it.id in configured } }
     LaunchedEffect(providers) {
@@ -110,27 +136,13 @@ fun GenerateIconSheet(
 
     fun generate() {
         val chosen = provider ?: return
-        state.busy = true
-        state.error = null
-        state.results.clear()
-        state.used.clear()
-        state.saved.clear()
-        scope.launch {
-            try {
-                val request = IconRequest(
-                    prompt = state.prompt,
-                    style = state.style,
-                    count = state.count,
-                    paletteHint = if (state.style == IconStyle.MATCH_PACK) paletteHint else emptyList(),
-                )
-                val icons = IconGenerator.generate(keys, chosen, request)
-                state.results.addAll(icons)
-            } catch (t: Exception) {
-                state.error = describeFailure(t)
-            } finally {
-                state.busy = false
-            }
-        }
+        val request = IconRequest(
+            prompt = state.prompt,
+            style = state.style,
+            count = state.count,
+            paletteHint = if (state.style == IconStyle.MATCH_PACK) paletteHint else emptyList(),
+        )
+        state.generate(keys, chosen, request)
     }
 
     /** Stores [icon] (or, with [file], the gallery file read on IO) as a custom icon and reports it. */
@@ -170,7 +182,7 @@ fun GenerateIconSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -188,7 +200,7 @@ fun GenerateIconSheet(
             )
 
             if (providers.isEmpty()) {
-                NoProviderNotice(onOpenProviders)
+                NoProviderNotice(openProviders)
             } else {
                 OutlinedTextField(
                     value = state.prompt,
@@ -259,7 +271,7 @@ fun GenerateIconSheet(
                         Text("Working…", style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onOpenProviders) {
+                    TextButton(onClick = openProviders, enabled = !state.busy) {
                         Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Manage keys")
@@ -307,18 +319,22 @@ fun GenerateIconSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    Button(onClick = onDismiss) { Text("Done") }
+                    Button(onClick = dismiss, enabled = !state.busy) { Text("Done") }
                 } else {
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                    TextButton(onClick = dismiss, enabled = !state.busy) { Text("Close") }
                 }
             }
         }
     }
 }
 
-/** Sheet state that survives recomposition but not the sheet closing. */
-private class GenerateIconState {
+/**
+ * Sheet state and the generation request. A ViewModel so it survives activity recreation
+ * (rotation, fold or unfold, dark-mode switch) and the request is not cancelled with the
+ * composition; [reset] clears it when the sheet closes so the next opening starts fresh.
+ */
+internal class GenerateIconState : ViewModel() {
     var prompt by mutableStateOf("")
     var style by mutableStateOf(IconStyle.FLAT)
     var providerId by mutableStateOf<String?>(null)
@@ -329,6 +345,38 @@ private class GenerateIconState {
     val used = mutableStateListOf<Int>()
     val saved = mutableStateListOf<Int>()
     var galleryVersion by mutableIntStateOf(0)
+
+    /** Runs [request] on [provider] in [viewModelScope]; ignored while something is running. */
+    fun generate(keys: AiKeyStore, provider: IconProvider, request: IconRequest) {
+        if (busy) return
+        busy = true
+        error = null
+        results.clear()
+        used.clear()
+        saved.clear()
+        viewModelScope.launch {
+            try {
+                results.addAll(IconGenerator.generate(keys, provider, request))
+            } catch (t: Exception) {
+                error = describeFailure(t)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    /** Back to a fresh sheet; called when the sheet closes. */
+    fun reset() {
+        prompt = ""
+        style = IconStyle.FLAT
+        providerId = null
+        count = 1
+        busy = false
+        error = null
+        results.clear()
+        used.clear()
+        saved.clear()
+    }
 }
 
 /** One candidate: a 120 dp preview over "Use" and "Save"; [name] identifies it for screen readers. */

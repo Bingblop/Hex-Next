@@ -12,6 +12,11 @@ import com.hexnext.engine.compile.OneUiRules
  * `pkg:drawable/name` (the key of [com.hexnext.engine.compile.ThemeSpec.customBackgrounds]),
  * de-duplicated, Settings first, then in rule target order, then by name.
  *
+ * System UI is left out while the rules keep Quick Settings colour-only
+ * ([com.hexnext.engine.compile.QuickSettingsRules.drawablesAllowed] off, as on every bundled One UI
+ * version): the compiler drops every custom System UI drawable then, so such a slot could never
+ * take effect.
+ *
  * TODO: the Settings window background resource is not known yet; `tools/device/diag.sh`
  * ("Settings window background") probes it. Once confirmed, pin it as the first slot.
  */
@@ -20,6 +25,7 @@ object BackgroundSlots {
     data class Slot(val key: String, val packageName: String, val resourceName: String, val label: String)
 
     private const val SETTINGS = "com.android.settings"
+    private const val SYSTEMUI = "com.android.systemui"
     private val WORD = Regex("(^|_)(bg|background|backgrounds)(_|$)")
 
     /** True when a drawable named [name] is a background candidate. */
@@ -30,6 +36,7 @@ object BackgroundSlots {
         val order = HashMap<String, Int>()
         rules.activeTargets.forEachIndexed { index, pkg -> order[pkg] = index + 1 }
         order[SETTINGS] = 0
+        if (!rules.quickSettings.drawablesAllowed) order.remove(SYSTEMUI)
         val seen = HashSet<String>()
         val slots = ArrayList<Slot>()
         for ((pkg, target) in snapshot.targets) {

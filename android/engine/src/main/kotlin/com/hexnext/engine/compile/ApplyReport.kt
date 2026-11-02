@@ -78,11 +78,15 @@ public object OverlayLookup {
     /**
      * The colour to verify [target] with: the first colour set for the default configuration
      * whose resource has no other configuration variant (so the lookup reads the same value in
-     * light and dark mode), or null when there is none.
+     * light and dark mode) and whose value differs from SemWT's (see [CompiledTarget.semwtMatches];
+     * a colour SemWT also sets to that value would verify even while SemWT outranks Hex Next), or
+     * null when there is none.
      */
     public fun probe(target: CompiledTarget): PlannedColor? {
         val configured = target.colors.filter { it.configuration.isNotEmpty() }.mapTo(HashSet()) { it.resourceName }
-        return target.colors.firstOrNull { it.configuration.isEmpty() && it.resourceName !in configured }
+        return target.colors.firstOrNull {
+            it.configuration.isEmpty() && it.resourceName !in configured && it.resourceName !in target.semwtMatches
+        }
     }
 }
 

@@ -38,7 +38,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -49,6 +48,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hexnext.themer.ai.AiKeyStore
 import com.hexnext.themer.ai.AiProviders
 import com.hexnext.themer.ai.IconProvider
 import com.hexnext.themer.ai.ProviderKind
@@ -56,6 +56,7 @@ import com.hexnext.themer.ai.TestResult
 import com.hexnext.themer.ai.TextProvider
 import com.hexnext.themer.ui.ConfirmDialog
 import com.hexnext.themer.ui.SectionCard
+import com.hexnext.themer.ui.settings.rememberSafeUriHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -173,6 +174,9 @@ fun AiProvidersScreen(onBack: () -> Unit) {
                 scope.launch {
                     try {
                         withContext(Dispatchers.IO) { keys.set(provider.id, value) }
+                        // Replacing a key leaves the set of configured ids unchanged, so the
+                        // LaunchedEffect above does not rerun; show the new key's mask here.
+                        masked[provider.id] = AiKeyStore.mask(value.trim())
                         if (editing == provider) editing = null
                     } catch (t: Exception) {
                         if (editing == provider) saveError = describeFailure(t)
@@ -214,7 +218,7 @@ private fun ProviderCard(
     onClear: () -> Unit,
     onTest: () -> Unit,
 ) {
-    val uriHandler = LocalUriHandler.current
+    val uriHandler = rememberSafeUriHandler()
     SectionCard(provider.displayName) {
         Text(capabilities(provider), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

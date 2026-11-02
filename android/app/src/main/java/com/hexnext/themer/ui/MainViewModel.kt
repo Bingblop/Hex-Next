@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.LiveOption
@@ -20,6 +21,7 @@ import com.hexnext.engine.compile.withFont
 import com.hexnext.engine.compile.withOption
 import com.hexnext.engine.compile.withSynthesizeMissingIcons
 import com.hexnext.engine.pack.Pack
+import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
@@ -80,12 +82,19 @@ data class UiState(
     /** Accent seed (opaque ARGB) of the compiled theme and the Diagnostics Settings test. */
     val seed: Int,
     val busy: Boolean = false,
+    /**
+     * True only while the editor's Apply theme or Remove theme holds the theme service
+     * ([ServiceTasks]). Pack downloads, imports and deletes set [busy] but not this.
+     */
+    val serviceBusy: Boolean = false,
     /** The pending snackbar message; null once shown (see [MainViewModel.consumeNotice]). */
     val notice: Notice? = null,
     val oneUiVersion: String? = null,
     val log: List<LogLine> = emptyList(),
     /** Non-null while the "Hex Next overlays were turned off after repeated restarts" banner shows. */
     val safeModeBanner: String? = null,
+    /** True when safe mode could not turn the overlays off: the banner then points to Diagnostics instead. */
+    val safeModeFailed: Boolean = false,
     /** The last compiled-theme apply, for the "Last applied" line of the Apply card; null after a remove. */
     val lastApply: ApplyReport? = null,
     /**
@@ -149,7 +158,7 @@ data class CatalogueState(
     val downloading: Map<String, Float> = emptyMap(),
 )
 
-class MainViewModel(app: Application) : AndroidViewModel(app) {
+class MainViewModel(app: Application, private val savedState: SavedStateHandle) : AndroidViewModel(app) {
 
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
     private val guard = ApplyGuard(app)
@@ -177,9 +186,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
     /** Screens the user came through, so back returns to them (settings → AI providers → back → settings). */
-    private val backStack = ArrayDeque<Screen>()
+    private val backStack = ArrayDeque<Screen>(
+        savedState.get<ArrayList<String>>(KEY_BACK_STACK).orEmpty().mapNotNull { name -> Screen.entries.firstOrNull { it.name == name } }
+    )
 
-    private val _screen = MutableStateFlow(if (appSettings.settings.value.onboardingDone) Screen.MAIN else Screen.ONBOARDING)
+    /** Restored from [savedState] after process death; otherwise the setup guide or the editor. */
+    private val _screen = MutableStateFlow(
+        savedState.get<String>(KEY_SCREEN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
+            ?: if (appSettings.settings.value.onboardingDone) Screen.MAIN else Screen.ONBOARDING
+    )
 
     /** The screen on display; the setup guide on the very first launch, the editor otherwise. */
     val screen: StateFlow<Screen> = _screen.asStateFlow()
@@ -192,13 +207,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (current == screen) return
         if (screen == Screen.MAIN) backStack.clear() else backStack.addLast(current)
         _screen.value = screen
+        saveNavigation()
         refreshGuard()
+        if (screen == Screen.MAIN) refreshLastApply()
     }
 
     /** Returns to the previous screen, or to the editor when there is none. */
     fun navigateBack() {
         _screen.value = backStack.removeLastOrNull() ?: Screen.MAIN
+        saveNavigation()
         refreshGuard()
+        if (_screen.value == Screen.MAIN) refreshLastApply()
+    }
+
+    /**
+     * Re-reads the saved apply report into [UiState.lastApply]. Diagnostics ("Turn off all Hex
+     * Next overlays") deletes it behind this view model's back, so the editor syncs on its return.
+     * Skipped while an apply or remove runs, which sets the report itself when it ends.
+     */
+    private fun refreshLastApply() {
+        if (_ui.value.busy) return
+        viewModelScope.launch {
+            val report = withContext(Dispatchers.IO) { ThemeApplier.lastReport(getApplication<Application>()) }
+            _ui.update { if (it.busy || it.lastApply == report) it else it.copy(lastApply = report) }
+        }
+    }
+
+    /** Keeps the screen and back stack in [savedState] so they survive process death. */
+    private fun saveNavigation() {
+        savedState[KEY_SCREEN] = _screen.value.name
+        savedState[KEY_BACK_STACK] = ArrayList(backStack.map { it.name })
     }
 
     /**
@@ -293,12 +331,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     ?: result.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
                     ?: "unknown error"
                 log(LogLine(LogLevel.ERROR, "Safe mode could not turn Hex Next overlays off: $why. Use Diagnostics > Turn off all Hex Next overlays."))
-                _ui.update { it.copy(safeModeBanner = SAFE_MODE_FAILED_TEXT) }
+                _ui.update { it.copy(safeModeBanner = SAFE_MODE_FAILED_TEXT, safeModeFailed = true) }
                 return
             }
         }
         if (guard.safeModeActive()) {
-            _ui.update { it.copy(safeModeBanner = SAFE_MODE_TEXT) }
+            _ui.update { it.copy(safeModeBanner = SAFE_MODE_TEXT, safeModeFailed = false) }
         }
     }
 
@@ -319,7 +357,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissSafeMode() {
         guard.dismissSafeMode()
-        _ui.update { it.copy(safeModeBanner = null) }
+        _ui.update { it.copy(safeModeBanner = null, safeModeFailed = false) }
     }
 
     private fun initialState(): UiState = UiState(
@@ -350,7 +388,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val spec = specToApply()
         val report = applier.apply(service, spec, ::log)
         _ui.update { it.copy(lastApply = report, applyUnconfirmed = !guard.confirmed) }
-        if (report.success) {
+        if (report.success && !guard.confirmed) {
             postNotice(
                 Notice(
                     "Theme applied. Check your phone, then confirm it works",
@@ -359,6 +397,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     isSuccess = true,
                 ),
             )
+        } else if (report.success) {
+            // No restart protection was armed (no root): there is nothing to confirm.
+            postNotice(Notice("Theme applied. Check your phone", isSuccess = true))
         } else {
             postNotice(Notice("Couldn't apply the theme", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
         }
@@ -371,6 +412,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * is a local preference); the monitor stop is then skipped.
      */
     fun confirmWorks() {
+        // An apply (here or a Diagnostics Settings test) still running has armed the guard for
+        // itself: confirming now would disarm restart protection for overlays nobody has checked.
+        if (_ui.value.busy || ServiceTasks.running.value != null) {
+            log(LogLine(LogLevel.WARN, "Wait for the running task to finish, check your phone, then tap \"It works\"."))
+            postNotice(Notice("Wait for the apply to finish, then confirm"))
+            return
+        }
         guard.confirm()
         _ui.update { it.copy(applyUnconfirmed = false) }
         log(LogLine(LogLevel.OK, "Confirmed: restarts will no longer turn the theme off"))
@@ -502,8 +550,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             val signature = slotsSignatureOf(spec)
             if (signature != slotsSignature) {
-                slotsSignature = signature
                 val catalogue = withContext(Dispatchers.Default) { previewer.slots(spec) }
+                // Stored only once the lists are in: a job cancelled during slots() (a seed
+                // nudge, an apply) must leave the next job to recompute them.
+                slotsSignature = signature
                 _ui.update { it.copy(iconSlots = catalogue.icons, backgroundSlots = catalogue.backgrounds, slotsError = catalogue.error) }
             }
         }
@@ -796,7 +846,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (_ui.value.busy) return
-        _ui.update { it.copy(busy = true, log = emptyList()) }
+        // Diagnostics drives the same service: never run alongside one of its tasks.
+        if (!ServiceTasks.tryStart(EDITOR_TASK)) {
+            val other = ServiceTasks.running.value ?: "A Diagnostics task"
+            log(LogLine(LogLevel.WARN, "$other is still running in Diagnostics. Try again when it finishes."))
+            postNotice(Notice("Wait for Diagnostics to finish ($other)", isError = true))
+            return
+        }
+        _ui.update { it.copy(busy = true, serviceBusy = true, log = emptyList()) }
         viewModelScope.launch {
             try {
                 val service = ShizukuManager.service()
@@ -812,7 +869,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     ),
                 )
             } finally {
-                _ui.update { it.copy(busy = false) }
+                ServiceTasks.finish()
+                _ui.update { it.copy(busy = false, serviceBusy = false) }
             }
         }
     }
@@ -837,6 +895,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        private const val KEY_SCREEN = "screen"
+
+        /** [ServiceTasks] name of the editor's Apply theme or Remove theme. */
+        const val EDITOR_TASK = "Apply theme in the editor"
+
+        private const val KEY_BACK_STACK = "back_stack"
         private const val PREF_SEED = "seed"
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
         private const val MAX_LOG_LINES = 400

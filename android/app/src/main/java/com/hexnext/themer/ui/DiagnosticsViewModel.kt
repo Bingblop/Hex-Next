@@ -5,12 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.themer.IThemeService
+import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.overlay.BuildResult
 import com.hexnext.themer.overlay.OverlayBuilder
 import com.hexnext.themer.overlay.SettingsTestOverlay
 import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.themer.safety.ApplyGuard
+import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
@@ -67,8 +69,18 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearLog() = _state.update { it.copy(log = emptyList()) }
 
-    /** Reloads the last [ApplyReport] (the main screen's Apply theme writes it). */
-    fun refreshApplyReport() = _state.update { it.copy(applyReport = ThemeApplier.lastReport(getApplication<Application>())) }
+    /**
+     * Reloads the last [ApplyReport] (the main screen's Apply theme writes it) and the restart
+     * protection guard, which the editor's Apply theme and "It works" change behind this view
+     * model's back. The screen calls it each time it opens.
+     */
+    fun refreshApplyReport() = _state.update {
+        it.copy(
+            applyReport = ThemeApplier.lastReport(getApplication<Application>()),
+            guard = guard.describe(),
+            applyConfirmed = guard.confirmed,
+        )
+    }
 
     fun noteShareFailed(file: File?) =
         log(LogLevel.ERROR, if (file == null) "Nothing to share yet." else "Could not share ${file.path}.")
@@ -113,20 +125,40 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     fun consumeScanFinished(id: Long) = _state.update { if (it.scanFinishedId == id) it.copy(scanFinishedId = 0L) else it }
 
     fun confirmWorks() {
+        // A task still running (an editor apply or the Settings test) armed the guard for itself:
+        // confirming now would disarm restart protection for overlays nobody has checked.
+        if (_state.value.busy || ServiceTasks.running.value != null) {
+            log(LogLevel.WARN, "Wait for the running task to finish, check your phone, then tap \"It works\".")
+            return
+        }
         guard.confirm()
         _state.update { it.copy(guard = guard.describe(), applyConfirmed = guard.confirmed) }
         log(LogLevel.OK, "Confirmed: restarts will no longer trigger safe mode for this apply.")
         runTask("Stop monitor", clearLog = false) { service, _ ->
-            val r = withContext(Dispatchers.IO) { service.stopStabilityMonitor() }
+            val r = withContext(Dispatchers.IO) {
+                service.stopStabilityMonitor().also { EarlyRecoveryHook.uninstall(service) }
+            }
             log(LogLevel.INFO, r.getString(ThemeService.KEY_OUTPUT).orEmpty())
             refreshMonitorBlocking(service)
         }
     }
 
+    /**
+     * The full Remove theme ([ThemeApplier.remove]): besides turning the Hex overlays off it stops
+     * the SemWT guard, re-enables Samsung's SemWT overlays, clears the takeover flag, restores the
+     * Monet seed and font, removes the early-recovery hook and confirms the guard, so the phone
+     * really goes back to Samsung's look as the confirm dialog promises.
+     */
     fun removeAll() = runTask("Turn off all Hex Next overlays") { service, _ ->
-        val r = withContext(Dispatchers.IO) { service.disableHexOverlays() }
-        val code = r.getInt(ThemeService.KEY_CODE, -1)
-        log(if (code == 0) LogLevel.OK else LogLevel.WARN, r.getString(ThemeService.KEY_OUTPUT).orEmpty())
+        val app = getApplication<Application>()
+        val ok = withContext(Dispatchers.IO) {
+            ThemeApplier(app).remove(service) { line -> log(line) }.also { removed ->
+                // Otherwise the saved report still says "Applied to N apps" here and in the editor.
+                if (removed) runCatching { ThemeApplier.reportFile(app).delete() }
+            }
+        }
+        _state.update { it.copy(applyReport = ThemeApplier.lastReport(app)) }
+        log(if (ok) LogLevel.OK else LogLevel.WARN, if (ok) "Hex Next theme removed." else "Some parts of the theme are still on; see the lines above.")
     }
 
     fun repairSettings() = runTask("Repair Settings overlay") { service, _ ->
@@ -165,6 +197,11 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (_state.value.busy) return
+        // The editor drives the same service: never run alongside its Apply theme or Remove theme.
+        if (!ServiceTasks.tryStart(name)) {
+            log(LogLevel.WARN, "$name did not start: ${ServiceTasks.running.value ?: "another task"} is still running. Try again when it finishes.")
+            return
+        }
         _state.update {
             it.copy(busy = true, task = name, progress = null, log = if (clearLog) emptyList() else it.log)
         }
@@ -175,10 +212,13 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             } catch (t: Throwable) {
                 log(LogLevel.ERROR, "$name failed: ${t.javaClass.simpleName}: ${t.message}")
             } finally {
+                ServiceTasks.finish()
                 _state.update { it.copy(busy = false, task = null, progress = null, guard = guard.describe(), applyConfirmed = guard.confirmed) }
             }
         }
     }
 
-    private fun log(level: LogLevel, text: String) = _state.update { it.copy(log = it.log + LogLine(level, text)) }
+    private fun log(level: LogLevel, text: String): Unit = log(LogLine(level, text))
+
+    private fun log(line: LogLine): Unit = _state.update { it.copy(log = it.log + line) }
 }

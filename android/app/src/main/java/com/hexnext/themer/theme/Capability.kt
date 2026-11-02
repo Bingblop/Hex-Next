@@ -14,10 +14,13 @@ import org.json.JSONObject
  *
  * - [ROOT] (uid 0 or 1000): everything. Fabricated overlays with colours and PNG drawables, the
  *   `.frro` rewrite, fonts and backgrounds.
- * - [SHELL] (uid 2000: Shizuku started over ADB or wireless debugging, no root): colours only.
- *   The shell may enable and disable overlays and write secure settings, so Hex Next sets the
- *   Monet seed ([MonetSeed]) and tries `cmd overlay fabricate` for colour overlays. Anything that
- *   rewrites files as root (PNG drawables, fonts, backgrounds) is skipped with a "Needs root" note.
+ * - [SHELL] (uid 2000: Shizuku started over ADB or wireless debugging, no root): the system
+ *   palette only. The shell may enable and disable overlays and write secure settings, so Hex Next
+ *   sets the Monet seed ([MonetSeed]). It still tries `cmd overlay fabricate` for the per-app
+ *   colour overlays, but AOSP's shell command refuses that to every caller but root ("must be
+ *   root to fabricate overlays through the shell"), so on stock builds those are skipped too.
+ *   Anything that rewrites files as root (PNG drawables, fonts, backgrounds) is skipped with a
+ *   "Needs root" note.
  * - [NONE]: no usable service.
  */
 enum class Capability {
@@ -25,25 +28,25 @@ enum class Capability {
     SHELL,
     ROOT;
 
-    /** Colour overlays and the Monet seed. */
+    /** The Monet seed, and colour overlays where the shell is allowed to fabricate them (root, in practice). */
     val canApplyColours: Boolean get() = this != NONE
 
     /** PNG drawables (custom icons, backgrounds) and fonts: the root `.frro` rewrite and `/data` writes. */
     val canApplyDrawables: Boolean get() = this == ROOT
 
-    /** "Full (root)" / "Colours only (Shizuku)" / "Not connected" for the Connection card and the status pill. */
+    /** "Full (root)" / "System palette only (Shizuku)" / "Not connected" for the Connection card and the status pill. */
     val label: String
         get() = when (this) {
             ROOT -> "Full (root)"
-            SHELL -> "Colours only (Shizuku)"
+            SHELL -> "System palette only (Shizuku)"
             NONE -> "Not connected"
         }
 
     companion object {
         const val SHELL_UID = ThemeService.SHELL_UID
 
-        /** One line on why icons, backgrounds and fonts are off in the colours-only tier. */
-        const val NEEDS_ROOT_REASON = "Icons, backgrounds and fonts rewrite system files, which needs root. Colours still apply."
+        /** One line on why per-app colours, icons, backgrounds and fonts are off in the Shizuku (no root) tier. */
+        const val NEEDS_ROOT_REASON = "Per-app colours, icons, backgrounds and fonts need root. Without it only the system palette (Monet seed) changes."
 
         fun fromUid(uid: Int): Capability = when (uid) {
             0, 1000 -> ROOT
@@ -78,6 +81,9 @@ enum class Capability {
 object MonetSeed {
     const val SETTING = "theme_customization_overlay_packages"
     const val FILE_NAME = "monet_state.json"
+
+    /** Where [restore] keeps an unparsable [FILE_NAME] before clearing it. */
+    const val UNREADABLE_FILE_NAME = "monet_state.unreadable.json"
 
     /** The pseudo target the apply report lists this step under. */
     const val TARGET = "system palette"
@@ -190,19 +196,54 @@ object MonetSeed {
 
     /**
      * Puts the captured value back (or deletes the setting when there was none) and clears the
-     * state file. Returns true when something was restored; false when nothing was captured.
+     * state file. Returns true when it was restored, false when that failed (the state file is
+     * kept, so another call retries) and null when nothing was captured (no file, or a cleared one).
+     * A state file that cannot be read or parsed is a failure, never "nothing captured": the seed
+     * may still be in place. An unparsable file is kept as [UNREADABLE_FILE_NAME] and cleared, so
+     * the warning shows once instead of on every later remove.
      */
-    fun restore(service: IThemeService, log: (LogLine) -> Unit): Boolean {
-        val state = readState(service) ?: return false
+    fun restore(service: IThemeService, log: (LogLine) -> Unit): Boolean? {
+        val bundle = service.readStateFile(FILE_NAME)
+        when (bundle.code()) {
+            0 -> Unit
+            // Code 1: the file does not exist, so no apply ever captured the setting.
+            1 -> return null
+            else -> {
+                log(LogLine(LogLevel.WARN, "System palette not restored: could not read $FILE_NAME (${bundle.output().lineSequence().firstOrNull().orEmpty().ifBlank { "exit ${bundle.code()}" }})."))
+                return false
+            }
+        }
+        val raw = bundle.getString(ThemeService.KEY_CONTENT).orEmpty()
+        val state = try {
+            if (raw.isBlank()) throw JSONException("empty file")
+            JSONObject(raw)
+        } catch (e: JSONException) {
+            val kept = service.writeStateFile(UNREADABLE_FILE_NAME, raw).code() == 0 &&
+                service.writeStateFile(FILE_NAME, JSONObject().toString()).code() == 0
+            log(
+                LogLine(
+                    LogLevel.WARN,
+                    "System palette not restored: $FILE_NAME is unreadable (${e.message}), so the previous palette is unknown. " +
+                        (if (kept) "It was kept as $UNREADABLE_FILE_NAME. " else "") +
+                        "Pick a colour palette in Wallpaper and style to replace the Hex Next seed.",
+                ),
+            )
+            return false
+        }
+        if (!state.has(STATE_PREVIOUS)) return null
         val previous = state.optString(STATE_PREVIOUS)
         val command = if (previous.isBlank()) {
             "settings delete secure $SETTING"
         } else {
-            if (!isShellSafe(previous)) {
-                log(LogLine(LogLevel.WARN, "Previous system palette not restored: its value has characters Hex Next does not pass to the shell."))
+            // The value was captured verbatim and need not be JSON (apply() then wrote a fresh
+            // object), so it is quoted rather than refused: a quote becomes close, escaped quote,
+            // reopen, and line breaks are literal inside single quotes for `sh -c`. Only NUL cannot
+            // reach a command line.
+            if ('\u0000' in previous) {
+                log(LogLine(LogLevel.WARN, "Previous system palette not restored: its value holds a NUL character, which cannot be passed to the shell."))
                 return false
             }
-            "settings put secure $SETTING '$previous'"
+            "settings put secure $SETTING '${previous.replace("'", "'\\''")}'"
         }
         val r = service.exec(command)
         if (r.code() == 0) {

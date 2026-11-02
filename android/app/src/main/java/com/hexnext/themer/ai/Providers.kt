@@ -110,16 +110,14 @@ object GeminiProvider : IconProvider, TextProvider {
             }
             putJsonObject("generationConfig") { putJsonArray("responseModalities") { add("IMAGE") } }
         }
-        val icons = ArrayList<GeneratedIcon>(request.count)
         // The image model returns one picture per call.
-        repeat(request.count) {
+        return keepPaidImages(request.count) {
             val reply = AiHttp.postJson("$BASE/models/gemini-2.5-flash-image:generateContent", headers(apiKey), body, maxBytes = AiHttp.MAX_IMAGE_BYTES).asObjectOrNull()
                 ?: throw AiProviderException("Unexpected reply from $displayName.")
             val data = inlineImages(reply).firstOrNull()
                 ?: throw AiProviderException(blockedReason(reply) ?: "$displayName returned no image.")
-            icons += GeneratedIcon(decodeBase64Png(data, request.sizePx), id, request.prompt)
+            GeneratedIcon(decodeBase64Png(data, request.sizePx), id, request.prompt)
         }
-        return icons
     }
 
     override suspend fun test(apiKey: String): TestResult {
@@ -221,13 +219,24 @@ object StabilityProvider : IconProvider {
             "output_format" to "png",
             "aspect_ratio" to "1:1",
         )
-        val icons = ArrayList<GeneratedIcon>(request.count)
         // One image per call.
-        repeat(request.count) {
-            val png = AiHttp.postMultipart("$BASE/v2beta/stable-image/generate/core", headers(apiKey) + ("Accept" to "image/*"), fields)
-            icons += GeneratedIcon(normalizePng(png, request.sizePx), id, request.prompt)
+        return keepPaidImages(request.count) {
+            // A moderated output still comes back as HTTP 200 with a deliberately blurred image;
+            // only the finish-reason header says so.
+            val png = AiHttp.postMultipart(
+                "$BASE/v2beta/stable-image/generate/core",
+                headers(apiKey) + ("Accept" to "image/*"),
+                fields,
+            ) { header ->
+                if (header("finish-reason").equals("CONTENT_FILTERED", ignoreCase = true)) {
+                    throw AiProviderException(
+                        "$displayName's content filter blurred the image, so it was not kept. " +
+                            "The request may still be billed. Try different wording.",
+                    )
+                }
+            }
+            GeneratedIcon(normalizePng(png, request.sizePx), id, request.prompt)
         }
-        return icons
     }
 
     override suspend fun test(apiKey: String): TestResult {
@@ -347,6 +356,24 @@ private suspend fun glyphIcons(provider: IconProvider, request: IconRequest, ask
         }
     }
     if (icons.isEmpty()) throw firstError ?: AiProviderException("${provider.displayName} returned no glyph.")
+    return icons
+}
+
+/**
+ * Runs [one] up to [count] times for providers that bill one image per call. A failure stops the
+ * run (a rate limit or empty credit would only fail again), but the images already made and paid
+ * for are kept; the failure is thrown only when none came back.
+ */
+private inline fun keepPaidImages(count: Int, one: () -> GeneratedIcon): List<GeneratedIcon> {
+    val icons = ArrayList<GeneratedIcon>(count)
+    while (icons.size < count) {
+        try {
+            icons += one()
+        } catch (e: AiProviderException) {
+            if (icons.isEmpty()) throw e
+            break
+        }
+    }
     return icons
 }
 

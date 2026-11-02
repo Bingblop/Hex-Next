@@ -87,6 +87,9 @@ public data class PlannedDrawableJob(
  * @property semwtCoverage distinct planned resources Samsung's SemWT overlay also overrides.
  * @property contentHash SHA-256 (hex) of the sorted colour and drawable entries; equal hashes
  *   mean the overlay does not need to be rebuilt.
+ * @property semwtMatches resource names of default-configuration [colors] whose value equals the
+ *   one Samsung's SemWT overlay sets (colours kept fixed, or recoloured to the same value), so a
+ *   lookup of them cannot tell whether Hex Next or SemWT wins.
  */
 public data class CompiledTarget(
     val packageName: String,
@@ -97,6 +100,7 @@ public data class CompiledTarget(
     val semwtCoverage: Int,
     val contentHash: String,
     val versionCode: Long? = null,
+    val semwtMatches: Set<String> = emptySet(),
 ) {
     /** True when there is nothing to fabricate. */
     public val isEmpty: Boolean get() = colors.isEmpty() && drawables.isEmpty()
@@ -333,7 +337,22 @@ public object ThemeCompiler {
                 semwtCoverage = coverage,
                 contentHash = contentHash(colors, drawables),
                 versionCode = snapshot.versionCode,
+                semwtMatches = semwtMatches(colors),
             )
+        }
+
+        /** Default-configuration colours whose planned value equals SemWT's own default value. */
+        private fun semwtMatches(colors: List<PlannedColor>): Set<String> {
+            val semwtValues = HashMap<String, MutableSet<Int>>()
+            for (e in semwt?.entries.orEmpty()) {
+                if (e.dataType !in COLOR_TYPES || !e.configuration.isNullOrEmpty()) continue
+                val values = semwtValues.getOrPut("$pkg:${rules.rename(e.typeAndName)}") { HashSet() }
+                values += e.data
+                if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) values += e.data or OPAQUE
+            }
+            if (semwtValues.isEmpty()) return emptySet()
+            return colors.filter { it.configuration.isEmpty() && semwtValues[it.resourceName]?.contains(it.argb) == true }
+                .mapTo(LinkedHashSet()) { it.resourceName }
         }
 
         private fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"
@@ -355,13 +374,6 @@ public object ThemeCompiler {
                     values[key] = out
                 }
             }
-            if (fixed.isNotEmpty()) {
-                event(
-                    LogLevel.WARN, pkg, "colours kept fixed",
-                    mapOf("count" to fixed.size.toString(), "names" to fixed.values.take(20).joinToString(",") { it.name }),
-                )
-            }
-
             for ((pinKey, pin) in spec.colorPins) {
                 if (pinKey.substringBefore(':', "") != pkg) continue
                 val typeName = rules.rename(pinKey.substringAfter(':'))
@@ -376,16 +388,17 @@ public object ThemeCompiler {
                     fixed.remove(key)
                 }
             }
-            skipped += fixed.values
-
             if (pkg == SYSTEMUI) {
                 val qs = rules.quickSettings
                 var dropped = 0
                 val it = values.keys.iterator()
                 while (it.hasNext()) {
-                    val (typeName, config) = it.next()
+                    val key = it.next()
+                    val (typeName, config) = key
                     if (!qs.allowsColour(typeName.substringAfter('/'))) {
                         skipped += Skipped(display(typeName, config), REASON_QS_POLICY)
+                        // Not written at all, so it is no longer "kept fixed".
+                        fixed.remove(key)
                         it.remove()
                         dropped++
                     }
@@ -405,6 +418,15 @@ public object ThemeCompiler {
                     ),
                 )
             }
+
+            // Reported after the Quick Settings filter so only colours actually written verbatim are counted.
+            if (fixed.isNotEmpty()) {
+                event(
+                    LogLevel.WARN, pkg, "colours kept fixed",
+                    mapOf("count" to fixed.size.toString(), "names" to fixed.values.take(20).joinToString(",") { it.name }),
+                )
+            }
+            skipped += fixed.values
 
             val out = mutableListOf<PlannedColor>()
             for ((config, group) in values.entries.groupBy({ it.key.second }, { it.key.first to it.value })) {
@@ -469,11 +491,13 @@ public object ThemeCompiler {
                 val replaced = jobs.values.filter { it.resourceName == resourceName }
                 replaced.forEach { jobs.remove(it.resourceName to it.configuration) }
                 val configs = replaced.map { it.configuration }.distinct().ifEmpty {
-                    // The app's THEME table read keeps one value per density and drops night variants,
-                    // so every day configuration also gets a night twin (as elementJobs does); without it
-                    // the target's own night drawable wins in dark mode.
-                    entry.values.map { configFor(it.resConfig.isNight, it.resConfig.densityQualifier) }.distinct().ifEmpty { listOf("") }
-                        .flatMap { c -> if (isNight(c)) listOf(c) else listOf(c, configFor(true, c)) }.distinct()
+                    // The app's THEME table read keeps one placeholder per density, carrying the config of
+                    // whichever chunk came first (that can be a night one), so only the density is used and
+                    // every density gets both a day and a night job (as elementJobs does); without the night
+                    // job the target's own night drawable wins in dark mode, and without the day job the
+                    // stock icon stays in light mode.
+                    entry.values.map { it.resConfig.densityQualifier }.distinct().ifEmpty { listOf("") }
+                        .flatMap { d -> listOf(configFor(false, d), configFor(true, d)) }.distinct()
                 }
                 val name = typeName.substringAfter('/')
                 val elementId = replaced.firstOrNull()?.elementId ?: when {

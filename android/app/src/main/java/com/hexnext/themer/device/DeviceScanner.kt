@@ -16,10 +16,12 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
@@ -61,7 +63,13 @@ class DeviceScanner(context: Context) {
         val overlays = parseOverlays(overlayBundle, errors)
         val frroPaths = overlayBundle.getStringArray(ThemeService.KEY_FRRO_PATHS)?.toList().orEmpty()
 
-        val scanDir = File(filesDir, "scan").apply { mkdirs() }
+        // Everything is written into a fresh staging dir and swapped in only once the scan
+        // finished, so an interrupted scan never deletes or truncates the files the previous
+        // (still latest) report points at.
+        val liveDir = File(filesDir, SCAN_DIR)
+        val scanDir = File(filesDir, SCAN_STAGING_DIR)
+        if (scanDir.exists() && !scanDir.deleteRecursively()) errors.add("could not clear ${scanDir.absolutePath}")
+        scanDir.mkdirs()
 
         progress("Copying SemWT .frro files…")
         val frroCopied = copyFrros(service, frroPaths, File(scanDir, "frro"), errors)
@@ -96,11 +104,17 @@ class DeviceScanner(context: Context) {
         }
 
         progress("Reading system colours…")
-        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext) }.getOrElse {
+        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext, scanDir) }.getOrElse {
             errors.add("system shades: ${it.message}")
             emptyMap()
         }
         if (shades.isEmpty()) errors.add("system shades: no android:color/system_* colour could be read")
+
+        // The report names the files where they live after the swap below.
+        val stagingPrefix = scanDir.absolutePath + File.separator
+        val livePrefix = liveDir.absolutePath + File.separator
+        fun relocate(path: String?): String? =
+            if (path != null && path.startsWith(stagingPrefix)) livePrefix + path.removePrefix(stagingPrefix) else path
 
         val createdAt = System.currentTimeMillis()
         val report = DeviceReport(
@@ -110,20 +124,50 @@ class DeviceScanner(context: Context) {
             props = props,
             overlays = overlays,
             frroPaths = frroPaths,
-            frroCopied = frroCopied,
-            packages = packages,
+            frroCopied = frroCopied.map { relocate(it) ?: it },
+            packages = packages.map { it.copy(arscPath = relocate(it.arscPath)) },
             errors = errors,
-            semWt = semWt,
+            semWt = semWt.map { it.copy(dumpPath = relocate(it.dumpPath), mappingPath = relocate(it.mappingPath)) },
         )
 
         progress("Writing report…")
         val reportsDir = File(filesDir, "reports").apply { mkdirs() }
-        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(createdAt))
+        // A scan killed between write and rename leaves its `.json.part`; drop old ones.
+        val staleBefore = System.currentTimeMillis() - STALE_PART_MS
+        reportsDir.listFiles { f -> f.isFile && f.name.endsWith(".json.part") && f.lastModified() < staleBefore }
+            .orEmpty()
+            .forEach { it.delete() }
+        // UTC, so a timezone or DST change never gives a newer scan a smaller name.
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
+            .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            .format(Date(createdAt))
         val json = File(reportsDir, "$stamp.json")
         val txt = File(reportsDir, "$stamp.txt")
-        json.writeText(report.toJson().toString(2))
-        txt.writeText(report.summaryText())
+        // Written under a name latestReport ignores, then renamed: a kill mid-write never
+        // leaves a truncated newest report.
+        val jsonPart = File(reportsDir, "$stamp.json.part")
+        jsonPart.writeText(report.toJson().toString(2))
+        swapInScanDir(scanDir, liveDir)
+        if (!jsonPart.renameTo(json)) {
+            jsonPart.delete()
+            throw IOException("Could not save the scan report ${json.absolutePath}")
+        }
+        runCatching { txt.writeText(report.summaryText()) }
         return report.copy(jsonPath = json.absolutePath, txtPath = txt.absolutePath)
+    }
+
+    /** Replaces [liveDir] with the finished [stagingDir]; restores the old dir when that fails. */
+    private fun swapInScanDir(stagingDir: File, liveDir: File) {
+        synchronized(SWAP_LOCK) {
+            val oldDir = File(liveDir.parentFile, SCAN_OLD_DIR)
+            if (oldDir.exists()) oldDir.deleteRecursively()
+            if (liveDir.exists() && !liveDir.renameTo(oldDir)) liveDir.deleteRecursively()
+            if (!stagingDir.renameTo(liveDir)) {
+                if (oldDir.exists() && !liveDir.exists()) oldDir.renameTo(liveDir)
+                throw IOException("Could not move the new scan into ${liveDir.absolutePath}")
+            }
+            oldDir.deleteRecursively()
+        }
     }
 
     private fun parsePackages(info: Bundle, errors: MutableList<String>): List<PackageStatus> {
@@ -418,10 +462,19 @@ class DeviceScanner(context: Context) {
 
     companion object {
         private const val ARSC = "resources.arsc"
+        private const val SCAN_DIR = "scan"
+        /** A scan in progress writes here; it becomes [SCAN_DIR] only when the scan finished. */
+        private const val SCAN_STAGING_DIR = "scan.new"
+        /** The previous [SCAN_DIR] while the finished scan is swapped in. */
+        private const val SCAN_OLD_DIR = "scan.old"
+        private val SWAP_LOCK = Any()
         private const val MAX_FRRO_BYTES = 16L * 1024 * 1024
         private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*")
         private const val DUMP_ATTEMPTS = 2
         private const val DUMP_RETRY_DELAY_MS = 750L
+
+        /** Age after which an untouched report `.json.part` is treated as left by a killed scan. */
+        private const val STALE_PART_MS = 60L * 60 * 1000
 
         /** One UI targets the scan always checks. */
         val TARGETS = listOf(
@@ -453,9 +506,24 @@ class DeviceScanner(context: Context) {
         /** Scan reports are named `yyyyMMdd-HHmmss.json`; other files in `files/reports/` (e.g. the apply report) are not scans. */
         private val SCAN_REPORT_NAME = Regex("""\d{8}-\d{6}\.json""")
 
-        /** The newest scan report, or null. `apply-last.json` (the theme apply report) is deliberately excluded. */
-        fun latestReport(context: Context): File? =
-            File(context.filesDir, "reports").listFiles { f -> SCAN_REPORT_NAME.matches(f.name) }
-                ?.maxByOrNull { it.name }
+        /**
+         * The newest scan report, or null. `apply-last.json` (the theme apply report) is
+         * deliberately excluded. Newest by mtime, then name: older reports were named in local
+         * time, so their names do not sort across timezone or DST changes.
+         */
+        fun latestReport(context: Context): File? {
+            restoreInterruptedSwap(context.filesDir)
+            return File(context.filesDir, "reports").listFiles { f -> SCAN_REPORT_NAME.matches(f.name) }
+                ?.maxWithOrNull(compareBy<File>({ it.lastModified() }, { it.name }))
+        }
+
+        /** A kill between the two renames of a swap leaves no scan dir; put the previous one back. */
+        private fun restoreInterruptedSwap(filesDir: File) {
+            synchronized(SWAP_LOCK) {
+                val live = File(filesDir, SCAN_DIR)
+                val old = File(filesDir, SCAN_OLD_DIR)
+                if (!live.exists() && old.isDirectory) old.renameTo(live)
+            }
+        }
     }
 }

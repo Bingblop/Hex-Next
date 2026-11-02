@@ -76,9 +76,11 @@ class PackStore(context: Context) {
      * Copies the packs bundled under `assets/packs/` (debug builds only: the CI copies a few test
      * packs there) into the pack directory, skipping ids that are already installed. Returns the
      * ids it added and, per asset that could not be installed, why. A release build has no such
-     * assets and this is a no-op.
+     * assets and seeding is a no-op. Runs once at start-up, so it first deletes stale `.part`
+     * files that a download or install killed with the process left behind ([sweepStaleParts]).
      */
     fun seedBundled(): Seeded {
+        sweepStaleParts()
         val names = runCatching { appContext.assets.list(ASSET_DIR)?.toList() }.getOrNull().orEmpty()
             .filter { isPackFile(it) }
         if (names.isEmpty()) return Seeded(emptyList(), emptyMap())
@@ -194,7 +196,16 @@ class PackStore(context: Context) {
         val part = partFor(entry.id)
         try {
             part.outputStream().use { out ->
-                fetchTo(base + entry.file, out, if (entry.bytes > 0) entry.bytes else -1L, onProgress = onProgress)
+                // Bound the transfer like the index fetch: a wrong or hostile catalogue whose zip URL
+                // returns an endless body must not fill the device's storage or keep the app busy.
+                fetchTo(
+                    base + entry.file,
+                    out,
+                    if (entry.bytes > 0) entry.bytes else -1L,
+                    maxBytes = downloadLimit(entry.bytes),
+                    maxMillis = PACK_DEADLINE_MS,
+                    onProgress = onProgress,
+                )
             }
             val pack = try {
                 PackReader.read(part)
@@ -236,6 +247,20 @@ class PackStore(context: Context) {
     }
 
     private fun partFor(id: String): File = File(dir, "$id.zip.part")
+
+    /**
+     * Deletes `.part` files in the pack directory that nothing has written to for
+     * [STALE_PART_MS]. A download or install deletes its own `.part` in a finally block, which
+     * never runs when the process is killed; [installed] and [delete] ignore such files, so
+     * without this sweep a half-finished download (up to [MAX_PACK_BYTES]) would stay forever.
+     * A live download keeps its file's mtime fresh and ends within [PACK_DEADLINE_MS].
+     */
+    private fun sweepStaleParts() {
+        val cutoff = System.currentTimeMillis() - STALE_PART_MS
+        dir.listFiles { f -> f.isFile && f.name.endsWith(".part") && f.lastModified() < cutoff }
+            .orEmpty()
+            .forEach { it.delete() }
+    }
 
     private fun zipFor(id: String): File = File(dir, "$id.zip")
 
@@ -333,6 +358,25 @@ class PackStore(context: Context) {
         private const val TIMEOUT_MS = 10_000
         private const val MAX_INDEX_BYTES = 4L * 1024 * 1024
         private const val INDEX_DEADLINE_MS = 60_000L
+
+        /** Ceiling for one pack download, also used when the catalogue gives no size. */
+        private const val MAX_PACK_BYTES = 512L * 1024 * 1024
+
+        /** Slack over the catalogue's `bytes` before a download is aborted. */
+        private const val PACK_SLACK_BYTES = 1L * 1024 * 1024
+
+        /** Total time one pack download may take. */
+        private const val PACK_DEADLINE_MS = 15L * 60 * 1000
+
+        /** Age after which an untouched `.part` file is treated as left over from a killed process. */
+        private const val STALE_PART_MS = 4 * PACK_DEADLINE_MS
+
+        /**
+         * Most bytes a pack download may read: the catalogue's [listed] size plus some slack (a
+         * repacked zip may differ a little), never more than [MAX_PACK_BYTES].
+         */
+        internal fun downloadLimit(listed: Long): Long =
+            if (listed > 0 && listed < MAX_PACK_BYTES) minOf(MAX_PACK_BYTES, listed + listed / 4 + PACK_SLACK_BYTES) else MAX_PACK_BYTES
         private const val SETTINGS_ICON_PREFIX = "settingsicon"
 
         /** [url] with a single trailing slash. */
