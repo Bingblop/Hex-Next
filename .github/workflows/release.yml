@@ -59,15 +59,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.commit }}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: "platform-tools"
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build and verify production-signed universal APK
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
@@ -93,7 +93,7 @@ jobs:
             --expected-version "$RELEASE_VERSION" \
             --report dist/HexNext_OneUI9_Universal_EN_Signed.apk.json
           cp android/app/build/outputs/mapping/playRelease/mapping.txt dist/mapping.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: HexNext-Universal-Signed-Release
           path: dist/*

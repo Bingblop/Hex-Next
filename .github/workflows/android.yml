@@ -67,16 +67,16 @@ jobs:
         working-directory: android
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           packages: "platform-tools"
       - name: Install SDK 36 and build-tools 36.0.0
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       # Test builds must keep one debug certificate across runs, or `pm install -r` over another
@@ -171,7 +171,7 @@ jobs:
         run: |
           python3 ../bin/verify-release-apk.py \
             app/build/outputs/apk/play/release/app-play-universal-release-unsigned.apk --unsigned
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: HexNext-Universal-Unsigned-Candidate
           path: |
@@ -182,7 +182,7 @@ jobs:
 
       # The PLAY debug APK, so tools/device/install.sh keeps installing com.hexnext.themer.
       - name: Upload installable debug-signed test build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: HexNext-Debug-Test-Installable
           path: android/app/build/outputs/apk/play/debug/app-play-universal-debug.apk
@@ -225,7 +225,7 @@ jobs:
           ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:bundlePlayRelease
       - name: Upload owner release APK
         if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: HexNext-Owner-Release
           path: android/app/build/outputs/apk/owner/release/*.apk
@@ -234,7 +234,7 @@ jobs:
         if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS != 'true'
         run: echo "::warning::The owner release build is not uploaded because the upload-key secrets (HEXNEXT_KEYSTORE_BASE64, HEXNEXT_STORE_PASSWORD, HEXNEXT_KEY_ALIAS, HEXNEXT_KEY_PASSWORD) are not configured, and the HexNext-Play-AAB artifact is unsigned. Set them to get a signed owner APK and an uploadable Play bundle."
       - name: Upload Play bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: HexNext-Play-AAB
           path: android/app/build/outputs/bundle/playRelease/*.aab

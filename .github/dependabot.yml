@@ -15,6 +15,15 @@ updates:
       # (Narrow patterns: org.jetbrains.kotlinx libraries keep getting updates.)
       - dependency-name: org.jetbrains.kotlin.*
       - dependency-name: "org.jetbrains.kotlin:*"
+      # kotlin("jvm") and kotlin("plugin.serialization") show up under their short ids.
+      - dependency-name: jvm
+      - dependency-name: plugin.serialization
+      # Newer kotlinx-serialization needs a newer Kotlin; it moves with the toolchain upgrade.
+      - dependency-name: org.jetbrains.kotlinx:kotlinx-serialization*
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      # Play Billing majors change the purchase path; each one gets its own tested change.
+      - dependency-name: com.android.billingclient:billing
+        update-types: [version-update:semver-major]
       - dependency-name: gradle-wrapper
         update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
