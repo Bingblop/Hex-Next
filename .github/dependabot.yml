@@ -11,7 +11,10 @@ updates:
       # AGP 9, Gradle 9 and Kotlin/Compose plugin bumps go together in one planned toolchain upgrade.
       - dependency-name: com.android.application
         update-types: [version-update:semver-major]
-      - dependency-name: org.jetbrains.kotlin*
+      # Kotlin and its Compose compiler plugin must share one version, so they move together by hand.
+      # (Narrow patterns: org.jetbrains.kotlinx libraries keep getting updates.)
+      - dependency-name: org.jetbrains.kotlin.*
+      - dependency-name: "org.jetbrains.kotlin:*"
       - dependency-name: gradle-wrapper
         update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
