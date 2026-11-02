@@ -17,8 +17,8 @@
 #   Overrides:     RUN_ID=... APK_ZIP_SHA256=... sh install.sh
 # When you change the pin, change RUN_ID / APK_ZIP_SHA256 in test-overlay.sh too.
 set -u
-RUN_ID="${RUN_ID:-41483992636}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-69d694cb40d67262e75714d6b83047941852a190be23eefa74258faa7dd62bd6}"
+RUN_ID="${RUN_ID:-41493971601}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-5c8405f4516864593eec800f9addd300e06f4899cb6882178ac67275ed365130}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
 PKG=com.hexnext.themer

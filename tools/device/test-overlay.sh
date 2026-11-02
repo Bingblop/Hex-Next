@@ -24,11 +24,14 @@ COLOR=sec_widget_round_and_bgcolor
 # (tests/test_device_scripts.py fails when they drift apart).
 # Empty until a CI run signed with the pinned debug key exists (see install.sh); without them
 # the test skips the install and tests the build that is already installed.
-RUN_ID="${RUN_ID:-41483992636}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-69d694cb40d67262e75714d6b83047941852a190be23eefa74258faa7dd62bd6}"
+RUN_ID="${RUN_ID:-41493971601}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-5c8405f4516864593eec800f9addd300e06f4899cb6882178ac67275ed365130}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
-WORK="$OUT_DIR/hexnext-apk"
+# The build is downloaded and unpacked in the app-private home directory, never in OUT_DIR:
+# OUT_DIR may be shared storage (/sdcard/Download), where another app could swap the zip
+# after the checksum or plant an APK next to it before root installs it.
+WORK="${HOME:-$PWD}/hexnext-apk"
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
@@ -57,7 +60,7 @@ log "Hex Next overlay test $(date)"
 step "Build" "getprop ro.build.version.oneui; getprop ro.product.model; getprop ro.build.display.id"
 
 # 1. Download and install the debug build.
-mkdir -p "$WORK"
+rm -rf "$WORK"; mkdir -p "$WORK"
 log ""; log "### Download"
 ok=0
 if [ -z "${SKIP_INSTALL:-}" ] && { [ -z "$RUN_ID" ] || [ -z "$APK_ZIP_SHA256" ]; }; then
@@ -93,7 +96,11 @@ elif [ $ok -eq 1 ]; then
   if [ "$got" != "$APK_ZIP_SHA256" ]; then
     log "Checksum mismatch or no sha256 tool; NOT installing. Continuing with the shell-level overlay test only."
   else
-    (cd "$WORK" && unzip -o -q hexnext-debug.zip) && APK=$(find "$WORK" -name '*.apk' | head -1)
+    # Unpack into a fresh directory in the private WORK, so the only APK there is the one
+    # from the verified zip.
+    rm -rf "$WORK/apk"; mkdir -p "$WORK/apk" &&
+      (cd "$WORK/apk" && unzip -o -q ../hexnext-debug.zip) &&
+      APK=$(find "$WORK/apk" -type f -name '*.apk' | head -1)
     if [ -n "${APK:-}" ]; then
       # Stream the APK to pm on stdin instead of staging it in the shell-writable
       # /data/local/tmp, where a planted symlink could redirect a root copy.
