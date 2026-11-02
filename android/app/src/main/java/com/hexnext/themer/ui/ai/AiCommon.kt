@@ -23,6 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.hexnext.themer.ai.AiKeyStore
 import com.hexnext.themer.ai.AiProviderException
@@ -40,7 +44,8 @@ internal fun rememberAiKeyStore(): AiKeyStore {
 
 /**
  * A drop-down of (id, name) [options] on an outlined button that shows the selected name, or
- * [label] when nothing is selected.
+ * [label] when nothing is selected. Announced as "[label]: [selection]" so the chooser keeps its
+ * name once a provider is picked.
  */
 @Composable
 internal fun ProviderPicker(
@@ -51,9 +56,17 @@ internal fun ProviderPicker(
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val selectedName = options.firstOrNull { it.first == selectedId }?.second
     Box {
-        OutlinedButton(onClick = { expanded = true }, enabled = enabled && options.isNotEmpty()) {
-            Text(options.firstOrNull { it.first == selectedId }?.second ?: label)
+        OutlinedButton(
+            onClick = { expanded = true },
+            enabled = enabled && options.isNotEmpty(),
+            modifier = Modifier.semantics {
+                role = Role.DropdownList
+                contentDescription = "$label: ${selectedName ?: "none"}"
+            },
+        ) {
+            Text(selectedName ?: label)
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = null)
         }
@@ -76,7 +89,7 @@ internal fun ProviderPicker(
 internal fun NoProviderNotice(onOpenProviders: () -> Unit) {
     Column {
         Text(
-            "No AI provider is set up yet. Add a key for a provider to generate on this phone; each request is billed to your own account.",
+            "No AI key yet. Add one in App settings to generate on this phone.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

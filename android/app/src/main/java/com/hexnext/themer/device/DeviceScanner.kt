@@ -353,37 +353,64 @@ class DeviceScanner(context: Context) {
             val base = path.substringAfterLast('/')
             val nameMatch = base.contains("SemWT") || targets.any { path.contains(it) }
             val dest = File(outDir, "${index}_${sanitize(base)}")
-            val bytes = readViaService(service, path)
-            val keep = nameMatch || (bytes != null && targets.any { containsAscii(bytes, it) })
-            if (!keep) return@forEachIndexed
-            if (bytes != null) {
-                dest.writeBytes(bytes)
-                copied.add(dest.absolutePath)
-            } else if (nameMatch && shellCopy(service, path, dest)) {
-                copied.add(dest.absolutePath)
-            } else {
-                errors.add("frro not copied: $path")
+            when (streamViaService(service, path, dest, nameMatch, targets)) {
+                FrroCopy.COPIED -> copied.add(dest.absolutePath)
+                FrroCopy.SKIPPED -> Unit
+                FrroCopy.UNREADABLE -> {
+                    // Unreadable through the descriptor: a name match is worth the root copy, anything else is dropped.
+                    if (!nameMatch) return@forEachIndexed
+                    if (shellCopy(service, path, dest)) copied.add(dest.absolutePath) else errors.add("frro not copied: $path")
+                }
             }
         }
         return copied
     }
 
-    private fun readViaService(service: IThemeService, path: String): ByteArray? = runCatching {
-        val pfd = service.openFile(path) ?: return null
-        ParcelFileDescriptor.AutoCloseInputStream(pfd).use { input ->
-            val buffer = java.io.ByteArrayOutputStream()
-            val chunk = ByteArray(64 * 1024)
-            var total = 0L
-            while (true) {
-                val n = input.read(chunk)
-                if (n < 0) break
-                total += n
-                if (total > MAX_FRRO_BYTES) error("larger than $MAX_FRRO_BYTES bytes")
-                buffer.write(chunk, 0, n)
+    private enum class FrroCopy { COPIED, SKIPPED, UNREADABLE }
+
+    /**
+     * Streams [path] through the service's descriptor into [dest]. The first [HEADER_SCAN_BYTES]
+     * decide whether the file is kept ([nameMatch], or one of [targets] named in the header); the
+     * rest is copied in 64 KB chunks, so a 16 MB `.frro` never sits in the heap as a whole. An
+     * empty, unreadable or over-[MAX_FRRO_BYTES] file is [FrroCopy.UNREADABLE] and [dest] is removed.
+     */
+    private fun streamViaService(service: IThemeService, path: String, dest: File, nameMatch: Boolean, targets: List<String>): FrroCopy {
+        val pfd = runCatching { service.openFile(path) }.getOrNull() ?: return FrroCopy.UNREADABLE
+        return runCatching {
+            ParcelFileDescriptor.AutoCloseInputStream(pfd).use { input ->
+                val header = ByteArray(HEADER_SCAN_BYTES)
+                var headerLength = 0
+                while (headerLength < header.size) {
+                    val n = input.read(header, headerLength, header.size - headerLength)
+                    if (n < 0) break
+                    headerLength += n
+                }
+                val keep = nameMatch || targets.any { containsAscii(header, headerLength, it) }
+                when {
+                    headerLength == 0 -> FrroCopy.UNREADABLE
+                    !keep -> FrroCopy.SKIPPED
+                    else -> {
+                        var total = headerLength.toLong()
+                        dest.outputStream().use { out ->
+                            out.write(header, 0, headerLength)
+                            val chunk = ByteArray(64 * 1024)
+                            while (true) {
+                                val n = input.read(chunk)
+                                if (n < 0) break
+                                total += n
+                                if (total > MAX_FRRO_BYTES) error("larger than $MAX_FRRO_BYTES bytes")
+                                out.write(chunk, 0, n)
+                            }
+                        }
+                        FrroCopy.COPIED
+                    }
+                }
             }
-            buffer.toByteArray().takeIf { it.isNotEmpty() }
+        }.getOrElse {
+            dest.delete()
+            FrroCopy.UNREADABLE
         }
-    }.getOrNull()
+    }
 
     /** Root copy into our own files dir, chowned back to the app uid. */
     private fun shellCopy(service: IThemeService, src: String, dest: File): Boolean {
@@ -397,9 +424,10 @@ class DeviceScanner(context: Context) {
         return r.code() == 0 && dest.isFile && dest.length() > 0
     }
 
-    private fun containsAscii(bytes: ByteArray, needle: String): Boolean {
+    /** True when [needle] occurs in the first [length] bytes of [bytes] (at most [HEADER_SCAN_BYTES]). */
+    private fun containsAscii(bytes: ByteArray, length: Int, needle: String): Boolean {
         val n = needle.toByteArray(Charsets.US_ASCII)
-        val limit = minOf(bytes.size, HEADER_SCAN_BYTES) - n.size
+        val limit = minOf(bytes.size, length, HEADER_SCAN_BYTES) - n.size
         var i = 0
         while (i <= limit) {
             var j = 0

@@ -40,6 +40,10 @@ data class DiagnosticsState(
     /** The last compiled-theme apply ([ThemeApplier.lastReport]). */
     val applyReport: ApplyReport? = null,
     val log: List<LogLine> = emptyList(),
+    /** False while the last apply (theme or Settings test) waits for "It works". */
+    val applyConfirmed: Boolean = true,
+    /** Non-zero once a scan finished and the screen has not yet shown its "Scan finished" notice. */
+    val scanFinishedId: Long = 0L,
 ) {
     val latestReportTxt: File?
         get() = latestReportJson?.let { File(it.parentFile, it.nameWithoutExtension + ".txt") }?.takeIf { it.isFile }
@@ -55,7 +59,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(
         DiagnosticsState(
             latestReportJson = DeviceScanner.latestReport(app),
-            guard = guard.describe(),
+            guard = guard.describe(), applyConfirmed = guard.confirmed,
             applyReport = ThemeApplier.lastReport(app),
         )
     )
@@ -71,8 +75,8 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun runScan() = runTask("Scan") { service, ready ->
         val report = scanner.scan(service, ready.viaSu) { step -> _state.update { it.copy(progress = step) } }
-        _state.update { it.copy(report = report, latestReportJson = report.jsonPath?.let(::File)) }
-        log(LogLevel.OK, "Scan done: ${report.model}, ${report.oneUiVersion}, ${report.overlays.size} overlays (${report.semWtCount} SemWT)")
+        _state.update { it.copy(report = report, latestReportJson = report.jsonPath?.let(::File), scanFinishedId = System.nanoTime()) }
+        log(LogLevel.OK, "Scan done: ${report.model}, ${report.oneUiVersion}, ${report.overlays.size} overlays (${report.semWtCount} Samsung theme overlays)")
         report.errors.forEach { log(LogLevel.WARN, it) }
         report.jsonPath?.let { log(LogLevel.INFO, "Report: $it") }
     }
@@ -105,9 +109,12 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         refreshMonitorBlocking(service)
     }
 
+    /** The screen showed the "Scan finished" notice for [id]. */
+    fun consumeScanFinished(id: Long) = _state.update { if (it.scanFinishedId == id) it.copy(scanFinishedId = 0L) else it }
+
     fun confirmWorks() {
         guard.confirm()
-        _state.update { it.copy(guard = guard.describe()) }
+        _state.update { it.copy(guard = guard.describe(), applyConfirmed = guard.confirmed) }
         log(LogLevel.OK, "Confirmed: restarts will no longer trigger safe mode for this apply.")
         runTask("Stop monitor", clearLog = false) { service, _ ->
             val r = withContext(Dispatchers.IO) { service.stopStabilityMonitor() }
@@ -116,7 +123,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun removeAll() = runTask("Remove all Hex overlays") { service, _ ->
+    fun removeAll() = runTask("Turn off all Hex Next overlays") { service, _ ->
         val r = withContext(Dispatchers.IO) { service.disableHexOverlays() }
         val code = r.getInt(ThemeService.KEY_CODE, -1)
         log(if (code == 0) LogLevel.OK else LogLevel.WARN, r.getString(ThemeService.KEY_OUTPUT).orEmpty())
@@ -128,7 +135,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         }
         _state.update { it.copy(lastResult = result ?: it.lastResult) }
         when {
-            result == null -> log(LogLevel.WARN, "Nothing to re-apply; run the Settings test first.")
+            result == null -> log(LogLevel.WARN, "Nothing to re-apply; run the Settings test first. To put your theme back, use Apply theme on the main screen.")
             result.ok -> log(LogLevel.OK, "Repaired: ${result.resourceCount} resources re-applied.")
             else -> log(LogLevel.ERROR, "Repair code ${result.code}: ${result.output.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty()}")
         }
@@ -142,7 +149,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             val m = service.readStateFile("safe_mode.json")
             s.contentOrNull() to m.contentOrNull()
         }
-        _state.update { it.copy(monitorStatus = status, safeModeFile = safe, guard = guard.describe()) }
+        _state.update { it.copy(monitorStatus = status, safeModeFile = safe, guard = guard.describe(), applyConfirmed = guard.confirmed) }
     }
 
     private fun android.os.Bundle.contentOrNull(): String? =
@@ -154,7 +161,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         block: suspend (IThemeService, ShizukuState.Ready) -> Unit,
     ) {
         val ready = ShizukuManager.state.value as? ShizukuState.Ready ?: run {
-            log(LogLevel.ERROR, "Shizuku (root) or SU isn't ready.")
+            log(LogLevel.ERROR, "Not connected. Start Shizuku with root, or allow root access, then try again.")
             return
         }
         if (_state.value.busy) return
@@ -168,7 +175,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             } catch (t: Throwable) {
                 log(LogLevel.ERROR, "$name failed: ${t.javaClass.simpleName}: ${t.message}")
             } finally {
-                _state.update { it.copy(busy = false, task = null, progress = null, guard = guard.describe()) }
+                _state.update { it.copy(busy = false, task = null, progress = null, guard = guard.describe(), applyConfirmed = guard.confirmed) }
             }
         }
     }

@@ -79,9 +79,15 @@ android {
 
     buildTypes {
         debug {
+            // Debug builds stay unshrunk and unobfuscated so stack traces and the Shizuku
+            // service are readable on a test phone.
+            isMinifyEnabled = false
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
+            // R8 shrinks and obfuscates; proguard-rules.pro keeps the Binder/AIDL surface, the
+            // engine's serialised models and the Material colour utilities.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

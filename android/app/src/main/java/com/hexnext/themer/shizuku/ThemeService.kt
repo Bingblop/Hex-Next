@@ -63,6 +63,16 @@ class ThemeService() : IThemeService.Stub() {
         return uid == 0 || uid == 1000
     }
 
+    /**
+     * True when the service itself may run shell commands and touch the state directory: root,
+     * system, or the ADB shell (uid 2000, Shizuku without root: colours-only tier). Any other uid
+     * is the app process in SU mode, which reaches root only through `su -c`.
+     */
+    private fun runsDirectly(): Boolean {
+        val uid = Process.myUid()
+        return uid == 0 || uid == 1000 || uid == SHELL_UID
+    }
+
     private fun activeOwnerPackage(): String {
         return if (Process.myUid() == 1000) SYSTEM_OWNER else SHELL_OWNER
     }
@@ -97,9 +107,9 @@ class ThemeService() : IThemeService.Stub() {
 
     @Volatile private var spillCounter = 0
 
-    /** Runs [command] as the service uid (or through `su`) and returns the whole output. */
+    /** Runs [command] as the service uid (root, system or shell), or through `su` from the app process, and returns the whole output. */
     private fun shell(command: String): Bundle = try {
-        val cmdArray = if (Process.myUid() == 0 || Process.myUid() == 1000) {
+        val cmdArray = if (runsDirectly()) {
             arrayOf("sh", "-c", command)
         } else {
             arrayOf("su", "-c", command)
@@ -308,7 +318,7 @@ class ThemeService() : IThemeService.Stub() {
     override fun openFile(path: String?): ParcelFileDescriptor? {
         if (path == null || !isSafePath(path)) return null
         return try {
-            if (isPrivilegedUid()) {
+            if (runsDirectly()) {
                 ParcelFileDescriptor.open(File(path), ParcelFileDescriptor.MODE_READ_ONLY)
             } else {
                 openThroughSu(path)
@@ -1236,9 +1246,9 @@ class ThemeService() : IThemeService.Stub() {
         return File(MonitorScript.DIR, name)
     }
 
-    /** Writes a world-readable file as root: directly when privileged, else through `su -c cat >`. */
+    /** Writes a world-readable file: directly as root, system or shell (the state directory is the shell's), else through `su -c cat >`. */
     private fun writeRootFile(file: File, content: String) {
-        if (isPrivilegedUid()) {
+        if (runsDirectly()) {
             val dir = file.parentFile ?: error("no parent for ${file.path}")
             if (!dir.isDirectory && !dir.mkdirs()) error("Cannot create ${dir.path}")
             dir.setReadable(true, false)
@@ -1268,7 +1278,7 @@ class ThemeService() : IThemeService.Stub() {
     }
 
     private fun readRootFile(file: File): String? {
-        if (isPrivilegedUid()) {
+        if (runsDirectly()) {
             return if (file.isFile) file.readText() else null
         }
         val r = shell("[ -f '${file.path}' ] && cat '${file.path}'")
@@ -1405,6 +1415,9 @@ class ThemeService() : IThemeService.Stub() {
         const val KEY_UID = "uid"
         const val SHELL_OWNER = "com.android.shell"
         const val SYSTEM_OWNER = "android"
+
+        /** The ADB shell uid Shizuku runs as without root (colours-only tier). */
+        const val SHELL_UID = 2000
         const val HEX_PREFIX = "HexNext"
 
         /** Read-only partitions whose APKs survive a per-user uninstall. */

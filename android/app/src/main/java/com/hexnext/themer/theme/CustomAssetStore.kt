@@ -34,6 +34,13 @@ class CustomAssetStore(context: Context) {
     enum class Kind(val dir: String) { ICON("icons"), BACKGROUND("backgrounds"), FONT("fonts") }
 
     /**
+     * [describe] results by kind, path, size and mtime, so a relisting (after every import and
+     * delete) opens only the files that changed instead of reading every image header again.
+     * Guarded by itself.
+     */
+    private val described = HashMap<String, Asset>()
+
+    /**
      * One stored asset. [width] and [height] are 0 for fonts; [displayName] is the original file
      * stem for images and `family [subfamily]` for fonts.
      */
@@ -49,8 +56,16 @@ class CustomAssetStore(context: Context) {
     /** Every asset of [kind], sorted by display name. */
     fun list(kind: Kind): List<Asset> {
         val files = dir(kind).listFiles { f -> f.isFile && hasAssetExtension(kind, f.name) }.orEmpty()
-        return files.mapNotNull { file -> runCatching { describe(kind, file) }.getOrNull() }
-            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayName })
+        val prefix = "${kind.dir}|"
+        val live = HashSet<String>()
+        val assets = files.mapNotNull { file ->
+            val stamp = "$prefix${file.absolutePath}|${file.length()}|${file.lastModified()}"
+            live += stamp
+            synchronized(described) { described[stamp] }
+                ?: runCatching { describe(kind, file) }.getOrNull()?.also { synchronized(described) { described[stamp] = it } }
+        }
+        synchronized(described) { described.keys.removeAll { it.startsWith(prefix) && it !in live } }
+        return assets.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayName })
     }
 
     /** The file of a stored asset (it may not exist any more). */

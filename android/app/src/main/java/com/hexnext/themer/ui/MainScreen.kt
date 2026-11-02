@@ -1,5 +1,6 @@
 package com.hexnext.themer.ui
 
+import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,7 +11,6 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,14 +20,21 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,6 +43,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -52,6 +60,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -64,13 +73,16 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,7 +97,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -95,8 +114,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.Element
 import com.hexnext.engine.compile.Elements
 import com.hexnext.engine.compile.LiveOption
@@ -109,6 +130,7 @@ import com.hexnext.themer.R
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.BackgroundSlots
+import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.theme.CatalogueEntry
 import com.hexnext.themer.theme.CustomAssetStore
 import com.hexnext.themer.theme.InstalledPack
@@ -124,6 +146,7 @@ import com.hexnext.themer.ui.onboarding.OnboardingScreen
 import com.hexnext.themer.ui.settings.AppSettingsScreen
 import com.hexnext.themer.ui.settings.AppSettingsStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import android.graphics.Color as AndroidColor
@@ -147,37 +170,13 @@ fun MainScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
     val settingsStore = remember(context) { AppSettingsStore.get(context) }
     val reduceMotion = LocalAppSettings.current.reduceMotion
+    // Each destination keeps its rememberSaveable state (scroll position, collapsed top bar,
+    // open blocks) while another screen is on display, so Back lands where the user left.
+    val holder = rememberSaveableStateHolder()
 
     val content: @Composable (Screen) -> Unit = { target ->
-        when (target) {
-            Screen.MAIN -> EditorScreen(viewModel, ui, shizuku)
-            Screen.SETTINGS -> AppSettingsScreen(
-                store = settingsStore,
-                onBack = viewModel::navigateBack,
-                onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
-                onOpenAiProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-                onOpenOnboarding = { viewModel.navigate(Screen.ONBOARDING) },
-            )
-            Screen.DIAGNOSTICS -> DiagnosticsScreen(
-                shizuku = shizuku,
-                accent = ui.seed,
-                onBack = {
-                    viewModel.navigateBack()
-                    // A scan may have happened: the slot lists come from it.
-                    viewModel.invalidateSlots()
-                },
-            )
-            Screen.AI_PROVIDERS -> AiProvidersScreen(onBack = viewModel::navigateBack)
-            Screen.ONBOARDING -> OnboardingScreen(
-                shizuku = shizuku,
-                versionLine = ui.versionLine,
-                rootToolLinks = ui.rootToolLinks,
-                packs = ui.packs,
-                selectedPackId = ui.spec.simplePackId,
-                onSelectPack = viewModel::selectPack,
-                onRequestPermission = viewModel::requestPermission,
-                onFinish = viewModel::finishOnboarding,
-            )
+        holder.SaveableStateProvider(target) {
+            ScreenContent(target, viewModel, ui, shizuku, settingsStore)
         }
     }
     if (reduceMotion) {
@@ -187,19 +186,65 @@ fun MainScreen(viewModel: MainViewModel) {
     }
 }
 
-/** "Android 16 · One UI 8.0 · Root": the pill next to the title. */
+@Composable
+private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState, settingsStore: AppSettingsStore) {
+    when (target) {
+        Screen.MAIN -> EditorScreen(viewModel, ui, shizuku)
+        Screen.SETTINGS -> AppSettingsScreen(
+            store = settingsStore,
+            onBack = viewModel::navigateBack,
+            onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
+            onOpenAiProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
+            onOpenOnboarding = { viewModel.navigate(Screen.ONBOARDING) },
+        )
+        Screen.DIAGNOSTICS -> DiagnosticsScreen(
+            shizuku = shizuku,
+            accent = ui.seed,
+            autoScan = ui.scanRequested,
+            onScanStarted = viewModel::consumeScanRequest,
+            onApplyAgain = {
+                viewModel.navigate(Screen.MAIN)
+                viewModel.applyTheme()
+            },
+            onBack = {
+                viewModel.navigateBack()
+                // A scan may have happened: the slot lists come from it.
+                viewModel.invalidateSlots()
+            },
+        )
+        Screen.AI_PROVIDERS -> AiProvidersScreen(onBack = viewModel::navigateBack)
+        Screen.ONBOARDING -> OnboardingScreen(
+            shizuku = shizuku,
+            versionLine = ui.versionLine,
+            rootToolLinks = ui.rootToolLinks,
+            packs = ui.packs,
+            selectedPackId = ui.spec.simplePackId,
+            onSelectPack = viewModel::selectPack,
+            onImportPack = viewModel::importPack,
+            onRequestPermission = viewModel::requestPermission,
+            onFinish = viewModel::finishOnboarding,
+        )
+    }
+}
+
+/**
+ * "Root · One UI 8.0": the pill next to the title. The connection state comes first because it is
+ * the part that changes; the version keeps only its One UI half, the Connection card has the rest.
+ */
 private fun statusPillText(versionLine: String, state: ShizukuState): String {
     val connection = when (state) {
         is ShizukuState.Ready -> when {
             state.isRoot -> "Root"
             state.isSystemUid1000 -> "System"
+            Capability.fromUid(state.uid) == Capability.SHELL -> "Colours only"
             else -> "No root"
         }
         ShizukuState.PermissionNeeded, ShizukuState.PermissionDenied -> "Shizuku: allow"
         ShizukuState.TooOld -> "Shizuku: update"
         ShizukuState.NotRunning -> "Not connected"
     }
-    return "$versionLine · $connection"
+    val oneUi = versionLine.substringAfter(" · ", versionLine)
+    return "$connection · $oneUi"
 }
 
 @Composable
@@ -213,7 +258,7 @@ private fun StatusPill(text: String, ok: Boolean) {
         modifier = Modifier
             .clip(CircleShape)
             .background(if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
     )
 }
 
@@ -221,7 +266,10 @@ private fun StatusPill(text: String, ok: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    // Both saveable, so they survive a trip to Settings or Diagnostics (see MainScreen's holder).
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val ready = shizuku as? ShizukuState.Ready
     val appSettings = LocalAppSettings.current
     val haptic = LocalHapticFeedback.current
@@ -248,6 +296,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                 NoticeAction.REQUEST_PERMISSION -> viewModel.requestPermission()
                 NoticeAction.RETRY_APPLY -> viewModel.applyTheme()
                 NoticeAction.RETRY_REMOVE -> viewModel.removeTheme()
+                NoticeAction.CONFIRM_WORKS -> viewModel.confirmWorks()
                 null -> Unit
             }
         }
@@ -260,13 +309,19 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        // The keyboard counts as an inset, so the hex and description fields scroll clear of it.
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             LargeTopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.semantics(mergeDescendants = true) {},
+                    ) {
                         Text("Hex Next", fontWeight = FontWeight.SemiBold)
-                        StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready?.isPrivileged == true)
+                        StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
                     }
                 },
                 actions = {
@@ -278,10 +333,13 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
             )
         },
     ) { padding ->
+        // The Connection card is the first item, or the second behind the safe-mode banner.
+        val connectionIndex = if (ui.safeModeBanner != null) 1 else 0
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
+                start = 16.dp + padding.calculateStartPadding(LayoutDirection.Ltr),
+                end = 16.dp + padding.calculateEndPadding(LayoutDirection.Ltr),
                 top = padding.calculateTopPadding() + 4.dp,
                 bottom = padding.calculateBottomPadding() + 24.dp,
             ),
@@ -290,7 +348,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
             ui.safeModeBanner?.let { banner ->
                 item { SafeModeBanner(banner, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode) }
             }
-            item { StatusCard(shizuku, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
+            item { StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
             item {
                 DescribeThemeCard(
                     packs = ui.packs,
@@ -331,15 +389,16 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     slotsError = ui.slotsError,
                     spec = ui.spec,
                     busy = ui.busy,
+                    needsRoot = ui.capability == Capability.SHELL,
                     paletteHint = paletteHint,
                     fileOf = viewModel::assetFile,
                     onImport = viewModel::importCustomIcon,
-                    onGenerated = { viewModel.refreshAssets() },
+                    onGenerated = viewModel::noteGeneratedIcon,
                     onAssign = viewModel::assignIcon,
                     onDelete = viewModel::deleteAsset,
                     onSynthesize = viewModel::setSynthesizeMissingIcons,
                     onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-                    onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
+                    onScan = viewModel::openScan,
                 )
             }
             item {
@@ -349,11 +408,12 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     slotsError = ui.slotsError,
                     spec = ui.spec,
                     busy = ui.busy,
+                    needsRoot = ui.capability == Capability.SHELL,
                     fileOf = viewModel::assetFile,
                     onImport = viewModel::importCustomBackground,
                     onAssign = viewModel::assignBackground,
                     onDelete = viewModel::deleteAsset,
-                    onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
+                    onScan = viewModel::openScan,
                 )
             }
             item {
@@ -361,6 +421,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     fonts = ui.customFonts,
                     spec = ui.spec,
                     busy = ui.busy,
+                    needsRoot = ui.capability == Capability.SHELL,
                     fileOf = viewModel::assetFile,
                     onImport = viewModel::importFont,
                     onFont = viewModel::setFont,
@@ -368,17 +429,19 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     onDelete = viewModel::deleteAsset,
                 )
             }
-            item { PreviewCard(ui.preview) }
+            item { PreviewCard(ui.preview, onScan = viewModel::openScan) }
             item {
                 CompiledThemeCard(
-                    enabled = ready != null && !ui.busy,
+                    connected = ready != null,
                     busy = ui.busy,
-                    summary = ui.lastApplySummary,
-                    onApply = {
-                        if (appSettings.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        viewModel.applyTheme()
-                    },
+                    report = ui.lastApply,
+                    unconfirmed = ui.applyUnconfirmed,
+                    progressLine = ui.log.lastOrNull()?.text,
+                    onApply = viewModel::applyTheme,
                     onRemove = viewModel::removeTheme,
+                    onConfirmWorks = viewModel::confirmWorks,
+                    onDetails = { viewModel.navigate(Screen.DIAGNOSTICS) },
+                    onConnection = { scope.launch { listState.animateScrollToItem(connectionIndex) } },
                 )
             }
             if (ui.log.isNotEmpty()) {
@@ -391,7 +454,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
 @Composable
 private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismiss: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Assertive },
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -399,10 +462,11 @@ private fun SafeModeBanner(text: String, onOpenDiagnostics: () -> Unit, onDismis
         ),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(text, style = MaterialTheme.typography.titleSmall)
             Text(
-                "Your phone restarted twice within 10 minutes of an unconfirmed apply. Open Diagnostics to " +
-                    "repair or apply again, then tap \"It works\" once everything is stable.",
+                "Your phone restarted twice within 10 minutes of an apply that was not confirmed, so Hex Next turned " +
+                    "its overlays off. When your phone is stable, tap Apply theme again, then \"It works\". " +
+                    "Diagnostics has the details.",
                 style = MaterialTheme.typography.bodySmall,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -456,6 +520,41 @@ internal fun EmptyState(
     }
 }
 
+/**
+ * The one confirmation dialog for destructive actions: [title] as a question, [text] on the
+ * consequence, an error-coloured [confirmLabel] and Cancel.
+ */
+@Composable
+internal fun ConfirmDialog(
+    title: String,
+    text: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(confirmLabel, color = MaterialTheme.colorScheme.error) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Opens the Shizuku app, or its download page when it is not installed. */
+internal fun openShizuku(context: Context, uriHandler: UriHandler) {
+    val intent = context.packageManager.getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+    if (intent != null) {
+        runCatching { context.startActivity(intent) }.onSuccess { return }
+    }
+    uriHandler.openUri(SHIZUKU_DOWNLOAD_URL)
+}
+
+internal const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+internal const val SHIZUKU_DOWNLOAD_URL = "https://shizuku.rikka.app/download/"
+
 /** The shared card: title (with an optional [trailing] control at its right) over [content]. */
 @Composable
 internal fun SectionCard(
@@ -476,14 +575,13 @@ internal fun SectionCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (trailing == null) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).semantics { heading() },
                     )
                     trailing()
                 }
@@ -493,28 +591,55 @@ internal fun SectionCard(
     }
 }
 
+/**
+ * The Connection card: the access tier ("Full (root)", "Colours only (Shizuku)", "Not
+ * connected") as a pill next to the title, one sentence on the state, the version line, the
+ * action for the state and, without root, the root guide.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatusCard(
     state: ShizukuState,
+    capability: Capability,
     versionLine: String,
     rootToolLinks: Map<String, String>,
     onRequestPermission: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
-    SectionCard("Connection") {
+    val context = LocalContext.current
+    SectionCard(
+        title = "Connection",
+        trailing = { TierPill(capability) },
+    ) {
         Text(connectionSummary(state), style = MaterialTheme.typography.bodyMedium)
         Text(
             versionLine,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (capability == Capability.SHELL) {
+            Text(
+                Capability.NEEDS_ROOT_REASON,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         when (state) {
             ShizukuState.NotRunning, ShizukuState.TooOld ->
-                OutlinedButton(onClick = { uriHandler.openUri("https://shizuku.rikka.app/download/") }) {
+                OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) {
                     Text("Get Shizuku")
                 }
             ShizukuState.PermissionNeeded -> Button(onClick = onRequestPermission) { Text("Allow access") }
-            else -> Unit
+            ShizukuState.PermissionDenied -> FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(onClick = onRequestPermission) { Text("Try again") }
+                OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+            }
+            is ShizukuState.Ready -> if (!state.isPrivileged) {
+                OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+            }
         }
         val needsRoot = when (state) {
             ShizukuState.NotRunning, ShizukuState.PermissionNeeded, ShizukuState.PermissionDenied -> true
@@ -539,9 +664,49 @@ internal fun connectionSummary(state: ShizukuState): String = when (state) {
             "Connected with system access. Apply builds one overlay for each scanned One UI app and takes over from Samsung's built-in theme overlays."
         state.isRoot ->
             "Connected with root access. Apply builds one overlay for each scanned One UI app and takes over from Samsung's built-in theme overlays."
+        Capability.fromUid(state.uid) == Capability.SHELL ->
+            "Connected through Shizuku without root. Your accent colour applies as the system palette and as colour overlays. " +
+                "For icons, backgrounds and fonts, start Shizuku with root."
         else ->
             "Connected, but without root. Start Shizuku with root, or restart it if it came up without root after your phone restarted."
     }
+}
+
+/** The access tier of the Connection card: tonal for a usable connection, error colours while disconnected. */
+@Composable
+private fun TierPill(capability: Capability) {
+    val ok = capability != Capability.NONE
+    Text(
+        capability.label,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (ok) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}
+
+/** "Needs root" at the right of a card title whose feature the colours-only tier cannot apply. */
+@Composable
+private fun NeedsRootBadge() {
+    Text(
+        "Needs root",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onTertiaryContainer,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}
+
+/** The one-line reason under a "Needs root" badge. */
+@Composable
+private fun NeedsRootReason(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
 }
 
 /**
@@ -550,6 +715,7 @@ internal fun connectionSummary(state: ShizukuState): String = when (state) {
  * buttons always show; the four steps with their screenshots unfold behind "What is this?"
  * (or right away with [startExpanded]).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun RootGuide(links: Map<String, String>, startExpanded: Boolean = false) {
     val uriHandler = LocalUriHandler.current
@@ -566,7 +732,7 @@ internal fun RootGuide(links: Map<String, String>, startExpanded: Boolean = fals
         )
     }
     val downloads: @Composable () -> Unit = {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             RootTools.ALL.forEach { tool ->
                 OutlinedButton(onClick = { uriHandler.openUri(links[tool.name] ?: tool.pinnedApk) }) {
                     Text("Download ${tool.name}")
@@ -575,7 +741,7 @@ internal fun RootGuide(links: Map<String, String>, startExpanded: Boolean = fals
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("No root yet? Four easy steps", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text("No root yet? Four easy steps", style = MaterialTheme.typography.titleSmall)
         Text(body, style = MaterialTheme.typography.bodySmall)
         if (!expanded) {
             downloads()
@@ -628,22 +794,11 @@ private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
             HexField(seed, onSeed)
         }
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             PRESETS.forEach { color ->
-                val selected = color == seed
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(color))
-                        .then(
-                            if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                            else Modifier
-                        )
-                        .clickable { onSeed(color) }
-                )
+                ColorSwatch(color = color, selected = color == seed, onClick = { onSeed(color) })
             }
         }
         val hsv = remember(seed) { FloatArray(3).also { AndroidColor.colorToHSV(seed, it) } }
@@ -654,6 +809,35 @@ private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
                 onSeed(AndroidColor.HSVToColor(floatArrayOf(hue, hsv[1].coerceAtLeast(0.35f), hsv[2].coerceAtLeast(0.45f))))
             },
             valueRange = 0f..359f,
+            modifier = Modifier.semantics { contentDescription = "Hue" },
+        )
+    }
+}
+
+/**
+ * One colour choice: a 36 dp circle inside a 48 dp touch target, announced as a radio button
+ * named by its hex value. Shared with App settings' seed swatches.
+ */
+@Composable
+internal fun ColorSwatch(color: Int, selected: Boolean, onClick: () -> Unit, enabled: Boolean = true) {
+    val label = color.toHex()
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = "Colour $label" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color(color))
+                .then(
+                    if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                    else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                ),
         )
     }
 }
@@ -671,6 +855,7 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
         label = { Text("Hex") },
         singleLine = true,
         isError = parseHexColor(text) == null,
+        supportingText = { if (parseHexColor(text) == null) Text("Enter a colour like #3E7BFA") },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         modifier = Modifier.fillMaxWidth(),
@@ -682,7 +867,7 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
  * options of the selected pack under its row. Advanced mode: the default pack plus a pack per
  * part of One UI. Import and catalogue in both.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun PackCard(
     packs: List<InstalledPack>,
@@ -702,6 +887,7 @@ private fun PackCard(
     onDownload: (CatalogueEntry) -> Unit,
 ) {
     var showCatalogue by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
@@ -745,20 +931,24 @@ private fun PackCard(
             Text("Default pack", style = MaterialTheme.typography.labelLarge)
         }
         PackRow(selected = spec.simplePackId == null, enabled = !busy, onClick = { onSelect(null) }) {
-            Text("Colours only", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Colours only", style = MaterialTheme.typography.titleSmall)
         }
         packs.forEach { pack ->
             val selected = spec.simplePackId == pack.id
             PackRow(selected = selected, enabled = !busy, onClick = { onSelect(pack.id) }) {
                 Column(Modifier.weight(1f)) {
-                    Text(pack.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(pack.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         packSummary(pack),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                TextButton(onClick = { onDelete(pack.id) }, enabled = !busy) { Text("Remove") }
+                TextButton(
+                    onClick = { confirmDelete = pack.id },
+                    enabled = !busy,
+                    modifier = Modifier.semantics { contentDescription = "Remove ${pack.name}" },
+                ) { Text("Remove") }
             }
             Reveal(visible = selected && !advanced) {
                 val options = remember(pack.pack) { PackOptions.live(pack.pack) }
@@ -793,13 +983,29 @@ private fun PackCard(
         errors.forEach { (file, why) ->
             Text("$file: $why", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
                 enabled = !busy,
             ) { Text("Import pack file") }
-            OutlinedButton(onClick = { showCatalogue = true }, enabled = !busy) { Text("Get packs") }
+            // With no packs the empty state above already carries "Get packs".
+            if (packs.isNotEmpty()) {
+                OutlinedButton(onClick = { showCatalogue = true }, enabled = !busy) { Text("Get packs") }
+            }
         }
+    }
+    confirmDelete?.let { id ->
+        val name = packs.firstOrNull { it.id == id }?.name ?: id
+        ConfirmDialog(
+            title = "Remove $name?",
+            text = "The pack file is deleted from this phone. Parts that use it go back to colours only.",
+            confirmLabel = "Remove",
+            onConfirm = {
+                confirmDelete = null
+                onDelete(id)
+            },
+            onDismiss = { confirmDelete = null },
+        )
     }
     if (showCatalogue) {
         CatalogueDialog(
@@ -813,17 +1019,24 @@ private fun PackCard(
     }
 }
 
-/** One radio row of [PackCard]; [content] fills the space right of the button. */
+/** The indent of blocks nested under a radio row: the 48 dp button plus the row's 8 dp gap. */
+internal val RADIO_INDENT = 56.dp
+
+/**
+ * One radio row of [PackCard]; [content] fills the space right of the button. The row is the one
+ * selectable node (named by its text, with its selected state); the button only draws.
+ */
 @Composable
 private fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick),
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        RadioButton(selected = selected, onClick = onClick, enabled = enabled)
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
         content()
     }
 }
@@ -836,19 +1049,19 @@ private fun packSummary(pack: InstalledPack): String = listOfNotNull(
     if (pack.hasSettingsIcons) "Settings icons" else null,
 ).joinToString(" · ")
 
-/** A switch row written like [PackRow]: label left, [Switch] right, the whole row clickable. */
+/** A switch row written like [PackRow]: label left, [Switch] right, the whole row one toggleable node. */
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clickable(enabled = enabled, onClick = { onCheckedChange(!checked) }),
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 
@@ -868,7 +1081,7 @@ private fun OptionList(
     onOption: (Pack, LiveOption, String, String?) -> Unit,
 ) {
     if (options.isEmpty()) return
-    Column(Modifier.padding(start = 40.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(start = RADIO_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { live ->
             val current = PackOptions.value(spec, pack, live.option, elementId)
             if (live.option.type == PackOption.SELECT) {
@@ -878,7 +1091,6 @@ private fun OptionList(
                         Text(
                             live.option.choices.getOrNull(index)?.takeIf { it.isNotBlank() } ?: key,
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
@@ -931,19 +1143,25 @@ private fun ElementRow(
         setId != null -> effective?.name ?: "Colours only"
         else -> "Default pack · " + (effective?.name ?: "Colours only")
     }
+    // One toggleable node named by the part, like SwitchRow; "Change" is the only other stop.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp),
+            .heightIn(min = 48.dp)
+            .toggleable(value = enabled, enabled = !busy, role = Role.Switch, onValueChange = { on -> onElementEnabled(element.id, on) }),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Switch(checked = enabled, onCheckedChange = { on -> onElementEnabled(element.id, on) }, enabled = !busy)
         Column(Modifier.weight(1f)) {
-            Text(element.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(element.label, style = MaterialTheme.typography.titleSmall)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        TextButton(onClick = { showDialog = true }, enabled = !busy) { Text("Change") }
+        TextButton(
+            onClick = { showDialog = true },
+            enabled = !busy,
+            modifier = Modifier.semantics { contentDescription = "Change pack for ${element.label}" },
+        ) { Text("Change") }
+        Switch(checked = enabled, onCheckedChange = null, enabled = !busy)
     }
     if (effective != null) {
         val options = remember(effective.pack, element.id) {
@@ -995,18 +1213,18 @@ private fun ElementPackDialog(
             ) {
                 item {
                     PackRow(selected = enabled && setId == null, enabled = !busy, onClick = { onElementPack(element.id, null) }) {
-                        Text("Same as default pack", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("Same as default pack", style = MaterialTheme.typography.titleSmall)
                     }
                 }
                 item {
                     PackRow(selected = !enabled, enabled = !busy, onClick = { onElementEnabled(element.id, false) }) {
-                        Text("Colours only", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Text("Colours only", style = MaterialTheme.typography.titleSmall)
                     }
                 }
                 items(covering) { pack ->
                     PackRow(selected = enabled && setId == pack.id, enabled = !busy, onClick = { onElementPack(element.id, pack.id) }) {
                         Column(Modifier.weight(1f)) {
-                            Text(pack.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(pack.name, style = MaterialTheme.typography.titleSmall)
                             Text(
                                 packSummary(pack),
                                 style = MaterialTheme.typography.bodySmall,
@@ -1064,7 +1282,10 @@ private fun rememberFontFamily(path: String?): FontFamily? = remember(path) {
     path?.let { runCatching { FontFamily(Typeface(AndroidTypeface.createFromFile(File(it)))) }.getOrNull() }
 }
 
-/** One imported image: 48 dp thumbnail, name, size, the slots it fills, and its actions. */
+/**
+ * One imported image: 48 dp thumbnail beside name, size and the slots it fills; the actions on
+ * their own line underneath, so the text keeps the width on a phone.
+ */
 @Composable
 private fun AssetRow(
     asset: CustomAssetStore.Asset,
@@ -1074,34 +1295,61 @@ private fun AssetRow(
     assignLabel: String,
     onAssign: () -> Unit,
     onDelete: () -> Unit,
+    /** False while the tier cannot apply this kind of asset ("Needs root"); Remove stays available. */
+    assignEnabled: Boolean = true,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        val thumbnail = rememberThumbnail(file)
-        if (thumbnail != null) {
-            Image(thumbnail, contentDescription = asset.displayName, modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.small))
-        } else {
-            Box(Modifier.size(48.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest))
-        }
-        Column(Modifier.weight(1f)) {
-            Text(asset.displayName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(assetSummary(asset), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (assigned != null) {
-                Text(assigned, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val thumbnail = rememberThumbnail(file)
+            if (thumbnail != null) {
+                Image(thumbnail, contentDescription = null, modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.small))
+            } else {
+                Box(Modifier.size(48.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(asset.displayName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(assetSummary(asset), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (assigned != null) {
+                    Text(assigned, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
-        TextButton(onClick = onAssign, enabled = !busy) { Text(assignLabel) }
-        TextButton(onClick = onDelete, enabled = !busy) { Text("Remove") }
+        Row(Modifier.padding(start = 60.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(
+                onClick = onAssign,
+                enabled = !busy && assignEnabled,
+                modifier = Modifier.semantics { contentDescription = "${assignLabel.trimEnd('…')} ${asset.displayName}" },
+            ) { Text(assignLabel) }
+            TextButton(
+                onClick = onDelete,
+                enabled = !busy,
+                modifier = Modifier.semantics { contentDescription = "Remove ${asset.displayName}" },
+            ) { Text("Remove") }
+        }
     }
+}
+
+/** The "Remove <asset>?" confirmation of the icon, background and font cards. */
+@Composable
+private fun ConfirmAssetDelete(asset: CustomAssetStore.Asset, text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ConfirmDialog(
+        title = "Remove ${asset.displayName}?",
+        text = text,
+        confirmLabel = "Remove",
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
 }
 
 /**
  * Imported icons and the drawables they replace. "Assign…" opens [SlotDialog] with every slot of
  * the last scan grouped by part; the switch controls icon synthesis for rows the pack lacks.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CustomIconsCard(
     assets: List<CustomAssetStore.Asset>,
@@ -1109,6 +1357,7 @@ private fun CustomIconsCard(
     slotsError: String?,
     spec: ThemeSpec,
     busy: Boolean,
+    needsRoot: Boolean,
     paletteHint: List<Int>,
     fileOf: (CustomAssetStore.Asset) -> File,
     onImport: (Uri) -> Unit,
@@ -1117,26 +1366,33 @@ private fun CustomIconsCard(
     onDelete: (CustomAssetStore.Asset) -> Unit,
     onSynthesize: (Boolean) -> Unit,
     onOpenProviders: () -> Unit,
-    onOpenDiagnostics: () -> Unit,
+    onScan: () -> Unit,
 ) {
     var assigning by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var generating by rememberSaveable { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
     val labels = remember(slots) { slots.associate { it.key to it.label } }
     val names = remember(assets) { assets.associate { it.fileName to it.displayName } }
-    SectionCard("Custom icons") {
+    // Colours-only tier: the card stays readable, its controls are off, files can still be removed.
+    val locked = busy || needsRoot
+    val badge: (@Composable RowScope.() -> Unit)? = if (needsRoot) ({ NeedsRootBadge() }) else null
+    SectionCard(title = "Custom icons", trailing = badge) {
         Text(
             "Replace any icon One UI can theme with your own PNG or ICO, or describe one and let AI draw it. " +
                 "Files are converted for overlays automatically.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (needsRoot) {
+            NeedsRootReason("Custom icons replace system images, which needs root. Your colours still apply.")
+        }
         SwitchRow(
             label = "Fill in missing Settings icons in the pack's style",
             checked = spec.synthesizeMissingIcons,
-            enabled = !busy,
+            enabled = !locked,
             onCheckedChange = onSynthesize,
         )
         if (assets.isEmpty()) {
@@ -1144,17 +1400,27 @@ private fun CustomIconsCard(
                 icon = Icons.Outlined.Add,
                 text = "No custom icons yet. Import an image, or generate one from a few words.",
                 actionLabel = "Generate with AI",
-                enabled = !busy,
+                enabled = !locked,
                 onAction = { generating = true },
             )
-        } else if (slots.isEmpty() && slotsError == null) {
-            EmptyState(
-                icon = Icons.Outlined.Search,
-                text = "Scan your phone once to list the icons you can replace.",
-                actionLabel = "Scan phone",
-                enabled = !busy,
-                onAction = onOpenDiagnostics,
-            )
+        } else if (slots.isEmpty()) {
+            if (slotsError == null) {
+                EmptyState(
+                    icon = Icons.Outlined.Search,
+                    text = "Scan your phone once to list the icons you can replace.",
+                    actionLabel = "Scan phone",
+                    enabled = !busy,
+                    onAction = onScan,
+                )
+            } else {
+                EmptyState(
+                    icon = Icons.Outlined.Warning,
+                    text = "Couldn't list the icons on this phone. Scan again.",
+                    actionLabel = "Scan phone",
+                    enabled = !busy,
+                    onAction = onScan,
+                )
+            }
         }
         assets.forEach { asset ->
             AssetRow(
@@ -1164,13 +1430,28 @@ private fun CustomIconsCard(
                 busy = busy,
                 assignLabel = "Assign…",
                 onAssign = { assigning = asset.fileName },
-                onDelete = { onDelete(asset) },
+                onDelete = { deleting = asset.fileName },
+                assignEnabled = !needsRoot,
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { picker.launch(IMAGE_MIME_TYPES) }, enabled = !busy) { Text("Import image") }
-            OutlinedButton(onClick = { generating = true }, enabled = !busy) { Text("Generate with AI") }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { picker.launch(IMAGE_MIME_TYPES) }, enabled = !locked) { Text("Import image") }
+            // With no icons the empty state above already carries "Generate with AI".
+            if (assets.isNotEmpty()) {
+                OutlinedButton(onClick = { generating = true }, enabled = !locked) { Text("Generate with AI") }
+            }
         }
+    }
+    assets.firstOrNull { it.fileName == deleting }?.let { asset ->
+        ConfirmAssetDelete(
+            asset = asset,
+            text = "The image is deleted and taken out of every slot it fills.",
+            onConfirm = {
+                deleting = null
+                onDelete(asset)
+            },
+            onDismiss = { deleting = null },
+        )
     }
     val dialogAsset = assets.firstOrNull { it.fileName == assigning }
     if (dialogAsset != null) {
@@ -1208,32 +1489,39 @@ private fun BackgroundsCard(
     slotsError: String?,
     spec: ThemeSpec,
     busy: Boolean,
+    needsRoot: Boolean,
     fileOf: (CustomAssetStore.Asset) -> File,
     onImport: (Uri) -> Unit,
     onAssign: (String, String?) -> Unit,
     onDelete: (CustomAssetStore.Asset) -> Unit,
-    onOpenDiagnostics: () -> Unit,
+    onScan: () -> Unit,
 ) {
     var assigning by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
     val entries = remember(slots) { slots.map { ThemePreviewer.IconSlot(it.key, it.label, it.packageName) } }
     val labels = remember(slots) { slots.associate { it.key to it.label } }
     val names = remember(assets) { assets.associate { it.fileName to it.displayName } }
-    SectionCard("Backgrounds") {
+    val locked = busy || needsRoot
+    val badge: (@Composable RowScope.() -> Unit)? = if (needsRoot) ({ NeedsRootBadge() }) else null
+    SectionCard(title = "Backgrounds", trailing = badge) {
         Text(
             "Put your own image behind Settings and other One UI screens. Large images are scaled down for overlays.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (needsRoot) {
+            NeedsRootReason("Backgrounds replace system images, which needs root. Your colours still apply.")
+        }
         // One empty state, like CustomIconsCard: the scan hint only once there is something to assign.
         if (assets.isEmpty()) {
             EmptyState(
                 icon = Icons.Outlined.Add,
                 text = "No backgrounds yet. Import an image to put behind One UI screens.",
                 actionLabel = "Import background",
-                enabled = !busy,
+                enabled = !locked,
                 onAction = { picker.launch(IMAGE_MIME_TYPES) },
             )
         } else if (slots.isEmpty()) {
@@ -1243,10 +1531,16 @@ private fun BackgroundsCard(
                     text = "Scan your phone once to list the screens that can take a background.",
                     actionLabel = "Scan phone",
                     enabled = !busy,
-                    onAction = onOpenDiagnostics,
+                    onAction = onScan,
                 )
             } else {
-                Text(slotsError, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                EmptyState(
+                    icon = Icons.Outlined.Warning,
+                    text = "Couldn't list the screens on this phone. Scan again.",
+                    actionLabel = "Scan phone",
+                    enabled = !busy,
+                    onAction = onScan,
+                )
             }
         }
         assets.forEach { asset ->
@@ -1257,12 +1551,25 @@ private fun BackgroundsCard(
                 busy = busy,
                 assignLabel = "Use for…",
                 onAssign = { assigning = asset.fileName },
-                onDelete = { onDelete(asset) },
+                onDelete = { deleting = asset.fileName },
+                assignEnabled = !needsRoot,
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { picker.launch(IMAGE_MIME_TYPES) }, enabled = !busy) { Text("Import background") }
+        // With no backgrounds the empty state above already carries "Import background".
+        if (assets.isNotEmpty()) {
+            OutlinedButton(onClick = { picker.launch(IMAGE_MIME_TYPES) }, enabled = !locked) { Text("Import background") }
         }
+    }
+    assets.firstOrNull { it.fileName == deleting }?.let { asset ->
+        ConfirmAssetDelete(
+            asset = asset,
+            text = "The image is deleted and taken out of every screen it fills.",
+            onConfirm = {
+                deleting = null
+                onDelete(asset)
+            },
+            onDismiss = { deleting = null },
+        )
     }
     val dialogAsset = assets.firstOrNull { it.fileName == assigning }
     if (dialogAsset != null) {
@@ -1354,7 +1661,7 @@ private fun SlotDialog(
                             val selected = current == file
                             PackRow(selected = selected, enabled = !busy, onClick = { onAssign(slot.key, if (selected) null else file) }) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(slot.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                    Text(slot.label, style = MaterialTheme.typography.titleSmall)
                                     // The group header already names the target; only another asset's use is worth a line.
                                     if (current != null && !selected) {
                                         Text("Uses ${assetNames[current] ?: current}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1378,6 +1685,7 @@ private fun FontCard(
     fonts: List<CustomAssetStore.Asset>,
     spec: ThemeSpec,
     busy: Boolean,
+    needsRoot: Boolean,
     fileOf: (CustomAssetStore.Asset) -> File,
     onImport: (Uri) -> Unit,
     onFont: (CustomAssetStore.Asset?) -> Unit,
@@ -1385,30 +1693,35 @@ private fun FontCard(
     onDelete: (CustomAssetStore.Asset) -> Unit,
 ) {
     var showBold by rememberSaveable { mutableStateOf(false) }
+    var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
     val font = spec.customFont
     val chosen = fonts.firstOrNull { it.fileName == font?.regular }
     val chosenFamily = rememberFontFamily(chosen?.let { fileOf(it).path })
-    SectionCard("Font") {
+    val locked = busy || needsRoot
+    val badge: (@Composable RowScope.() -> Unit)? = if (needsRoot) ({ NeedsRootBadge() }) else null
+    SectionCard(title = "Font", trailing = badge) {
         Text(
             "Set the system font from a .ttf or .otf file. It applies with the theme; restart your phone to see it everywhere.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PackRow(selected = font == null, enabled = !busy, onClick = { onFont(null) }) {
-            Text("System default", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        if (needsRoot) {
+            NeedsRootReason("A system font is installed as a module on your phone, which needs root. Your colours still apply.")
+        }
+        PackRow(selected = font == null, enabled = !locked, onClick = { onFont(null) }) {
+            Text("System default", style = MaterialTheme.typography.titleSmall)
         }
         fonts.forEach { asset ->
             val selected = font?.regular == asset.fileName
             val family = rememberFontFamily(fileOf(asset).path)
-            PackRow(selected = selected, enabled = !busy, onClick = { onFont(asset) }) {
+            PackRow(selected = selected, enabled = !locked, onClick = { onFont(asset) }) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         asset.displayName,
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
                         fontFamily = family,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1422,9 +1735,13 @@ private fun FontCard(
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (selected) {
-                    TextButton(onClick = { showBold = true }, enabled = !busy) { Text("Bold…") }
+                    TextButton(onClick = { showBold = true }, enabled = !locked) { Text("Bold…") }
                 }
-                TextButton(onClick = { onDelete(asset) }, enabled = !busy) { Text("Remove") }
+                TextButton(
+                    onClick = { deleting = asset.fileName },
+                    enabled = !busy,
+                    modifier = Modifier.semantics { contentDescription = "Remove ${asset.displayName}" },
+                ) { Text("Remove") }
             }
         }
         Text(
@@ -1432,9 +1749,18 @@ private fun FontCard(
             style = MaterialTheme.typography.bodyLarge,
             fontFamily = chosenFamily,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { picker.launch(FONT_MIME_TYPES) }, enabled = !busy) { Text("Import font") }
-        }
+        OutlinedButton(onClick = { picker.launch(FONT_MIME_TYPES) }, enabled = !locked) { Text("Import font") }
+    }
+    fonts.firstOrNull { it.fileName == deleting }?.let { asset ->
+        ConfirmAssetDelete(
+            asset = asset,
+            text = "The font file is deleted. The system font goes back to default.",
+            onConfirm = {
+                deleting = null
+                onDelete(asset)
+            },
+            onDismiss = { deleting = null },
+        )
     }
     if (showBold && font != null) {
         AlertDialog(
@@ -1448,7 +1774,7 @@ private fun FontCard(
                 ) {
                     item {
                         PackRow(selected = font.bold == null, enabled = !busy, onClick = { onBold(null) }) {
-                            Text("Same as regular", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text("Same as regular", style = MaterialTheme.typography.titleSmall)
                         }
                     }
                     items(fonts.filter { it.fileName != font.regular }) { asset ->
@@ -1457,7 +1783,6 @@ private fun FontCard(
                             Text(
                                 asset.displayName,
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
                                 fontFamily = family,
                             )
                         }
@@ -1478,7 +1803,7 @@ private val PREVIEW_SAMPLE = "The quick brown fox jumps over the lazy dog"
  * and font, and a strip of My Files icons. Nothing is clickable.
  */
 @Composable
-private fun PreviewCard(preview: PreviewState) {
+private fun PreviewCard(preview: PreviewState, onScan: () -> Unit) {
     SectionCard("Preview") {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -1505,11 +1830,22 @@ private fun PreviewCard(preview: PreviewState) {
         }
         PhoneMock(preview)
         preview.note?.let { note ->
-            Text(
-                note,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (note.startsWith("Could not")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            val failed = note.startsWith("Could not")
+            // Without a scan the previewer has nothing to draw: give the user the scan, not a sentence about it.
+            if (preview.icons.isEmpty() && !failed && note.contains("scan", ignoreCase = true)) {
+                EmptyState(
+                    icon = Icons.Outlined.Search,
+                    text = "Scan your phone once to preview the icons.",
+                    actionLabel = "Scan phone",
+                    onAction = onScan,
+                )
+            } else {
+                Text(
+                    note.replace("device scan", "phone scan"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -1527,11 +1863,13 @@ private fun PhoneMock(preview: PreviewState) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            // One stop for the whole mock: nothing in it is interactive and every icon has its label beside it.
+            .semantics(mergeDescendants = true) { contentDescription = "Preview of Settings with your theme" }
     ) {
         if (background != null) {
             Image(
                 background.asImageBitmap(),
-                contentDescription = "Custom background",
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
             )
@@ -1552,7 +1890,7 @@ private fun PhoneMock(preview: PreviewState) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val bitmap = icon.bitmap
                     if (bitmap != null) {
-                        Image(bitmap.asImageBitmap(), contentDescription = icon.label, modifier = Modifier.size(48.dp))
+                        Image(bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(48.dp))
                     } else {
                         Box(
                             Modifier
@@ -1570,7 +1908,7 @@ private fun PhoneMock(preview: PreviewState) {
                 }
             }
             if (preview.myFiles.isNotEmpty()) {
-                Text("My Files", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, fontFamily = family)
+                Text("My Files", style = MaterialTheme.typography.titleSmall, fontFamily = family)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1578,7 +1916,7 @@ private fun PhoneMock(preview: PreviewState) {
                     preview.myFiles.forEach { icon ->
                         val bitmap = icon.bitmap
                         if (bitmap != null) {
-                            Image(bitmap.asImageBitmap(), contentDescription = icon.label, modifier = Modifier.size(40.dp))
+                            Image(bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(40.dp))
                         } else {
                             Box(
                                 Modifier
@@ -1602,7 +1940,11 @@ private fun PhoneMock(preview: PreviewState) {
 
 private const val PREVIEW_ROWS = 6
 
-/** The "Get packs" dialog: catalogue URL, Load, and one row per index entry. */
+/**
+ * The "Get packs" dialog: the catalogue is fetched when the dialog opens empty, so the default
+ * path is open → spinner → list. Refresh re-reads it; the catalogue address sits behind
+ * "Change source".
+ */
 @Composable
 private fun CatalogueDialog(
     state: CatalogueState,
@@ -1612,6 +1954,10 @@ private fun CatalogueDialog(
     onDownload: (CatalogueEntry) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var showSource by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (state.entries.isEmpty() && !state.loading && state.error == null) onLoad()
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
@@ -1622,27 +1968,39 @@ private fun CatalogueDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
-                    OutlinedTextField(
-                        value = state.url,
-                        onValueChange = onUrl,
-                        label = { Text("Catalogue URL") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        TextButton(onClick = onLoad, enabled = !state.loading && !busy) { Text("Load") }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = onLoad, enabled = !state.loading && !busy) { Text("Refresh") }
+                        TextButton(onClick = { showSource = !showSource }) { Text(if (showSource) "Hide source" else "Change source") }
                         if (state.loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                }
+                if (showSource) {
+                    item {
+                        OutlinedTextField(
+                            value = state.url,
+                            onValueChange = onUrl,
+                            label = { Text("Catalogue address") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
                 state.error?.let { error ->
                     item { Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 }
+                if (state.loading && state.entries.isEmpty()) {
+                    item {
+                        Text(
+                            "Loading the pack list…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (!state.loading && state.error == null && state.entries.isEmpty()) {
                     item {
                         Text(
-                            "No packs listed yet. Tap Load, or enter a different catalogue address.",
+                            "No packs are listed at this address yet. Tap Refresh to try again.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -1660,7 +2018,7 @@ private fun CatalogueDialog(
 private fun CatalogueRow(entry: CatalogueEntry, progress: Float?, busy: Boolean, onDownload: (CatalogueEntry) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f)) {
-            Text(entry.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(entry.name, style = MaterialTheme.typography.titleSmall)
             Text(
                 listOfNotNull(
                     entry.author.takeIf { it.isNotBlank() },
@@ -1675,20 +2033,34 @@ private fun CatalogueRow(entry: CatalogueEntry, progress: Float?, busy: Boolean,
         when {
             progress != null -> LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(72.dp))
             entry.installed -> Text("Installed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            else -> TextButton(onClick = { onDownload(entry) }, enabled = !busy) { Text("Download") }
+            else -> TextButton(
+                onClick = { onDownload(entry) },
+                enabled = !busy,
+                modifier = Modifier.semantics { contentDescription = "Download ${entry.name}" },
+            ) { Text("Download") }
         }
     }
 }
 
-/** Applies the compiled theme to every scanned target, or removes it. */
+/**
+ * Applies the compiled theme to every scanned target, or removes it. Says why the buttons are
+ * off while disconnected, shows progress while busy, formats the last apply in plain words and
+ * carries the "It works" confirmation while restart protection is armed.
+ */
 @Composable
 private fun CompiledThemeCard(
-    enabled: Boolean,
+    connected: Boolean,
     busy: Boolean,
-    summary: String?,
+    report: ApplyReport?,
+    unconfirmed: Boolean,
+    progressLine: String?,
     onApply: () -> Unit,
     onRemove: () -> Unit,
+    onConfirmWorks: () -> Unit,
+    onDetails: () -> Unit,
+    onConnection: () -> Unit,
 ) {
+    var confirmRemove by rememberSaveable { mutableStateOf(false) }
     SectionCard("Apply") {
         Text(
             "Builds one Hex Next overlay for each scanned One UI app and keeps it in place after wallpaper changes. " +
@@ -1696,18 +2068,82 @@ private fun CompiledThemeCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (summary != null) {
-            Text("Last applied: $summary", style = MaterialTheme.typography.bodySmall)
+        if (report != null) {
+            val failed = report.failedCount > 0 || !report.finished
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    lastApplyLine(report),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onDetails) { Text("Details") }
+            }
+        }
+        if (unconfirmed) {
+            Text(
+                "Applied and not confirmed yet: restart protection is on for 10 minutes. If your phone restarts twice " +
+                    "in that time, the theme is turned off. Check your phone, then confirm.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            FilledTonalButton(onClick = onConfirmWorks) { Text("It works") }
+        }
+        if (!connected) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Connect first: start Shizuku with root, or allow root access.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onConnection) { Text("Connection") }
+            }
         }
         Actions(
-            enabled = enabled,
+            enabled = connected && !busy,
             busy = busy,
             applyLabel = "Apply theme",
             onApply = onApply,
-            onRemove = onRemove,
+            onRemove = { confirmRemove = true },
             removeLabel = "Remove theme",
         )
+        if (busy) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            if (progressLine != null) {
+                Text(
+                    progressLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
+        }
     }
+    if (confirmRemove) {
+        ConfirmDialog(
+            title = "Remove theme?",
+            text = "Your phone goes back to Samsung's look. Your packs, colours and custom files stay in Hex Next so you can apply again.",
+            confirmLabel = "Remove",
+            onConfirm = {
+                confirmRemove = false
+                onRemove()
+            },
+            onDismiss = { confirmRemove = false },
+        )
+    }
+}
+
+/** "Applied to 12 apps · 1 failed · 2 removed apps skipped", or the interruption, in plain words. */
+private fun lastApplyLine(report: ApplyReport): String {
+    if (!report.finished) return "Last apply was interrupted. Apply again."
+    val parts = ArrayList<String>(3)
+    parts += "Applied to ${report.okCount} ${if (report.okCount == 1) "app" else "apps"}"
+    if (report.failedCount > 0) parts += "${report.failedCount} failed"
+    if (report.debloatedCount > 0) parts += "${report.debloatedCount} removed ${if (report.debloatedCount == 1) "app" else "apps"} skipped"
+    return parts.joinToString(" · ")
 }
 
 @Composable
@@ -1720,21 +2156,29 @@ private fun Actions(
     removeLabel: String = "Remove",
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = onApply, enabled = enabled, modifier = Modifier.weight(1f).height(52.dp)) {
+        Button(
+            onClick = onApply,
+            enabled = enabled,
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 52.dp)
+                .then(if (busy) Modifier.semantics { contentDescription = "Applying theme" } else Modifier),
+        ) {
             if (busy) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 Text(applyLabel)
             }
         }
-        OutlinedButton(onClick = onRemove, enabled = enabled, modifier = Modifier.height(52.dp)) {
+        OutlinedButton(onClick = onRemove, enabled = enabled, modifier = Modifier.heightIn(min = 52.dp)) {
             Text(removeLabel)
         }
     }
 }
 
+/** The build log of the editor and the live log of Diagnostics: monospace lines in a tinted card. */
 @Composable
-private fun LogCard(lines: List<LogLine>, onClear: () -> Unit) {
+internal fun LogCard(lines: List<LogLine>, onClear: () -> Unit, title: String = "Log") {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -1743,10 +2187,9 @@ private fun LogCard(lines: List<LogLine>, onClear: () -> Unit) {
         Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Log",
+                    title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).semantics { heading() },
                 )
                 TextButton(onClick = onClear) { Text("Clear") }
             }

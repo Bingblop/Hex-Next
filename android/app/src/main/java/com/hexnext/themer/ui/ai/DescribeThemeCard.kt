@@ -2,6 +2,7 @@ package com.hexnext.themer.ui.ai
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +11,15 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -31,7 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +55,9 @@ import kotlinx.coroutines.launch
  * "Apply to editor". Applying only changes the editor (seed, secondary and tertiary accents,
  * light/dark adjustments, pack and name); the phone changes when the user presses the normal
  * Apply.
+ *
+ * Without an AI key the card folds to one quiet row that leads to the key screen, so the colour
+ * controls under it stay the first thing a new user sees.
  *
  * Host contract: [onApply] receives the suggestion and the spec from
  * [ThemeSuggester.toThemeSpec]; the host must put the spec into the editor **and** push
@@ -100,16 +109,40 @@ fun DescribeThemeCard(
         }
     }
 
+    if (providers.isEmpty()) {
+        SectionCard("Describe your theme") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clickable(onClick = onOpenProviders),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Turn a sentence into a palette", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Add an AI key in App settings to get started.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        return
+    }
+
     SectionCard("Describe your theme") {
         Text(
             "Say what you want in a sentence, such as \"warm sunset, cosy, dark\". The suggestion goes into the editor; nothing changes on the phone until you apply.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (providers.isEmpty()) {
-            NoProviderNotice(onOpenProviders)
-            return@SectionCard
-        }
         OutlinedTextField(
             value = description,
             onValueChange = { description = it.take(300) },
@@ -121,18 +154,24 @@ fun DescribeThemeCard(
             modifier = Modifier.fillMaxWidth(),
         )
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { generate() }, enabled = provider != null && description.isNotBlank() && !working) {
-                Text(if (suggestion == null) "Generate" else "Generate again")
-            }
-            if (working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            Spacer(Modifier.weight(1f))
+            Text("Provider", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             ProviderPicker(
-                label = "Provider",
+                label = "Choose",
                 options = providers.map { it.id to it.displayName },
                 selectedId = providerId,
                 enabled = !working,
                 onSelect = { providerId = it },
             )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = { generate() }, enabled = provider != null && description.isNotBlank() && !working) {
+                Text(if (suggestion == null) "Generate" else "Generate again")
+            }
+            if (working) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text("Working…", style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.weight(1f))
         }
         error?.let { message ->
             ErrorText(message)
@@ -153,7 +192,7 @@ fun DescribeThemeCard(
     }
 }
 
-/** Name, note, seed and accent swatches, mode and pack chips, and the Apply button. */
+/** Name, note, seed and accent swatches, mode and pack pills, and the Apply button. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SuggestionPreview(
@@ -164,11 +203,18 @@ private fun SuggestionPreview(
     onApply: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(suggestion.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(suggestion.name, style = MaterialTheme.typography.titleSmall)
         if (suggestion.notes.isNotBlank()) {
             Text(suggestion.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.semantics(mergeDescendants = true) {
+                contentDescription = "Suggested colours: accent ${suggestion.seedArgb.toHex()}" +
+                    suggestion.accents.joinToString("") { ", ${it.toHex()}" }
+            },
+        ) {
             Swatch(suggestion.seedArgb, size = 44.dp, outlined = true)
             suggestion.accents.forEach { Swatch(it, size = 32.dp, outlined = false) }
         }
@@ -189,8 +235,8 @@ private fun SuggestionPreview(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            AssistChip(onClick = {}, enabled = false, label = { Text(modeLabel(suggestion.mode)) })
-            AssistChip(onClick = {}, enabled = false, label = { Text(if (packName != null) "Pack: $packName" else "Pack: keep current") })
+            InfoPill("Mode: ${modeLabel(suggestion.mode)}")
+            InfoPill(if (packName != null) "Pack: $packName" else "Pack: keep current")
         }
         Button(onClick = onApply, enabled = enabled && !applied) { Text(if (applied) "Applied to editor" else "Apply to editor") }
         if (applied) {
@@ -201,6 +247,21 @@ private fun SuggestionPreview(
             )
         }
     }
+}
+
+/** A read-only pill, drawn like the status pill: full-contrast text, not a disabled chip. */
+@Composable
+private fun InfoPill(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSecondaryContainer,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    )
 }
 
 @Composable

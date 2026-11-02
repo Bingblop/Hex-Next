@@ -121,10 +121,10 @@ class IconSynthesizer(context: Context) {
         // Badge colour: median of the shape pixels in the outer ring.
         val ringLo = halfDiagonal * RING_INNER
         val ringHi = halfDiagonal * RING_OUTER
-        val ring = ArrayList<Int>()
-        for (i in 0 until n) if (shape[i] && radius[i] >= ringLo && radius[i] <= ringHi) ring += pixels[i]
-        if (ring.isEmpty()) for (i in 0 until n) if (shape[i] && radius[i] >= halfDiagonal * 0.5f) ring += pixels[i]
-        if (ring.isEmpty()) for (i in 0 until n) if (shape[i]) ring += pixels[i]
+        val ring = IntList(shapeCount / 2)
+        for (i in 0 until n) if (shape[i] && radius[i] >= ringLo && radius[i] <= ringHi) ring.add(pixels[i])
+        if (ring.isEmpty()) for (i in 0 until n) if (shape[i] && radius[i] >= halfDiagonal * 0.5f) ring.add(pixels[i])
+        if (ring.isEmpty()) for (i in 0 until n) if (shape[i]) ring.add(pixels[i])
         val bgColor = medianColor(ring)
 
         // Glyph mask: pixels far from the per-radius mean of the non-glyph pixels; two passes.
@@ -142,11 +142,11 @@ class IconSynthesizer(context: Context) {
         }
         var glyphCount = 0
         var gMinX = w; var gMinY = h; var gMaxX = -1; var gMaxY = -1
-        val glyphPixels = ArrayList<Int>()
+        val glyphPixels = IntList(shapeCount / 4)
         for (i in 0 until n) {
             if (!glyph[i]) continue
             glyphCount++
-            glyphPixels += pixels[i]
+            glyphPixels.add(pixels[i])
             val x = i % w; val y = i / w
             if (x < gMinX) gMinX = x
             if (x > gMaxX) gMaxX = x
@@ -230,14 +230,33 @@ class IconSynthesizer(context: Context) {
     }
 
     /** Component-wise median colour of [colors]; transparent black for an empty list. */
-    private fun medianColor(colors: List<Int>): Int {
+    private fun medianColor(colors: IntList): Int {
         if (colors.isEmpty()) return 0
+        val data = colors.data
         fun median(select: (Int) -> Int): Int {
-            val values = IntArray(colors.size) { select(colors[it]) }
+            val values = IntArray(colors.size) { select(data[it]) }
             values.sort()
             return values[values.size / 2]
         }
         return Color.argb(median { Color.alpha(it) }, median { Color.red(it) }, median { Color.green(it) }, median { Color.blue(it) })
+    }
+
+    /**
+     * A growable list of ints without boxing: a 144 px reference has ~20 000 badge pixels, and
+     * an `ArrayList<Int>` of them costs an object per pixel on every synthesised icon.
+     */
+    private class IntList(capacity: Int) {
+        var data: IntArray = IntArray(maxOf(capacity, 16))
+            private set
+        var size: Int = 0
+            private set
+
+        fun add(value: Int) {
+            if (size == data.size) data = data.copyOf(size * 2)
+            data[size++] = value
+        }
+
+        fun isEmpty(): Boolean = size == 0
     }
 
     private fun opaque(color: Int): Int = color or (0xFF shl 24)

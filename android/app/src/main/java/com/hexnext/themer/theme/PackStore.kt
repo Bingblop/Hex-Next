@@ -66,6 +66,13 @@ class PackStore(context: Context) {
     private val dir: File get() = ThemeApplier.packsDir(appContext)
 
     /**
+     * `pack.json` of each zip by path, size and mtime: [installed] opens only the zips that
+     * changed since the last listing (the catalogue, every import and every delete relist).
+     * Guarded by itself; a [PackStore] may be used from more than one IO coroutine.
+     */
+    private val parsed = HashMap<String, Pack>()
+
+    /**
      * Copies the packs bundled under `assets/packs/` (debug builds only: the CI copies a few test
      * packs there) into the pack directory, skipping ids that are already installed. Returns the
      * ids it added and, per asset that could not be installed, why. A release build has no such
@@ -107,13 +114,19 @@ class PackStore(context: Context) {
         val zips = dir.listFiles { f -> f.isFile && isPackFile(f.name) }.orEmpty()
         val packs = ArrayList<InstalledPack>()
         val errors = LinkedHashMap<String, String>()
+        val live = HashSet<String>()
         for (zip in zips.sortedBy { it.name }) {
+            val stamp = "${zip.absolutePath}|${zip.length()}|${zip.lastModified()}"
+            live += stamp
             try {
-                packs += PackReader.read(zip).toInstalled(zip)
+                val pack = synchronized(parsed) { parsed[stamp] }
+                    ?: PackReader.read(zip).also { synchronized(parsed) { parsed[stamp] = it } }
+                packs += pack.toInstalled(zip)
             } catch (e: PackFormatException) {
                 errors[zip.name] = e.message.orEmpty()
             }
         }
+        synchronized(parsed) { parsed.keys.retainAll(live) }
         packs.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         return InstalledPacks(packs, errors)
     }

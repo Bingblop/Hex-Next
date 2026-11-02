@@ -11,15 +11,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -47,6 +51,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +83,7 @@ import android.graphics.BitmapFactory as AndroidBitmapFactory
  *   no pack is selected (the chip then falls back to a plain flat style).
  * @param onUse called on the main thread after a result was stored as a custom icon.
  * @param onOpenProviders opens the AI providers settings screen.
+ * @param onDismiss closes the sheet; "Done" at the bottom and the swipe both end here.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -168,7 +175,8 @@ fun GenerateIconSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp),
+                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+                .imePadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Generate with AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -203,6 +211,13 @@ fun GenerateIconSheet(
                         )
                     }
                 }
+                if (paletteHint.isEmpty()) {
+                    Text(
+                        "Match pack needs a selected theme pack.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Provider", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
@@ -230,6 +245,7 @@ fun GenerateIconSheet(
                             onClick = { state.count = n },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = IconRequest.MAX_COUNT),
                             enabled = !state.busy,
+                            modifier = Modifier.semantics { contentDescription = if (n == 1) "1 variant" else "$n variants" },
                         ) { Text("$n") }
                     }
                 }
@@ -243,7 +259,11 @@ fun GenerateIconSheet(
                         Text("Working…", style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onOpenProviders) { Text("Providers") }
+                    TextButton(onClick = onOpenProviders) {
+                        Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Manage keys")
+                    }
                 }
 
                 state.error?.let { message ->
@@ -259,6 +279,7 @@ fun GenerateIconSheet(
                         state.results.forEachIndexed { index, icon ->
                             ResultTile(
                                 bitmap = rememberPngBitmap(icon.png),
+                                name = "Icon ${index + 1} of ${state.results.size}: ${icon.prompt}",
                                 used = index in state.used,
                                 saved = index in state.saved,
                                 busy = state.busy,
@@ -274,6 +295,23 @@ fun GenerateIconSheet(
                     busy = state.busy,
                     onUse = { file -> use(-1, null, file) },
                 )
+            }
+
+            // The way out: plain while nothing happened, filled once an icon was added so the
+            // finish is obvious. The added icons wait in Custom icons behind the sheet.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (state.used.isNotEmpty()) {
+                    Text(
+                        "${state.used.size} ${if (state.used.size == 1) "icon" else "icons"} added to Custom icons. Use \"Assign…\" there to pick a slot.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(onClick = onDismiss) { Text("Done") }
+                } else {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onDismiss) { Text("Close") }
+                }
             }
         }
     }
@@ -293,10 +331,11 @@ private class GenerateIconState {
     var galleryVersion by mutableIntStateOf(0)
 }
 
-/** One candidate: a 120 dp preview over "Use" and "Save". */
+/** One candidate: a 120 dp preview over "Use" and "Save"; [name] identifies it for screen readers. */
 @Composable
 private fun ResultTile(
     bitmap: ImageBitmap?,
+    name: String,
     used: Boolean,
     saved: Boolean,
     busy: Boolean,
@@ -312,14 +351,22 @@ private fun ResultTile(
             contentAlignment = Alignment.Center,
         ) {
             if (bitmap != null) {
-                Image(bitmap, contentDescription = null, modifier = Modifier.size(104.dp), contentScale = ContentScale.Fit)
+                Image(bitmap, contentDescription = name, modifier = Modifier.size(104.dp), contentScale = ContentScale.Fit)
             } else {
                 Text("Preview unavailable", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onUse, enabled = !busy && !used) { Text(if (used) "Added" else "Use") }
-            TextButton(onClick = onSave, enabled = !saved) { Text(if (saved) "Saved" else "Save") }
+            TextButton(
+                onClick = onUse,
+                enabled = !busy && !used,
+                modifier = Modifier.semantics { contentDescription = "${if (used) "Added" else "Use"} $name" },
+            ) { Text(if (used) "Added" else "Use") }
+            TextButton(
+                onClick = onSave,
+                enabled = !saved,
+                modifier = Modifier.semantics { contentDescription = "${if (saved) "Saved" else "Save"} $name" },
+            ) { Text(if (saved) "Saved" else "Save") }
         }
     }
 }
@@ -342,6 +389,7 @@ private fun GallerySection(version: Int, busy: Boolean, onUse: (File) -> Unit) {
     if (!expanded) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         files.forEach { file ->
+            val name = file.nameWithoutExtension.removePrefix("ai-").substringBeforeLast('-')
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 val bitmap = rememberFileThumbnail(file)
                 Box(
@@ -351,16 +399,20 @@ private fun GallerySection(version: Int, busy: Boolean, onUse: (File) -> Unit) {
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.size(64.dp), contentScale = ContentScale.Fit)
+                    if (bitmap != null) Image(bitmap, contentDescription = "Saved icon $name", modifier = Modifier.size(64.dp), contentScale = ContentScale.Fit)
                 }
                 Text(
-                    file.nameWithoutExtension.removePrefix("ai-").substringBeforeLast('-'),
+                    name,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.width(72.dp),
                 )
-                TextButton(onClick = { onUse(file) }, enabled = !busy) { Text("Use") }
+                TextButton(
+                    onClick = { onUse(file) },
+                    enabled = !busy,
+                    modifier = Modifier.semantics { contentDescription = "Use $name" },
+                ) { Text("Use") }
             }
         }
     }

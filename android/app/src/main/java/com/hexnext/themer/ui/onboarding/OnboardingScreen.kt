@@ -1,10 +1,12 @@
 package com.hexnext.themer.ui.onboarding
 
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,10 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -45,7 +49,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -56,8 +67,10 @@ import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.ui.EmptyState
 import com.hexnext.themer.ui.LocalAppSettings
 import com.hexnext.themer.ui.RootGuide
+import com.hexnext.themer.ui.SHIZUKU_DOWNLOAD_URL
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.connectionSummary
+import com.hexnext.themer.ui.openShizuku
 
 /** The five pages of the setup guide, in order. */
 private enum class Step(val title: String) {
@@ -78,6 +91,8 @@ private enum class Step(val title: String) {
  * @param rootToolLinks the newest APK links of the root tools, as the Connection card shows them.
  * @param packs the installed packs to pick from; an empty list shows how to get some.
  * @param selectedPackId the editor's current pack (null = colours only).
+ * @param onImportPack copies a chosen pack file into the app, so a fresh install can end the
+ *   guide with a pack without leaving it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +103,7 @@ fun OnboardingScreen(
     packs: List<InstalledPack>,
     selectedPackId: String?,
     onSelectPack: (String?) -> Unit,
+    onImportPack: (Uri) -> Unit,
     onRequestPermission: () -> Unit,
     onFinish: () -> Unit,
 ) {
@@ -112,20 +128,22 @@ fun OnboardingScreen(
             )
         },
         bottomBar = {
+            // Scaffold leaves the bottom bar to handle the navigation bar inset itself.
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 StepDots(count = steps.size, current = index)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (index > 0) {
-                        OutlinedButton(onClick = ::back, modifier = Modifier.height(52.dp)) { Text("Back") }
+                        OutlinedButton(onClick = ::back, modifier = Modifier.heightIn(min = 52.dp)) { Text("Back") }
                     }
                     Button(
                         onClick = { if (last) onFinish() else index++ },
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                     ) { Text(if (last) "Done" else "Next") }
                 }
             }
@@ -143,7 +161,7 @@ fun OnboardingScreen(
                     Step.WELCOME -> WelcomePage()
                     Step.COMPATIBILITY -> CompatibilityPage(versionLine)
                     Step.ACCESS -> AccessPage(shizuku, rootToolLinks, onRequestPermission)
-                    Step.PACK -> PackPage(packs, selectedPackId, onSelectPack)
+                    Step.PACK -> PackPage(packs, selectedPackId, onSelectPack, onImportPack)
                     Step.DONE -> DonePage(shizuku, packs, selectedPackId)
                 }
             }
@@ -218,6 +236,7 @@ private fun CompatibilityPage(versionLine: String) {
 @Composable
 private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequestPermission: () -> Unit) {
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     val ready = shizuku as? ShizukuState.Ready
     val connected = ready?.isPrivileged == true
     Hero(
@@ -235,9 +254,27 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
                 "Already rooted? Install Shizuku and start it with root, then come back here.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            OutlinedButton(onClick = { uriHandler.openUri("https://shizuku.rikka.app/download/") }) { Text("Get Shizuku") }
+            OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
         }
-        else -> Unit
+        ShizukuState.PermissionDenied -> SectionCard("Shizuku") {
+            Text(
+                "Shizuku turned Hex Next down. Ask again, or open Shizuku and allow Hex Next under Authorised apps.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onRequestPermission) { Text("Try again") }
+                OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+            }
+        }
+        is ShizukuState.Ready -> if (!connected) {
+            SectionCard("Shizuku") {
+                Text(
+                    "Shizuku is running without root. Open it and start it again with root.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+            }
+        }
     }
     if (!connected) {
         SectionCard("No root yet?") {
@@ -254,7 +291,10 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
 }
 
 @Composable
-private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSelectPack: (String?) -> Unit) {
+private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSelectPack: (String?) -> Unit, onImportPack: (Uri) -> Unit) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImportPack(uri)
+    }
     Hero(
         icon = Icons.Outlined.Star,
         title = "Pick a starting pack",
@@ -264,7 +304,7 @@ private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSele
     SectionCard("Theme pack") {
         ChoiceRow(selected = selectedPackId == null, onClick = { onSelectPack(null) }) {
             Column(Modifier.weight(1f)) {
-                Text("Colours only", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Colours only", style = MaterialTheme.typography.titleSmall)
                 Text(
                     "Just your accent colour, everywhere.",
                     style = MaterialTheme.typography.bodySmall,
@@ -275,7 +315,7 @@ private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSele
         packs.forEach { pack ->
             ChoiceRow(selected = selectedPackId == pack.id, onClick = { onSelectPack(pack.id) }) {
                 Column(Modifier.weight(1f)) {
-                    Text(pack.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(pack.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         listOfNotNull(
                             pack.author.takeIf { it.isNotBlank() },
@@ -291,7 +331,9 @@ private fun PackPage(packs: List<InstalledPack>, selectedPackId: String?, onSele
         if (packs.isEmpty()) {
             EmptyState(
                 icon = Icons.Outlined.Info,
-                text = "No packs installed yet. Use \"Get packs\" on the main screen to download some, or import a pack file.",
+                text = "No packs yet. Import a pack file now, or download some with \"Get packs\" on the main screen.",
+                actionLabel = "Import pack file",
+                onAction = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
             )
         }
     }
@@ -341,7 +383,7 @@ private fun Hero(icon: ImageVector, title: String, body: String) {
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
         Text(
             body,
             style = MaterialTheme.typography.bodyMedium,
@@ -367,26 +409,32 @@ private fun SummaryRow(label: String, value: String) {
     }
 }
 
-/** One radio row, written like the editor's pack rows. */
+/** One radio row, written like the editor's pack rows: the row is the one selectable node, the button only draws. */
 @Composable
 private fun ChoiceRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        RadioButton(selected = selected, onClick = null)
         content()
     }
 }
 
-/** The page indicator: one dot per step, the current one wider and tinted. */
+/** The page indicator: one dot per step, the current one wider and tinted; read out as "Step 2 of 5". */
 @Composable
 private fun StepDots(count: Int, current: Int) {
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription = "Step ${current + 1} of $count"
+                liveRegion = LiveRegionMode.Polite
+            },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

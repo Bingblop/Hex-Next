@@ -19,11 +19,13 @@ import com.hexnext.engine.pack.DirectoryPackResolver
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.overlay.BuildLog
 import com.hexnext.themer.overlay.BuildRequest
+import com.hexnext.themer.overlay.BuildResult
 import com.hexnext.themer.overlay.DrawableSpec
 import com.hexnext.themer.overlay.OverlayBuilder
 import com.hexnext.themer.overlay.OverlayColor
 import com.hexnext.themer.overlay.OverlayDrawable
 import com.hexnext.themer.safety.ApplyGuard
+import com.hexnext.themer.shizuku.MonitorScript
 import com.hexnext.themer.shizuku.ThemeService
 import java.io.File
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
@@ -49,8 +51,15 @@ import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
  * targets still pending) and at the end (`finished`). Any throwable, OutOfMemoryError included,
  * aborts the apply and is recorded (`aborted`, with the error) in the report and the build log.
  *
+ * Tiers ([Capability]): with root (uid 0/1000) everything above happens. With Shizuku over ADB
+ * (uid 2000, [Capability.SHELL]) only colours apply: each target's plain colours go through
+ * `cmd overlay fabricate --file` (best effort; when the shell is refused the target is recorded
+ * as skipped and the rest are not tried) and the theme's seed becomes the system palette through
+ * [MonetSeed]. Drawables, fonts and night colours are skipped with a "needs root" note.
+ *
  * [remove]: stop the guard, disable (and when privileged unregister) every HexNext overlay,
- * re-enable the SemWT overlays Hex Next disabled, and clean up the legacy overlays.
+ * re-enable the SemWT overlays Hex Next disabled, put the previous system palette back
+ * ([MonetSeed.restore]) and clean up the legacy overlays.
  */
 class ThemeApplier(context: Context) {
 
@@ -159,24 +168,33 @@ class ThemeApplier(context: Context) {
         val compiled = compileFromScan(service, spec, packs, say, note)
             ?: throw ApplyAborted(notes.lastOrNull() ?: "The theme could not be compiled.")
         val uid = runCatching { service.uid }.getOrDefault(-1)
-        val privileged = uid == 0 || uid == 1000
-        if (!privileged) {
-            // Nothing can be committed from an unprivileged service: `cmd overlay fabricate` takes a
-            // single resource per call and replaces the overlay each time. Stop before touching anything.
+        val capability = Capability.fromUid(uid)
+        if (capability == Capability.NONE) {
+            // Neither root nor the shell: nothing can be committed. Stop before touching anything.
             throw ApplyAborted(
-                "The theme service runs as uid $uid, but committing overlays needs uid 0 or 1000. " +
-                    "Start Shizuku with root (or restart it after a reboot) and apply again.",
+                "The theme service runs as uid $uid, but applying a theme needs root (uid 0 or 1000) or the Shizuku shell (uid 2000). " +
+                    "Start Shizuku (with root for icons, backgrounds and fonts) and apply again.",
             )
         }
         val owner = if (uid == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
         compiled.events.forEach { e -> buildLog.write(e.level.name, e.target, e.message, e.data) }
         packs.errors.forEach { (file, why) -> note(LogLevel.WARN, "Pack $file unreadable: $why") }
+        val drawableCount = compiled.targets.sumOf { it.drawables.size }
         say(
             LogLevel.INFO,
             "Compiled ${compiled.targets.size} targets (${compiled.targets.sumOf { it.colors.size }} colours, " +
-                "${compiled.targets.sumOf { it.drawables.size }} drawables); ${compiled.skippedTargets.size} skipped",
-            emptyMap(),
+                "$drawableCount drawables); ${compiled.skippedTargets.size} skipped",
+            mapOf("capability" to capability.name, "uid" to uid),
         )
+        if (capability == Capability.SHELL) {
+            note(
+                LogLevel.WARN,
+                "Colours only: Shizuku runs without root (uid $uid). " +
+                    (if (drawableCount > 0) "$drawableCount drawables, " else "") +
+                    "night colours, fonts and backgrounds need root and are skipped.",
+            )
+        }
+        val shell = ShellFabricator()
         onProgress(ApplyReport.STATUS_STARTED, compiled.targets.map { it.packageName })
 
         cleanupLegacy(service) { level, text -> say(level, text, emptyMap()) }?.let { notes += it }
@@ -191,7 +209,7 @@ class ThemeApplier(context: Context) {
         DrawableRenderer(packs, CustomAssetStore.rootDir(appContext), IconSynthesizer(appContext)).use { renderer ->
             compiled.targets.forEachIndexed { index, target ->
                 val outcome = try {
-                    applyTarget(service, target, renderer, privileged, owner, before, buildLog, log) { pkg, hexId, enabledBefore ->
+                    applyTarget(service, target, renderer, capability, shell, owner, before, buildLog, log) { pkg, hexId, enabledBefore ->
                         semwt = semwt.withTakeover(pkg, hexId, enabledBefore, System.currentTimeMillis())
                         onSemWt(semwt)
                     }
@@ -219,7 +237,22 @@ class ThemeApplier(context: Context) {
 
         outcomes += ApplyReport.skippedOutcomes(compiled)
 
-        applyFont(service, spec, log, note)
+        if (capability == Capability.SHELL) {
+            shell.unavailable?.let { why -> note(LogLevel.WARN, "Colour overlays were not built: $why") }
+            // The seed is what the shell tier can always do; it is listed in the report as its own line.
+            val seeded = MonetSeed.apply(service, spec.source.seedArgb, log)
+            buildLog.write(if (seeded) "OK" else "WARN", MonetSeed.TARGET, "system palette seed", mapOf("seed" to MonetSeed.hex(spec.source.seedArgb), "ok" to seeded))
+            outcomes += TargetOutcome(
+                target = MonetSeed.TARGET,
+                result = if (seeded) TargetResult.OK else TargetResult.FAILED,
+                overlay = MonetSeed.SETTING,
+                colorCount = 2,
+                resourceCount = if (seeded) 2 else 0,
+                message = if (seeded) "" else "the secure setting did not take the seed (see log)",
+            )
+        }
+
+        applyFont(service, spec, capability, log, note)
     }
 
     /**
@@ -230,11 +263,17 @@ class ThemeApplier(context: Context) {
     private fun applyFont(
         service: IThemeService,
         spec: EngineThemeSpec,
+        capability: Capability,
         log: (LogLine) -> Unit,
         note: (LogLevel, String) -> Unit,
     ) {
-        val installer = FontInstaller(service)
         val font = spec.customFont
+        if (!capability.canApplyDrawables) {
+            // The font module lives under /data and is bound as root; the shell can neither install nor remove it.
+            if (font != null) note(LogLevel.WARN, "Font \"${font.displayName}\" needs root; the system font was left unchanged")
+            return
+        }
+        val installer = FontInstaller(service)
         try {
             if (font == null) {
                 // remove() is a no-op without recorded binds or a module directory, so the module a
@@ -312,7 +351,8 @@ class ThemeApplier(context: Context) {
         service: IThemeService,
         target: CompiledTarget,
         renderer: DrawableRenderer,
-        privileged: Boolean,
+        capability: Capability,
+        shell: ShellFabricator,
         owner: String,
         before: List<OverlayListEntry>,
         buildLog: BuildLog,
@@ -328,6 +368,10 @@ class ThemeApplier(context: Context) {
 
         val drawables = ArrayList<OverlayDrawable>()
         var renderFailures = 0
+        val privileged = capability.canApplyDrawables
+        if (!privileged && target.drawables.isNotEmpty()) {
+            buildLog.write("INFO", pkg, "drawables skipped: needs root", mapOf("count" to target.drawables.size))
+        }
         if (privileged) {
             for (job in target.drawables) {
                 try {
@@ -356,7 +400,21 @@ class ThemeApplier(context: Context) {
             return TargetOutcome(pkg, TargetResult.EMPTY, target.overlayName, message = "no colours and no renderable drawables")
         }
 
-        val result = builder.apply(service, request, buildLog) { line -> log(LogLine(LogLevel.INFO, line)) }
+        if (capability == Capability.SHELL) {
+            shell.unavailable?.let { why ->
+                return TargetOutcome(pkg, TargetResult.SKIPPED, target.overlayName, colors.size, message = "needs root: $why")
+            }
+        }
+        val result = if (capability == Capability.SHELL) {
+            fabricateViaShell(service, target, colors, shell, buildLog, log)
+        } else {
+            builder.apply(service, request, buildLog) { line -> log(LogLine(LogLevel.INFO, line)) }
+        }
+        if (capability == Capability.SHELL && shell.unavailable != null) {
+            // The shell refused to fabricate (root required on this build): not a failure of the theme.
+            log(LogLine(LogLevel.WARN, "$pkg: colour overlay needs root here (${shell.unavailable}); only the system palette seed applies"))
+            return TargetOutcome(pkg, TargetResult.SKIPPED, target.overlayName, colors.size, message = "needs root: ${shell.unavailable}")
+        }
         val status = when {
             result.code == 0 && renderFailures == 0 -> TargetResult.OK
             result.code == 0 || result.code == PARTIAL_CODE -> TargetResult.PARTIAL
@@ -451,6 +509,8 @@ class ThemeApplier(context: Context) {
         say(if (ok) LogLevel.OK else LogLevel.WARN, disabled.output().ifBlank { "disableHexOverlays exit ${disabled.code()}" })
         SemWtController.restore(service) { say(it.level, it.text) }
         setTakeoverActive(appContext, false)
+        runCatching { MonetSeed.restore(service, log) }
+            .onFailure { say(LogLevel.WARN, "System palette restore failed: ${it.javaClass.simpleName}: ${it.message}") }
         cleanupLegacy(service, say)
         runCatching { FontInstaller(service).remove(log) }
             .onFailure { say(LogLevel.WARN, "Font removal failed: ${it.javaClass.simpleName}: ${it.message}") }
@@ -555,6 +615,80 @@ class ThemeApplier(context: Context) {
         return text
     }
 
+    /**
+     * Shell tier ([Capability.SHELL]): builds `HexNext_<target>` from the plain colours of
+     * [target] with `cmd overlay fabricate --file` (the XML is written to the state directory,
+     * which the shell owns, and removed again) and enables `com.android.shell:<name>`. Night
+     * colours need the privileged service and are left out. When the shell refuses to fabricate
+     * (a build that keeps `fabricate` for root) [shell] remembers why, so the remaining targets are
+     * skipped instead of failing one by one. Returns a [BuildResult] like [OverlayBuilder.apply].
+     */
+    private fun fabricateViaShell(
+        service: IThemeService,
+        target: CompiledTarget,
+        colors: List<OverlayColor>,
+        shell: ShellFabricator,
+        buildLog: BuildLog,
+        log: (LogLine) -> Unit,
+    ): BuildResult {
+        val started = System.currentTimeMillis()
+        val pkg = target.packageName
+        val name = target.overlayName
+        fun result(code: Int, output: String, count: Int) =
+            BuildResult(code, output, count, "[]", System.currentTimeMillis() - started, "", buildLog.file)
+        if (!SAFE_NAME.matches(pkg) || !SAFE_NAME.matches(name)) return result(-1, "unexpected target or overlay name", 0)
+        val plain = colors.filter { it.config.isEmpty() && SAFE_RESOURCE.matches(it.name) }
+        val configured = colors.size - plain.size
+        if (plain.isEmpty()) return result(-1, "no plain colours to build (night colours need root)", 0)
+
+        val xml = buildString {
+            appendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
+            appendLine("<overlay>")
+            for (c in plain) {
+                appendLine("    <item target=\"${c.name.substringAfter(':')}\" value=\"0x${"%08x".format(c.argb)}\" type=\"color\" />")
+            }
+            appendLine("</overlay>")
+        }
+        val fileName = "fabricate_$name.xml"
+        val write = service.writeStateFile(fileName, xml)
+        if (write.code() != 0) return result(write.code(), "could not write $fileName: ${write.output()}", 0)
+        val path = "${MonitorScript.DIR}/$fileName"
+        val id = "${ThemeService.SHELL_OWNER}:$name"
+        log(LogLine(LogLevel.INFO, "Building $name through the shell: ${plain.size} colours" + if (configured > 0) " ($configured night colours need root)" else ""))
+        buildLog.write("INFO", pkg, "shell fabricate", mapOf("overlay" to name, "colors" to plain.size, "skippedConfigured" to configured, "file" to path))
+
+        val fabricate = service.exec("cmd overlay fabricate --target $pkg --name $name --file $path")
+        runCatching { service.exec("rm -f $path") }
+        val fabricateOut = fabricate.output().trim()
+        buildLog.write(if (fabricate.code() == 0) "INFO" else "WARN", pkg, "cmd overlay fabricate", mapOf("code" to fabricate.code(), "output" to fabricateOut))
+        if (fabricate.code() != 0) {
+            val why = fabricateOut.lineSequence().firstOrNull { it.isNotBlank() } ?: "exit ${fabricate.code()}"
+            if (ShellFabricator.isRefusal(fabricateOut)) shell.unavailable = why
+            return result(fabricate.code(), fabricateOut.ifEmpty { "cmd overlay fabricate exit ${fabricate.code()}" }, 0)
+        }
+        val enable = service.exec(SemWtPlanner.enable(id))
+        val enableOut = enable.output().trim()
+        buildLog.write(if (enable.code() == 0) "INFO" else "WARN", pkg, "cmd overlay enable", mapOf("code" to enable.code(), "output" to enableOut))
+        if (enable.code() != 0) {
+            return result(enable.code(), "fabricated $id but enable failed: ${enableOut.ifEmpty { "exit ${enable.code()}" }}", 0)
+        }
+        log(LogLine(LogLevel.INFO, "Fabricated and enabled $id (${plain.size} colours)"))
+        return result(0, listOf(fabricateOut, "Enabled $id").filter { it.isNotEmpty() }.joinToString("\n"), plain.size)
+    }
+
+    /** Shell-tier state across targets: once `cmd overlay fabricate` refused the shell, the rest are not tried. */
+    private class ShellFabricator {
+        @Volatile
+        var unavailable: String? = null
+
+        companion object {
+            private val REFUSAL = listOf("root", "permission", "denied", "not allowed", "unknown option", "unknown command")
+
+            /** True when the output says the shell may not fabricate at all (as opposed to one bad resource). */
+            fun isRefusal(output: String): Boolean = REFUSAL.any { output.contains(it, ignoreCase = true) }
+        }
+    }
+
     private fun saveReport(report: ApplyReport) {
         runCatching {
             val file = reportFile(appContext)
@@ -579,6 +713,12 @@ class ThemeApplier(context: Context) {
 
         /** `applyOverlay` code for "committed colours only". */
         private const val PARTIAL_CODE = 3
+
+        /** Package and overlay names that may go into a shell command unquoted. */
+        private val SAFE_NAME = Regex("^[A-Za-z0-9_.]+$")
+
+        /** `pkg:type/name` resource names that may go into the fabricate XML. */
+        private val SAFE_RESOURCE = Regex("^[A-Za-z0-9_.]+:[A-Za-z0-9_]+/[A-Za-z0-9_.]+$")
 
         /** Pack zips (`<id>.zip`, `<id>.hexnext`, optional `index.json`). */
         fun packsDir(context: Context): File = File(context.filesDir, "packs").apply { mkdirs() }

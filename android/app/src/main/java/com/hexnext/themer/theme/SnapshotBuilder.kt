@@ -58,13 +58,21 @@ class SnapshotBuilder(context: Context) {
         return runCatching { DeviceReport.fromJson(JSONObject(file.readText()), file.absolutePath) }.getOrNull()
     }
 
-    /** Builds the snapshot of [report] (the latest saved report by default); null without a scan. */
-    fun build(report: DeviceReport? = latestReport()): Result? {
+    /**
+     * Builds the snapshot of [report] (the latest saved report by default); null without a scan.
+     *
+     * [only] restricts the snapshot to those target packages: their resource tables are the only
+     * ones read from disk, so a caller that needs two targets (the preview) does not pay for all
+     * nineteen. The result equals `build(report)` with its `targets` filtered to [only]; the
+     * warnings cover only the targets read.
+     */
+    fun build(report: DeviceReport? = latestReport(), only: Set<String>? = null): Result? {
         if (report == null) return null
         val warnings = ArrayList<String>()
         val byPkg = report.packages.associateBy { it.pkg }
         val semWtByTarget = report.semWt.associateBy { it.target }
         val targets = (report.packages.map { it.pkg } + report.semWt.filter { it.found }.map { it.target }).distinct()
+            .filter { only == null || it in only }
 
         val snapshots = LinkedHashMap<String, TargetSnapshot>()
         for (pkg in targets) {
@@ -138,6 +146,17 @@ class SnapshotBuilder(context: Context) {
 
         private fun shadesFile(context: Context): File = File(File(context.filesDir, "scan"), SHADES_FILE)
 
+        /**
+         * Identifies the scan a [build] would read: the latest report's path, size and mtime plus
+         * the mtime of the saved shades. Two equal stamps build equal snapshots, so callers can
+         * cache a built snapshot until the stamp changes. Null without a scan.
+         */
+        fun scanStamp(context: Context): String? {
+            val report = DeviceScanner.latestReport(context) ?: return null
+            val shades = shadesFile(context)
+            return "${report.absolutePath}|${report.length()}|${report.lastModified()}|${shades.lastModified()}"
+        }
+
         /** The 65 `android:color/system_*` colours the app currently resolves, keyed `system_accent1_500`. */
         fun readSystemShades(context: Context): Map<String, Int> {
             val res = context.resources
@@ -161,6 +180,9 @@ class SnapshotBuilder(context: Context) {
             }
             return shades
         }
+
+        /** True when the last scan saved its system shades; a [build] without them reads the live palette instead. */
+        fun hasSavedShades(context: Context): Boolean = shadesFile(context).isFile
 
         /** Shades saved by the last scan, or null. */
         fun loadSystemShades(context: Context): Map<String, Int>? = runCatching {

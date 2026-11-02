@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.LiveOption
 import com.hexnext.engine.compile.CustomFont
 import com.hexnext.engine.compile.ThemeMode
@@ -26,6 +27,7 @@ import com.hexnext.themer.shizuku.ShizukuManager
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.BackgroundSlots
+import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.theme.CatalogueEntry
 import com.hexnext.themer.theme.CustomAssetStore
 import com.hexnext.themer.theme.InstalledPack
@@ -55,7 +57,7 @@ import java.io.File
 enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING }
 
 /** What a [Notice] offers to do besides dismissing itself. */
-enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE }
+enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE, CONFIRM_WORKS }
 
 /**
  * One transient message for the snackbar: the outcome of an apply, remove or import, with an
@@ -81,10 +83,17 @@ data class UiState(
     val notice: Notice? = null,
     val oneUiVersion: String? = null,
     val log: List<LogLine> = emptyList(),
-    /** Non-null while the "Hex overlays were turned off after repeated restarts" banner shows. */
+    /** Non-null while the "Hex Next overlays were turned off after repeated restarts" banner shows. */
     val safeModeBanner: String? = null,
-    /** [com.hexnext.engine.compile.ApplyReport.summary] of the last compiled-theme apply. */
-    val lastApplySummary: String? = null,
+    /** The last compiled-theme apply, for the "Last applied" line of the Apply card; null after a remove. */
+    val lastApply: ApplyReport? = null,
+    /**
+     * True while the last apply has not been confirmed with "It works": restart protection is
+     * armed and two restarts within 10 minutes turn the overlays off.
+     */
+    val applyUnconfirmed: Boolean = false,
+    /** True when the editor asked for a phone scan; Diagnostics starts it and clears the flag. */
+    val scanRequested: Boolean = false,
     /** Pack zips in `files/packs` that could be read. */
     val packs: List<InstalledPack> = emptyList(),
     /** Pack zips that could not be read: file name → message. */
@@ -107,6 +116,11 @@ data class UiState(
     val rootToolLinks: Map<String, String> = RootTools.ALL.associate { it.name to it.pinnedApk },
     /** "Android 17 · One UI 9.0" from the compatibility check. */
     val versionLine: String = CompatibilityCheck.versionLine(),
+    /**
+     * What the connection can change, from the Shizuku uid: everything with root, colours only
+     * through the ADB shell, nothing while disconnected. Gates the icon, background and font cards.
+     */
+    val capability: Capability = Capability.NONE,
 ) {
     /** [EngineThemeSpec.simplePackId] of the stored theme; null is "colours only". */
     val selectedPackId: String? get() = spec.simplePackId
@@ -214,6 +228,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             ShizukuManager.state.collect {
+                val capability = Capability.of(it)
+                _ui.update { state -> if (state.capability == capability) state else state.copy(capability = capability) }
                 if (it is ShizukuState.Ready) {
                     checkSafeMode()
                     reassertSemWt()
@@ -261,7 +277,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val why = bundle?.getString(ThemeService.KEY_OUTPUT)
                     ?: result.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" }
                     ?: "unknown error"
-                log(LogLine(LogLevel.ERROR, "Safe mode could not turn Hex overlays off: $why. Use Diagnostics > Remove all Hex overlays."))
+                log(LogLine(LogLevel.ERROR, "Safe mode could not turn Hex Next overlays off: $why. Use Diagnostics > Turn off all Hex Next overlays."))
                 _ui.update { it.copy(safeModeBanner = SAFE_MODE_FAILED_TEXT) }
                 return
             }
@@ -294,7 +310,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun initialState(): UiState = UiState(
         seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
         oneUiVersion = CompatibilityCheck.oneUiName(),
-        lastApplySummary = ThemeApplier.lastReport(getApplication<Application>())?.summary(),
+        lastApply = ThemeApplier.lastReport(getApplication<Application>()),
+        applyUnconfirmed = !guard.confirmed,
+        capability = Capability.of(ShizukuManager.state.value),
     )
 
     fun setSeed(color: Int) {
@@ -316,13 +334,53 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun applyTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
         val spec = specToApply()
         val report = applier.apply(service, spec, ::log)
-        _ui.update { it.copy(lastApplySummary = report.summary()) }
+        _ui.update { it.copy(lastApply = report, applyUnconfirmed = !guard.confirmed) }
         if (report.success) {
-            postNotice(Notice("Theme applied", isSuccess = true))
+            postNotice(
+                Notice(
+                    "Theme applied. Check your phone, then confirm it works",
+                    actionLabel = "It works",
+                    action = NoticeAction.CONFIRM_WORKS,
+                    isSuccess = true,
+                ),
+            )
         } else {
-            postNotice(Notice("Theme could not be applied", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
+            postNotice(Notice("Couldn't apply the theme", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
         }
         report.success
+    }
+
+    /**
+     * "It works": the applied theme is confirmed, so restarts no longer trigger safe mode for it,
+     * and the service's stability monitor is stopped. Works without a connection too (the guard
+     * is a local preference); the monitor stop is then skipped.
+     */
+    fun confirmWorks() {
+        guard.confirm()
+        _ui.update { it.copy(applyUnconfirmed = false) }
+        log(LogLine(LogLevel.OK, "Confirmed: restarts will no longer turn the theme off"))
+        if (ShizukuManager.state.value !is ShizukuState.Ready) return
+        viewModelScope.launch {
+            runCatching {
+                val service = ShizukuManager.service()
+                withContext(Dispatchers.IO) { service.stopStabilityMonitor() }
+            }.onFailure { log(LogLine(LogLevel.WARN, "Could not stop the stability monitor: ${it.message}")) }
+        }
+    }
+
+    /** Opens Diagnostics and starts a phone scan there (the editor's "Scan phone" actions). */
+    fun openScan() {
+        _ui.update { it.copy(scanRequested = true) }
+        navigate(Screen.DIAGNOSTICS)
+    }
+
+    /** Diagnostics took the scan request. */
+    fun consumeScanRequest() = _ui.update { if (it.scanRequested) it.copy(scanRequested = false) else it }
+
+    /** A generated icon was stored as a custom icon: list it and tell the user where it went. */
+    fun noteGeneratedIcon(asset: CustomAssetStore.Asset) {
+        refreshAssets()
+        postNotice(Notice("${asset.displayName} added to Custom icons", isSuccess = true))
     }
 
     /** Replaces the whole stored theme (the "Describe your theme" card hands back a mapped spec). */
@@ -690,11 +748,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
     fun removeTheme() = runTask(retry = NoticeAction.RETRY_REMOVE) { service, _ ->
         val ok = applier.remove(service, ::log)
-        _ui.update { it.copy(lastApplySummary = null) }
+        _ui.update { it.copy(lastApply = null, applyUnconfirmed = !guard.confirmed) }
         if (ok) {
             postNotice(Notice("Theme removed", isSuccess = true))
         } else {
-            postNotice(Notice("Theme could not be removed", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
+            postNotice(Notice("Couldn't remove the theme", actionLabel = "Diagnostics", action = NoticeAction.OPEN_DIAGNOSTICS, isError = true))
         }
         ok
     }
@@ -705,13 +763,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun runTask(retry: NoticeAction?, block: (com.hexnext.themer.IThemeService, ShizukuState.Ready) -> Boolean) {
         val ready = ShizukuManager.state.value as? ShizukuState.Ready ?: run {
-            log(LogLine(LogLevel.ERROR, "Shizuku (UID 0 / UID 1000) or SU isn't ready."))
+            log(LogLine(LogLevel.ERROR, "No theme service: Shizuku (root for everything, ADB shell for colours only) or SU isn't ready."))
             val state = ShizukuManager.state.value
             postNotice(
                 if (state == ShizukuState.PermissionNeeded || state == ShizukuState.PermissionDenied) {
                     Notice("Hex Next needs Shizuku access first", actionLabel = "Allow", action = NoticeAction.REQUEST_PERMISSION, isError = true)
                 } else {
-                    Notice("Start Shizuku with root or grant root access first", isError = true)
+                    Notice("Start Shizuku or grant root access first", isError = true)
                 },
             )
             return
@@ -726,7 +784,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 log(LogLine(LogLevel.ERROR, "${t.javaClass.simpleName}: ${t.message}"))
                 postNotice(
                     Notice(
-                        "Something went wrong. Check the log for details",
+                        "Something went wrong",
                         actionLabel = if (retry != null) "Retry" else null,
                         action = retry,
                         isError = true,
@@ -764,9 +822,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private const val MAX_LOG_CHARS = 2000
         private const val PREVIEW_DEBOUNCE_MS = 400L
         private const val OPAQUE = 0xFF000000.toInt()
-        private const val SAFE_MODE_TEXT = "Safe mode: Hex overlays were turned off after repeated restarts"
+        private const val SAFE_MODE_TEXT = "Safe mode: Hex Next overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =
-            "Safe mode: the device restarted repeatedly, but Hex overlays could not be turned off automatically"
+            "Safe mode: your phone restarted repeatedly, but Hex Next overlays could not be turned off automatically"
 
         val androidVersion: String get() = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     }

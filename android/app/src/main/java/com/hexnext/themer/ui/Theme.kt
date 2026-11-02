@@ -1,5 +1,6 @@
 package com.hexnext.themer.ui
 
+import android.app.UiModeManager
 import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,17 +67,30 @@ fun HexNextTheme(settings: AppSettings = AppSettings(), content: @Composable () 
  * preview matches what the app will draw.
  */
 fun appColorScheme(context: Context, settings: AppSettings, dark: Boolean): ColorScheme {
+    // "Standard" follows the contrast the user chose in Android's accessibility settings, so a
+    // phone set to high contrast system-wide is not quietly shown at standard contrast here.
+    val contrast = if (settings.contrast == ContrastLevel.STANDARD) systemContrast(context) else settings.contrast
     val scheme = when {
         settings.palette == PaletteSource.SEED ->
-            seededColorScheme(settings.seedArgb, dark, settings.contrast)
-        settings.contrast != ContrastLevel.STANDARD ->
+            seededColorScheme(settings.seedArgb, dark, contrast)
+        contrast != ContrastLevel.STANDARD ->
             // The framework exposes no contrast variant of the dynamic scheme, so rebuild from the
             // phone's own key colour at the requested level.
-            seededColorScheme(context.getColor(android.R.color.system_accent1_500), dark, settings.contrast)
+            seededColorScheme(context.getColor(android.R.color.system_accent1_500), dark, contrast)
         dark -> dynamicDarkColorScheme(context)
         else -> dynamicLightColorScheme(context)
     }
     return if (dark && settings.pureBlack) scheme.pureBlack() else scheme
+}
+
+/** The system-wide contrast (Settings > Accessibility) as one of the app's levels; standard when it cannot be read. */
+private fun systemContrast(context: Context): ContrastLevel {
+    val value = runCatching { context.getSystemService(UiModeManager::class.java)?.contrast }.getOrNull() ?: return ContrastLevel.STANDARD
+    return when {
+        value >= 0.9f -> ContrastLevel.HIGH
+        value >= 0.4f -> ContrastLevel.MEDIUM
+        else -> ContrastLevel.STANDARD
+    }
 }
 
 /** The tonal-spot scheme of [seed] at [contrast], mapped onto Material 3 roles. */
@@ -176,8 +190,9 @@ private fun ColorScheme.pureBlack(): ColorScheme = copy(
 )
 
 /**
- * Material 3 defaults with the slightly wider display/headline tracking and the medium-weight
- * titles One UI uses.
+ * Material 3 defaults with the slightly wider display/headline tracking One UI uses. Card titles
+ * (titleMedium) and list-row titles (titleSmall) carry their semi-bold weight here, so call
+ * sites need no per-call weight to read as titles.
  */
 val HexNextTypography: Typography = Typography().let { base ->
     base.copy(
@@ -188,6 +203,7 @@ val HexNextTypography: Typography = Typography().let { base ->
         headlineMedium = base.headlineMedium.copy(letterSpacing = 0.25.sp, fontWeight = FontWeight.Medium),
         headlineSmall = base.headlineSmall.copy(letterSpacing = 0.2.sp, fontWeight = FontWeight.Medium),
         titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Medium),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.Medium),
+        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold),
     )
 }

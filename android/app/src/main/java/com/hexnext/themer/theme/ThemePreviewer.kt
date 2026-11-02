@@ -3,6 +3,7 @@ package com.hexnext.themer.theme
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import com.hexnext.engine.compile.CompiledTarget
 import com.hexnext.engine.compile.CompiledTheme
 import com.hexnext.engine.compile.CustomAssets
@@ -14,21 +15,31 @@ import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.map.PlannedColor
 import com.hexnext.engine.pack.DirectoryPackResolver
 import com.hexnext.themer.overlay.SettingsTestOverlay
+import java.io.File
 import java.io.IOException
+import java.lang.ref.SoftReference
 
 /**
  * Renders a cheap preview of a [ThemeSpec]: the Settings dashboard row icons as the compiler
  * would fabricate them (pack, custom and synthesised ones alike), the first My Files icons, the
  * Settings background the user assigned, the chosen font and the planned accent colour.
  *
- * The last device scan is read with [SnapshotBuilder], the snapshot is restricted to
- * `com.android.settings` and `com.sec.android.app.myfiles` and compiled with [ThemeCompiler]
- * against the installed packs ([ThemeApplier.packsDir]); each icon's best job (non-night,
- * highest density) is rendered with [DrawableRenderer] and decoded into a [Bitmap]. At most
- * [MAX_ICONS] + [MAX_MY_FILES] + 1 bitmaps are decoded per call.
+ * The last device scan is read with [SnapshotBuilder], restricted to `com.android.settings` and
+ * `com.sec.android.app.myfiles` (only those two resource tables are read from disk) and compiled
+ * with [ThemeCompiler] against the installed packs ([ThemeApplier.packsDir]); each icon's best
+ * job (non-night, highest density) is rendered with [DrawableRenderer] and decoded into a
+ * [Bitmap]. At most [MAX_ICONS] + [MAX_MY_FILES] + 1 bitmaps are decoded per call.
  *
  * [slots] lists, from a full compile of the snapshot, every drawable a custom icon or background
  * can replace; it is heavier than [render] and meant to run only when packs or elements change.
+ *
+ * Caches, all keyed on what is on disk so a new scan, pack or custom file is picked up on the
+ * next call: the two-target and the full snapshot (soft references, keyed by
+ * [SnapshotBuilder.scanStamp]), one [DirectoryPackResolver] per pack directory listing (the
+ * resolver opens every pack zip once), and the rendered icons by job plus pack listing
+ * ([ICON_CACHE_BYTES] of bitmaps). Rendering is serialised on one lock: a superseded render
+ * that is still running finishes first, so bitmaps, zip handles and the compile never run on two
+ * threads at once.
  *
  * Nothing here touches the device or Shizuku. Both calls block on file I/O and bitmap work, so
  * call them on `Dispatchers.Default` or `Dispatchers.IO`, never on the main thread. They never
@@ -38,6 +49,25 @@ import java.io.IOException
 class ThemePreviewer(context: Context) {
 
     private val appContext = context.applicationContext
+
+    /** Guards every field below and serialises [render] / [slots]. */
+    private val lock = Any()
+
+    private val synthesizer: IconSynthesizer by lazy { IconSynthesizer(appContext) }
+
+    private var scanStamp: String? = null
+    private var previewSnapshot: SoftReference<SnapshotBuilder.Result>? = null
+    private var fullSnapshot: SoftReference<SnapshotBuilder.Result>? = null
+
+    private var packsStamp: String? = null
+    private var packResolver: DirectoryPackResolver? = null
+
+    /** A rendered job and the file stamps its pixels depend on besides the pack listing. */
+    private data class IconKey(val job: PlannedDrawableJob, val customStamp: String?)
+
+    private val iconCache = object : LruCache<IconKey, Bitmap>(ICON_CACHE_BYTES) {
+        override fun sizeOf(key: IconKey, value: Bitmap): Int = value.byteCount.coerceAtLeast(1)
+    }
 
     /**
      * @property name resource name without type, e.g. `sec_ic_settings_connections`.
@@ -84,28 +114,32 @@ class ThemePreviewer(context: Context) {
      */
     data class SlotCatalogue(val icons: List<IconSlot>, val backgrounds: List<BackgroundSlots.Slot>, val error: String? = null)
 
-    /** Previews [spec]; safe to call repeatedly. */
-    fun render(spec: ThemeSpec): Preview = try {
-        renderOrThrow(spec)
-    } catch (e: Exception) {
-        Preview(emptyList(), null, "Could not render the preview: ${e.javaClass.simpleName}: ${e.message}", fontFile = fontFile(spec), fontName = spec.customFont?.displayName)
+    /** Previews [spec]; safe to call repeatedly and from any background thread. */
+    fun render(spec: ThemeSpec): Preview = synchronized(lock) {
+        try {
+            renderOrThrow(spec)
+        } catch (e: Exception) {
+            Preview(emptyList(), null, "Could not render the preview: ${e.javaClass.simpleName}: ${e.message}", fontFile = fontFile(spec), fontName = spec.customFont?.displayName)
+        }
     }
 
     /** The slots of [spec] on this device; empty without a scan, empty with [SlotCatalogue.error] on failure. */
-    fun slots(spec: ThemeSpec): SlotCatalogue = try {
-        slotsOrThrow(spec)
-    } catch (e: Exception) {
-        SlotCatalogue(emptyList(), emptyList(), "Could not list the slots: ${e.javaClass.simpleName}: ${e.message}")
+    fun slots(spec: ThemeSpec): SlotCatalogue = synchronized(lock) {
+        try {
+            slotsOrThrow(spec)
+        } catch (e: Exception) {
+            SlotCatalogue(emptyList(), emptyList(), "Could not list the slots: ${e.javaClass.simpleName}: ${e.message}")
+        }
     }
 
     private fun renderOrThrow(spec: ThemeSpec): Preview {
         val fontFile = fontFile(spec)
         val fontName = spec.customFont?.displayName
-        val built = SnapshotBuilder(appContext).build()
+        val built = snapshot(full = false)
             ?: return Preview(emptyList(), null, NOTE_NO_SCAN, fontFile = fontFile, fontName = fontName)
-        val snapshot = built.snapshot
-        val restricted = snapshot.copy(targets = snapshot.targets.filterKeys { it == TARGET || it == MY_FILES })
-        val packs = DirectoryPackResolver(ThemeApplier.packsDir(appContext))
+        // Built for the two preview targets only; equal to the full snapshot filtered to them.
+        val restricted = built.snapshot
+        val packs = packResolver()
         val compiled = ThemeCompiler.compile(spec, restricted, packs)
         val settings = compiled.target(TARGET)
         val myFilesTarget = compiled.target(MY_FILES)
@@ -124,38 +158,26 @@ class ThemePreviewer(context: Context) {
         val synthesised = HashSet<String>()
         var background: Bitmap? = null
         var failed = 0
-        DrawableRenderer(packs, CustomAssetStore.rootDir(appContext), IconSynthesizer(appContext)).use { renderer ->
+        val customRoot = CustomAssetStore.rootDir(appContext)
+        DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
+            fun bitmapOf(job: PlannedDrawableJob): Bitmap? {
+                val bitmap = cachedBitmap(renderer, job, customRoot)
+                if (bitmap == null) failed++
+                return bitmap
+            }
             for (name in previewRows(rowJobs)) {
                 if (icons.size >= MAX_ICONS) break
                 val job = rowJobs[name] ?: continue
-                val bitmap = try {
-                    decode(renderer.render(job).png)
-                } catch (e: Exception) {
-                    failed++
-                    null
-                }
+                val bitmap = bitmapOf(job)
                 if (job.synthesis != null) synthesised += name
                 icons += PreviewIcon(name, labelFor(name), bitmap)
             }
             for (job in myFilesJobs) {
                 if (myFiles.size >= MAX_MY_FILES) break
                 val name = job.resourceName.substringAfter('/')
-                val bitmap = try {
-                    decode(renderer.render(job).png)
-                } catch (e: Exception) {
-                    failed++
-                    null
-                }
-                myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmap)
+                myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmapOf(job))
             }
-            if (backgroundJob != null) {
-                background = try {
-                    decode(renderer.render(backgroundJob).png)
-                } catch (e: Exception) {
-                    failed++
-                    null
-                }
-            }
+            if (backgroundJob != null) background = bitmapOf(backgroundJob)
         }
         val note = when {
             failed == 1 -> "1 image could not be rendered."
@@ -168,7 +190,7 @@ class ThemePreviewer(context: Context) {
     }
 
     private fun slotsOrThrow(spec: ThemeSpec): SlotCatalogue {
-        val built = SnapshotBuilder(appContext).build() ?: return SlotCatalogue(emptyList(), emptyList())
+        val built = snapshot(full = true) ?: return SlotCatalogue(emptyList(), emptyList())
         val snapshot = built.snapshot
         val rules = OneUiRules.forProfile(snapshot.oneUi)
         val backgrounds = BackgroundSlots.forSnapshot(snapshot, rules)
@@ -197,7 +219,7 @@ class ThemePreviewer(context: Context) {
         // Every other drawable the current packs target, grouped by element. The compile runs
         // without the custom overrides: the compiler replaces overridden pack jobs with custom
         // ones, which would drop every assigned slot from the list and leave it un-assignable.
-        val packs = DirectoryPackResolver(ThemeApplier.packsDir(appContext))
+        val packs = packResolver()
         val plain = spec.copy(customIcons = emptyMap(), customBackgrounds = emptyMap(), synthesizeMissingIcons = false)
         val compiled: CompiledTheme = ThemeCompiler.compile(plain, snapshot, packs, rules)
         val byElement = LinkedHashMap<String, MutableList<IconSlot>>()
@@ -223,6 +245,72 @@ class ThemePreviewer(context: Context) {
         }
         return SlotCatalogue(icons, backgrounds)
     }
+
+    // ---- caches -----------------------------------------------------------------------------
+
+    /**
+     * The snapshot of the latest scan, built for the two preview targets or in [full]; null
+     * without a scan. Rebuilt only when [SnapshotBuilder.scanStamp] changes or the soft
+     * reference was cleared under memory pressure. A scan that saved no system shades builds
+     * from the live palette, which can change at any time, so that case is never cached.
+     */
+    private fun snapshot(full: Boolean): SnapshotBuilder.Result? {
+        val stamp = SnapshotBuilder.scanStamp(appContext) ?: return null
+        if (stamp != scanStamp) {
+            scanStamp = stamp
+            previewSnapshot = null
+            fullSnapshot = null
+        }
+        (if (full) fullSnapshot else previewSnapshot)?.get()?.let { return it }
+        val built = SnapshotBuilder(appContext).build(only = if (full) null else PREVIEW_TARGETS) ?: return null
+        if (SnapshotBuilder.hasSavedShades(appContext)) {
+            if (full) fullSnapshot = SoftReference(built) else previewSnapshot = SoftReference(built)
+        }
+        return built
+    }
+
+    /**
+     * One resolver per state of the pack directory. [DirectoryPackResolver] opens and parses
+     * every pack zip on its first lookup and caches the result for its lifetime, so it is kept
+     * until a zip is added, replaced or removed; the rendered icons are dropped with it.
+     */
+    private fun packResolver(): DirectoryPackResolver {
+        val dir = ThemeApplier.packsDir(appContext)
+        val stamp = dir.listFiles { f -> f.isFile }.orEmpty()
+            .sortedBy { it.name }
+            .joinToString("\n") { "${it.name}|${it.length()}|${it.lastModified()}" }
+        packResolver?.takeIf { stamp == packsStamp }?.let { return it }
+        packsStamp = stamp
+        iconCache.evictAll()
+        return DirectoryPackResolver(dir).also { packResolver = it }
+    }
+
+    /**
+     * The decoded render of [job], from the cache when the same job was rendered against the
+     * same packs and custom file before; null when rendering fails (failures are not cached, so
+     * a fixed file renders on the next call).
+     */
+    private fun cachedBitmap(renderer: DrawableRenderer, job: PlannedDrawableJob, customRoot: File): Bitmap? {
+        val key = IconKey(job, customStamp(job, customRoot))
+        iconCache.get(key)?.let { return it }
+        val bitmap = try {
+            decode(renderer.render(job).png)
+        } catch (e: Exception) {
+            return null
+        }
+        iconCache.put(key, bitmap)
+        return bitmap
+    }
+
+    /** Size and mtime of the custom file a job renders, so a re-imported file of the same name re-renders. */
+    private fun customStamp(job: PlannedDrawableJob, customRoot: File): String? {
+        val file = job.custom ?: return null
+        val background = job.source.category == CustomAssets.CATEGORY_BACKGROUND
+        val source = File(File(customRoot, if (background) CustomSizing.DIR_BACKGROUNDS else CustomSizing.DIR_ICONS), file)
+        return "${source.length()}|${source.lastModified()}"
+    }
+
+    // ---- job selection ----------------------------------------------------------------------
 
     /**
      * The dashboard rows to preview, in priority order: the first custom row and the first
@@ -330,6 +418,7 @@ class ThemePreviewer(context: Context) {
     companion object {
         private const val TARGET = "com.android.settings"
         private const val MY_FILES = "com.sec.android.app.myfiles"
+        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES)
         private const val ACCENT_COLOR = "sec_widget_round_and_bgcolor"
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"
@@ -337,6 +426,9 @@ class ThemePreviewer(context: Context) {
         private const val MAX_ICONS = 8
         private const val MAX_MY_FILES = 8
         private const val NAME_PREFIX = "sec_ic_settings_"
+
+        /** Rendered preview bitmaps kept between renders: ~300 Settings icons, or a few backgrounds. */
+        private const val ICON_CACHE_BYTES = 24 * 1024 * 1024
 
         const val GROUP_SETTINGS: String = "Settings"
         const val GROUP_MY_FILES: String = "My Files"

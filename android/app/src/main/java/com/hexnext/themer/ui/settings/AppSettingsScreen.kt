@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -22,14 +24,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -54,15 +60,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.theme.parseHexColor
 import com.hexnext.themer.theme.toHex
+import com.hexnext.themer.ui.ColorSwatch
+import com.hexnext.themer.ui.RADIO_INDENT
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.appColorScheme
 
@@ -96,14 +106,16 @@ fun AppSettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("App settings", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                },
             )
         },
     ) { padding ->
         LazyColumn(
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
+                start = 16.dp + padding.calculateStartPadding(LayoutDirection.Ltr),
+                end = 16.dp + padding.calculateEndPadding(LayoutDirection.Ltr),
                 top = padding.calculateTopPadding() + 4.dp,
                 bottom = padding.calculateBottomPadding() + 24.dp,
             ),
@@ -124,7 +136,7 @@ fun AppSettingsScreen(
                 SectionCard("Diagnostics") {
                     NavRow(
                         title = "Scan, reports and safety",
-                        summary = "Check the phone, share a report and repair the applied theme.",
+                        summary = "Check the phone, share a report and manage restart protection.",
                         onClick = onOpenDiagnostics,
                     )
                 }
@@ -178,26 +190,29 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
             onClick = { store.setPalette(PaletteSource.SEED) },
         )
         if (settings.palette == PaletteSource.SEED) {
-            Column(Modifier.padding(start = 40.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(start = RADIO_INDENT), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     SEED_PRESETS.forEach { color ->
-                        Swatch(color = color, selected = color == settings.seedArgb, onClick = { store.setSeed(color) })
+                        ColorSwatch(color = color, selected = color == settings.seedArgb, onClick = { store.setSeed(color) })
                     }
                 }
                 if (wallpaperSeed != null) {
+                    // The row is the one selectable stop; the dot inside it only draws.
+                    val wallpaperSelected = wallpaperSeed == settings.seedArgb
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { store.setSeed(wallpaperSeed) },
+                            .heightIn(min = 48.dp)
+                            .selectable(selected = wallpaperSelected, role = Role.RadioButton, onClick = { store.setSeed(wallpaperSeed) }),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Swatch(color = wallpaperSeed, selected = wallpaperSeed == settings.seedArgb, onClick = { store.setSeed(wallpaperSeed) })
+                        SwatchDot(color = wallpaperSeed, selected = wallpaperSelected)
                         Column {
-                            Text("Wallpaper colour", style = MaterialTheme.typography.bodyMedium)
+                            Text("Wallpaper colour", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 wallpaperSeed.toHex(),
                                 style = MaterialTheme.typography.bodySmall,
@@ -265,18 +280,19 @@ private fun wallpaperColor(context: android.content.Context): Int? = runCatching
         ?.or(0xFF000000.toInt())
 }.getOrNull()
 
+/** The 36 dp colour dot of the wallpaper row, drawn like [ColorSwatch] but with no semantics of its own. */
 @Composable
-private fun Swatch(color: Int, selected: Boolean, onClick: () -> Unit) {
+private fun SwatchDot(color: Int, selected: Boolean) {
     Box(
         Modifier
+            .padding(6.dp)
             .size(36.dp)
             .clip(CircleShape)
             .background(Color(color))
             .then(
                 if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
                 else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-            )
-            .clickable(onClick = onClick)
+            ),
     )
 }
 
@@ -294,6 +310,7 @@ private fun SeedHexField(seed: Int, onSeed: (Int) -> Unit) {
         label = { Text("Hex") },
         singleLine = true,
         isError = parseHexColor(text) == null,
+        supportingText = { if (parseHexColor(text) == null) Text("Enter a colour like #3E7BFA") },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         modifier = Modifier.fillMaxWidth(),
@@ -322,7 +339,7 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
             onCheckedChange = store::setReduceMotion,
         )
         Column(Modifier.heightIn(min = 48.dp), verticalArrangement = Arrangement.Center) {
-            Text("Restart protection", style = MaterialTheme.typography.bodyMedium)
+            Text("Restart protection", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Always on. If the phone restarts twice within 10 minutes of an unconfirmed apply, " +
                     "Hex Next turns its overlays off and shows a notice.",
@@ -344,7 +361,7 @@ private fun AboutCard(onOpenOnboarding: () -> Unit) {
 
     SectionCard("About") {
         Column(Modifier.heightIn(min = 48.dp), verticalArrangement = Arrangement.Center) {
-            Text("Hex Next", style = MaterialTheme.typography.bodyMedium)
+            Text("Hex Next", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 style = MaterialTheme.typography.bodySmall,
@@ -430,25 +447,26 @@ private fun Label(text: String) {
     Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** One radio row: title and summary right of the button, the whole row clickable. */
+/** One radio row: title and summary right of the button; the row is the one selectable node, the button only draws. */
 @Composable
 private fun ChoiceRow(selected: Boolean, title: String, summary: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        RadioButton(selected = selected, onClick = onClick)
+        RadioButton(selected = selected, onClick = null)
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(title, style = MaterialTheme.typography.titleSmall)
             Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-/** Label and summary left, [Switch] right, the whole row clickable. */
+/** Label and summary left, [Switch] right; the row is the one toggleable node. */
 @Composable
 private fun SwitchRow(
     label: String,
@@ -461,15 +479,15 @@ private fun SwitchRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clickable(enabled = enabled, onClick = { onCheckedChange(!checked) }),
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text(label, style = MaterialTheme.typography.titleSmall)
             Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 
@@ -485,7 +503,7 @@ private fun NavRow(title: String, summary: String, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(title, style = MaterialTheme.typography.titleSmall)
             Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(4.dp))

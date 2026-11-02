@@ -15,10 +15,13 @@ import com.hexnext.engine.frro.NinePatchException
 import com.hexnext.engine.pack.DirectoryPackResolver
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.DataInputStream
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import kotlin.math.min
 import kotlin.math.roundToInt
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
 /**
@@ -46,6 +49,13 @@ import java.util.zip.ZipFile
  * [CustomSizing]; a job with [PlannedDrawableJob.synthesis] renders its reference pack icon
  * through the normal path and hands it to [IconSynthesizer] to draw the missing glyph in the
  * pack's style. Both need the optional constructor arguments; without them such a job throws.
+ *
+ * Performance notes: pack zips are opened once per renderer and kept until [close]; layers are
+ * decoded straight from the zip stream (no intermediate byte array) except where the bytes are
+ * shipped as they are; a custom image is sized from its header first and decoded with
+ * `inSampleSize` when it is much larger than its slot, and is not decoded at all when it is
+ * shipped unchanged; the `Paint`s and the PNG output buffer are reused across jobs. One instance
+ * serves one thread at a time (an apply or a preview), never two concurrently.
  */
 class DrawableRenderer(
     private val packs: DirectoryPackResolver,
@@ -63,6 +73,15 @@ class DrawableRenderer(
 
     private val zips = HashMap<String, ZipFile>()
 
+    /** Reused for every layer; the colour filter is set per step and cleared afterwards. */
+    private val layerPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+
+    /** Reused for letterboxing custom icons. */
+    private val fitPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+
+    /** PNG encoder output, reset per encode; [ByteArrayOutputStream.toByteArray] copies out of it. */
+    private val pngBuffer = ByteArrayOutputStream(PNG_BUFFER_BYTES)
+
     fun render(job: PlannedDrawableJob): Rendered {
         job.custom?.let { return renderCustom(job, it) }
         job.synthesis?.let { return renderSynthesis(job, it) }
@@ -77,21 +96,11 @@ class DrawableRenderer(
 
         val decoded = ArrayList<Bitmap>(steps.size)
         try {
-            for (step in steps) decoded.add(decode(read(zip, step.layerPath), step.layerPath))
-            val base = decoded[0]
-            val width = base.width
-            val height = base.height
-            val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            for (step in steps) decoded.add(decodeEntry(zip, step.layerPath))
+            val out = composite(decoded, steps.map { it.tintArgb })
             try {
-                val canvas = Canvas(out)
-                val dst = Rect(0, 0, width, height)
-                steps.forEachIndexed { i, step ->
-                    val paint = Paint(Paint.FILTER_BITMAP_FLAG)
-                    val tint = step.tintArgb
-                    if (tint != null) paint.colorFilter = PorterDuffColorFilter(tint, PorterDuff.Mode.MULTIPLY)
-                    canvas.drawBitmap(decoded[i], null, dst, paint)
-                }
-
+                val width = out.width
+                val height = out.height
                 var warning: String? = null
                 if (job.ninePatch) {
                     val index = steps.indexOfFirst { it.isNinePatch }
@@ -127,9 +136,40 @@ class DrawableRenderer(
     }
 
     /**
+     * Draws [layers] bottom first onto a new ARGB bitmap the size of the first layer, each
+     * through the MULTIPLY filter of its entry in [tints] (null = untinted). The caller owns
+     * the result and still owns [layers].
+     */
+    private fun composite(layers: List<Bitmap>, tints: List<Int?>): Bitmap {
+        val base = layers[0]
+        val width = base.width
+        val height = base.height
+        val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(out)
+            val dst = Rect(0, 0, width, height)
+            for (i in layers.indices) {
+                val tint = tints[i]
+                layerPaint.colorFilter = if (tint != null) PorterDuffColorFilter(tint, PorterDuff.Mode.MULTIPLY) else null
+                canvas.drawBitmap(layers[i], null, dst, layerPaint)
+            }
+            layerPaint.colorFilter = null
+            return out
+        } catch (t: Throwable) {
+            out.recycle()
+            throw t
+        }
+    }
+
+    /**
      * A user-imported image. Icons are letterboxed (aspect kept, centred, transparent padding)
      * into the slot size from [CustomSizing.iconSize]; backgrounds are never upscaled and are
      * shrunk so the longer side is at most [CustomSizing.MAX_BACKGROUND_PX].
+     *
+     * The size decision is made from the PNG header alone: an image shipped as it is costs no
+     * decode, and one that is shrunk is decoded with the largest power-of-two `inSampleSize`
+     * that still leaves it at least the output size, so a 4096 px import never becomes a 64 MB
+     * bitmap on the way to a 138 px icon.
      */
     private fun renderCustom(job: PlannedDrawableJob, file: String): Rendered {
         val root = customDir ?: throw IOException("no custom asset directory for ${job.resourceName}")
@@ -140,23 +180,35 @@ class DrawableRenderer(
             throw IOException("custom file $file for ${job.resourceName} is missing")
         }
         val bytes = source.readBytes()
-        val bitmap = decode(bytes, source.name)
-        try {
-            if (background) {
-                val longer = maxOf(bitmap.width, bitmap.height)
-                if (longer <= CustomSizing.MAX_BACKGROUND_PX) return Rendered(bytes, ninePatch = false)
-                val scale = CustomSizing.MAX_BACKGROUND_PX.toFloat() / longer
-                val scaled = Bitmap.createScaledBitmap(
-                    bitmap, maxOf(1, (bitmap.width * scale).roundToInt()), maxOf(1, (bitmap.height * scale).roundToInt()), true,
-                )
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val sourceWidth = bounds.outWidth
+        val sourceHeight = bounds.outHeight
+        if (sourceWidth <= 0 || sourceHeight <= 0) throw IOException("cannot decode ${source.name}")
+
+        if (background) {
+            val longer = maxOf(sourceWidth, sourceHeight)
+            if (longer <= CustomSizing.MAX_BACKGROUND_PX) return Rendered(bytes, ninePatch = false)
+            val scale = CustomSizing.MAX_BACKGROUND_PX.toFloat() / longer
+            val targetWidth = maxOf(1, (sourceWidth * scale).roundToInt())
+            val targetHeight = maxOf(1, (sourceHeight * scale).roundToInt())
+            val bitmap = decodeSampled(bytes, source.name, sourceWidth, sourceHeight, targetWidth, targetHeight)
+            try {
+                val scaled = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
                 try {
                     return Rendered(encode(scaled), ninePatch = false)
                 } finally {
                     if (scaled !== bitmap) scaled.recycle()
                 }
+            } finally {
+                bitmap.recycle()
             }
-            val size = CustomSizing.iconSize(job.resourceName, job.configuration, bitmap.width, bitmap.height)
-            if (size.width == bitmap.width && size.height == bitmap.height) return Rendered(bytes, ninePatch = false)
+        }
+
+        val size = CustomSizing.iconSize(job.resourceName, job.configuration, sourceWidth, sourceHeight)
+        if (size.width == sourceWidth && size.height == sourceHeight) return Rendered(bytes, ninePatch = false)
+        val bitmap = decodeSampled(bytes, source.name, sourceWidth, sourceHeight, size.width, size.height)
+        try {
             val out = Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888)
             try {
                 val scale = min(size.width.toFloat() / bitmap.width, size.height.toFloat() / bitmap.height)
@@ -164,7 +216,7 @@ class DrawableRenderer(
                 val dh = maxOf(1, (bitmap.height * scale).roundToInt())
                 val left = (size.width - dw) / 2
                 val top = (size.height - dh) / 2
-                Canvas(out).drawBitmap(bitmap, null, Rect(left, top, left + dw, top + dh), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+                Canvas(out).drawBitmap(bitmap, null, Rect(left, top, left + dw, top + dh), fitPaint)
                 return Rendered(encode(out), ninePatch = false)
             } finally {
                 out.recycle()
@@ -177,8 +229,7 @@ class DrawableRenderer(
     /** A missing dashboard icon: render the reference pack icon, then draw the glyph in its style. */
     private fun renderSynthesis(job: PlannedDrawableJob, synthesis: IconSynthesis): Rendered {
         val synth = synthesizer ?: throw IOException("no synthesizer")
-        val reference = render(synthesis.reference)
-        val decoded = decode(reference.png, synthesis.reference.resourceName)
+        val decoded = referenceBitmap(synthesis.reference)
         try {
             val out = synth.synthesize(decoded, synthesis.glyph, decoded.width, decoded.height)
             try {
@@ -191,23 +242,74 @@ class DrawableRenderer(
         }
     }
 
+    /**
+     * The reference icon of a synthesis job as a bitmap. A plain pack layer job is decoded or
+     * composited directly, skipping the PNG encode/decode round trip of [render]; anything else
+     * (custom, nested synthesis, 9-patch) goes through [render] so the result is the same bitmap
+     * the device would get.
+     */
+    private fun referenceBitmap(reference: PlannedDrawableJob): Bitmap {
+        val steps = reference.plan.steps
+        if (reference.custom != null || reference.synthesis != null || reference.ninePatch || steps.isEmpty()) {
+            return decode(render(reference).png, reference.resourceName)
+        }
+        val zip = zip(reference.source.packId)
+        if (steps.size == 1 && steps[0].tintArgb == null) return decodeEntry(zip, steps[0].layerPath)
+        val decoded = ArrayList<Bitmap>(steps.size)
+        try {
+            for (step in steps) decoded.add(decodeEntry(zip, step.layerPath))
+            return composite(decoded, steps.map { it.tintArgb })
+        } finally {
+            decoded.forEach { it.recycle() }
+        }
+    }
+
     private fun zip(packId: String): ZipFile {
         zips[packId]?.let { return it }
         val file = packs.zipFile(packId) ?: throw IOException("pack $packId is not installed")
         return ZipFile(file).also { zips[packId] = it }
     }
 
+    private fun entry(zip: ZipFile, path: String): ZipEntry =
+        zip.getEntry(path) ?: throw IOException("$path not found in ${zip.name.substringAfterLast('/')}")
+
+    /** The bytes of [path]; sized from the entry header when the zip records the size. */
     private fun read(zip: ZipFile, path: String): ByteArray {
-        val entry = zip.getEntry(path) ?: throw IOException("$path not found in ${zip.name.substringAfterLast('/')}")
-        return zip.getInputStream(entry).use { it.readBytes() }
+        val entry = entry(zip, path)
+        val size = entry.size
+        if (size < 0 || size > Int.MAX_VALUE.toLong()) return zip.getInputStream(entry).use { it.readBytes() }
+        val bytes = ByteArray(size.toInt())
+        zip.getInputStream(entry).use { DataInputStream(it).readFully(bytes) }
+        return bytes
     }
 
-    private fun decode(bytes: ByteArray, path: String): Bitmap {
-        val options = BitmapFactory.Options().apply {
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-            inScaled = false
-        }
+    /** Decodes [path] straight from the zip stream, without copying its bytes first. */
+    private fun decodeEntry(zip: ZipFile, path: String): Bitmap {
+        val entry = entry(zip, path)
+        return zip.getInputStream(entry).use { decodeStream(it, path) }
+    }
+
+    private fun decodeStream(input: InputStream, path: String): Bitmap =
+        BitmapFactory.decodeStream(input, null, decodeOptions()) ?: throw IOException("cannot decode $path")
+
+    private fun decode(bytes: ByteArray, path: String): Bitmap =
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions()) ?: throw IOException("cannot decode $path")
+
+    /**
+     * Decodes [bytes] (of [sourceWidth]x[sourceHeight]) with the largest power-of-two
+     * `inSampleSize` that keeps the result at least [targetWidth]x[targetHeight], so the
+     * following scale is always a shrink.
+     */
+    private fun decodeSampled(bytes: ByteArray, path: String, sourceWidth: Int, sourceHeight: Int, targetWidth: Int, targetHeight: Int): Bitmap {
+        var sample = 1
+        while (sourceWidth / (sample * 2) >= targetWidth && sourceHeight / (sample * 2) >= targetHeight) sample *= 2
+        val options = decodeOptions().apply { inSampleSize = sample }
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: throw IOException("cannot decode $path")
+    }
+
+    private fun decodeOptions(): BitmapFactory.Options = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+        inScaled = false
     }
 
     /**
@@ -285,10 +387,22 @@ class DrawableRenderer(
         }
     }
 
+    /** PNG-encodes [bitmap] through the shared buffer; the returned array is a fresh copy. */
     private fun encode(bitmap: Bitmap): ByteArray {
-        val out = ByteArrayOutputStream()
-        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("PNG encoding failed")
-        return out.toByteArray()
+        pngBuffer.reset()
+        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, pngBuffer)) throw IOException("PNG encoding failed")
+        val bytes = pngBuffer.toByteArray()
+        // A background can leave a multi-megabyte buffer behind; drop it so the renderer stays small between jobs.
+        if (pngBuffer.size() > PNG_BUFFER_KEEP_BYTES) pngBuffer.reset()
+        return bytes
+    }
+
+    private companion object {
+        /** Initial PNG buffer: a 144 px ARGB icon encodes well under this. */
+        const val PNG_BUFFER_BYTES = 128 * 1024
+
+        /** Buffers that grew past this are not kept between jobs. */
+        const val PNG_BUFFER_KEEP_BYTES = 4 * 1024 * 1024
     }
 }
 
