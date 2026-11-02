@@ -4,6 +4,7 @@
 | --- | --- |
 | `data-safety.csv` | Data safety answers for the v1.0 release (Play Billing + licence server). Import under App content > Data safety > Import. |
 | `data-safety-no-collection.csv` | Same form answered "collects no data", for test-track builds that ship before billing is wired in. |
+| `listing.md` | Store listing copy (name, short and full description), graphics checklist, category, rating and app-access notes for review. |
 | `data-safety-blank-export.csv` | The blank export the two files are generated from. |
 
 Regenerate after a policy or feature change with `python3 tools/make_data_safety.py docs/play/data-safety-blank-export.csv docs/play`.
