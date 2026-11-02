@@ -22,6 +22,19 @@ the unsigned CI candidate is for validation, not installation. It needs Android 
 Build locally with `cd android && ./gradlew assembleDebug`. The old WebView app in `apps/hex-next/`
 is kept only as a design reference.
 
+### Codemagic builds
+
+The root `codemagic.yaml` builds the native app using JDK 17, Node.js 22, and Android SDK 36.
+Add this repository in Codemagic, select the YAML configuration and the **HexNext Android**
+workflow, then start a build. Pushes and pull requests targeting `main`, `master`, or `release/**`
+trigger builds once the Codemagic webhook is connected.
+
+The workflow runs the web/Python tests, Android unit tests, release lint, and APK verification.
+Download `app-universal-debug.apk` from the build artifacts for testing; it uses the standard Android
+debug key, not the production signing identity. The unsigned release candidate, R8 mapping, and lint
+report are also available. No signing secrets are needed. Production-signed releases remain handled
+by the GitHub release workflow described below; do not add production credentials to this workflow.
+
 ## Universal APK release
 
 The release is the compiled native app in `android/`, not a web dashboard export. Its universal APK
