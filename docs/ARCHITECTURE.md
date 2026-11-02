@@ -170,11 +170,13 @@ A **Pack** is the zip produced by `tools/hex_pack_builder.py`: greyscale PNG lay
   count, skipped names, result, and `cmd overlay lookup` read-back of one sentinel resource.
 * **Repair**: a failed or stale overlay is disabled, its idmap purged from `/data/resource-cache`,
   and rebuilt from the saved theme.
-* **Safe mode watchdog**: before applying, the service writes `applying.json` (boot id, time).
-  A root shell watchdog started with `setsid` watches `system_server` and `com.android.systemui`
-  PIDs for 120 s; two restarts disable every `HexNext_*` overlay. On `BOOT_COMPLETED`, if the
-  boot id changed twice within 10 minutes of an unconfirmed apply, all Hex overlays are disabled
-  and the app opens in Safe Mode. The user confirms "it works" to clear the marker.
+* **Safe mode watchdog**: apply state is stored in device-protected preferences. A root shell
+  watchdog started with `setsid` watches `system_server` and `com.android.systemui` PIDs for 120 s;
+  two restarts disable every `HexNext_*` overlay. Root applies also install the early-recovery
+  module at `/data/adb/modules/hexnext_early_recovery/`; its detached `post-fs-data` hook disables
+  Hex overlays after a reboot with an unconfirmed apply, before user unlock. `LOCKED_BOOT_COMPLETED`
+  records boot ids and completes safe-mode handling; the app opens in Safe Mode. The user confirms
+  "it works" to clear the pending apply.
 * **Panic**: `Remove everything` disables and unregisters all `HexNext_*` overlays.
 
 ## One UI version handling
