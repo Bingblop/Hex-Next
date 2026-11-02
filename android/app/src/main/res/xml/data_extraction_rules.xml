@@ -13,7 +13,11 @@
   - files/packs: downloaded pack zips (up to hundreds of MB); they are downloaded again.
   - hexnext_apply.xml (ApplyGuard, device-protected; plus its old credential-protected copy) and
     hexnext_theme_applier.xml (takeover flag): they describe overlays that exist only on this phone.
-  The theme choice (theme.json), settings and custom assets are still backed up.
+  - files/custom/backgrounds, files/custom/generated and files/custom/fonts (cloud only): imported
+    background photos, AI gallery images and fonts (up to 64 MB each) would quickly pass the quota.
+    They still move with a device transfer, which has no quota. A restored theme that names a
+    missing background or font drops that assignment, as after a delete (MainViewModel prunes it).
+  The theme choice (theme.json), settings and custom icons are still backed up.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -28,6 +32,9 @@
         <exclude domain="file" path="logs/" />
         <exclude domain="file" path="requests/" />
         <exclude domain="file" path="packs/" />
+        <exclude domain="file" path="custom/backgrounds/" />
+        <exclude domain="file" path="custom/generated/" />
+        <exclude domain="file" path="custom/fonts/" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />

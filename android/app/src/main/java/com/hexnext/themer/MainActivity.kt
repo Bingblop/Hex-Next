@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
     /**
      * Samsung One UI 7+ on Android 15+; anything else gets [BlockedScreen] and no view model.
      * A non-Samsung phone is turned away on the manufacturer alone, before the One UI properties
-     * are read: there they are all unset, and reading them can start getprop on this main thread.
+     * are read (the same order [CompatibilityCheck.check] uses), so it never touches them here.
      */
     private val compat: Compatibility by lazy {
         if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) Compatibility.NotOneUi else CompatibilityCheck.check()

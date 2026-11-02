@@ -73,13 +73,19 @@ class ThemeApplier(context: Context) {
     private val guard = ApplyGuard(appContext)
     private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+    init {
+        rememberContext(appContext)
+    }
+
     fun apply(service: IThemeService, spec: EngineThemeSpec, log: (LogLine) -> Unit): ApplyReport {
         val started = System.currentTimeMillis()
         val generation = APPLY_GENERATION.incrementAndGet()
+        // Counted before the lock: a missed-trip recovery that takes the lock after this sees it.
+        RUNNING_APPLIES.incrementAndGet()
         // A post-apply trip handler already running for the previous apply finishes first, so it
         // cannot unregister or bury the overlays this apply builds; one not yet started sees the
-        // new generation and does nothing.
-        synchronized(TRIP_LOCK) {}
+        // new generation and does nothing. The previous apply's trip record goes with it.
+        synchronized(TRIP_LOCK) { clearTripWatch() }
         var monitorStartedAt = 0L
         val buildLog = BuildLog(appContext)
         val notes = ArrayList<String>()
@@ -126,7 +132,7 @@ class ThemeApplier(context: Context) {
             applyAll(
                 service, spec, buildLog, log, ::say, ::note, notes, outcomes,
                 { status, left -> pending = left; progress(status) },
-                { at -> monitorStartedAt = at },
+                { at -> monitorStartedAt = at; recordTripWatch(started, at) },
             ) { semwt = it }
             val report = finish()
             // The monitor keeps watching after this returns; a trip then must reach the app too.
@@ -152,6 +158,8 @@ class ThemeApplier(context: Context) {
                 }
             }
             report
+        } finally {
+            RUNNING_APPLIES.decrementAndGet()
         }
     }
 
@@ -590,7 +598,8 @@ class ThemeApplier(context: Context) {
     fun remove(service: IThemeService, log: (LogLine) -> Unit): Boolean {
         // Ends the post-apply monitor watch: a trip after Remove has nothing left to turn off.
         APPLY_GENERATION.incrementAndGet()
-        synchronized(TRIP_LOCK) {}
+        // Removal turns the theme off itself; a monitor trip left over is not one to recover.
+        synchronized(TRIP_LOCK) { clearTripWatch() }
         val buildLog = BuildLog(appContext)
         val say: (LogLevel, String) -> Unit = { level, text ->
             log(LogLine(level, text))
@@ -743,11 +752,15 @@ class ThemeApplier(context: Context) {
             }
         }
         val handBack = semwt.records.filter { it.target !in keep && it.hexOverlayId !in enabled }
+        // A SemWT overlay Samsung no longer registers has nothing to re-enable: its record is dropped.
+        val listed = now.mapTo(HashSet()) { it.overlayId }
         val retired = HashSet<String>()
         val failedSemWt = HashSet<String>()
         val restored = HashSet<String>()
         for (record in handBack) {
-            if (record.wasEnabled && SemWtPlanner.isSafeId(record.semwtId) && record.semwtId !in restored) {
+            if (record.wasEnabled && record.semwtId !in listed) {
+                log(LogLine(LogLevel.INFO, "${record.target}: ${record.semwtId} is no longer registered; record dropped"))
+            } else if (record.wasEnabled && SemWtPlanner.isSafeId(record.semwtId) && record.semwtId !in restored) {
                 if (record.semwtId in failedSemWt ||
                     SemWtController.run(service, listOf(SemWtPlanner.enable(record.semwtId)), log) != 1
                 ) {
@@ -939,7 +952,10 @@ class ThemeApplier(context: Context) {
             if (monitorTripped(service)) {
                 // Checked again under the lock: an apply or removal started meanwhile owns the overlays.
                 synchronized(TRIP_LOCK) {
-                    if (APPLY_GENERATION.get() == generation) onTripAfterApply(service, report, log)
+                    // A cleared trip record: recoverMissedTrip handled this trip already.
+                    if (APPLY_GENERATION.get() == generation && prefs.getLong(KEY_TRIP_APPLY_AT, 0L) == report.startedAt) {
+                        onTripAfterApply(service, report, log)
+                    }
                 }
                 return
             }
@@ -954,21 +970,89 @@ class ThemeApplier(context: Context) {
     /**
      * The monitor fired after the apply finished. It has already turned the HexNext overlays off
      * (and the SemWT guard gave Samsung's back), so the app follows as safe mode does: the guard
-     * is marked (confirmed, banner on next start), the SemWT record is restored, the takeover flag
-     * cleared and the saved report no longer says the theme is applied.
+     * is marked (confirmed, banner on next start), the SemWT record is restored, the palette seed
+     * restored and the font removed, the takeover flag cleared and the saved report no longer says
+     * the theme is applied.
      */
-    private fun onTripAfterApply(service: IThemeService, report: ApplyReport, log: (LogLine) -> Unit) {
-        val why = "SystemUI or system_server restarted twice after the apply; the stability monitor turned the theme off."
+    private fun onTripAfterApply(
+        service: IThemeService,
+        report: ApplyReport,
+        log: (LogLine) -> Unit,
+        why: String = "SystemUI or system_server restarted twice after the apply; the stability monitor turned the theme off.",
+    ) {
         guard.markSafeModeEntered(by = "stability monitor")
+        clearTripWatch()
         runCatching { log(LogLine(LogLevel.ERROR, why)) }
         runCatching { service.disableHexOverlays() }
         runCatching { SemWtController.restore(service) { line -> if (line.level != LogLevel.INFO) log(line) } }
+        // The monitor only turns overlays off. The font (bound live and kept as a module that is
+        // mounted again at every boot) and the shell-tier palette seed were set after it started,
+        // and the mark above switches off the boot-time guards that would remove them, so they go here.
+        runCatching { MonetSeed.restore(service) { line -> if (line.level != LogLevel.INFO) log(line) } }
+            .onFailure { runCatching { log(LogLine(LogLevel.WARN, "System palette restore failed: ${it.javaClass.simpleName}: ${it.message}")) } }
+        val fonts = FontInstaller(service)
+        runCatching { fonts.remove { line -> if (line.level != LogLevel.INFO) log(line) } }
+            .onFailure { runCatching { log(LogLine(LogLevel.WARN, "Font removal failed: ${it.javaClass.simpleName}: ${it.message}")) } }
+        if (runCatching { fonts.hasState() }.getOrDefault(false)) {
+            runCatching { log(LogLine(LogLevel.WARN, "The Hex Next font is still installed; run Remove theme with Shizuku running as root.")) }
+        }
         val left = runCatching { SemWtController.readStateChecked(service).state }.getOrNull()
         // An unreadable record keeps the flag, so Remove theme still knows there is something to restore.
         setTakeoverActive(appContext, left == null || left.records.isNotEmpty())
         if (lastReport(appContext)?.startedAt == report.startedAt) {
             saveReport(report.copy(status = ApplyReport.STATUS_ABORTED, error = why, notes = report.notes + why))
         }
+    }
+
+    /**
+     * Finishes the trip handling no app process saw. A system_server restart kills every app
+     * process, the post-apply watcher and a running apply included, while the root monitor goes
+     * on, trips, turns the HexNext overlays off and writes `safe_mode.json`. The boot id does not
+     * change on such a restart, so the restart guard never fires either. Here, in a later
+     * process, a `safe_mode.json` written inside the window of the monitor the last apply started
+     * gets the same handling as [onTripAfterApply]. Returns true when it acted.
+     */
+    fun recoverMissedTrip(service: IThemeService, log: (LogLine) -> Unit): Boolean {
+        val applyAt = prefs.getLong(KEY_TRIP_APPLY_AT, 0L)
+        val monitorAt = prefs.getLong(KEY_TRIP_MONITOR_AT, 0L)
+        if (applyAt <= 0L || monitorAt <= 0L) return false
+        // An apply running in this process watches its own monitor.
+        if (RUNNING_APPLIES.get() > 0) return false
+        val read = runCatching { service.readStateFile(SAFE_MODE_NAME) }.getOrNull() ?: return false
+        if (read.code() != 0) return false
+        val content = read.getString(ThemeService.KEY_CONTENT).orEmpty()
+        val tripAt = TRIP_TIME.find(content)?.groupValues?.get(1)?.toLongOrNull()?.times(1000L) ?: return false
+        // `date +%s` has whole seconds; a later monitor (another apply, the Settings test) deletes the file first.
+        if (tripAt < monitorAt - 1000L || tripAt > monitorAt + (MONITOR_SECONDS + WATCH_GRACE_SECONDS) * 1000L) return false
+        synchronized(TRIP_LOCK) {
+            // Checked again under the lock: an apply, a removal or the watcher may have got here first.
+            if (RUNNING_APPLIES.get() > 0) return false
+            if (prefs.getLong(KEY_TRIP_APPLY_AT, 0L) != applyAt || prefs.getLong(KEY_TRIP_MONITOR_AT, 0L) != monitorAt) return false
+            val report = lastReport(appContext)
+            if (report == null || report.startedAt != applyAt || report.status == ApplyReport.STATUS_ABORTED) {
+                // Removed, replaced or already ended: nothing claims the theme is still on.
+                clearTripWatch()
+                return false
+            }
+            val why = if (report.finished) {
+                "SystemUI or system_server restarted twice after the apply; the stability monitor turned the theme off."
+            } else {
+                "SystemUI or system_server restarted twice during the apply; the stability monitor turned the theme off and the apply was stopped."
+            }
+            onTripAfterApply(service, report, log, why)
+        }
+        return true
+    }
+
+    /** Remembers which apply's monitor a later process may find tripped ([recoverMissedTrip]). */
+    private fun recordTripWatch(applyAt: Long, monitorAt: Long) {
+        // commit(): a system_server restart can kill this process right after the monitor starts.
+        prefs.edit().putLong(KEY_TRIP_APPLY_AT, applyAt).putLong(KEY_TRIP_MONITOR_AT, monitorAt).commit()
+    }
+
+    private fun clearTripWatch() {
+        if (!prefs.contains(KEY_TRIP_APPLY_AT) && !prefs.contains(KEY_TRIP_MONITOR_AT)) return
+        prefs.edit().remove(KEY_TRIP_APPLY_AT).remove(KEY_TRIP_MONITOR_AT).commit()
     }
 
     /**
@@ -986,6 +1070,7 @@ class ThemeApplier(context: Context) {
         val why = "SystemUI or system_server restarted twice during the apply; the stability monitor turned the theme off and the apply was stopped."
         // As after the apply: the theme is already off, so there is nothing left to confirm.
         guard.markSafeModeEntered(by = "stability monitor")
+        clearTripWatch()
         note(LogLevel.ERROR, why)
         val disabled = runCatching { service.disableHexOverlays() }.getOrNull()
         if (disabled == null || disabled.code() != 0) {
@@ -1020,6 +1105,38 @@ class ThemeApplier(context: Context) {
          */
         private val TRIP_LOCK = Any()
 
+        /** Applies running in this process; [recoverMissedTrip] leaves a trip to them. */
+        private val RUNNING_APPLIES = AtomicInteger()
+
+        /** The `"time":<epoch seconds>` field of the monitor's `safe_mode.json`. */
+        private val TRIP_TIME = Regex("\"time\"\\s*:\\s*(\\d+)")
+        private const val KEY_TRIP_APPLY_AT = "tripWatchApplyAt"
+        private const val KEY_TRIP_MONITOR_AT = "tripWatchMonitorAt"
+
+        /**
+         * The application context, kept by every entry point that is handed one, so that
+         * [SemWtController.reassert] (run at app start and at boot, after [isTakeoverActive])
+         * can run [recoverMissedTrip] without a context of its own.
+         */
+        @Volatile
+        private var knownContext: Context? = null
+
+        private fun rememberContext(context: Context) {
+            if (knownContext == null) knownContext = context.applicationContext
+        }
+
+        /** [recoverMissedTrip] for callers that have a context (app start, boot receiver). */
+        fun recoverMissedTrip(context: Context, service: IThemeService, log: (LogLine) -> Unit): Boolean =
+            ThemeApplier(context).recoverMissedTrip(service, log)
+
+        /** [recoverMissedTrip] with the remembered context; false when none was seen yet. */
+        internal fun recoverMissedTripWithKnownContext(service: IThemeService, log: (LogLine) -> Unit): Boolean {
+            val context = knownContext ?: return false
+            return runCatching { ThemeApplier(context).recoverMissedTrip(service, log) }
+                .onFailure { runCatching { log(LogLine(LogLevel.WARN, "Monitor trip check failed: ${it.javaClass.simpleName}: ${it.message}")) } }
+                .getOrDefault(false)
+        }
+
         /** The monitor's trip record, as a state file name ([IThemeService.readStateFile]). */
         private val SAFE_MODE_NAME = MonitorScript.SAFE_MODE_FILE.substringAfterLast('/')
         private const val MIB = 1024 * 1024
@@ -1046,10 +1163,13 @@ class ThemeApplier(context: Context) {
         fun reportFile(context: Context): File = File(File(context.filesDir, "reports"), "apply-last.json")
 
         /** True while a compiled theme has SemWT overlays taken over (the boot receiver re-asserts then). */
-        fun isTakeoverActive(context: Context): Boolean =
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TAKEOVER_ACTIVE, false)
+        fun isTakeoverActive(context: Context): Boolean {
+            rememberContext(context)
+            return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TAKEOVER_ACTIVE, false)
+        }
 
         fun setTakeoverActive(context: Context, active: Boolean) {
+            rememberContext(context)
             // commit(): the boot receiver and safe mode read this right before the process may die.
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_TAKEOVER_ACTIVE, active).commit()
         }

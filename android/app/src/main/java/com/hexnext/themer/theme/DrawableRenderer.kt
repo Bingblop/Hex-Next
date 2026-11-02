@@ -81,7 +81,7 @@ class DrawableRenderer(
     private val fitPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
 
     /** PNG encoder output, reset per encode; [ByteArrayOutputStream.toByteArray] copies out of it. */
-    private val pngBuffer = ByteArrayOutputStream(PNG_BUFFER_BYTES)
+    private var pngBuffer = ByteArrayOutputStream(PNG_BUFFER_BYTES)
 
     fun render(job: PlannedDrawableJob): Rendered {
         job.custom?.let { return renderCustom(job, it) }
@@ -434,8 +434,9 @@ class DrawableRenderer(
         pngBuffer.reset()
         if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, pngBuffer)) throw IOException("PNG encoding failed")
         val bytes = pngBuffer.toByteArray()
-        // A background can leave a multi-megabyte buffer behind; drop it so the renderer stays small between jobs.
-        if (pngBuffer.size() > PNG_BUFFER_KEEP_BYTES) pngBuffer.reset()
+        // A background can leave a multi-megabyte buffer behind. reset() keeps the grown array,
+        // so replace the stream to let it be collected and keep the renderer small between jobs.
+        if (bytes.size > PNG_BUFFER_KEEP_BYTES) pngBuffer = ByteArrayOutputStream(PNG_BUFFER_BYTES)
         return bytes
     }
 

@@ -1,6 +1,8 @@
 package com.hexnext.themer.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -281,7 +283,7 @@ private fun statusPillText(versionLine: String, state: ShizukuState): String {
             state.viaSu -> "SU only"
             state.isRoot -> "Root"
             state.isSystemUid1000 -> "System"
-            Capability.fromUid(state.uid) == Capability.SHELL -> "Colours only"
+            Capability.fromUid(state.uid) == Capability.SHELL -> "System palette"
             else -> "No root"
         }
         ShizukuState.PermissionNeeded, ShizukuState.PermissionDenied -> "Shizuku: allow"
@@ -319,11 +321,15 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
     val appSettings = LocalAppSettings.current
     val haptic = LocalHapticFeedback.current
     val snackbar = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
 
     // One snackbar per notice: haptic on arrival, the action when tapped. The notice is consumed
     // only once the snackbar is gone (shown, dismissed, or the editor left while it showed, so it
     // does not replay on return). Consuming it earlier would change this effect's key, and the
-    // key change cancels showSnackbar, which takes the snackbar down within a frame.
+    // key change cancels showSnackbar, which takes the snackbar down within a frame. An activity
+    // recreated for a configuration change (rotation, unfold, an overlay on android) also cancels
+    // the effect: the notice is kept then, so the new editor shows it again.
     val notice = ui.notice
     LaunchedEffect(notice?.id) {
         val current = notice ?: return@LaunchedEffect
@@ -338,7 +344,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                 duration = if (current.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
             )
         } finally {
-            viewModel.consumeNotice(current.id)
+            if (activity?.isChangingConfigurations != true) viewModel.consumeNotice(current.id)
         }
         if (result == SnackbarResult.ActionPerformed) {
             when (current.action) {
@@ -651,7 +657,7 @@ internal fun SectionCard(
 }
 
 /**
- * The Connection card: the access tier ("Full (root)", "Colours only (Shizuku)", "Not
+ * The Connection card: the access tier ("Full (root)", "System palette only (Shizuku)", "Not
  * connected") as a pill next to the title, one sentence on the state, the version line, the
  * action for the state and, without root, the root guide.
  */
@@ -730,8 +736,8 @@ internal fun connectionSummary(state: ShizukuState): String = when (state) {
         state.isRoot ->
             "Connected with root access. Apply builds one overlay for each scanned One UI app and takes over from Samsung's built-in theme overlays."
         Capability.fromUid(state.uid) == Capability.SHELL ->
-            "Connected through Shizuku without root. Your accent colour applies as the system palette and as colour overlays. " +
-                "For icons, backgrounds and fonts, start Shizuku with root."
+            "Connected through Shizuku without root. Your accent colour applies as the system palette only. " +
+                "For per-app colours, icons, backgrounds and fonts, start Shizuku with root."
         else ->
             "Connected, but without root. Start Shizuku with root, or restart it if it came up without root after your phone restarted."
     }
@@ -2197,8 +2203,13 @@ private fun CompiledThemeCard(
                     "Applied and not confirmed. Restart protection ended 10 minutes after the apply, so restarts " +
                         "no longer turn the theme off. Tap \"It works\" to clear this."
                 } else {
-                    "Applied and not confirmed yet: restart protection is on for 10 minutes. If your phone restarts twice " +
-                        "in that time, the theme is turned off. Check your phone, then confirm."
+                    // Phone restarts are only caught when root is still there after the restart. The
+                    // temporary DFRoot root that RootGuide recommends is gone by then, so promise only
+                    // what the in-session watchdog (120 s, System UI or system server restarts) does.
+                    "Applied and not confirmed yet. For the next 2 minutes, the theme is turned off if System UI " +
+                        "or the system restarts twice. Phone restarts are only caught if your root stays after a " +
+                        "restart: a temporary root such as DFRoot does not, so after a restart nothing can turn the " +
+                        "theme off. Check your phone before you restart it, then confirm."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
@@ -2209,7 +2220,7 @@ private fun CompiledThemeCard(
         if (!connected) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Connect first: start Shizuku with root (or over ADB for colours only).",
+                    "Connect first: start Shizuku with root. Over ADB only the system palette changes.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -2251,6 +2262,13 @@ private fun CompiledThemeCard(
             onDismiss = { confirmRemove = false },
         )
     }
+}
+
+/** The activity hosting [this] context, unwrapping [ContextWrapper]s; null when there is none. */
+internal tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /** "Applied to 12 apps · 1 failed · 2 removed apps skipped", or the interruption, in plain words. */

@@ -247,7 +247,7 @@ private fun WelcomePage() {
     )
     SectionCard("What you'll need") {
         Bullet("A Samsung phone on One UI 7 or later.")
-        Bullet("Root access, or Shizuku started with root. The next pages show the easiest way.")
+        Bullet("Root access with Shizuku started with root. The next pages show the easiest way.")
         Bullet("A theme pack, or just your favourite colour.")
     }
 }
@@ -308,7 +308,13 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
             suOnly -> "Start Shizuku with root"
             else -> "Give Hex Next access"
         },
-        body = connectionSummary(shizuku),
+        // The shared summary reads "root, or Shizuku": here, where the steps below end in
+        // Shizuku, say plainly that root alone is not enough.
+        body = if (shizuku == ShizukuState.NotRunning) {
+            "Hex Next needs root, and Shizuku started with root, to change your phone's theme. Theme Park is not required."
+        } else {
+            connectionSummary(shizuku)
+        },
     )
     when (shizuku) {
         ShizukuState.PermissionNeeded -> SectionCard("Shizuku") {
@@ -362,6 +368,14 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
                 CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                     RootGuide(links, startExpanded = true)
                 }
+                // RootGuide's steps end at root for Hex Next, which on its own is SU mode and
+                // cannot apply. Finish with the Shizuku step every rooted phone still needs.
+                Text(
+                    "Root alone cannot apply a theme. After these steps, install Shizuku, turn on Superuser for Shizuku " +
+                        "in KernelSU too, then open Shizuku, start it with root and come back here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
             }
         }
     } else {

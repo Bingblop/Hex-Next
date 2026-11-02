@@ -1,5 +1,7 @@
 package com.hexnext.engine.device
 
+import java.io.File
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -185,6 +187,72 @@ class SemWtTakeoverTest {
     }
 
     @Test
+    fun `guard script runs all semwt disables before raising each hex overlay once`() {
+        val sh = File("/bin/sh")
+        if (!sh.canExecute()) return
+        val hex = "com.android.shell:HexNext_android"
+        val shared = SemWtState()
+            .withTakeover("android", hex, semwtEnabledNow = true, now = 1)
+            .withTakeover("MonetPalette", hex, semwtEnabledNow = true, now = 2)
+            .withTakeover("G_MonetPalette", hex, semwtEnabledNow = true, now = 3)
+        val script = SemWtGuardScript.text(shared)
+        val functions = script.substring(0, script.indexOf("mkdir -p \"\$DIR\""))
+        val dir = createTempDirectory("semwt-guard").toFile()
+        try {
+            fun run(list: String): List<String> {
+                File(dir, "list").writeText(list.trimIndent() + "\n")
+                File(dir, "log").writeText("")
+                File(dir, "run.sh").writeText(functions + FAKE_CMD + "fix_pairs\n")
+                val process = ProcessBuilder(sh.path, File(dir, "run.sh").path)
+                    .directory(dir)
+                    .redirectErrorStream(true)
+                    .start()
+                val out = process.inputStream.bufferedReader().readText()
+                assertEquals(0, process.waitFor(), out)
+                return File(dir, "log").readLines().filter { it.isNotBlank() }
+            }
+            // Only SemWT overlays above ours: their disables are enough, no framework cycle.
+            assertEquals(
+                listOf(
+                    "disable android:SemWT_android",
+                    "disable android:SemWT_MonetPalette",
+                    "disable android:SemWT_G_MonetPalette",
+                ),
+                run(
+                    """
+                    android
+                    [x] $hex
+                    [x] android:SemWT_android
+                    [x] android:SemWT_MonetPalette
+                    [x] android:SemWT_G_MonetPalette
+                    """,
+                ),
+            )
+            // Another overlay above ours: one raise for the shared overlay, after the disables.
+            assertEquals(
+                listOf(
+                    "disable android:SemWT_android",
+                    "disable android:SemWT_MonetPalette",
+                    "disable $hex",
+                    "enable $hex",
+                ),
+                run(
+                    """
+                    android
+                    [x] $hex
+                    [x] android:SemWT_android
+                    [x] com.example:other
+                    [x] android:SemWT_MonetPalette
+                    [ ] android:SemWT_G_MonetPalette
+                    """,
+                ),
+            )
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `guard start and stop commands`() {
         val start = SemWtGuardScript.startCommand(1)
         assertTrue(start.contains("setsid sh ${SemWtGuardScript.PATH} 5 "))
@@ -192,5 +260,39 @@ class SemWtTakeoverTest {
         assertFalse('£' in stop)
         assertTrue(stop.startsWith("P=\$(cat ${SemWtGuardScript.PID_FILE}"))
         assertTrue(stop.contains("*semwt_guard.sh*) kill \$P"))
+    }
+
+    private companion object {
+        /**
+         * A stand-in for `cmd` that reads and edits `./list` like One UI 9: a disable clears the
+         * marker, an enable sets it and moves the overlay to the end of its target's section.
+         * Every disable and enable is appended to `./log`.
+         */
+        val FAKE_CMD = """
+            cmd() {
+              case "${'$'}2" in
+                list) cat ./list ;;
+                disable|enable)
+                  id=${'$'}5
+                  echo "${'$'}2 ${'$'}id" >> ./log
+                  awk -v op="${'$'}2" -v id="${'$'}id" '
+                    { line[NR] = ${'$'}0 }
+                    END {
+                      for (i = 1; i <= NR; i++) if (line[i] == "[x] " id || line[i] == "[ ] " id) at = i
+                      if (!at) { for (i = 1; i <= NR; i++) print line[i]; exit }
+                      if (op == "disable") { line[at] = "[ ] " id; for (i = 1; i <= NR; i++) print line[i]; exit }
+                      end = NR + 1
+                      for (i = at + 1; i <= NR; i++) if (line[i] !~ /^(\[.\]|---) /) { end = i; break }
+                      for (i = 1; i <= NR; i++) {
+                        if (i == end) print "[x] " id
+                        if (i != at) print line[i]
+                      }
+                      if (end == NR + 1) print "[x] " id
+                    }' ./list > ./list.new && mv ./list.new ./list
+                  ;;
+              esac
+            }
+
+        """.trimIndent() + "\n"
     }
 }

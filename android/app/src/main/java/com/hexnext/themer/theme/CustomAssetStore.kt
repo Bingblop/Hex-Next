@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import kotlin.math.roundToInt
 
 /**
  * The user's imported assets under `files/custom/<icons|backgrounds|fonts>`.
@@ -93,7 +94,8 @@ class CustomAssetStore(context: Context) {
      * Imports the image document at [uri] as an ARGB PNG of [kind]. Accepts PNG, JPG, WebP, GIF
      * and BMP through [BitmapFactory] and ICO/CUR files (by their `00 00 01|02 00` magic,
      * whatever the file is named) through [IcoReader], taking the largest, deepest entry.
-     * Rejects images over 4096×4096 or 25 MB.
+     * Rejects images over 4096×4096 or 25 MB. Icons are stored shrunk so the longer side is at
+     * most [CustomSizing.MAX_ICON_PX].
      */
     fun importImage(uri: Uri, kind: Kind): Asset {
         require(kind != Kind.FONT) { "importImage cannot store a font" }
@@ -101,12 +103,17 @@ class CustomAssetStore(context: Context) {
         val bytes = readAll(uri, MAX_IMAGE_BYTES, "image")
         val bitmap = if (isIco(sourceName, bytes)) decodeIco(bytes) else decodeImage(bytes)
         try {
-            val argb = if (bitmap.config == Bitmap.Config.ARGB_8888) {
+            val converted = if (bitmap.config == Bitmap.Config.ARGB_8888) {
                 bitmap
             } else {
                 bitmap.copy(Bitmap.Config.ARGB_8888, false)
                     ?: throw IOException("The image could not be converted to ARGB.")
             }
+            // Icons are rendered at most [CustomSizing.MAX_ICON_PX] on the longer side, and
+            // files/custom/icons stays in cloud backup, so a full-size photo would only eat the
+            // 25 MB Auto Backup quota. Store icons already shrunk to that size.
+            val argb = if (kind == Kind.ICON) shrinkIcon(converted) else converted
+            if (argb !== converted && converted !== bitmap) converted.recycle()
             val png = ByteArrayOutputStream(argb.byteCount / 4 + 1024).also { out ->
                 if (!argb.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("The image could not be encoded as PNG.")
             }.toByteArray()
@@ -203,6 +210,23 @@ class CustomAssetStore(context: Context) {
                 checkDimensions(image.width, image.height)
                 Bitmap.createBitmap(image.argb, image.width, image.height, Bitmap.Config.ARGB_8888)
             }
+        }
+    }
+
+    /**
+     * [bitmap] scaled down uniformly so its longer side is at most [CustomSizing.MAX_ICON_PX];
+     * [bitmap] itself when it already fits. Never upscales.
+     */
+    private fun shrinkIcon(bitmap: Bitmap): Bitmap {
+        val longer = maxOf(bitmap.width, bitmap.height)
+        if (longer <= CustomSizing.MAX_ICON_PX) return bitmap
+        val scale = CustomSizing.MAX_ICON_PX.toFloat() / longer
+        val width = maxOf(1, (bitmap.width * scale).roundToInt())
+        val height = maxOf(1, (bitmap.height * scale).roundToInt())
+        return try {
+            Bitmap.createScaledBitmap(bitmap, width, height, true)
+        } catch (e: OutOfMemoryError) {
+            throw IOException("The image is too large to scale down.", e)
         }
     }
 

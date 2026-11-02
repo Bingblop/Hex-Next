@@ -245,8 +245,9 @@ public object SemWtPlanner {
  * overlay is enabled, disabled or reordered); when the stamp changed, and in any case every
  * [FULL_CHECK_TICKS] ticks, it checks each recorded pair whose Hex overlay is enabled: an enabled
  * SemWT overlay is disabled again, and when any enabled overlay is listed after the Hex overlay
- * in its target's section the Hex overlay is raised with a disable/enable cycle (One UI 9 moves an
- * overlay to the top on every enable; `set-priority` does not work for fabricated overlays).
+ * in its target's section once those SemWT overlays are off, the Hex overlay is raised with a
+ * disable/enable cycle, at most once per check even when several pairs share it (One UI 9 moves
+ * an overlay to the top on every enable; `set-priority` does not work for fabricated overlays).
  * When `safe_mode.json` appears (the stability monitor tripped) it re-enables the SemWT overlays
  * that were enabled before the takeover and exits. A second guard replaces the first: each
  * instance exits once the pid file names another process.
@@ -359,28 +360,42 @@ public object SemWtGuardScript {
           LIST=£(cmd overlay list --user current 2>/dev/null | sed 's/^[[:space:]]*//')
         }
 
-        # LIST is read again after every change, so a SemWT overlay just disabled (or a Hex
-        # overlay just raised, which several pairs can share) never triggers a needless raise.
+        # Two passes, like SemWtController.reassert: first every SemWT overlay that is enabled
+        # again is disabled, then LIST is read once more and each Hex overlay (several pairs can
+        # share one, such as the framework overlay) is raised at most once, and only when an
+        # enabled overlay is still listed after it. Every raise of the framework overlay restarts
+        # the whole UI, so a SemWT overlay that its own disable already moves out of the way never
+        # causes one. Each action prints one "fixed" line.
         fix_pairs() {
           list_overlays
           [ -n "£LIST" ] || return 0
-          printf '%s\n' "£PAIRS" | while IFS='|' read -r sem hex; do
+          OFF=£(printf '%s\n' "£PAIRS" | while IFS='|' read -r sem hex; do
             [ -n "£sem" ] && [ -n "£hex" ] || continue
             printf '%s\n' "£LIST" | grep -qxF "[x] £hex" || continue
-            acted=0
             if printf '%s\n' "£LIST" | grep -qxF "[x] £sem"; then
               cmd overlay disable --user current "£sem" >/dev/null 2>&1
-              acted=1
-              list_overlays
+              echo fixed
             fi
-            if [ -n "£LIST" ] && [ "£(needs_raise "£hex")" = 1 ]; then
-              cmd overlay disable --user current "£hex" >/dev/null 2>&1
-              cmd overlay enable --user current "£hex" >/dev/null 2>&1
-              acted=1
-              list_overlays
-            fi
-            [ "£acted" = 1 ] && echo fixed
-          done
+          done)
+          if [ -n "£OFF" ]; then
+            printf '%s\n' "£OFF"
+            list_overlays
+            [ -n "£LIST" ] || return 0
+          fi
+          printf '%s\n' "£PAIRS" | {
+            raised=' '
+            while IFS='|' read -r sem hex; do
+              [ -n "£hex" ] || continue
+              case "£raised" in *" £hex "*) continue ;; esac
+              raised="£raised£hex "
+              printf '%s\n' "£LIST" | grep -qxF "[x] £hex" || continue
+              if [ "£(needs_raise "£hex")" = 1 ]; then
+                cmd overlay disable --user current "£hex" >/dev/null 2>&1
+                cmd overlay enable --user current "£hex" >/dev/null 2>&1
+                echo fixed
+              fi
+            done
+          }
         }
 
         check() {

@@ -21,8 +21,23 @@ object ServiceTasks {
     /** Takes the slot for [name]; false (nothing taken) while another task holds it. */
     fun tryStart(name: String): Boolean = _running.compareAndSet(null, name)
 
+    /**
+     * [tryStart] for a worker thread outside any coroutine (the boot receiver): polls until the
+     * slot is free and taken, at most [timeoutMs]. False when it never came free; nothing is taken then.
+     */
+    fun startBlocking(name: String, timeoutMs: Long): Boolean {
+        val deadline = System.nanoTime() + timeoutMs * 1_000_000L
+        while (!tryStart(name)) {
+            if (System.nanoTime() - deadline >= 0L) return false
+            Thread.sleep(POLL_MS)
+        }
+        return true
+    }
+
     /** Gives the slot back. Only the task whose [tryStart] returned true calls this. */
     fun finish() {
         _running.value = null
     }
+
+    private const val POLL_MS = 200L
 }

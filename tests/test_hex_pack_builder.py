@@ -30,6 +30,79 @@ class UnmappedPluginTest(unittest.TestCase):
                 builder.build_pack(Path("plugin.apk"), Path(out))
             self.assertEqual(list(Path(out).iterdir()), [])
 
+    def test_missing_author_is_written_as_empty_string(self):
+        # The app decodes author as a non-null String: a JSON null breaks the whole catalogue.
+        import io
+        import json
+        import zipfile
+        source_id = next(k for k, v in builder_names().items() if isinstance(v, dict))
+        meta = {"name": source_id, "label": "", "version": "", "author": None,
+                "day_night": False, "features": []}
+        empty = io.BytesIO()
+        zipfile.ZipFile(empty, "w").close()
+        with tempfile.TemporaryDirectory() as out, \
+                patch.object(builder, "catalog_one", return_value=meta), \
+                patch.object(builder, "base_apk_bytes", return_value=empty.getvalue()):
+            entry = builder.build_pack(Path("plugin.apk"), Path(out))
+            with zipfile.ZipFile(Path(out, entry["file"])) as z:
+                pack = json.loads(z.read("pack.json"))
+        self.assertEqual(pack["author"], "")
+        self.assertEqual(entry["author"], "")
+
+    def test_option_text_never_names_a_source_plugin(self):
+        # Fever Dream's options named another plugin ("Deliun App Icons"); the app shows them.
+        import io
+        import json
+        import zipfile
+        meta = {"name": "Delirium D", "label": "", "version": "2.0", "author": "a",
+                "day_night": False, "features": []}
+        raw = io.BytesIO()
+        with zipfile.ZipFile(raw, "w") as z:
+            z.writestr("assets/extra.preferences",
+                       "$selectdialogpreference,natone,datone,alticon=Homescreen: Change AppIcon,"
+                       " Tint, Deliun App Icons, Delirium Style\n")
+        with tempfile.TemporaryDirectory() as out, \
+                patch.object(builder, "catalog_one", return_value=meta), \
+                patch.object(builder, "base_apk_bytes", return_value=raw.getvalue()):
+            entry = builder.build_pack(Path("plugin.apk"), Path(out))
+            with zipfile.ZipFile(Path(out, entry["file"])) as z:
+                pack = json.loads(z.read("pack.json"))
+        self.assertEqual(pack["id"], "fever-dream")
+        self.assertEqual(pack["options"][0]["choices"],
+                         [" Tint", " Lagoon App Icons", " Fever Dream Style"])
+        self.assertNotIn("deliun", json.dumps(pack["options"]).lower())
+
+    def test_failed_rebuild_keeps_the_existing_pack(self):
+        # A bad CRC in one entry raises after the output is opened; the published pack stays.
+        import io
+        import zipfile
+        source_id = next(k for k, v in builder_names().items() if isinstance(v, dict))
+        pack_id = builder_names()[source_id]["id"]
+        meta = {"name": source_id, "label": "", "version": "", "author": "a",
+                "day_night": False, "features": []}
+        raw = io.BytesIO()
+        with zipfile.ZipFile(raw, "w", zipfile.ZIP_STORED) as z:
+            z.writestr("assets/info_images/a.png", b"previewdata" * 10)
+        data = bytearray(raw.getvalue())
+        at = data.index(b"previewdata")
+        data[at] ^= 0xFF
+        with tempfile.TemporaryDirectory() as out, \
+                patch.object(builder, "catalog_one", return_value=meta), \
+                patch.object(builder, "base_apk_bytes", return_value=bytes(data)):
+            good = Path(out, f"{pack_id}.zip")
+            good.write_bytes(b"published pack")
+            with self.assertRaises(zipfile.BadZipFile):
+                builder.build_pack(Path("plugin.apk"), Path(out))
+            self.assertEqual(good.read_bytes(), b"published pack")
+            self.assertEqual([p.name for p in Path(out).iterdir()], [good.name])
+
+    def test_source_names_are_lists_of_names(self):
+        for source_id, entry in builder_names().items():
+            if isinstance(entry, dict):
+                names = entry.get("sourceNames", [])
+                self.assertIsInstance(names, list, source_id)
+                self.assertTrue(all(isinstance(n, str) and n.strip() for n in names), source_id)
+
     def test_every_mapping_has_a_catalogue_id_and_name(self):
         for source_id, entry in builder_names().items():
             if isinstance(entry, dict):

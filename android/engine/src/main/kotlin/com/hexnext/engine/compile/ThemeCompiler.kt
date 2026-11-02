@@ -133,16 +133,22 @@ public data class CompiledTheme(
  *    the same configuration because apply disables SemWT ([REASON_FIXED], still reported).
  *    [ThemeSpec.colorPins] then win
  *    (a pinned resource absent from SemWT is written in `""` and, for shade pins, `night`).
- *    For System UI only names [QuickSettingsRules.allowsColour] accepts are kept
+ *    For System UI only names [QuickSettingsRules.allowsColour] accepts are themed
  *    ([REASON_QS_POLICY]): the version's allowlist, or [QS_COLOUR_NAMES] when it is empty.
+ *    A rejected colour SemWT sets keeps Samsung's observed value, copied verbatim (apply
+ *    disables SemWT); one only a pin set is left out.
  *    Names missing from the target table are skipped by [ResourceMapper].
  * 2. **Drawables.** For each enabled element of the target, its pack ([ThemeSpec.packFor])
  *    layer categories ([Elements.elementForCategory]; option tokens must be on, in
  *    [Pack.defaultOptions] overlaid by [ThemeSpec.elementOptions]) are planned with
  *    [LayerPlanner] using the pack palette overlaid by [SlotPalette.derive]. Each resource is
  *    planned once per density the target defines; night categories go to `night-<density>`. A
- *    day category without a night counterpart also gets a night twin planned with dark tints.
+ *    day category without a night counterpart also gets a night twin planned with dark tints;
+ *    so does one that is more specific (more option tokens, or a newer Android release) than the
+ *    night category covering its resource, whose base artwork it replaces in dark mode too.
  *    More specific categories (more option tokens) and targeted elements win over generic ones.
+ *    Categories for landscape, right-to-left or a screen width ([CategoryName.configSpecific])
+ *    are not used: their artwork would land in the plain density configuration.
  *    **System UI never gets pack drawables** unless [QuickSettingsRules.drawablesAllowed] is on
  *    (no bundled version allows them; Quick Settings layouts differ per One UI release), and
  *    [QuickSettingsPolicy.COLOURS_ONLY] elements never do. Each is skipped with
@@ -168,7 +174,10 @@ public object ThemeCompiler {
      */
     public const val REASON_FIXED: String = "fixed"
 
-    /** Skip reason: removed by the quick-settings policy. */
+    /**
+     * Skip reason: not themed by the quick-settings policy. A System UI colour SemWT sets keeps
+     * Samsung's observed value verbatim; drawables and pin-only colours are not written.
+     */
     public const val REASON_QS_POLICY: String = "qs-policy"
 
     /** Skip reason: the element's pack is not available. */
@@ -300,6 +309,10 @@ public object ThemeCompiler {
         }
     }
 
+    /** Day-versus-night precedence: option-token count, then Android release rank. */
+    private val NIGHT_PRECEDENCE: Comparator<CategoryName> =
+        compareBy<CategoryName>({ it.optionTokens.size }, { it.androidRank })
+
     /** True when the configuration qualifier string contains the `night` qualifier. */
     internal fun isNight(configuration: String): Boolean = configuration.split('-').contains("night")
 
@@ -360,6 +373,8 @@ public object ThemeCompiler {
         private fun compileColors(): List<PlannedColor> {
             val values = LinkedHashMap<Pair<String, String>, Int>()
             val fixed = LinkedHashMap<Pair<String, String>, Skipped>()
+            // Samsung's observed SemWT value per key, before recolouring or pins.
+            val observed = HashMap<Pair<String, String>, Int>()
             for (e in semwt?.entries.orEmpty()) {
                 if (e.dataType !in COLOR_TYPES) continue
                 val typeName = rules.rename(e.typeAndName)
@@ -367,6 +382,7 @@ public object ThemeCompiler {
                 val key = typeName to config
                 // RGB8 / RGB4 values can arrive with the alpha byte cleared; they are opaque.
                 val data = if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) e.data or OPAQUE else e.data
+                observed[key] = data
                 val out = RoleInference.recolor(data, device.systemShades, resolved(), isNight(config))
                 if (out == null) {
                     // Apply disables SemWT, so its value is copied verbatim or the stock APK colour returns.
@@ -393,15 +409,25 @@ public object ThemeCompiler {
             if (pkg == SYSTEMUI) {
                 val qs = rules.quickSettings
                 var dropped = 0
-                val it = values.keys.iterator()
+                var verbatim = 0
+                val it = values.entries.iterator()
                 while (it.hasNext()) {
-                    val key = it.next()
+                    val entry = it.next()
+                    val key = entry.key
                     val (typeName, config) = key
                     if (!qs.allowsColour(typeName.substringAfter('/'))) {
                         skipped += Skipped(display(typeName, config), REASON_QS_POLICY)
-                        // Not written at all, so it is no longer "kept fixed".
+                        // Reported once, as a policy skip, not also as "kept fixed".
                         fixed.remove(key)
-                        it.remove()
+                        val samsung = observed[key]
+                        if (samsung != null) {
+                            // Apply disables SemWT, so Samsung's value is copied verbatim or the stock APK colour returns.
+                            entry.setValue(samsung)
+                            verbatim++
+                        } else {
+                            // Only a pin wrote it; SemWT never set it, so leaving it out keeps the stock value.
+                            it.remove()
+                        }
                         dropped++
                     }
                 }
@@ -415,8 +441,9 @@ public object ThemeCompiler {
                         "deviceOneUi" to (device.oneUi.version?.name ?: "unknown"),
                         "rulesFallback" to (deviceMajor != rules.major).toString(),
                         "allowlist" to if (qs.colours.isEmpty()) "pattern" else qs.colours.size.toString(),
-                        "colours" to values.size.toString(),
+                        "colours" to (values.size - verbatim).toString(),
                         "dropped" to dropped.toString(),
+                        "verbatim" to verbatim.toString(),
                     ),
                 )
             }
@@ -555,9 +582,17 @@ public object ThemeCompiler {
             val categories = pack.layers.map { it.category }.distinct().map(CategoryName::parse)
                 .filter { Elements.elementForCategory(it.raw).id == element.id }
                 .filter { c -> c.optionTokens.all { options[it] == "true" } }
+                // Landscape, RTL and screen-width artwork only fits that configuration, but jobs are
+                // written to the plain density configuration, so it would show everywhere.
+                .filterNot { it.configSpecific }
                 // Later categories win: more option tokens, then newer Android release artwork,
-                // then the higher v<sdk> qualifier compared as a number (v26 over v4 and v8).
-                .sortedWith(compareBy<CategoryName>({ it.optionTokens.size }, { it.androidRank }, { it.sdkLevel }, { it.raw }))
+                // then the higher v<sdk> qualifier compared as a number (v26 over v4 and v8), then
+                // neutral categories over `port` / `ldltr` ones.
+                .sortedWith(
+                    compareBy<CategoryName>(
+                        { it.optionTokens.size }, { it.androidRank }, { it.sdkLevel }, { !it.defaultLeaning }, { it.raw },
+                    ),
+                )
             if (categories.isEmpty()) return emptyMap()
 
             // System UI: pack drawables only when the version's Quick Settings rules allow them,
@@ -568,6 +603,8 @@ public object ThemeCompiler {
             val entryNames = packs.entryNames(pack.id).ifEmpty { null }
             val jobs = LinkedHashMap<Pair<String, String>, PlannedDrawableJob>()
             val dayWinners = LinkedHashMap<Pair<String, String>, Pair<PlannedDrawable, CategoryName>>()
+            // The category that wrote each night job, to compare it with the day winner.
+            val nightSources = HashMap<Pair<String, String>, CategoryName>()
 
             fun job(pd: PlannedDrawable, category: CategoryName, night: Boolean, density: String): PlannedDrawableJob? {
                 val plan = LayerPlanner.plan(pack, category.raw, pd.source.resourceName, palette, night, entryNames)
@@ -597,14 +634,19 @@ public object ThemeCompiler {
                     for (density in pd.configs) {
                         val j = job(pd, category, category.night, density) ?: continue
                         jobs[j.resourceName to j.configuration] = j
-                        if (!category.night) dayWinners[pd.resourceName to density] = pd to category
+                        if (category.night) nightSources[j.resourceName to j.configuration] = category
+                        else dayWinners[pd.resourceName to density] = pd to category
                     }
                 }
             }
             for ((key, winner) in dayWinners) {
                 val (name, density) = key
-                if ((name to configFor(true, density)) in jobs) continue
                 val (pd, category) = winner
+                // A night category is the day winner's counterpart unless the winner is more
+                // specific (more option tokens, or newer Android release artwork): then the
+                // winner's own dark twin replaces the base night artwork.
+                val nightSource = nightSources[name to configFor(true, density)]
+                if (nightSource != null && NIGHT_PRECEDENCE.compare(nightSource, category) >= 0) continue
                 job(pd, category, night = true, density = density)?.let { jobs[it.resourceName to it.configuration] = it }
             }
             return jobs

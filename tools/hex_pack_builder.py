@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import os
 import re
 import sys
 import zipfile
@@ -33,7 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hex_plugin_catalog import CATEGORY_LABELS, catalog_one, base_apk_bytes  # noqa: E402
-from rename_packs import catalogue_identity, pack_package  # noqa: E402
+from rename_packs import catalogue_identity, pack_package, scrub_options  # noqa: E402
 
 SLOT_RE = re.compile(r"^l?(x[xyz]|lx[xyz]|sx|lz[xy]|xg|lxg)\d+$")
 FIXED_RE = re.compile(r"^H([0-9A-Fa-f]{8})$")
@@ -84,12 +85,27 @@ def build_pack(path: Path, out_dir: Path) -> dict:
         raise ValueError(f"{path.name}: no catalogue name for {source_id!r}; "
                          "add it to tools/pack_names.json")
     pack_id, pack_name = identity
+    out_zip = out_dir / f"{pack_id}.zip"
+    # Write beside out_zip and rename over it only when complete: a read error part-way (a bad
+    # CRC in one entry) must not truncate the pack already published at out_zip.
+    tmp_zip = out_zip.with_name(out_zip.name + ".tmp")
+    try:
+        pack = _write_pack(raw, tmp_zip, meta, pack_id, pack_name)
+    except BaseException:
+        tmp_zip.unlink(missing_ok=True)
+        raise
+    os.replace(tmp_zip, out_zip)
+    return {"id": pack_id, "name": pack["name"], "author": pack["author"],
+            "version": pack["version"], "file": out_zip.name,
+            "bytes": out_zip.stat().st_size, "categories": sorted(pack["categories"]),
+            "dayNight": pack["dayNight"], "previewCount": pack["previewCount"]}
+
+
+def _write_pack(raw: bytes, out_zip: Path, meta: dict, pack_id: str, pack_name: str) -> dict:
     palette, defaults, options, category_options = {}, {}, [], {}
     layers: dict[tuple, dict] = {}
     ui_drawables: dict[str, zipfile.ZipInfo] = {}
-    out_zip = out_dir / f"{pack_id}.zip"
     previews = drawables = 0
-
     with zipfile.ZipFile(io.BytesIO(raw)) as src, \
             zipfile.ZipFile(out_zip, "w", zipfile.ZIP_STORED) as dst:
         names = src.namelist()
@@ -104,6 +120,8 @@ def build_pack(path: Path, out_dir: Path) -> dict:
         if "assets/extra.preferences" in names:
             options, category_options = parse_extra_preferences(
                 src.read("assets/extra.preferences").decode("utf-8", "replace"))
+            # The app shows option labels and choices; they must not name a source plugin.
+            options = scrub_options(options, pack_id)
 
         for info in src.infolist():
             name = info.filename
@@ -140,7 +158,9 @@ def build_pack(path: Path, out_dir: Path) -> dict:
             "format": 1,
             "id": pack_id,
             "name": pack_name,
-            "author": meta["author"],
+            # The app reads author as a non-null string; a plugin without
+            # HEX_PLUGIN_AUTHOR must not put null into pack.json or index.json.
+            "author": meta["author"] or "",
             "version": meta["version"],
             "package": pack_package(pack_id),
             "dayNight": meta["day_night"],
@@ -161,10 +181,7 @@ def build_pack(path: Path, out_dir: Path) -> dict:
         for layer in pack["layers"]:
             layer["resources"].sort()
         dst.writestr("pack.json", json.dumps(pack, indent=1))
-    return {"id": pack_id, "name": pack["name"], "author": pack["author"],
-            "version": pack["version"], "file": out_zip.name,
-            "bytes": out_zip.stat().st_size, "categories": sorted(pack["categories"]),
-            "dayNight": pack["dayNight"], "previewCount": previews}
+    return pack
 
 
 def main() -> int:

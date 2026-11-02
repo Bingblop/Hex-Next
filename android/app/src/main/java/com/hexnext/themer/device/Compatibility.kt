@@ -57,10 +57,10 @@ object CompatibilityCheck {
     val profile: OneUiProfile by lazy { OneUiProfile(oneUiVersion, Build.MODEL.orEmpty()) }
 
     private val result: Compatibility by lazy {
-        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-        val version = oneUiVersion
+        // Manufacturer first: a non-Samsung device never reads the One UI properties.
+        val version = if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) oneUiVersion else null
         when {
-            !samsung || version == null -> Compatibility.NotOneUi
+            version == null -> Compatibility.NotOneUi
             Build.VERSION.SDK_INT < MIN_SDK || version.major < MIN_ONE_UI_MAJOR ->
                 Compatibility.TooOld(Build.VERSION.SDK_INT, oneUiName())
             else -> Compatibility.Supported
@@ -75,10 +75,14 @@ object CompatibilityCheck {
     /** "Android 17 · One UI 9.0" (the One UI part is left out when unknown). */
     fun versionLine(): String = listOfNotNull("Android ${Build.VERSION.RELEASE}", oneUiName()).joinToString(" · ")
 
+    /**
+     * The reflective `SystemProperties.get` value as-is: "" means the property is unset, which is
+     * an answer, so only a null (reflection blocked or threw) sends the caller to [getprop].
+     */
     private fun systemProperty(key: String): String? = runCatching {
         val clazz = Class.forName("android.os.SystemProperties")
         val get = clazz.getMethod("get", String::class.java)
-        (get.invoke(null, key) as? String)?.takeIf { it.isNotBlank() }
+        get.invoke(null, key) as? String
     }.getOrNull()
 
     private fun getprop(key: String): String? = runCatching {

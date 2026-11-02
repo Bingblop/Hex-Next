@@ -71,6 +71,18 @@ object SemWtController {
     }
 
     /**
+     * The overlay ids in [ids] that a successful `cmd overlay list` no longer shows. Empty when
+     * [ids] is empty or the list could not be read (an empty list is never taken as "all gone").
+     */
+    fun unregistered(service: IThemeService, ids: Collection<String>): Set<String> {
+        if (ids.isEmpty()) return emptySet()
+        val listed = listOverlays(service)
+        if (listed.isEmpty()) return emptySet()
+        val known = listed.mapTo(HashSet()) { it.overlayId }
+        return ids.filterTo(HashSet()) { it !in known }
+    }
+
+    /**
      * `cmd overlay lookup --user current <target> <resource>` until it resolves to [argb], up to
      * [attempts] times one second apart (the resource cache can lag behind an enable). Returns
      * whether it matched (null when the output never held a colour) and the last output.
@@ -147,6 +159,10 @@ object SemWtController {
      * overlay, then (re)starts the guard. Returns the number of commands that succeeded.
      */
     fun reassert(service: IThemeService, log: (LogLine) -> Unit, restartGuard: Boolean = true): Int {
+        // Runs at app start and at boot, i.e. after a system_server restart killed the app and
+        // its post-apply watcher. A monitor trip that nothing handled is finished here (theme off,
+        // SemWT given back, font and palette seed removed) instead of turning SemWT off again.
+        if (ThemeApplier.recoverMissedTripWithKnownContext(service, log)) return 0
         val state = readState(service, log)
         if (state.records.isEmpty()) return 0
         val before = listOverlays(service)
@@ -211,12 +227,20 @@ object SemWtController {
                 log(LogLine(LogLevel.WARN, "$ $command -> exit ${r.code()}: ${r.output().ifBlank { "no output" }}"))
             }
         }
+        // A SemWT overlay Samsung no longer registers (app removed, palette regenerated without
+        // it) can never be re-enabled; keeping its record would fail every Remove for good.
+        val gone = unregistered(service, failed)
+        for (semwtId in gone) {
+            log(LogLine(LogLevel.INFO, "$semwtId is no longer registered; nothing to re-enable, record dropped"))
+        }
+        failed -= gone
         val total = ok + failed.size
         if (state.records.isNotEmpty()) {
             log(
                 LogLine(
                     if (failed.isEmpty()) LogLevel.OK else LogLevel.WARN,
                     "Re-enabled $ok/$total Samsung SemWT overlays (${state.records.size} were taken over)" +
+                        (if (gone.isEmpty()) "" else "; ${gone.size} no longer exist") +
                         if (failed.isEmpty()) "" else "; ${failed.size} kept in ${SemWtState.FILE_NAME}, Remove again to retry",
                 ),
             )

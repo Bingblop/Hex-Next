@@ -238,7 +238,12 @@ class DeviceScanner(context: Context) {
                     val entry = zip.getEntry(ARSC) ?: error("$ARSC not in APK")
                     zip.getInputStream(entry).use { input -> out.outputStream().use { input.copyTo(it) } }
                 }
-            }.onFailure { problems.add("direct: ${it.message}") }
+            }.onFailure {
+                // A copy that broke off midway leaves a partial table: drop it so the openFile
+                // fallback runs and the check below does not take it for a good extraction.
+                out.delete()
+                problems.add("direct: ${it.message}")
+            }
         }
 
         if (!out.isFile || out.length() == 0L) {
@@ -247,7 +252,10 @@ class DeviceScanner(context: Context) {
                 ParcelFileDescriptor.AutoCloseInputStream(pfd).use { raw ->
                     if (!copyZipEntry(raw, ARSC, out)) error("$ARSC not found in stream")
                 }
-            }.onFailure { problems.add("openFile: ${it.message}") }
+            }.onFailure {
+                out.delete()
+                problems.add("openFile: ${it.message}")
+            }
         }
 
         if (!out.isFile || out.length() == 0L) {

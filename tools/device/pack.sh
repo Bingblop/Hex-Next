@@ -36,10 +36,13 @@ case "$FILE" in
   *"'"*) echo "the path '$FILE' contains a quote; move the file to a plain path first"; exit 1 ;;
 esac
 # Stage inside the app's private pack folder, not a shell-writable /data/local/tmp path,
-# so a planted symlink cannot redirect the root copy.
+# so a planted symlink cannot redirect the root copy. The staging name is the app's own
+# <id>.zip.part: a copy that fails part-way is removed here, and the app sweeps any leftover
+# .part at start-up.
+PART="$DEST/$NAME.part"
 su -c "uid=\$(stat -c %u '/data/data/$PKG') && mkdir -p '$DEST' && \
   chown \"\$uid:\$uid\" '/data/data/$PKG/files' '$DEST' && \
-  rm -f '$DEST/.$NAME.tmp' && cp '$FILE' '$DEST/.$NAME.tmp' && mv -f '$DEST/.$NAME.tmp' '$DEST/$NAME' && rm -f '$DEST/$ID.hexnext' && \
+  rm -f '$PART' && { cp '$FILE' '$PART' || { rm -f '$PART'; false; }; } && mv -f '$PART' '$DEST/$NAME' && rm -f '$DEST/$ID.hexnext' && \
   chown \"\$uid:\$uid\" '$DEST/$NAME' && chmod 600 '$DEST/$NAME' && \
   restorecon -R '/data/data/$PKG/files' && ls -l '$DEST'"
 status=$?

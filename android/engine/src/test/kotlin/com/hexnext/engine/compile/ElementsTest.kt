@@ -97,6 +97,16 @@ class ElementsTest {
         val d = CategoryName.parse("navbar_land#p")
         assertEquals(listOf("land", "Hp"), d.tokens)
         assertEquals(emptyList(), d.optionTokens)
+        assertTrue(d.configSpecific)
+        for (c in listOf("drawable-ldrtl-xxhdpi-v26", "drawable-Idrtl-v17", "drawable-sw600dp", "drawable-w820dp", "drawable-land-xxhdpi-v26")) {
+            assertTrue(CategoryName.parse(c).configSpecific, c)
+        }
+        for (c in listOf("navbar", "drawable-xxhdpi-v26", "drawable-port", "settingsicon_alt-1sett")) {
+            assertFalse(CategoryName.parse(c).configSpecific, c)
+        }
+        assertTrue(CategoryName.parse("drawable-port-xxhdpi").defaultLeaning)
+        assertTrue(CategoryName.parse("drawable-ldltr-v17").defaultLeaning)
+        assertFalse(CategoryName.parse("drawable-xxhdpi").defaultLeaning)
 
         // Android release letters are qualifiers, not options; the newest one ranks highest.
         val r = CategoryName.parse("drawable-xxhdpi-v26#r")

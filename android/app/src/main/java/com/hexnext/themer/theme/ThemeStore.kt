@@ -5,6 +5,7 @@ import android.util.Log
 import com.hexnext.engine.compile.ThemeSpec
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 
 /**
  * Persists the engine [ThemeSpec] as JSON in `files/theme.json`.
@@ -32,15 +33,25 @@ class ThemeStore(context: Context) {
         }
     }
 
-    /** Writes [spec] (synced to disk before the rename); a failed write leaves the previous file in place. */
+    /**
+     * Writes [spec] to a temp file (synced to disk) and renames it over [FILE_NAME]. A failed
+     * write or rename leaves the previous file untouched and throws [IOException]; the file is
+     * never rewritten in place, so a crash cannot leave a truncated theme that [load] would drop.
+     */
     @Synchronized
+    @Throws(IOException::class)
     fun save(spec: ThemeSpec) {
         val bytes = spec.toJson().toByteArray(Charsets.UTF_8)
         val tmp = File(file.parentFile, "$FILE_NAME.tmp")
-        writeSynced(tmp, bytes)
-        if (!tmp.renameTo(file)) {
-            writeSynced(file, bytes)
+        try {
+            writeSynced(tmp, bytes)
+        } catch (e: IOException) {
             tmp.delete()
+            throw e
+        }
+        if (!tmp.renameTo(file)) {
+            tmp.delete()
+            throw IOException("Could not replace $FILE_NAME; the previous theme was kept")
         }
     }
 

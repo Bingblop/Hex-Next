@@ -2,6 +2,7 @@ package com.hexnext.themer.safety
 
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ThemeService
+import com.hexnext.themer.theme.FontInstaller
 
 /**
  * Root-only boot-loop recovery that runs before the user unlocks the phone.
@@ -14,9 +15,15 @@ import com.hexnext.themer.shizuku.ThemeService
  * temporary root that is gone after reboot runs nothing. The script reads the guard's
  * device-protected
  * preferences and applies the same rule as [ApplyGuard.shouldEnterSafeMode]: an unconfirmed
- * apply less than 10 minutes old and this is the second restart since it. Then it disables
- * every `HexNext*` overlay and leaves a marker the app reads through the service
- * ([wasTriggeredThisBoot]) so the safe-mode banner and the SemWT restore still happen.
+ * apply less than 10 minutes old and this is the second restart since it. Then it flags the
+ * Hex Next font module ([FontInstaller.MODULE_DIR]) for removal by the root manager, disables
+ * every `HexNext*` overlay and leaves a marker in the module directory that the app reads through
+ * the service ([wasTriggeredThisBoot]) so the safe-mode banner, the font removal and the SemWT
+ * restore still happen.
+ *
+ * Every file lives in the root-only module directory: nothing is staged in, run from or written
+ * to the shell-owned state directory, where any uid 2000 process could swap a file or plant a
+ * symlink before root uses it.
  *
  * The module is installed with each root apply and removed on "It works" and on Remove theme.
  * If the app is uninstalled the module removes itself on the next boot.
@@ -28,7 +35,6 @@ internal object EarlyRecoveryHook {
     private const val MODULE_PROP_NAME = "module.prop"
     private const val MODULE_ID = "hexnext_early_recovery"
     private const val MARKER_NAME = "early_safe_mode"
-    private const val STATE_DIR = "/data/local/tmp/hexnext"
     private const val MODULE_DIR = "/data/adb/modules/$MODULE_ID"
 
     /** `£` stands for `$` so the shell text needs no Kotlin escaping. */
@@ -41,7 +47,6 @@ internal object EarlyRecoveryHook {
           [ ! -d "/data/user_de/£USER_ID/com.hexnext.themer" ]; then
           # The app was uninstalled: remove this module.
           rm -rf /data/adb/modules/hexnext_early_recovery
-          rm -f /data/local/tmp/hexnext/early-recovery.sh /data/local/tmp/hexnext/post-fs-data.sh /data/local/tmp/hexnext/module.prop
           exit 0
         fi
         PREFS="/data/user_de/£USER_ID/com.hexnext.themer/shared_prefs/hexnext_apply.xml"
@@ -73,6 +78,13 @@ internal object EarlyRecoveryHook {
         [ "£SEEN_CURRENT" = 1 ] || LATER=£((LATER + 1))
         [ "£LATER" -ge 2 ] || exit 0
 
+        # The font may be what keeps the phone restarting: the root manager drops the module at
+        # the next boot. The boot receiver unmounts and deletes it as soon as this boot completes.
+        FONT_DIR=${FontInstaller.MODULE_DIR}
+        if [ -f "£FONT_DIR/module.prop" ] && grep -qx 'id=${FontInstaller.MODULE_ID}' "£FONT_DIR/module.prop"; then
+          touch "£FONT_DIR/remove"
+        fi
+
         TRIES=0
         while [ "£TRIES" -lt 12 ]; do
           LIST=£(cmd overlay list --user current 2>/dev/null)
@@ -90,9 +102,9 @@ internal object EarlyRecoveryHook {
                     ;;
                 esac
               done
-              mkdir -p /data/local/tmp/hexnext
-              printf '%s\n' "£CURRENT_BOOT" > /data/local/tmp/hexnext/early_safe_mode
-              chmod 644 /data/local/tmp/hexnext/early_safe_mode
+              # Root-only module directory: no other uid can plant a link under this name.
+              umask 022
+              printf '%s\n' "£CURRENT_BOOT" > $MODULE_DIR/$MARKER_NAME
               exit 0
               ;;
           esac
@@ -125,24 +137,34 @@ internal object EarlyRecoveryHook {
      * system uid cannot write `/data/adb`), true when installed, false when root failed to.
      * Works for both a Shizuku root service and the in-process `su -c` service, so it checks
      * the effective uid of `exec` rather than the binder uid.
+     *
+     * Root writes every file straight into [MODULE_DIR] from the text held here, in one command:
+     * a new `.tmp` file (umask 022) that gets owner, mode and then its name with `mv -f`. No copy
+     * passes through the shell-owned state directory, so no uid 2000 process can swap in a script
+     * of its own for root to run at every boot.
      */
     fun install(service: IThemeService): Boolean? = runCatching<Boolean?> {
         val id = service.exec("id -u")
         if (id.getString(ThemeService.KEY_OUTPUT).orEmpty().trim() != "0") return@runCatching null
-        val staged = listOf(SCRIPT_NAME to script, LAUNCHER_NAME to launcher, MODULE_PROP_NAME to MODULE_PROP)
-            .all { (name, text) -> service.writeStateFile(name, text).getInt(ThemeService.KEY_CODE, -1) == 0 }
-        if (!staged) return@runCatching false
+        val writes = listOf(
+            Triple(SCRIPT_NAME, script, "755"),
+            Triple(LAUNCHER_NAME, launcher, "755"),
+            // Last: the root manager lists the module once module.prop is in place.
+            Triple(MODULE_PROP_NAME, MODULE_PROP, "644"),
+        ).joinToString(" && ") { (name, text, mode) ->
+            val tmp = "'$MODULE_DIR/$name.tmp'"
+            "rm -f $tmp && printf '%s' ${singleQuoted(text)} > $tmp && chown 0:0 $tmp && chmod $mode $tmp && " +
+                "mv -f $tmp '$MODULE_DIR/$name'"
+        }
         val installed = service.exec(
-            "if [ -e '$MODULE_DIR/disable' ] || [ -e '$MODULE_DIR/remove' ]; then " +
+            "umask 022; " +
+                "if [ -e '$MODULE_DIR/disable' ] || [ -e '$MODULE_DIR/remove' ]; then " +
                 "echo 'recovery module disabled or pending removal' >&2; exit 1; fi && " +
                 "if [ -f '$MODULE_DIR/$MODULE_PROP_NAME' ] && " +
                 "! grep -qx 'id=$MODULE_ID' '$MODULE_DIR/$MODULE_PROP_NAME'; then " +
                 "echo 'module id conflict' >&2; exit 1; fi && " +
-                "mkdir -p '$MODULE_DIR' && " +
-                "cp '$STATE_DIR/$SCRIPT_NAME' '$STATE_DIR/$LAUNCHER_NAME' '$STATE_DIR/$MODULE_PROP_NAME' '$MODULE_DIR/' && " +
-                "chown 0:0 '$MODULE_DIR' '$MODULE_DIR/$SCRIPT_NAME' '$MODULE_DIR/$LAUNCHER_NAME' '$MODULE_DIR/$MODULE_PROP_NAME' && " +
-                "chmod 755 '$MODULE_DIR/$SCRIPT_NAME' '$MODULE_DIR/$LAUNCHER_NAME' && " +
-                "chmod 644 '$MODULE_DIR/$MODULE_PROP_NAME'",
+                "mkdir -p '$MODULE_DIR' && chown 0:0 '$MODULE_DIR' && chmod 755 '$MODULE_DIR' && " +
+                writes,
         )
         installed.getInt(ThemeService.KEY_CODE, -1) == 0
     }.getOrDefault(false)
@@ -154,19 +176,22 @@ internal object EarlyRecoveryHook {
                 "[ \"$(id -u)\" = 0 ] || exit 0; " +
                     "if [ -f '$MODULE_DIR/$MODULE_PROP_NAME' ] && grep -qx 'id=$MODULE_ID' '$MODULE_DIR/$MODULE_PROP_NAME'; then " +
                     "rm -rf '$MODULE_DIR'; fi; " +
-                    "rm -f '/data/adb/service.d/hexnext-recovery.sh' '$STATE_DIR/$MARKER_NAME'",
+                    "rm -f '/data/adb/service.d/hexnext-recovery.sh'",
             )
         }
     }
 
     /**
-     * True when the hook disabled the overlays during this boot. The marker lives in the shell's
-     * state directory, which the app's own uid cannot read, so it is read through [service].
+     * True when the hook disabled the overlays during this boot. The marker lives in the root-only
+     * module directory, so it is read as root through [service]; without root it reads false.
      */
     fun wasTriggeredThisBoot(service: IThemeService): Boolean = runCatching {
         val currentBoot = ApplyGuard.currentBootId() ?: return@runCatching false
-        val read = service.readStateFile(MARKER_NAME)
+        val read = service.exec("cat '$MODULE_DIR/$MARKER_NAME'")
         read.getInt(ThemeService.KEY_CODE, -1) == 0 &&
-            read.getString(ThemeService.KEY_CONTENT).orEmpty().trim() == currentBoot
+            read.getString(ThemeService.KEY_OUTPUT).orEmpty().trim() == currentBoot
     }.getOrDefault(false)
+
+    /** [text] as one single-quoted shell word. */
+    private fun singleQuoted(text: String): String = "'" + text.replace("'", "'\\''") + "'"
 }

@@ -68,6 +68,20 @@ public data class CategoryName(
     public val optionTokens: List<String> get() = tokens.filterNot(::isQualifier)
 
     /**
+     * True when a token selects a non-default device configuration: landscape (`land`),
+     * right-to-left layout (`ldrtl`) or a screen width (`sw<N>dp`, `w<N>dp`, `h<N>dp`). The
+     * compiler writes artwork to the plain density configuration, so such artwork would show in
+     * every configuration; these categories are not used.
+     */
+    public val configSpecific: Boolean get() = tokens.any { CONFIG_SPECIFIC.matches(it) }
+
+    /**
+     * True when a token restricts the artwork to the usual configuration (`port`, `ldltr`). Such
+     * categories are used, but a neutral category of the same precedence wins over them.
+     */
+    public val defaultLeaning: Boolean get() = tokens.any { DEFAULT_LEANING.matches(it) }
+
+    /**
      * The newest Android release letter among the `H<letter>` tokens, as a rank (`'a'` = 1 …
      * `'z'` = 26), or 0 when there is none. Every supported device (Android 15 and later) is newer
      * than all release letters packs use, so these categories always apply; a higher rank is the
@@ -93,6 +107,8 @@ public data class CategoryName(
         private val ANDROID_RELEASE = Regex("^H[a-z]$")
         private val SDK_QUALIFIER = Regex("^v(\\d+)$")
         private val SHARP_RELEASE = Regex("#([a-z])(?=$|[-#/])")
+        private val CONFIG_SPECIFIC = Regex("^(land|sw\\d+dp|w\\d+dp|h\\d+dp|ldrtl|Idrtl)$")
+        private val DEFAULT_LEANING = Regex("^(port|ldltr|Idltr)$")
         private val QUALIFIER = Regex("^(v\\d+|[a-z]*dpi|land|port|sw\\d+dp|w\\d+dp|h\\d+dp|ldrtl|ldltr|Idrtl|Idltr|notnight|H[a-z])$")
 
         /** True for resource qualifier tokens (not artwork options). */

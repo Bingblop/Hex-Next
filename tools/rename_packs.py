@@ -2,7 +2,7 @@
 """Give already-built packs their catalogue names (tools/pack_names.json).
 
 Reads every pack zip in <in-dir>, rewrites its pack.json with the catalogue id, name and com.hexnext.pack.* package
-(dropping the source plugin's package),
+(dropping the source plugin's package and replacing source plugin names in option text),
 writes <new-id>.zip into <out-dir> and regenerates index.json there. With <in-dir> == <out-dir>
 the source zip is removed once its renamed copy is written. A zip whose id is
 already a catalogue id is rewritten with duplicate entries removed. A zip whose id is neither
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -36,10 +37,53 @@ def catalogue_identity(source_id: str) -> tuple[str, str] | None:
     return (entry["id"], entry["name"]) if isinstance(entry, dict) else None
 
 
+def _source_name_replacements(pack_id: str) -> list[tuple[re.Pattern, str]]:
+    """(pattern, catalogue name) for every source plugin name in pack_names.json, longest first.
+
+    A name the pack's own entry lists becomes the pack's own catalogue name; any other becomes
+    the catalogue name of the first entry that lists it.
+    """
+    own = next((e for e in NAMES.values() if isinstance(e, dict) and e["id"] == pack_id), None)
+    by_name: dict[str, str] = {}
+    for entry in NAMES.values():
+        if isinstance(entry, dict):
+            for name in entry.get("sourceNames", []):
+                by_name.setdefault(name.lower(), entry["name"])
+    if own is not None:
+        for name in own.get("sourceNames", []):
+            by_name[name.lower()] = own["name"]
+    # A name may be glued to a trailing "_" ("jajanken_ Navbar Icons"); drop it with the name.
+    return [(re.compile(r"(?<![A-Za-z0-9])" + re.escape(name) + r"_?(?![A-Za-z0-9])", re.I), new)
+            for name, new in sorted(by_name.items(), key=lambda kv: -len(kv[0]))]
+
+
+def scrub_text(text: str, replacements: list[tuple[re.Pattern, str]]) -> str:
+    for pattern, new in replacements:
+        text = pattern.sub(new, text)
+    return text
+
+
+def scrub_options(options: list, pack_id: str) -> list:
+    """Options with every source plugin name in their label and choices replaced (the app shows both)."""
+    replacements = _source_name_replacements(pack_id)
+    scrubbed = []
+    for option in options:
+        option = dict(option)
+        if isinstance(option.get("label"), str):
+            option["label"] = scrub_text(option["label"], replacements)
+        if isinstance(option.get("choices"), list):
+            option["choices"] = [scrub_text(c, replacements) if isinstance(c, str) else c
+                                 for c in option["choices"]]
+        scrubbed.append(option)
+    return scrubbed
+
+
 def strip_source(pack: dict) -> None:
     """Removes every trace of the source plugin from a pack.json dict and sets the pack's package."""
     pack.pop("sourcePackage", None)
     pack["package"] = pack_package(pack["id"])
+    if isinstance(pack.get("options"), list):
+        pack["options"] = scrub_options(pack["options"], pack["id"])
 
 
 def unique_entries(infos: list[zipfile.ZipInfo]) -> list[zipfile.ZipInfo]:
@@ -76,6 +120,8 @@ def rename_zip(src: Path, out_dir: Path) -> tuple[dict, bool]:
         if identity is not None:
             pack["id"], pack["name"] = identity
         strip_source(pack)
+        # The app reads author as a non-null string; repair packs built with a null one.
+        pack["author"] = pack.get("author") or ""
         dst = out_dir / f"{pack['id']}.zip"
         # Write beside dst and rename over it only when complete: with <in-dir> == <out-dir> a
         # catalogued pack's dst is src itself, and opening it for writing would truncate the

@@ -101,9 +101,11 @@ class FontInstaller(private val service: IThemeService) {
         if (!run("mkdir -p '$FONTS_DIR'", log)) return false
         if (!run("printf '%s\\n' $MODULE_PROP_LINES > '$MODULE_DIR/module.prop'", log)) ok = false
 
-        if (boldPath != regularPath && files.any { plan.isShared(it) }) {
+        if (boldPath != regularPath && (files.any { plan.isShared(it) } || BOLD_FILE in files)) {
             // The regular file below also stands for the bold weights, so the bold font would be
-            // dropped. Ship it as its own file instead and point the bold weights at it.
+            // dropped. Ship it as its own file instead and point the bold weights at it. The live
+            // XML already naming BOLD_FILE (an earlier install, or one removed without a reboot
+            // since, whose XMLs are still mounted) needs the module XMLs written all the same.
             if (!installSharedBold(boldPath, log)) ok = false
         } else if (BOLD_FILE !in files) {
             // No separate bold this time, and the live font XML does not name the module bold
@@ -212,7 +214,9 @@ class FontInstaller(private val service: IThemeService) {
      * font to the module as [BOLD_FILE] and writes module copies of [FONTS_XML] and [FALLBACK_XML]
      * whose bold `sans-serif` entries name that file ([rewriteSharedBold]). New files under
      * `/system` cannot be bound live, so this takes effect after a reboot, when the root tool
-     * mounts the module. Returns false when a step failed.
+     * mounts the module. A live XML whose bold entries already name [BOLD_FILE] (still mounted
+     * from an earlier install, even one removed since without a reboot) is copied unchanged.
+     * Returns false when a step failed.
      */
     private fun installSharedBold(boldPath: String, log: (LogLine) -> Unit): Boolean {
         val moduleBold = "$FONTS_DIR/$BOLD_FILE"
@@ -231,7 +235,9 @@ class FontInstaller(private val service: IThemeService) {
         for (path in listOf(FONTS_XML, FALLBACK_XML)) {
             val (code, text) = ExecOutput.exec(service, "cat '$path'")
             if (code != 0 || text.isBlank()) continue
-            val xml = rewriteSharedBold(text, BOLD_FILE) ?: continue
+            val xml = rewriteSharedBold(text, BOLD_FILE)
+                ?: text.takeIf { live -> parseSansSerif(live).any { it.file == BOLD_FILE } }
+                ?: continue
             val name = path.substringAfterLast('/')
             val stateName = "font_$name"
             if (service.writeStateFile(stateName, xml).code() != 0) {
@@ -266,7 +272,17 @@ class FontInstaller(private val service: IThemeService) {
 
     // ---- helpers --------------------------------------------------------------------------
 
-    private fun uid(): Int = runCatching { service.uid }.getOrDefault(-1)
+    /**
+     * The uid commands run as. The in-process `su -c` service (the boot receiver's) reports the
+     * app's own uid over the binder while every command runs as root, so a non-root binder uid
+     * is checked against `id -u`.
+     */
+    private fun uid(): Int {
+        val binderUid = runCatching { service.uid }.getOrDefault(-1)
+        if (binderUid == 0) return 0
+        val execUid = runCatching { service.exec("id -u").output().trim().toIntOrNull() }.getOrNull()
+        return execUid ?: binderUid
+    }
 
     /** Logs one line and returns false when the service is not root; no shell command runs then. */
     private fun requireRoot(log: (LogLine) -> Unit): Boolean {

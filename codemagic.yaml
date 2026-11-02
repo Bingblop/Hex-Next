@@ -5,7 +5,6 @@ workflows:
     max_build_duration: 60
     environment:
       java: 17
-      node: 22
     triggering:
       events:
         - push
@@ -26,11 +25,9 @@ workflows:
         - ~/.gradle/caches
         - ~/.gradle/wrapper
     scripts:
-      - name: Test web and release tooling
+      - name: Test release tooling
         script: |
           set -euo pipefail
-          node --check server.js
-          node --test tests/*.test.js
           python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Install Android SDK packages
         script: |

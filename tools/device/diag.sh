@@ -68,7 +68,11 @@ find_frro="find /data/resource-cache -name 'android-SemWT_*.frro' 2>/dev/null | 
 frro=$(sh -c "$find_frro")
 [ -z "$frro" ] && [ $have_su -eq 1 ] && frro=$(su -c "$find_frro")
 if [ -n "$frro" ]; then
-  if [ $have_su -eq 1 ]; then su -c "cp '$frro' '$FRRO_COPY' && chmod 644 '$FRRO_COPY'"; else cp "$frro" "$FRRO_COPY" 2>/dev/null; fi
+  # Root never writes into $OUT_DIR: it may be shell-writable (/data/local/tmp, $PWD) and a
+  # planted symlink there would make root overwrite and chmod its target. Root only reads
+  # the frro to stdout; the copy is written as the calling user, after removing any link.
+  rm -f "$FRRO_COPY"
+  if [ $have_su -eq 1 ]; then su -c "cat '$frro'" >"$FRRO_COPY" 2>/dev/null; else cat "$frro" >"$FRRO_COPY" 2>/dev/null; fi || rm -f "$FRRO_COPY"
   printf '\n### Sample frro\n%s -> %s\n' "$frro" "$FRRO_COPY" >>"$OUT"
 fi
 

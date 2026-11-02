@@ -90,6 +90,7 @@ fun DiagnosticsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
     val ready = shizuku as? ShizukuState.Ready
     // Any task on the service, including the editor's startup safety check, which sets neither
     // state.busy nor editorBusy: an action started now would only be refused.
@@ -118,7 +119,8 @@ fun DiagnosticsScreen(
         val result = try {
             snackbar.showSnackbar("Scan finished", actionLabel = "Back to editor", duration = SnackbarDuration.Long)
         } finally {
-            viewModel.consumeScanFinished(scanFinished)
+            // Kept when the activity is recreated (rotation, unfold), so the new screen shows it again.
+            if (activity?.isChangingConfigurations != true) viewModel.consumeScanFinished(scanFinished)
         }
         if (result == SnackbarResult.ActionPerformed) onBackToEditor()
     }
@@ -222,8 +224,11 @@ fun DiagnosticsScreen(
                             "The last apply was never confirmed, and its 10 minutes of restart protection are over: " +
                                 "restarts no longer turn the overlays off. Tap \"It works\" to clear this."
                         } else {
+                            // Only root that survives a restart can act after one (see the Apply card).
                             "The last apply is not confirmed yet. If your phone restarts twice within 10 minutes, " +
-                                "Hex Next turns its overlays off. Tap \"It works\" once everything looks right."
+                                "Hex Next turns its overlays off, but only if your root stays after a restart. A " +
+                                "temporary root such as DFRoot is gone after a restart, so then nothing can turn " +
+                                "them off. Tap \"It works\" once everything looks right."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -385,9 +390,10 @@ private fun AdvancedCard(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Settings test overlay", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Builds one overlay for Settings only, from the scanned resources: up to 10 dashboard colours and " +
-                        "3 icons in your accent colour. A 120 s watchdog turns Hex Next overlays off if System UI or " +
-                        "the system server restarts twice.",
+                    "Builds one overlay for Settings only, from the scan: the Settings colours Samsung's theme drives " +
+                        "(up to 10 dashboard colours if the scan saved none) and up to 80 icons, in your accent colour. " +
+                        "It will not run while an applied theme holds Settings: Remove theme first. A 120 s watchdog " +
+                        "turns Hex Next overlays off if System UI or the system server restarts twice.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

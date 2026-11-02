@@ -141,30 +141,46 @@ class ThemeCompilerTest {
     }
 
     @Test
-    fun `quick settings policy drops non panel System UI colours`() {
+    fun `quick settings policy keeps Samsung's value for non panel System UI colours`() {
         val t = compile().target(sysui)!!
-        assertNull(t.color("wallpaper_tint"))
+        // Apply disables SemWT, so a colour the policy does not theme is copied verbatim, not dropped.
+        assertEquals(ref("system_accent2_300"), t.color("wallpaper_tint")!!.argb)
         assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/wallpaper_tint"))
-        // With the colour filter off the colour is kept.
+        assertTrue("$sysui:color/wallpaper_tint" in t.semwtMatches)
+        // With the colour filter off the colour is themed.
         val off = compile(rules = rules9.copy(quickSettings = rules9.quickSettings.copy(filterColours = false))).target(sysui)!!
-        assertNotNull(off.color("wallpaper_tint"))
+        assertEquals(resolved.light.shade(PaletteRole.ACCENT2, 300), off.color("wallpaper_tint")!!.argb)
         assertNull(off.reason("$sysui:color/wallpaper_tint"))
         // Other targets are never filtered.
         assertNotNull(compile().target(settings)!!.color("sec_widget_round_and_bgcolor"))
     }
 
     @Test
-    fun `fixed System UI colours dropped by the quick settings policy are not reported as kept fixed`() {
-        // An off-palette wallpaper_tint is unmatched (fixed) but outside the QS policy, so it is not written.
+    fun `fixed System UI colours outside the quick settings policy are not reported as kept fixed`() {
+        // An off-palette wallpaper_tint is unmatched (fixed) and outside the QS policy: written verbatim, reported once.
         val semwt = semwt(sysui, listOf(Triple("wallpaper_tint", orange, ""), Triple("lock_icon_color", orange, "")))
         val dev = device(mapOf(sysui to TargetSnapshot(sysui, installed = true, table = sysuiTable, semwt = semwt)))
         val result = compile(dev = dev)
         val t = result.target(sysui)!!
-        assertNull(t.color("wallpaper_tint"))
+        assertEquals(orange, t.color("wallpaper_tint")!!.argb)
         assertEquals(listOf(ThemeCompiler.REASON_QS_POLICY), t.skipped.filter { it.name == "$sysui:color/wallpaper_tint" }.map { it.reason })
         val warn = result.events.single { it.target == sysui && it.message == "colours kept fixed" }
         assertEquals("1", warn.data["count"])
         assertEquals("$sysui:color/lock_icon_color", warn.data["names"])
+    }
+
+    @Test
+    fun `a pin-only System UI colour outside the quick settings policy is not written`() {
+        // SemWT never sets wallpaper_tint here, so leaving the pin out keeps the stock value it had.
+        val semwt = semwt(sysui, listOf(Triple("qs_tile_bg", ref("system_accent1_500"), "")))
+        val dev = device(mapOf(sysui to TargetSnapshot(sysui, installed = true, table = sysuiTable, semwt = semwt)))
+        val spec = baseSpec.copy(colorPins = mapOf("$sysui:color/wallpaper_tint" to ColorPin.Fixed(orange)))
+        val result = compile(spec = spec, dev = dev)
+        val t = result.target(sysui)!!
+        assertNull(t.color("wallpaper_tint"))
+        assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/wallpaper_tint"))
+        val line = result.events.single { it.target == sysui && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) }
+        assertEquals("0", line.data["verbatim"])
     }
 
     @Test
@@ -193,7 +209,8 @@ class ThemeCompilerTest {
         assertNull(t.reason("$sysui:color/lock_icon_color"))
         assertEquals(resolved.light.shade(PaletteRole.NEUTRAL2, 600), t.color("panel_extra")!!.argb)
         assertEquals(resolved.dark.shade(PaletteRole.NEUTRAL2, 600), t.color("panel_extra", "night")!!.argb)
-        assertNull(t.color("wallpaper_tint"))
+        // The policy still wins over the pin: Samsung's SemWT value is kept, not the pinned blue.
+        assertEquals(ref("system_accent2_300"), t.color("wallpaper_tint")!!.argb)
         assertEquals(ResourceMapper.REASON_NOT_IN_TARGET, t.reason("$sysui:color/qs_not_a_resource"))
         assertTrue(t.colors.none { "dashboard_tint" in it.resourceName })
         val s = compile(spec).target(settings)!!
@@ -274,6 +291,68 @@ class ThemeCompilerTest {
         val display = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "" }
         assertEquals("settingsicon-1sett", display.source.category)
         assertEquals(SlotPalette.derive(resolved).getValue("lxx5"), display.plan.steps.single().tintArgb)
+    }
+
+    @Test
+    fun `a more specific day category replaces the base night artwork with its own dark twin`() {
+        val styled = pack(
+            "styled-1",
+            listOf(
+                layer("settingsicon", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("ic_settings_wifi")),
+                layer("settingsicon_night", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("ic_settings_wifi")),
+                layer("settingsicon-1sett", "base", Tint(Tint.SLOT, slot = "xx5"), listOf("ic_settings_wifi")),
+            ),
+        )
+        val packs = InMemoryPackResolver(listOf(styled))
+        val light = SlotPalette.derive(resolved)
+        fun wifi(t: CompiledTarget, config: String) =
+            t.drawables.single { it.resourceName.endsWith("/ic_settings_wifi") && it.configuration == config }
+
+        val on = compile(baseSpec.copy(simplePackId = "styled-1", elementOptions = mapOf("settings_icons" to mapOf("1sett" to "true"))), packs)
+            .target(settings)!!
+        assertEquals("settingsicon-1sett", wifi(on, "xxhdpi").source.category)
+        val night = wifi(on, "night-xxhdpi")
+        assertEquals("settingsicon-1sett", night.source.category)
+        assertEquals(listOf(light.getValue("xx5")), night.plan.steps.map { it.tintArgb })
+        assertEquals("settingsicon-1sett", wifi(on, "night-xxxhdpi").source.category)
+
+        // Without the option the plain day category keeps its own night counterpart.
+        val off = compile(baseSpec.copy(simplePackId = "styled-1"), packs).target(settings)!!
+        assertEquals("settingsicon", wifi(off, "xxhdpi").source.category)
+        assertEquals("settingsicon_night", wifi(off, "night-xxhdpi").source.category)
+
+        // Newer Android release artwork also replaces a plain night category.
+        val release = pack(
+            "release-1",
+            listOf(
+                layer("settingsicon_night", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("ic_settings_wifi")),
+                layer("settingsiconHr", "base", Tint(Tint.SLOT, slot = "xx2"), listOf("ic_settings_wifi")),
+            ),
+        )
+        val hr = compile(baseSpec.copy(simplePackId = "release-1"), InMemoryPackResolver(listOf(release))).target(settings)!!
+        assertEquals("settingsiconHr", wifi(hr, "xxhdpi").source.category)
+        assertEquals("settingsiconHr", wifi(hr, "night-xxhdpi").source.category)
+    }
+
+    @Test
+    fun `landscape RTL and screen-width categories are not used and port loses to neutral`() {
+        val qualified = pack(
+            "qualified-1",
+            listOf(
+                layer("drawable-xxhdpi-v4", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("account_radio_check")),
+                layer("drawable-ldrtl-xxhdpi-v26", "base", Tint(Tint.SLOT, slot = "xx2"), listOf("account_radio_check")),
+                layer("drawable-sw600dp-v13", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("account_radio_check")),
+                layer("settingsicon", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("ic_settings_wifi", "ic_settings_display")),
+                layer("settingsicon_land", "base", Tint(Tint.SLOT, slot = "xx2"), listOf("ic_settings_wifi")),
+                layer("settingsicon-port", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("ic_settings_display")),
+                layer("settingsicon_land#p", "base", Tint(Tint.SLOT, slot = "xx4"), listOf("ic_settings_display")),
+            ),
+        )
+        val t = compile(baseSpec.copy(simplePackId = "qualified-1"), InMemoryPackResolver(listOf(qualified))).target(settings)!!
+        fun sources(res: String) = t.drawables.filter { it.resourceName.endsWith("/$res") }.map { it.source.category }.toSet()
+        assertEquals(setOf("drawable-xxhdpi-v4"), sources("account_radio_check"))
+        assertEquals(setOf("settingsicon"), sources("ic_settings_wifi"))
+        assertEquals(setOf("settingsicon"), sources("ic_settings_display"))
     }
 
     @Test
@@ -470,6 +549,7 @@ class ThemeCompilerTest {
         assertEquals("9.0", line.data["deviceOneUi"])
         assertEquals("pattern", line.data["allowlist"])
         assertEquals("1", line.data["dropped"]) // wallpaper_tint
+        assertEquals("1", line.data["verbatim"])
         assertTrue(result.events.none { it.target == settings && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) })
 
         // Unknown or newer One UI: the newest rules apply and the report says so.
@@ -489,12 +569,15 @@ class ThemeCompilerTest {
         val t = result.target(sysui)!!
         assertNotNull(t.color("qs_tile_bg"))
         assertNotNull(t.color("qs_tile_bg", "night"))
-        assertNull(t.color("notification_bg"))
+        // Outside the allowlist: Samsung's SemWT value, not the theme's.
+        assertEquals((ref("system_neutral2_100") and 0x00FFFFFF) or (0x80 shl 24), t.color("notification_bg")!!.argb)
         assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/notification_bg"))
         assertEquals(ThemeCompiler.REASON_QS_POLICY, t.reason("$sysui:color/wallpaper_tint"))
         val line = result.events.single { it.target == sysui && it.message.startsWith(ThemeCompiler.QS_REPORT_PREFIX) }
         assertEquals("1", line.data["allowlist"])
         assertEquals("2", line.data["colours"])
+        // notification_bg and wallpaper_tint (lock_icon_color and qs_removed_in_9 too) are copied verbatim.
+        assertEquals("4", line.data["verbatim"])
     }
 
     @Test
@@ -552,8 +635,8 @@ class ThemeCompilerTest {
 
     @Test
     fun `semwt coverage counts distinct overridden resources`() {
-        // qs_tile_bg (2 configs), notification_bg and the fixed lock_icon_color (copied verbatim) are planned and in SemWT.
-        assertEquals(3, compile().target(sysui)!!.semwtCoverage)
+        // qs_tile_bg (2 configs), notification_bg, and lock_icon_color and wallpaper_tint (copied verbatim) are planned and in SemWT.
+        assertEquals(4, compile().target(sysui)!!.semwtCoverage)
         assertEquals(1, compile().target(settings)!!.semwtCoverage)
     }
 

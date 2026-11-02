@@ -102,7 +102,8 @@ data class UiState(
     val lastApply: ApplyReport? = null,
     /**
      * True while the last apply has not been confirmed with "It works": restart protection is
-     * armed and two restarts within 10 minutes turn the overlays off.
+     * armed and two restarts within 10 minutes turn the overlays off, but only when root survives
+     * a restart (a temporary root such as DFRoot does not, so the UI must not promise it).
      */
     val applyUnconfirmed: Boolean = false,
     /**
@@ -135,8 +136,8 @@ data class UiState(
     /** "Android 17 · One UI 9.0" from the compatibility check. */
     val versionLine: String = CompatibilityCheck.versionLine(),
     /**
-     * What the connection can change, from the Shizuku uid: everything with root, colours only
-     * through the ADB shell, nothing while disconnected. Gates the icon, background and font cards.
+     * What the connection can change, from the Shizuku uid: everything with root, the system
+     * palette only through the ADB shell, nothing while disconnected. Gates the icon, background and font cards.
      */
     val capability: Capability = Capability.NONE,
 ) {
@@ -238,6 +239,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         if (_ui.value.serviceBusy) return
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { ThemeApplier.lastReport(getApplication<Application>()) }
+                .let { staleAfterSafeMode(it, guard.safeModeAt) }
             _ui.update { if (it.serviceBusy || it.lastApply == report) it else it.copy(lastApply = report) }
         }
     }
@@ -252,15 +254,46 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * Re-reads the restart-protection guard into [UiState.applyUnconfirmed]. Diagnostics ("It
      * works", the Settings test) and safe mode change the guard behind this view model's back, so
      * the editor syncs on every screen change and when the activity resumes.
+     *
+     * The stability monitor can also trip after an apply, on its own thread, while the editor is
+     * on display: it enters safe mode, turns the overlays off and rewrites the report as aborted.
+     * So a safe mode this view model has not shown yet brings the banner up here, and a finished
+     * report from before it no longer reads "Applied to N apps" (the rewrite may still be pending).
      */
     fun refreshGuard() {
         val unconfirmed = !guard.confirmed
         val expired = guard.protectionExpired()
+        val safeModeAt = guard.safeModeAt
         _ui.update {
-            if (it.applyUnconfirmed == unconfirmed && it.applyProtectionExpired == expired) it
-            else it.copy(applyUnconfirmed = unconfirmed, applyProtectionExpired = expired)
+            val banner = if (safeModeAt > 0L && it.safeModeBanner == null) SAFE_MODE_TEXT else it.safeModeBanner
+            val failed = if (banner === it.safeModeBanner) it.safeModeFailed else false
+            val lastApply = staleAfterSafeMode(it.lastApply, safeModeAt)
+            if (it.applyUnconfirmed == unconfirmed && it.applyProtectionExpired == expired &&
+                it.safeModeBanner == banner && it.lastApply == lastApply
+            ) {
+                it
+            } else {
+                it.copy(
+                    applyUnconfirmed = unconfirmed,
+                    applyProtectionExpired = expired,
+                    safeModeBanner = banner,
+                    safeModeFailed = failed,
+                    lastApply = lastApply,
+                )
+            }
         }
     }
+
+    /**
+     * [report] as aborted when safe mode ([safeModeAt], 0 when off) turned the overlays off after
+     * it started: the theme it reports is no longer on, whatever the saved file still says.
+     */
+    private fun staleAfterSafeMode(report: ApplyReport?, safeModeAt: Long): ApplyReport? =
+        if (report != null && safeModeAt > 0L && report.finished && report.startedAt < safeModeAt) {
+            report.copy(status = ApplyReport.STATUS_ABORTED)
+        } else {
+            report
+        }
 
     /** Marks the setup guide as seen (finished or skipped) and leaves it. */
     fun finishOnboarding() {
@@ -765,11 +798,16 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             val result = runCatching { packStore.installed() }
             result.onSuccess { installed ->
                 val ids = installed.packs.mapTo(HashSet()) { it.id }
+                val versions = installed.packs.associate { it.id to it.version }
                 _ui.update {
                     it.copy(
                         packs = installed.packs,
                         packErrors = installed.errors,
-                        catalogue = it.catalogue.copy(entries = it.catalogue.entries.map { e -> e.copy(installed = e.id in ids) }),
+                        catalogue = it.catalogue.copy(
+                            entries = it.catalogue.entries.map { e ->
+                                e.copy(installed = PackStore.isCatalogueInstalled(e.version, versions[e.id]))
+                            },
+                        ),
                     )
                 }
                 val spec = _ui.value.spec
@@ -891,7 +929,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      */
     private fun runTask(retry: NoticeAction?, block: (com.hexnext.themer.IThemeService, ShizukuState.Ready) -> Boolean) {
         val ready = ShizukuManager.state.value as? ShizukuState.Ready ?: run {
-            log(LogLine(LogLevel.ERROR, "No theme service: Shizuku (root for everything, ADB shell for colours only) or SU isn't ready."))
+            log(LogLine(LogLevel.ERROR, "No theme service: Shizuku (root for everything, ADB shell for the system palette only) isn't ready."))
             val state = ShizukuManager.state.value
             postNotice(
                 if (state == ShizukuState.PermissionNeeded || state == ShizukuState.PermissionDenied) {
@@ -900,6 +938,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                     Notice("Start Shizuku or grant root access first", isError = true)
                 },
             )
+            return
+        }
+        // As the Apply card: SU mode (su found, Shizuku not running) is Ready but cannot apply or
+        // remove (Capability.of gives NONE). A snackbar Retry can still arrive here in that state,
+        // and running on would overwrite the last good report with an aborted one.
+        if (ready.viaSu || Capability.of(ready) == Capability.NONE) {
+            log(LogLine(LogLevel.ERROR, "Hex Next found su but Shizuku is not running; su alone (SU mode) cannot apply or remove themes."))
+            postNotice(Notice("Start Shizuku with root first", isError = true))
             return
         }
         if (_ui.value.busy) return

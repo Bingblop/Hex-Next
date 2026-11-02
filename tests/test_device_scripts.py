@@ -72,6 +72,18 @@ class DeviceScriptPinTest(unittest.TestCase):
 
 
 class DiagScriptTest(unittest.TestCase):
+    def test_root_never_writes_the_sample_frro(self):
+        # $OUT_DIR may be shell-writable; root cp/chmod there would follow a planted symlink.
+        text = (DEVICE / "diag.sh").read_text()
+        for line in text.splitlines():
+            if line.lstrip().startswith("#") or "su -c" not in line:
+                continue
+            for cmd in re.findall(r'su -c "([^"]*)"', line):
+                self.assertNotIn("FRRO_COPY", cmd, line)
+                self.assertNotIn("chmod", cmd, line)
+                self.assertNotRegex(cmd, r"\bcp\b", line)
+        self.assertIn('rm -f "$FRRO_COPY"', text)
+
     def test_debloated_packages_are_listed_without_temp_files(self):
         text = (DEVICE / "diag.sh").read_text()
         match = re.search(r'^run "Uninstalled \(debloated\) packages" "(.*)"$', text, re.M)
@@ -138,6 +150,16 @@ class PackScriptTest(unittest.TestCase):
         self.assertIn("rm -f '/data/data/com.hexnext.themer/files/packs/velvet-rope.hexnext'", cmd)
         self.assertNotIn("packs/velvet-rope-1", cmd)
         self.assertNotIn("packs/.velvet-rope-1", cmd)
+
+    def test_copy_is_staged_as_the_apps_part_file(self):
+        # PackStore sweeps stale <id>.zip.part at start-up; a failed copy must not leave
+        # a file the app never sees.
+        rc, cmd, out = self.run_pack("x.zip", '{"id":"velvet-rope"}')
+        self.assertEqual(rc, 0, out)
+        self.assertIn("cp '", cmd)
+        self.assertIn("/files/packs/velvet-rope.zip.part'", cmd)
+        self.assertIn("rm -f '/data/data/com.hexnext.themer/files/packs/velvet-rope.zip.part'; false", cmd)
+        self.assertNotIn(".tmp", cmd)
 
     def test_minified_pack_json_is_read(self):
         rc, cmd, out = self.run_pack("download.zip", '{"name":"V","id":"deluxe-3-8","version":"1"}')

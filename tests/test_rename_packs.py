@@ -75,6 +75,51 @@ class RenamePacksTest(unittest.TestCase):
             index = json.loads((out / "index.json").read_text())
             self.assertEqual([p["name"] for p in index["packs"]], [entry["name"]])
 
+    def test_null_author_is_repaired(self):
+        source_id, entry = first_mapping()
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp, "in"), Path(tmp, "out")
+            src.mkdir()
+            pack = {"id": source_id, "name": "Original", "author": None, "version": "1",
+                    "categories": ["settings"], "dayNight": False, "previewCount": 0}
+            with zipfile.ZipFile(src / "x.zip", "w") as z:
+                z.writestr("pack.json", json.dumps(pack))
+            rc, _ = run_main(src, out)
+            self.assertEqual(rc, 0)
+            with zipfile.ZipFile(out / f"{entry['id']}.zip") as z:
+                self.assertEqual(json.loads(z.read("pack.json"))["author"], "")
+            index = json.loads((out / "index.json").read_text())
+            self.assertEqual([p["author"] for p in index["packs"]], [""])
+
+    def test_option_text_source_names_are_replaced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp, "in"), Path(tmp, "out")
+            src.mkdir()
+            pack = {"id": "fever-dream", "name": "Fever Dream", "author": "a", "version": "1",
+                    "categories": ["settings"], "dayNight": False, "previewCount": 0,
+                    "options": [
+                        {"type": "select", "keys": ["natone", "alticon"], "label": "Clock Widget Deliun",
+                         "choices": [" Tint", " Deliun App Icons"]},
+                        {"type": "switch", "key": "jk", "label": "Use jajanken_ Navbar Icons"},
+                        {"type": "switch", "key": "x", "label": "Use AOSP Navbar Icons"}]}
+            with zipfile.ZipFile(src / "fever-dream.zip", "w") as z:
+                z.writestr("pack.json", json.dumps(pack))
+            rc, _ = run_main(src, out)
+            self.assertEqual(rc, 0)
+            with zipfile.ZipFile(out / "fever-dream.zip") as z:
+                options = json.loads(z.read("pack.json"))["options"]
+        self.assertEqual(options[0]["label"], "Clock Widget Lagoon")
+        self.assertEqual(options[0]["choices"], [" Tint", " Lagoon App Icons"])
+        self.assertEqual(options[0]["keys"], ["natone", "alticon"])
+        self.assertEqual(options[1]["label"], "Use Jackpot Navbar Icons")
+        self.assertEqual(options[2]["label"], "Use AOSP Navbar Icons")
+
+    def test_own_source_name_becomes_the_pack_name(self):
+        options = rename_packs.scrub_options(
+            [{"type": "switch", "key": "b", "label": "Use Original Blend Keyboard Style"}],
+            "dusk-and-dawn")
+        self.assertEqual(options[0]["label"], "Use Original Dusk & Dawn Keyboard Style")
+
     def test_catalogue_pack_passes_through(self):
         _, entry = first_mapping()
         with tempfile.TemporaryDirectory() as tmp:
