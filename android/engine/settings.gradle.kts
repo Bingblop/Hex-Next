@@ -7,7 +7,7 @@ pluginManagement {
 
 plugins {
     // Lets jvmToolchain(17) download a JDK 17 on machines that only have a newer JDK.
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
 dependencyResolutionManagement {
