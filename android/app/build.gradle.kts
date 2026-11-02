@@ -281,7 +281,7 @@ dependencies {
     // Play Billing for one-time pack unlocks; only the play flavor links it. Play stops accepting
     // updates built with Billing 7 after November 1, 2026, so this must stay on 8 or newer. The
     // Java artifact is enough: the app uses no Kotlin extensions of the library.
-    "playImplementation"("com.android.billingclient:billing:8.3.0")
+    "playImplementation"("com.android.billingclient:billing:9.1.0")
 
     testImplementation("junit:junit:4.13.2")
 }
