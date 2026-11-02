@@ -124,11 +124,16 @@ fun OnboardingScreen(
     // left with Done or Skip would reopen on that page. Finishing marks it, and the next visit
     // starts again on Welcome. A plain rotation keeps the page, because the mark is not set then.
     var finished by rememberSaveable { mutableStateOf(false) }
-    remember {
-        if (finished) {
+    // Runs once when this screen enters composition. It returns a value (not Unit) so the reset
+    // happens before the first frame; a LaunchedEffect would flash the old page first.
+    @Suppress("UNUSED_VARIABLE")
+    val restartedFromFinish = remember {
+        val wasFinished = finished
+        if (wasFinished) {
             index = 0
             finished = false
         }
+        wasFinished
     }
     // The same activity-scoped view model MainScreen uses: the guide shows the import's progress
     // and its failure notice here, instead of the notice waiting for the editor.
