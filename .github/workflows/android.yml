@@ -193,5 +193,11 @@ jobs:
             && github.event_name == 'workflow_dispatch'
             && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
         run: |
+          # Until the first pin exists (tools/device/debug-keystore.sha256 still empty, as on the PR
+          # branch before the default-branch bootstrap) there is nothing to drift from: warn only.
+          if [ -z "$(grep -v '^#' ../tools/device/debug-keystore.sha256 | tr -d '[:space:]' || true)" ]; then
+            echo "::warning::No debug keystore pin exists yet, so this test build has its own key and testers must uninstall before installing it. After merging, run this workflow on the default branch with bootstrap_debug_keystore and commit the certificate SHA-256 to tools/device/debug-keystore.sha256."
+            exit 0
+          fi
           echo "::error::This run's debug build is signed with a newly generated key (no HEXNEXT_DEBUG_KEYSTORE_BASE64 secret and no cached pin), so it will not install over earlier test builds. Set the secret to the original debug.keystore, or (no key worth keeping yet) run this workflow on the default branch with bootstrap_debug_keystore, then commit the certificate SHA-256 to tools/device/debug-keystore.sha256 and pin that run in tools/device/install.sh."
           exit 1
