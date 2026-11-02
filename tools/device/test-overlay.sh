@@ -24,8 +24,8 @@ COLOR=sec_widget_round_and_bgcolor
 # (tests/test_device_scripts.py fails when they drift apart).
 # Empty until a CI run signed with the pinned debug key exists (see install.sh); without them
 # the test skips the install and tests the build that is already installed.
-RUN_ID="${RUN_ID:-}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-}"
+RUN_ID="${RUN_ID:-41468778411}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-e9e35bd94ae2e0d78c2ff376093ef5e6000bbce79d22b15b54a01c72e132ce55}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
 WORK="$OUT_DIR/hexnext-apk"
@@ -98,8 +98,13 @@ elif [ $ok -eq 1 ]; then
       # Stream the APK to pm on stdin instead of staging it in the shell-writable
       # /data/local/tmp, where a planted symlink could redirect a root copy.
       size=$(wc -c <"$APK" | tr -d ' ')
+      case "$size" in ''|*[!0-9]*) size=0 ;; esac
       log ""; log "### Install"; log "# pm install -r -S $size < $APK"
-      res=$(su -c "pm install -r -S $size" <"$APK" 2>&1); code=$?
+      if [ "$size" -gt 0 ]; then
+        res=$(su -c "pm install -r -S $size" <"$APK" 2>&1); code=$?
+      else
+        res="cannot read the size of $APK"; code=1
+      fi
       log "(exit $code)"; log "$res"
       case "$res" in
         *Success*) log "installed run $RUN_ID" ;;

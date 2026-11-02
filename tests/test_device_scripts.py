@@ -28,19 +28,16 @@ class DeviceScriptPinTest(unittest.TestCase):
                 "%s in test-overlay.sh differs from install.sh" % name,
             )
 
-    def test_no_default_pin_until_the_debug_key_is_pinned(self):
-        # A run signed with a key generated in that run can never be updated in place, so the
-        # scripts must not point testers at one. Only a certificate in debug-keystore.sha256
-        # (the cached or secret key) makes a run worth pinning.
-        pinned_cert = "".join(
-            line.strip() for line in (DEVICE / "debug-keystore.sha256").read_text().splitlines()
-            if not line.lstrip().startswith("#")
-        )
+    def test_default_pin_is_complete(self):
+        # Kyle tests the latest green build by default, so both values are set together (or
+        # neither). Until the CI debug key is pinned, installing a new pin needs one uninstall,
+        # which install.sh explains when pm reports INSTALL_FAILED_UPDATE_INCOMPATIBLE.
         run_id = default_pin("install.sh", "RUN_ID")
-        self.assertNotEqual(run_id, "41435774504", "run 41435774504 was signed with a throwaway key")
-        if not pinned_cert:
-            self.assertEqual(run_id, "", "no debug key is pinned, so no run can update in place")
-            self.assertEqual(default_pin("install.sh", "APK_ZIP_SHA256"), "")
+        sha = default_pin("install.sh", "APK_ZIP_SHA256")
+        self.assertEqual(bool(run_id), bool(sha))
+        if run_id:
+            self.assertRegex(run_id, r"^[0-9]+$")
+            self.assertRegex(sha, r"^[0-9a-f]{64}$")
 
     def test_install_without_a_pin_refuses_before_downloading(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -54,7 +51,12 @@ class DeviceScriptPinTest(unittest.TestCase):
             env = dict(os.environ, PATH="%s:%s" % (bindir, os.environ["PATH"]), HOME=tmp)
             env.pop("RUN_ID", None)
             env.pop("APK_ZIP_SHA256", None)
-            proc = subprocess.run(["sh", str(DEVICE / "install.sh")], env=env,
+            # The shipped script has a default pin; blank it to test the no-pin path.
+            script = Path(tmp, "install.sh")
+            text = (DEVICE / "install.sh").read_text()
+            text = re.sub(r'^(RUN_ID|APK_ZIP_SHA256)="\$\{\1:-[^}]*\}"', r'\1="${\1:-}"', text, flags=re.M)
+            script.write_text(text)
+            proc = subprocess.run(["sh", str(script)], env=env,
                                   capture_output=True, text=True)
             self.assertEqual(proc.returncode, 1, proc.stdout)
             self.assertIn("RUN_ID=", proc.stdout)
