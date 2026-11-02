@@ -77,6 +77,12 @@ with a SHA-256 checksum and a JSON report. Signing values may also live in an ig
 - `.github/workflows/android.yml` runs the tooling tests (`tests/`), the app unit tests, release
   lint, an unsigned universal candidate, an installable debug build, and a signing dry run with
   an ephemeral CI-only key.
+- The root `codemagic.yaml` builds with JDK 17, Node.js 22, and Android SDK 36. Add the repository
+  in Codemagic and select the **HexNext Android** workflow; pushes and pull requests targeting
+  `main`, `master`, or `release/**` trigger builds once the webhook is connected. It runs the
+  web/Python tests, Android unit tests, release lint, and APK verification. Its debug APK uses the
+  standard Android debug key; the unsigned release candidate, R8 mapping, and lint report are also
+  available. No signing secrets are needed.
 - `.github/workflows/release.yml` publishes a GitHub Release from a `v*` tag or a manual run:
   `python3 bin/prepare-release.py` checks the tag against `versionName`, then the signed APK,
   checksum, report and R8 mapping are attached. Secrets: `HEXNEXT_KEYSTORE_BASE64`,
