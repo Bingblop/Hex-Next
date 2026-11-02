@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hex Next Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; --fg:#1b1c20; --bg:#ffffff; --muted:#5a5f6b; --line:#e3e5ea; }
+  @media (prefers-color-scheme: dark) { :root { --fg:#e8eaee; --bg:#16181e; --muted:#9aa0ad; --line:#2a2e38; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:28px; margin:0 0 4px; } h2 { font-size:20px; margin:32px 0 8px; }
+  p.meta { color:var(--muted); margin:0 0 24px; } ul { padding-left:20px; } li { margin:4px 0; }
+  table { border-collapse:collapse; width:100%; } td, th { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+</style>
+</head>
+<body>
+<main>
+<h1>Hex Next Privacy Policy</h1>
+<p class="meta">Effective 2 November 2026 · Applies to the Android app "Hex Next" (package com.hexnext.themer)</p>
+
+<p>Hex Next is a theming app for Samsung phones running One UI. It is built to work on your device, not in the cloud. This policy explains what the app does with information, in plain terms.</p>
+
+<h2>What we collect</h2>
+<p>We do not require an account, and we do not run analytics, advertising or crash-reporting services. The app does not collect or transmit personal information to us.</p>
+
+<h2>What stays on your phone</h2>
+<ul>
+  <li><strong>Theme settings</strong> you choose (colours, packs, icons, fonts, backgrounds) and the themes the app builds from them.</li>
+  <li><strong>Device scan data</strong>: the list of Samsung system apps and their theme resources on your phone, used to build overlays that fit your exact software version.</li>
+  <li><strong>Build logs and reports</strong> that describe what the app changed, so you can undo it and diagnose problems. You can share these files yourself; the app never uploads them.</li>
+  <li><strong>Images and fonts you import</strong> for custom icons, backgrounds and system fonts. They are stored in the app's private storage until you delete them.</li>
+  <li><strong>AI provider keys</strong> you choose to enter. They are encrypted with a key held in your phone's hardware-backed keystore, are excluded from backups, and are never sent anywhere except to the provider they belong to.</li>
+</ul>
+<p>Uninstalling the app removes all of this data. "Remove theme" inside the app restores Samsung's defaults.</p>
+
+<h2>Optional AI features</h2>
+<p>If you turn on icon or theme generation, the prompt you type is sent directly from your phone to the AI provider you selected (for example OpenAI, Google, Anthropic, xAI, Perplexity or Stability AI), using your own API key. Those providers process your prompt under their own privacy policies. Nothing is routed through servers operated by us, and the feature is off until you add a key.</p>
+
+<h2>Purchases</h2>
+<p>Theme packs are sold through Google Play. Google processes the payment and handles your payment details; we never see them. To confirm a purchase and protect against tampering, the app sends the Google Play purchase token and a Google Play Integrity token to our licence server, which replies with an entitlement for the pack you bought. The server stores the purchase token, a random app-instance identifier and the entitlement; it does not receive your name, email, contacts or location.</p>
+
+<h2>Permissions</h2>
+<table>
+  <tr><th>Permission</th><th>Why</th></tr>
+  <tr><td>Internet</td><td>Downloading theme packs you own, verifying purchases, and optional AI requests.</td></tr>
+  <tr><td>Root or Shizuku access</td><td>Installing and removing system theme overlays. Hex Next only touches Samsung and Android system apps and only the resources needed for your theme.</td></tr>
+  <tr><td>Query installed packages</td><td>Detecting which Samsung system apps are present so the right overlays are built and missing (debloated) apps are skipped.</td></tr>
+  <tr><td>Run at boot</td><td>Re-applying your theme after a restart and running the safe-mode check that undoes a theme if the system fails to start properly.</td></tr>
+  <tr><td>Photos and files (via the system picker)</td><td>Importing images and fonts you choose. The app only receives the files you pick.</td></tr>
+</table>
+
+<h2>Children</h2>
+<p>Hex Next is not directed at children under 13 and does not knowingly collect information from them.</p>
+
+<h2>Security</h2>
+<p>All network traffic uses HTTPS. Keys and entitlements are stored encrypted. The app verifies its own signature and the integrity of downloaded packs before using them.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, the new version will be published at this address with a new effective date. Material changes will also be announced in the app's release notes.</p>
+
+<h2>Contact</h2>
+<p>Questions about privacy: <a href="mailto:kyle.tameirao@gmail.com">kyle.tameirao@gmail.com</a>.</p>
+</main>
+</body>
+</html>
