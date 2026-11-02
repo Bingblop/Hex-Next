@@ -32,9 +32,11 @@ esac
 case "$FILE" in
   *"'"*) echo "the path '$FILE' contains a quote; move the file to a plain path first"; exit 1 ;;
 esac
+# Stage inside the app's private pack folder, not a shell-writable /data/local/tmp path,
+# so a planted symlink cannot redirect the root copy.
 su -c "uid=\$(stat -c %u '/data/data/$PKG') && mkdir -p '$DEST' && \
   chown \"\$uid:\$uid\" '/data/data/$PKG/files' '$DEST' && \
-  cp '$FILE' '/data/local/tmp/$NAME' && mv '/data/local/tmp/$NAME' '$DEST/$NAME' && \
+  rm -f '$DEST/.$NAME.tmp' && cp '$FILE' '$DEST/.$NAME.tmp' && mv -f '$DEST/.$NAME.tmp' '$DEST/$NAME' && \
   chown \"\$uid:\$uid\" '$DEST/$NAME' && chmod 600 '$DEST/$NAME' && \
   restorecon -R '/data/data/$PKG/files' && ls -l '$DEST'"
 status=$?
