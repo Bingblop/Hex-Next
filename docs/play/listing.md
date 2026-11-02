@@ -42,7 +42,7 @@ SAFE BY DESIGN
 • Only Samsung and Android system apps are touched; your other apps are left alone
 
 THEME PACKS
-Hex Next includes free colour themes. Additional icon and theme packs are available as one-time in-app purchases through Google Play.
+The default theme, custom colours, your own icons, fonts and backgrounds, and the AI features are free. Each theme pack is a one-time in-app purchase through Google Play, or unlock every pack, including packs added later, with a single purchase. Purchases restore on any phone signed in to the same Google account.
 
 REQUIREMENTS
 • A Samsung Galaxy phone running One UI 7, 8 or 9 (Android 15 to 17)

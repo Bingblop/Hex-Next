@@ -1,0 +1,13 @@
+# Hex Next licence server (Cloudflare Worker).
+# No secrets live here. Set them with `wrangler secret put` (see README.md).
+name = "hexnext-licence-server"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+[vars]
+# Only purchases for this application id are accepted.
+PACKAGE_NAME = "com.hexnext.themer"
+# Purchase provider: "google_play" (default) or "direct_sale" (stub).
+PROVIDER = "google_play"
+# Naive per-IP limit on POST /v1/verify, per minute, per Cloudflare location.
+RATE_LIMIT_PER_MINUTE = "30"

@@ -28,6 +28,14 @@ val releaseStoreFile = releaseStorePath?.let { rootProject.file(it) }
 require(releaseStoreFile == null || releaseStoreFile.isFile) {
     "The configured release keystore does not exist."
 }
+// Play build only: the license server URL and the Play Console base64 RSA public key used to
+// check purchase signatures. Neither is a secret, but both stay out of the repository and come
+// from the environment or keystore.properties; empty when not configured.
+fun buildConfigString(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+val licenseServerUrl = signingValue("HEXNEXT_LICENSE_SERVER_URL").orEmpty()
+val playLicenseKey = signingValue("HEXNEXT_PLAY_LICENSE_KEY").orEmpty()
+
 require(providers.gradleProperty("requireReleaseSigning").orNull != "true" || releaseSigningConfigured) {
     "Release signing is required. Configure HEXNEXT_KEYSTORE_PATH, HEXNEXT_STORE_PASSWORD, HEXNEXT_KEY_ALIAS and HEXNEXT_KEY_PASSWORD."
 }
@@ -50,6 +58,25 @@ android {
         // Support both 64-bit (arm64-v8a, x86_64) and 32-bit (armeabi-v7a, x86) architectures
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        }
+    }
+
+    // "play" is the Play Store build (Play Billing decides which packs are unlocked); "owner" is
+    // the maintainer's private build with every pack unlocked. Each flavor has its own
+    // billing/EntitlementsFactory.kt, so the unlock-all code exists only in src/owner and the play
+    // build cannot contain it.
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+            buildConfigField("String", "LICENSE_SERVER_URL", buildConfigString(licenseServerUrl))
+            buildConfigField("String", "PLAY_LICENSE_KEY", buildConfigString(playLicenseKey))
+        }
+        create("owner") {
+            dimension = "store"
+            // Installs beside the Play build; the label comes from src/owner/res/values/strings.xml.
+            applicationIdSuffix = ".owner"
+            versionNameSuffix = "-owner"
         }
     }
 
@@ -77,6 +104,7 @@ android {
         }
     }
 
+    // Release signing (below) applies to both flavors.
     buildTypes {
         debug {
             // Debug builds stay unshrunk and unobfuscated so stack traces and the Shizuku
@@ -226,6 +254,11 @@ dependencies {
     // Pure-JVM engine (FRRO reader, `cmd overlay dump` parser, One UI rules); substituted by
     // includeBuild("engine") in settings.gradle.kts.
     implementation("com.hexnext:engine")
+
+    // Play Billing for one-time pack unlocks; only the play flavor links it. Play stops accepting
+    // updates built with Billing 7 after November 1, 2026, so this must stay on 8 or newer. The
+    // Java artifact is enough: the app uses no Kotlin extensions of the library.
+    "playImplementation"("com.android.billingclient:billing:8.3.0")
 
     testImplementation("junit:junit:4.13.2")
 }

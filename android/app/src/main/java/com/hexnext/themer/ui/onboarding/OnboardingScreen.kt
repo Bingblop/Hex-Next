@@ -107,6 +107,8 @@ private enum class Step(val title: String) {
  * @param selectedPackId the editor's current pack (null = colours only).
  * @param onImportPack copies a chosen pack file into the app, so a fresh install can end the
  *   guide with a pack without leaving it.
+ * @param isPackLocked true for a pack this install has not unlocked; its row says so and the
+ *   view model refuses to select it (packs are unlocked from the main screen).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,6 +120,7 @@ fun OnboardingScreen(
     selectedPackId: String?,
     onSelectPack: (String?) -> Unit,
     onImportPack: (Uri) -> Unit,
+    isPackLocked: (String) -> Boolean,
     onRequestPermission: () -> Unit,
     onFinish: () -> Unit,
 ) {
@@ -218,7 +221,7 @@ fun OnboardingScreen(
                     Step.WELCOME -> WelcomePage()
                     Step.COMPATIBILITY -> CompatibilityPage(versionLine)
                     Step.ACCESS -> AccessPage(shizuku, rootToolLinks, onRequestPermission)
-                    Step.PACK -> PackPage(packs, selectedPackId, ownPackParts, ui.busy, onSelectPack, onImportPack)
+                    Step.PACK -> PackPage(packs, selectedPackId, ownPackParts, ui.busy, onSelectPack, onImportPack, isPackLocked)
                     Step.DONE -> DonePage(shizuku, packs, selectedPackId, ownPackParts)
                 }
             }
@@ -396,6 +399,7 @@ private fun PackPage(
     busy: Boolean,
     onSelectPack: (String?) -> Unit,
     onImportPack: (Uri) -> Unit,
+    isPackLocked: (String) -> Boolean,
 ) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImportPack(uri)
@@ -428,6 +432,7 @@ private fun PackPage(
                     Text(pack.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         listOfNotNull(
+                            if (isPackLocked(pack.id)) "Locked, unlock it on the main screen" else null,
                             pack.author.takeIf { it.isNotBlank() },
                             "${pack.drawableCount} drawables",
                             if (pack.hasSettingsIcons) "Settings icons" else null,

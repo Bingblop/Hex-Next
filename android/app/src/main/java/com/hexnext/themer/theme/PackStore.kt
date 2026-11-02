@@ -109,6 +109,15 @@ class PackStore(context: Context) {
         return Seeded(added, failed)
     }
 
+    /**
+     * Ids of the packs bundled under `assets/packs/` (debug builds only; empty in a release
+     * build). Debuggable builds treat them as unlocked so a test phone can apply them.
+     */
+    fun bundledIds(): Set<String> =
+        runCatching { appContext.assets.list(ASSET_DIR)?.toList() }.getOrNull().orEmpty()
+            .filter { isPackFile(it) }
+            .mapTo(LinkedHashSet()) { it.substringBeforeLast('.') }
+
     /** Result of [seedBundled]: installed ids plus asset name → reason for the ones that failed. */
     data class Seeded(val added: List<String>, val failed: Map<String, String>)
 

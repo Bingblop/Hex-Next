@@ -11,6 +11,8 @@
   - files/reports: scan reports and apply-last.json of this phone.
   - files/logs and files/requests: overlay build logs and per-target overlay requests.
   - files/packs: downloaded pack zips (up to hundreds of MB); they are downloaded again.
+  - hexnext_billing.xml (Play build): a hint of the packs bought with this phone's Google account;
+    purchases are read from Google Play again on every start.
   - hexnext_apply.xml (ApplyGuard, device-protected; plus its old credential-protected copy) and
     hexnext_theme_applier.xml (takeover flag): they describe overlays that exist only on this phone.
   - files/custom/backgrounds, files/custom/generated and files/custom/fonts (cloud only): imported
@@ -24,6 +26,7 @@
         <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />
         <exclude domain="sharedpref" path="hexnext_apply.xml" />
         <exclude domain="sharedpref" path="hexnext_theme_applier.xml" />
+        <exclude domain="sharedpref" path="hexnext_billing.xml" />
         <exclude domain="device_sharedpref" path="hexnext_apply.xml" />
         <exclude domain="file" path="scan/" />
         <exclude domain="file" path="scan.new/" />
@@ -40,6 +43,7 @@
         <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />
         <exclude domain="sharedpref" path="hexnext_apply.xml" />
         <exclude domain="sharedpref" path="hexnext_theme_applier.xml" />
+        <exclude domain="sharedpref" path="hexnext_billing.xml" />
         <exclude domain="device_sharedpref" path="hexnext_apply.xml" />
         <exclude domain="file" path="scan/" />
         <exclude domain="file" path="scan.new/" />

@@ -1,5 +1,6 @@
 package com.hexnext.themer.safety
 
+import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.FontInstaller
@@ -37,19 +38,22 @@ internal object EarlyRecoveryHook {
     private const val MARKER_NAME = "early_safe_mode"
     private const val MODULE_DIR = "/data/adb/modules/$MODULE_ID"
 
+    /** This build's package (the owner flavor installs as `<id>.owner`); only [a-z0-9.]. */
+    private const val APP_ID = BuildConfig.APPLICATION_ID
+
     /** `£` stands for `$` so the shell text needs no Kotlin escaping. */
     private val script = """
         #!/system/bin/sh
         set -f
         USER_ID=£(am get-current-user 2>/dev/null)
         case "£USER_ID" in ''|*[!0-9]*) USER_ID=0 ;; esac
-        if [ -d /data/user_de/0/com.android.settings ] && [ ! -d /data/user_de/0/com.hexnext.themer ] &&
-          [ ! -d "/data/user_de/£USER_ID/com.hexnext.themer" ]; then
+        if [ -d /data/user_de/0/com.android.settings ] && [ ! -d /data/user_de/0/$APP_ID ] &&
+          [ ! -d "/data/user_de/£USER_ID/$APP_ID" ]; then
           # The app was uninstalled: remove this module.
           rm -rf /data/adb/modules/hexnext_early_recovery
           exit 0
         fi
-        PREFS="/data/user_de/£USER_ID/com.hexnext.themer/shared_prefs/hexnext_apply.xml"
+        PREFS="/data/user_de/£USER_ID/$APP_ID/shared_prefs/hexnext_apply.xml"
         [ -r "£PREFS" ] || exit 0
         CONFIRMED=£(sed -n 's/.*<boolean name="confirmed" value="\([^"]*\)" \/>.*/\1/p' "£PREFS")
         [ "£CONFIRMED" = false ] || exit 0

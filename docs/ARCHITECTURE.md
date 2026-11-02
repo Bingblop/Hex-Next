@@ -109,6 +109,58 @@ android/
 
 `engine` depends only on Kotlin stdlib and kotlinx-serialization so it can be tested anywhere.
 
+### Store flavors and pack entitlements
+
+`app` has one flavor dimension, `store`:
+
+- `play`: the Play Store build (`com.hexnext.themer`). Links Play Billing
+  (`com.android.billingclient:billing` 8.x) and gets `BuildConfig.LICENSE_SERVER_URL` and `BuildConfig.PLAY_LICENSE_KEY`
+  from `HEXNEXT_LICENSE_SERVER_URL` / `HEXNEXT_PLAY_LICENSE_KEY` (environment or
+  `keystore.properties`, empty by default).
+- `owner`: the maintainer's private build (`com.hexnext.themer.owner`, label "Hex Next Owner",
+  version suffix `-owner`) with every pack unlocked. It installs beside the Play build.
+
+Release signing applies to both. Gradle tasks carry the flavor: `testPlayDebugUnitTest`,
+`lintPlayRelease`, `assemblePlayDebug`, `assemblePlayRelease`, `assembleOwnerRelease`,
+`bundlePlayRelease`; outputs live under `outputs/apk/<flavor>/<type>/`.
+
+Every theme pack is a one-time Play purchase (product id `pack_<id>`, the pack id lowercased with
+anything outside `[a-z0-9._]` turned into `_`), plus `all_packs`, which also covers packs added
+later. Prices come from Play (formatted), never from the code. Free features (default theme,
+custom colours, icons, fonts, backgrounds, AI) are never gated.
+
+Shared code only sees `billing/Entitlements.kt` (`PackEntitlements`, `EntitlementState`,
+`ProductIds`) and calls `EntitlementsFactory.create(context)`, which each flavor defines in its
+own source set: `src/play/.../PlayEntitlements` (Play Billing) and `src/owner/.../OwnerEntitlements`
+(everything unlocked, `canPurchase = false`). The unlock-all code exists only in `src/owner`, so
+the Play build cannot contain it. `EntitlementsProvider.get(context)` keeps one started instance
+per process.
+
+`PlayEntitlements` connects with `enablePendingPurchases(...enableOneTimeProducts())`, reconnects
+with a doubling backoff (1 s up to 5 min), loads prices with `queryProductDetailsAsync` for
+`all_packs` plus `pack_<id>` of every pack the app knows (`setCatalogue`: installed packs and the
+remote catalogue) and reads purchases with `queryPurchasesAsync(INAPP)` on start, on every
+activity resume and on "Restore purchases" (App settings). Owned products are recomputed from
+that answer each time, so a refund disappears. Only `PURCHASED` purchases count; `PENDING` ones
+show as pending and unlock nothing. A purchase is verified before it is granted and acknowledged:
+
+1. `LICENSE_SERVER_URL` set: `POST <url>/v1/verify` (`server/README.md`; the value may be the
+   base URL or the full endpoint, HTTPS only) must answer `{"valid":true,"productId":...}`. When
+   the server cannot say (offline, 429, 5xx), a valid Play signature still grants if the key is set.
+2. Otherwise `PLAY_LICENSE_KEY` set: SHA1withRSA over `originalJson` (`billing/PurchaseSignature`).
+3. Neither: a debuggable build grants with a logged warning; any other build grants nothing,
+   refuses to start a purchase and shows "Purchases can't be verified in this build".
+
+`hexnext_billing.xml` caches the owned product ids only as a hint so the pack list does not flash
+locks before Play answers; it never unlocks a download or an apply.
+
+`MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI: a locked pack cannot be
+downloaded, selected (simple or per part) or applied, and `applyTheme` refuses a theme that uses
+one (a pack imported from a file, a refunded pack, a pick from "Describe your theme"). An imported
+pack is unlocked only when its id is. Test packs bundled under `assets/packs/` count as unlocked
+in debuggable builds only. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
+packs" sits in the Theme pack card and the "Get packs" dialog.
+
 ## Overlay delivery
 
 | Need | Mechanism |

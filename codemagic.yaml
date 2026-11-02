@@ -39,17 +39,19 @@ workflows:
           cd android
           chmod +x gradlew
           ./gradlew --no-daemon --console=plain \
-            :app:verifyAndroidSdkTools :app:testDebugUnitTest \
-            :app:lintRelease :app:assembleDebug :app:assembleRelease
-        test_report: android/app/build/test-results/testDebugUnitTest/*.xml
+            :app:verifyAndroidSdkTools :app:testPlayDebugUnitTest \
+            :app:lintPlayRelease :app:assemblePlayDebug :app:assemblePlayRelease \
+            :app:assembleOwnerRelease :app:bundlePlayRelease
+        test_report: android/app/build/test-results/testPlayDebugUnitTest/*.xml
       - name: Verify unsigned universal release candidate
         script: |
           set -euo pipefail
           python3 bin/verify-release-apk.py \
-            android/app/build/outputs/apk/release/app-universal-release-unsigned.apk \
+            android/app/build/outputs/apk/play/release/app-play-universal-release-unsigned.apk \
             --unsigned
     artifacts:
-      - android/app/build/outputs/apk/debug/app-universal-debug.apk
-      - android/app/build/outputs/apk/release/app-universal-release-unsigned.apk
-      - android/app/build/outputs/mapping/release/mapping.txt
-      - android/app/build/reports/lint-results-release.html
+      - android/app/build/outputs/apk/play/debug/app-play-universal-debug.apk
+      - android/app/build/outputs/apk/play/release/app-play-universal-release-unsigned.apk
+      - android/app/build/outputs/mapping/playRelease/mapping.txt
+      - android/app/build/reports/lint-results-playRelease.html
+      - android/app/build/outputs/bundle/playRelease/*.aab
