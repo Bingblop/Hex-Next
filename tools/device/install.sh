@@ -7,7 +7,7 @@
 # HEXNEXT_DEBUG_KEYSTORE_BASE64 secret or the cached pin whose certificate is in
 # debug-keystore.sha256). A build signed with another key (a run that generated its own key, or
 # a local build) fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE and needs `pm uninstall` first
-# (loses app data). The CI key was pinned in run 41497205555 (main): builds from that run on
+# (loses app data). The CI key was pinned in run 41511487946 (main): builds from that run on
 # update in place; installing the first of them over an older build needs one uninstall.
 #
 # Usage (Termux):  sh install.sh
@@ -17,8 +17,8 @@
 #   Overrides:     RUN_ID=... APK_ZIP_SHA256=... sh install.sh
 # When you change the pin, change RUN_ID / APK_ZIP_SHA256 in test-overlay.sh too.
 set -u
-RUN_ID="${RUN_ID:-41497205555}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-80cd68a7a45732e7d09f36dbb7217ffd089dc7ebb82ac72a4a2d6c0f42559de4}"
+RUN_ID="${RUN_ID:-41511487946}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-078a8162bf4f5cafffd7b3eab26c8bc750dc5df342c1712434602129fe08c1c0}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
 PKG=com.hexnext.themer
