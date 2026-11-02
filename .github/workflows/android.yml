@@ -55,7 +55,7 @@ jobs:
           done
           ls -l app/src/debug/assets/packs
       - name: Test and build unsigned universal candidate
-        run: ./gradlew --no-daemon --console=plain :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleDebug
+        run: ./gradlew --no-daemon --console=plain :engine:test :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleDebug
       - name: Verify installable universal candidate
         run: |
           python3 ../bin/verify-release-apk.py \

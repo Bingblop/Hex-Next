@@ -22,11 +22,14 @@ import java.io.File
 class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        if (intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED &&
+            intent.action != Intent.ACTION_BOOT_COMPLETED
+        ) return
+        val lockedBoot = intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
         val guard = ApplyGuard(context)
         guard.noteBoot()
-        val safeMode = guard.shouldEnterSafeMode()
-        val takeover = ThemeApplier.isTakeoverActive(context)
+        val safeMode = guard.shouldEnterSafeMode() || EarlyRecoveryHook.wasTriggeredThisBoot()
+        val takeover = !lockedBoot && ThemeApplier.isTakeoverActive(context)
         if (!safeMode && (!takeover || guard.safeModeActive())) return
         if (SU_PATHS.none { File(it).exists() }) return
 
@@ -37,7 +40,7 @@ class BootReceiver : BroadcastReceiver() {
                 val service = ThemeService()
                 if (safeMode) {
                     val result = service.disableHexOverlays()
-                    if (result.getInt(ThemeService.KEY_CODE, -1) == 0) {
+                    if (!lockedBoot && result.getInt(ThemeService.KEY_CODE, -1) == 0) {
                         guard.markSafeModeEntered(by = "boot receiver")
                     }
                     Log.i(TAG, "Safe mode at boot: ${result.getString(ThemeService.KEY_OUTPUT)}")

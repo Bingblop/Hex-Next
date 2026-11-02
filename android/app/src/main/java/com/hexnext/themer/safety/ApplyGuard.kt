@@ -2,6 +2,7 @@ package com.hexnext.themer.safety
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.UserManager
 import java.io.File
 
 /**
@@ -14,8 +15,15 @@ import java.io.File
  */
 class ApplyGuard(context: Context) {
 
+    private val appContext = context.applicationContext
+    private val deviceProtectedContext = appContext.createDeviceProtectedStorageContext()
+    private val credentialProtectedContext = appContext.createCredentialProtectedStorageContext()
     private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        deviceProtectedContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    init {
+        migrateCredentialProtectedState()
+    }
 
     val appliedAt: Long get() = prefs.getLong(KEY_APPLIED_AT, 0L)
     val confirmed: Boolean get() = prefs.getBoolean(KEY_CONFIRMED, true)
@@ -29,12 +37,12 @@ class ApplyGuard(context: Context) {
             .putBoolean(KEY_CONFIRMED, false)
             .putString(KEY_APPLY_BOOT_ID, boot)
             .putString(KEY_BOOT_IDS, boot)
-            .apply()
+            .commit()
     }
 
     /** "It works": clears the pending apply so no restart can trigger safe mode for it. */
     fun confirm() {
-        prefs.edit().putBoolean(KEY_CONFIRMED, true).apply()
+        prefs.edit().putBoolean(KEY_CONFIRMED, true).commit()
     }
 
     /** Appends the current boot id if it is new. Returns the stored list. */
@@ -81,6 +89,31 @@ class ApplyGuard(context: Context) {
         val age = if (appliedAt > 0) "${(now - appliedAt) / 1000}s ago" else "never"
         return "apply: $age, confirmed=$confirmed, applyBoot=${applyBootId.take(8)}, " +
             "boots=${bootIds.joinToString { it.take(8) }}, current=${currentBootId()?.take(8)}"
+    }
+
+    private fun migrateCredentialProtectedState() {
+        val userManager = deviceProtectedContext.getSystemService(UserManager::class.java)
+        if (userManager?.isUserUnlocked != true || prefs.contains(KEY_APPLIED_AT)) return
+
+        val legacy = credentialProtectedContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val oldValues = legacy.all
+        if (oldValues.isEmpty()) return
+
+        val deviceBootIds = bootIds
+        val editor = prefs.edit()
+        oldValues.forEach { (key, value) ->
+            when (value) {
+                is Boolean -> editor.putBoolean(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is String -> if (key != KEY_BOOT_IDS) editor.putString(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+            }
+        }
+        val mergedBootIds = (deviceBootIds + legacy.getString(KEY_BOOT_IDS, "").orEmpty()
+            .split(',').filter { it.isNotBlank() }).distinct().takeLast(MAX_BOOT_IDS)
+        editor.putString(KEY_BOOT_IDS, mergedBootIds.joinToString(",")).commit()
     }
 
     companion object {

@@ -25,6 +25,7 @@ import com.hexnext.themer.overlay.OverlayBuilder
 import com.hexnext.themer.overlay.OverlayColor
 import com.hexnext.themer.overlay.OverlayDrawable
 import com.hexnext.themer.safety.ApplyGuard
+import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.MonitorScript
 import com.hexnext.themer.shizuku.ThemeService
 import java.io.File
@@ -200,6 +201,9 @@ class ThemeApplier(context: Context) {
         cleanupLegacy(service) { level, text -> say(level, text, emptyMap()) }?.let { notes += it }
 
         guard.recordApply()
+        if (service.uid == 0 && !EarlyRecoveryHook.install(service)) {
+            note(LogLevel.WARN, "Early root recovery hook could not be installed")
+        }
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
         say(LogLevel.INFO, "Stability monitor: ${monitor.output()}", emptyMap())
 

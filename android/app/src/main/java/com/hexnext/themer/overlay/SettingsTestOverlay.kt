@@ -12,6 +12,7 @@ import com.hexnext.themer.IThemeService
 import com.hexnext.themer.device.ArscReader
 import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.themer.safety.ApplyGuard
+import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.ThemeService
 import com.hexnext.themer.theme.SnapshotBuilder
 import org.json.JSONArray
@@ -179,6 +180,9 @@ class SettingsTestOverlay(context: Context) {
 
         ApplyGuard(appContext).recordApply()
         log("Apply recorded for the boot-loop guard. Tap \"It works\" once Settings looks right.")
+        if (service.uid == 0 && !EarlyRecoveryHook.install(service)) {
+            log("Early root recovery hook could not be installed")
+        }
 
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
         log("Stability monitor: ${monitor.getString(ThemeService.KEY_OUTPUT).orEmpty()}")
