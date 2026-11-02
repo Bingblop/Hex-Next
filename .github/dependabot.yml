@@ -24,6 +24,11 @@ updates:
       # Play Billing majors change the purchase path; each one gets its own tested change.
       - dependency-name: com.android.billingclient:billing
         update-types: [version-update:semver-major]
+      # Compose BOM 2026.09+ and core-ktx 1.18+ need compileSdk 37 and AGP 9.1; they wait for the toolchain upgrade.
+      - dependency-name: androidx.compose:compose-bom
+        versions: [">= 2026.09.00"]
+      - dependency-name: androidx.core:core-ktx
+        versions: [">= 1.18.0"]
       - dependency-name: gradle-wrapper
         update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
