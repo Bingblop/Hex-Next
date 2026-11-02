@@ -35,4 +35,6 @@ esac
 su -c "mkdir -p '$DEST' && cp '$FILE' '/data/local/tmp/$NAME' && mv '/data/local/tmp/$NAME' '$DEST/$NAME' && \
   uid=\$(stat -c %u '/data/data/$PKG') && chown \"\$uid:\$uid\" '$DEST/$NAME' && chmod 600 '$DEST/$NAME' && \
   restorecon -R '$DEST' && ls -l '$DEST'"
+status=$?
+[ "$status" -eq 0 ] || { echo "Pack installation failed (exit $status)." >&2; exit "$status"; }
 echo "Done. Open Hex Next: the pack is listed under Theme pack; pick it and tap Apply theme."
