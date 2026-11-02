@@ -73,6 +73,7 @@ private val SEED_PRESETS = listOf(
 ).map { it.toInt() }
 
 private const val GITHUB_URL = "https://github.com/Bingblop/Hex-Next"
+private const val PRIVACY_POLICY_URL = "https://bingblop.github.io/hexnext-site/privacy-policy.html"
 
 /**
  * "App settings": appearance of the app itself (Material 3, live), behaviour, and the doors to the
@@ -359,6 +360,11 @@ private fun AboutCard(onOpenOnboarding: () -> Unit) {
             title = "Open-source licences",
             summary = "Third-party libraries used by Hex Next.",
             onClick = { showLicences = true },
+        )
+        NavRow(
+            title = "Privacy policy",
+            summary = "No analytics, no account; everything stays on your phone. Opens in the browser.",
+            onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) },
         )
         NavRow(
             title = "Source code on GitHub",
