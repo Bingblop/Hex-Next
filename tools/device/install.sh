@@ -75,7 +75,9 @@ if [ "$got" != "$APK_ZIP_SHA256" ]; then
   echo "Checksum mismatch; NOT installing."; exit 2
 fi
 (cd "$WORK" && unzip -o -q hexnext-debug.zip) || { echo "unzip failed"; exit 3; }
-APK=$(find "$WORK" -name '*.apk' | head -1)
+# Release artifacts hold one APK per ABI plus a universal one: install the universal APK.
+APK=$(find "$WORK" -name '*universal*.apk' | head -1)
+[ -n "$APK" ] || APK=$(find "$WORK" -name '*.apk' | head -1)
 [ -n "$APK" ] || { echo "no apk inside zip"; exit 4; }
 # Stream the APK to pm on stdin instead of staging it in the shell-writable /data/local/tmp,
 # where a planted symlink could redirect a root copy and the file could be swapped before pm.
