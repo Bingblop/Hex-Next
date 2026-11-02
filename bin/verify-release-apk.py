@@ -100,8 +100,8 @@ def verify(apk, unsigned=False, expected_version=None):
         raise ValueError("APK versionCode must be positive.")
     min_sdk = re.search(r"^(?:minSdkVersion|sdkVersion):'([^']+)'", badging, re.MULTILINE)
     target_sdk = re.search(r"^targetSdkVersion:'([^']+)'", badging, re.MULTILINE)
-    if not min_sdk or min_sdk[1] not in ("34", "34.0") or not target_sdk or target_sdk[1] not in ("36", "36.0"):
-        raise ValueError(f"Expected minSdk 34 and targetSdk 36. SDK metadata:\n{badging}")
+    if not min_sdk or min_sdk[1] not in ("35", "35.0") or not target_sdk or target_sdk[1] not in ("36", "36.0"):
+        raise ValueError(f"Expected minSdk 35 and targetSdk 36. SDK metadata:\n{badging}")
     if "application-debuggable" in badging:
         raise ValueError("Release APK must not be debuggable.")
     if "launchable-activity: name='com.hexnext.themer.MainActivity'" not in badging:
@@ -118,7 +118,7 @@ def verify(apk, unsigned=False, expected_version=None):
         signatures = run(sdk_tool("apksigner"), "verify", "--verbose", "--print-certs", str(apk))
         if "CN=Android Debug" in signatures:
             raise ValueError("Release APK must not use an Android debug certificate.")
-        # apksigner skips older schemes when minSdk is 34; verify each at its supported API level.
+        # apksigner skips older schemes when minSdk is 35; verify each at its supported API level.
         for scheme, sdk in ((1, 23), (2, 24), (3, 28)):
             scheme_result = run(
                 sdk_tool("apksigner"), "verify", "--verbose",
@@ -135,7 +135,7 @@ def verify(apk, unsigned=False, expected_version=None):
         "universal": True,
         "page_size_16kb_compatible": True,
         "native_abis": sorted(native_abis),
-        "min_sdk": 34,
+        "min_sdk": 35,
         "target_sdk": 36,
         "signed": not unsigned,
         "signature_verification": signatures,

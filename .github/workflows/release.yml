@@ -41,6 +41,10 @@ jobs:
   validate:
     needs: prepare
     uses: ./.github/workflows/android.yml
+    with:
+      concurrency_key: release-${{ needs.prepare.outputs.tag }}
+    secrets:
+      HEXNEXT_DEBUG_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_DEBUG_KEYSTORE_BASE64 }}
 
   release:
     needs: [prepare, validate]

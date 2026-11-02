@@ -1,0 +1,939 @@
+Hex Next icons probe Sun Nov  1 15:21:29 EST 2026
+
+
+===== Settings drawable count =====
+$ wc -l /data/data/com.hexnext.themer/files/scan/com.android.settings/names-drawable.txt
+4442 /data/data/com.hexnext.themer/files/scan/com.android.settings/names-drawable.txt
+
+
+===== Names that start like dashboard icons =====
+$ grep -iE '^(ic_settings|sec_ic_settings|sec_ic_|homepage|sec_homepage|ic_homepage|settings_homepage|ic_dashboard|dashboard|top_level|sec_top|ic_sec_)' /data/data/com.hexnext.themer/files/scan/com.android.settings/names-drawable.txt | head -300
+dashboard_more_icon
+ic_homepage_about
+ic_homepage_accessibility
+ic_homepage_accounts
+ic_homepage_accounts_and_backup
+ic_homepage_apps
+ic_homepage_battery
+ic_homepage_connected_device
+ic_homepage_data_usage
+ic_homepage_device
+ic_homepage_display
+ic_homepage_emergency
+ic_homepage_hub_mode
+ic_homepage_location
+ic_homepage_modes
+ic_homepage_network
+ic_homepage_night_display
+ic_homepage_notification
+ic_homepage_privacy
+ic_homepage_safety_center
+ic_homepage_search
+ic_homepage_security
+ic_homepage_sound
+ic_homepage_storage
+ic_homepage_supervision
+ic_homepage_support
+ic_homepage_system_dashboard
+ic_homepage_vpn
+ic_homepage_wallpaper
+ic_homepage_wifi_tethering
+ic_sec_screenzoom_larger_content_preview
+ic_sec_screenzoom_more_content_preview
+ic_settings
+ic_settings_24dp
+ic_settings_about_device
+ic_settings_about_device_expressive
+ic_settings_about_device_filled
+ic_settings_accent
+ic_settings_accessibility
+ic_settings_accessibility_expressive
+ic_settings_accessibility_filled
+ic_settings_accounts
+ic_settings_accounts_and_backup_expressive
+ic_settings_accounts_and_backup_filled
+ic_settings_adaptive_sleep
+ic_settings_aod
+ic_settings_applications
+ic_settings_backup
+ic_settings_battery_expressive
+ic_settings_battery_filled
+ic_settings_battery_usage_others
+ic_settings_battery_white
+ic_settings_bluetooth
+ic_settings_camera
+ic_settings_cellular
+ic_settings_close
+ic_settings_cpu
+ic_settings_data_usage
+ic_settings_date_time
+ic_settings_delete
+ic_settings_development
+ic_settings_device
+ic_settings_device_expressive
+ic_settings_disable
+ic_settings_display
+ic_settings_display_expressive
+ic_settings_display_filled
+ic_settings_display_white
+ic_settings_emergency
+ic_settings_emergency_expressive
+ic_settings_emergency_filled
+ic_settings_enable
+ic_settings_ethernet
+ic_settings_expand_less
+ic_settings_expand_more
+ic_settings_flashlight
+ic_settings_force_stop
+ic_settings_gestures
+ic_settings_globe
+ic_settings_gps
+ic_settings_install
+ic_settings_keyboards
+ic_settings_language
+ic_settings_language_32dp
+ic_settings_languages
+ic_settings_location
+ic_settings_location_expressive
+ic_settings_location_filled
+ic_settings_memory
+ic_settings_mic
+ic_settings_mouse
+ic_settings_multiuser
+ic_settings_nfc_payment
+ic_settings_night_display
+ic_settings_night_display_white
+ic_settings_noti_panel
+ic_settings_open
+ic_settings_passwords_expressive
+ic_settings_passwords_filled
+ic_settings_print
+ic_settings_privacy
+ic_settings_privacy_expressive
+ic_settings_privacy_filled
+ic_settings_safety_center
+ic_settings_safety_center_expressive
+ic_settings_safety_center_filled
+ic_settings_security
+ic_settings_security_expressive
+ic_settings_security_filled
+ic_settings_security_white
+ic_settings_sign_in
+ic_settings_sound
+ic_settings_sync
+ic_settings_sync_disabled
+ic_settings_sync_failed
+ic_settings_system_dashboard_expressive
+ic_settings_system_dashboard_filled
+ic_settings_system_dashboard_white
+ic_settings_touchpad
+ic_settings_touchpad_mouse
+ic_settings_tv_displays
+ic_settings_voice_calls
+ic_settings_wallpaper_expressive
+ic_settings_wallpaper_filled
+ic_settings_wallpaper_white
+ic_settings_wireless
+ic_settings_wireless_expressive
+ic_settings_wireless_filled
+ic_settings_wireless_no_theme
+ic_settings_wireless_white
+sec_ic_ab_search_apps_mtrl
+sec_ic_ab_search_mtrl
+sec_ic_android_auto
+sec_ic_apn_add
+sec_ic_auracast_tile
+sec_ic_autoswitch
+sec_ic_biometric_lock_suw
+sec_ic_biometric_spinner
+sec_ic_biometric_type_face
+sec_ic_biometric_type_face_suw
+sec_ic_biometric_type_fingerprint
+sec_ic_biometric_type_fingerprint_suw
+sec_ic_biometrics_lock
+sec_ic_blank
+sec_ic_btkeyboard_ic_pointer_color_check
+sec_ic_btn_camera
+sec_ic_btn_galley
+sec_ic_checked_checkbox
+sec_ic_contacts_default_caller_id_list
+sec_ic_continuity
+sec_ic_dex
+sec_ic_display_settings_gear
+sec_ic_emergency
+sec_ic_function_key_digital_assistant_none
+sec_ic_intelligence
+sec_ic_intelligence_ai_key
+sec_ic_intelligence_internet
+sec_ic_intelligence_photo_editor
+sec_ic_intelligence_samsung_health
+sec_ic_intelligence_samsung_notes
+sec_ic_intelligence_voice_recorder
+sec_ic_keyboard_share_button_icon
+sec_ic_launcher_settings
+sec_ic_locale_check_icon
+sec_ic_location
+sec_ic_lock
+sec_ic_menu_add_knox
+sec_ic_menu_data_reset
+sec_ic_notification_intelligence
+sec_ic_pd_custom_app
+sec_ic_pd_custom_lock
+sec_ic_pd_custom_notification
+sec_ic_quick_share
+sec_ic_remote_device_check_icon
+sec_ic_routines_ic_data_saver
+sec_ic_samsung_account
+sec_ic_samsung_account_default
+sec_ic_samsung_account_default_bg
+sec_ic_samsung_account_default_fg
+sec_ic_search_view_text_clear_icon
+sec_ic_settings_about
+sec_ic_settings_accessibility
+sec_ic_settings_advanced_feature
+sec_ic_settings_applications
+sec_ic_settings_battery
+sec_ic_settings_biometrics_and_security
+sec_ic_settings_brightness
+sec_ic_settings_brightness_icon
+sec_ic_settings_cloud_and_account
+sec_ic_settings_connections
+sec_ic_settings_coverscreen_folder_cover
+sec_ic_settings_coverscreen_full_cover
+sec_ic_settings_coverscreen_pill_cover
+sec_ic_settings_devicecare
+sec_ic_settings_dex
+sec_ic_settings_digitalwellbeing
+sec_ic_settings_display
+sec_ic_settings_docomo_au
+sec_ic_settings_emergency
+sec_ic_settings_galaxy_ai
+sec_ic_settings_gearshape
+sec_ic_settings_general_device_management
+sec_ic_settings_google
+sec_ic_settings_grid_t_roaming
+sec_ic_settings_help
+sec_ic_settings_homescreen
+sec_ic_settings_lgu
+sec_ic_settings_location
+sec_ic_settings_lockscreen
+sec_ic_settings_modes
+sec_ic_settings_multi_devices
+sec_ic_settings_notifications
+sec_ic_settings_parental_controls
+sec_ic_settings_privacy
+sec_ic_settings_service_provider_kt
+sec_ic_settings_smart_manager
+sec_ic_settings_software_update
+sec_ic_settings_sound
+sec_ic_settings_t_roaming
+sec_ic_settings_t_service
+sec_ic_settings_themes
+sec_ic_settings_tips
+sec_ic_settings_user_manual
+sec_ic_settings_wallpaper
+sec_ic_settings_warranty_care
+sec_ic_smart_things
+sec_ic_sortby
+sec_ic_unchecked_checkbox
+sec_ic_volume_ringer_mute
+sec_ic_wifi7_lock_signal_0
+sec_ic_wifi7_lock_signal_1
+sec_ic_wifi7_lock_signal_2
+sec_ic_wifi7_lock_signal_3
+sec_ic_wifi7_lock_signal_4
+sec_ic_wifi7_signal_0
+sec_ic_wifi7_signal_1
+sec_ic_wifi7_signal_2
+sec_ic_wifi7_signal_3
+sec_ic_wifi7_signal_4
+sec_ic_wifi_ap_dropdown
+sec_ic_wifi_ap_info
+sec_ic_wifi_ap_info_detail
+sec_ic_wifi_ap_lock_network
+sec_ic_wifi_ap_pause
+sec_ic_wifi_ap_qr_code
+sec_ic_wifi_ap_report
+sec_ic_wifi_ap_reset
+sec_ic_wifi_ap_resume
+sec_ic_wifi_ap_round_ripple_background
+sec_ic_wifi_ap_setting
+sec_ic_wifi_ap_tips
+sec_ic_wifi_ap_unlock_network
+sec_ic_wifi_ap_warning
+sec_ic_wifi_details_header_bg
+sec_ic_wifi_details_signal_0
+sec_ic_wifi_details_signal_1
+sec_ic_wifi_details_signal_2
+sec_ic_wifi_details_signal_3
+sec_ic_wifi_details_signal_4
+sec_ic_wifi_filter_by
+sec_ic_wifi_preference_list_tips_icon
+sec_ic_wifi_signal_0
+sec_ic_wifi_signal_1
+sec_ic_wifi_signal_2
+sec_ic_wifi_signal_3
+sec_ic_wifi_signal_4
+sec_ic_wifi_signal_lock_0
+sec_ic_wifi_signal_lock_1
+sec_ic_wifi_signal_lock_2
+sec_ic_wifi_signal_lock_3
+sec_ic_wifi_signal_lock_4
+sec_ic_wifi_signal_lock_wifi5_0
+sec_ic_wifi_signal_lock_wifi5_1
+sec_ic_wifi_signal_lock_wifi5_2
+sec_ic_wifi_signal_lock_wifi5_3
+sec_ic_wifi_signal_lock_wifi5_4
+sec_ic_wifi_signal_lock_wifi6_0
+sec_ic_wifi_signal_lock_wifi6_1
+sec_ic_wifi_signal_lock_wifi6_2
+sec_ic_wifi_signal_lock_wifi6_3
+sec_ic_wifi_signal_lock_wifi6_4
+sec_ic_wifi_signal_lock_wifi6e_0
+sec_ic_wifi_signal_lock_wifi6e_1
+sec_ic_wifi_signal_lock_wifi6e_2
+sec_ic_wifi_signal_lock_wifi6e_3
+sec_ic_wifi_signal_lock_wifi6e_4
+sec_ic_wifi_signal_wifi5_0
+sec_ic_wifi_signal_wifi5_1
+sec_ic_wifi_signal_wifi5_2
+sec_ic_wifi_signal_wifi5_3
+sec_ic_wifi_signal_wifi5_4
+sec_ic_wifi_signal_wifi6_0
+sec_ic_wifi_signal_wifi6_1
+sec_ic_wifi_signal_wifi6_2
+sec_ic_wifi_signal_wifi6_3
+sec_ic_wifi_signal_wifi6_4
+sec_ic_wifi_signal_wifi6e_0
+sec_ic_wifi_signal_wifi6e_1
+sec_ic_wifi_signal_wifi6e_2
+sec_ic_wifi_signal_wifi6e_3
+
+
+===== Names with dashboard menu words (whole file) =====
+$ grep -iE 'connections|connected_devices|display|wallpaper|lock_screen|lockscreen|home_screen|homescreen|sounds|sound_and|notifications|modes_and|routines|safety|emergency|location|google|themes|software_update|about_phone|wellbeing|device_care|general_management|accounts_and|advanced_features|security_and|privacy|accessibility|^ic_apps|galaxy_ai' /data/data/com.hexnext.themer/files/scan/com.android.settings/names-drawable.txt | grep -viE 'bluetooth_|battery_tips|_buds|earbuds|wifi_|signin|aspect_ratio' | head -400
+$$safety_center_expressive_shield_status_level_high_anim__0__0
+$$safety_center_expressive_shield_status_level_high_anim__0__1
+$$safety_center_expressive_shield_status_level_high_anim__1__0
+$$safety_center_expressive_shield_status_level_high_anim__1__1
+$$safety_center_expressive_shield_status_level_low_anim__0__0
+$$safety_center_expressive_shield_status_level_low_anim__0__1
+$$safety_center_expressive_shield_status_level_low_anim__1__0
+$$safety_center_expressive_shield_status_level_low_anim__1__1
+$$safety_center_expressive_shield_status_level_medium_anim__0__0
+$$safety_center_expressive_shield_status_level_medium_anim__0__1
+$$safety_center_expressive_shield_status_level_medium_anim__1__0
+$$safety_center_expressive_shield_status_level_medium_anim__1__1
+$customized_display_mode_default__0
+$customized_display_mode_large_display__0
+$safety_center_expressive_shield_status_level_high_anim__0
+$safety_center_expressive_shield_status_level_high_anim__1
+$safety_center_expressive_shield_status_level_high_anim__2
+$safety_center_expressive_shield_status_level_high_anim__3
+$safety_center_expressive_shield_status_level_low_anim__0
+$safety_center_expressive_shield_status_level_low_anim__1
+$safety_center_expressive_shield_status_level_low_anim__2
+$safety_center_expressive_shield_status_level_low_anim__3
+$safety_center_expressive_shield_status_level_medium_anim__0
+$safety_center_expressive_shield_status_level_medium_anim__1
+$safety_center_expressive_shield_status_level_medium_anim__2
+$safety_center_expressive_shield_status_level_medium_anim__3
+$sec_settings_status_blue_privacy__0
+$use_accessibility_gesture_2__0
+$use_accessibility_gesture_2__1
+$use_accessibility_gesture_2_dialog__0
+$use_accessibility_gesture_2_dialog__1
+$use_accessibility_gesture_3__0
+$use_accessibility_gesture_3__1
+$use_accessibility_gesture_3__2
+$use_accessibility_gesture_3_dialog__0
+$use_accessibility_gesture_3_dialog__1
+$use_accessibility_gesture_3_dialog__2
+accessibility_auto_added_qs_tooltip_illustration
+accessibility_captioning_banner
+accessibility_contrast_button_background
+accessibility_dwell
+accessibility_launcher_bg
+accessibility_launcher_fg
+accessibility_magnification_mode_fullscreen
+accessibility_magnification_mode_switch
+accessibility_magnification_mode_window
+accessibility_qs_tooltip_background
+accessibility_qs_tooltip_illustration
+accessibility_setting_list_ic_about
+accessibility_setting_list_ic_advanced
+accessibility_setting_list_ic_contact
+accessibility_setting_list_ic_features
+accessibility_setting_list_ic_hearing
+accessibility_setting_list_ic_installed
+accessibility_setting_list_ic_interaction
+accessibility_setting_list_ic_screen
+accessibility_setting_list_ic_visibility
+accessibility_setting_list_ic_whats_new
+accessibility_shortcut_type_fab_size_large_preview
+accessibility_shortcut_type_fab_size_small_preview
+accessibility_shortcut_type_gesture
+accessibility_shortcut_type_gesture_touch_explore_on
+accessibility_shortcut_type_keyboard_colorinversion
+accessibility_shortcut_type_keyboard_magnification
+accessibility_shortcut_type_keyboard_screenreader
+accessibility_shortcut_type_keyboard_selecttospeak
+accessibility_shortcut_type_keyboard_voiceaccess
+accessibility_shortcut_type_keyboard_volume_keys
+accessibility_shortcut_type_navbar
+accessibility_shortcut_type_navbar_preview
+accessibility_shortcut_type_quick_settings
+accessibility_shortcut_type_top_row
+accessibility_shortcut_type_volume_keys
+accessibility_text_reading_preview
+advanced_setting_list_ic_accessibility
+alert_center_status_privacy_blue
+ambient_display_no_wallpaper
+ambient_display_off
+ambient_display_with_wallpaper
+contact_emergency_24dp
+customized_display_mode_default
+customized_display_mode_high_contrast
+customized_display_mode_large_display
+display_block_arrow_background
+display_block_arrow_down
+display_block_arrow_left
+display_block_arrow_right
+display_block_arrow_up
+display_block_background
+display_block_selection_marker_background
+display_block_selection_marker_background_external
+display_category_builtin_display_icon
+display_category_connected_display_icon
+display_topology_background
+external_display_mirror_landscape
+external_display_mirror_portrait
+fingerprint_sensor_location
+flash_notifications_illustration
+general_management_reset
+googleg_disabled_color_18
+googleg_standard_color_18
+ic_about_phone_info
+ic_accessibility
+ic_accessibility_animation
+ic_accessibility_figure
+ic_accessibility_generic
+ic_accessibility_launcher
+ic_accessibility_magnification
+ic_accessibility_new
+ic_accessibility_page_indicator
+ic_accessibility_suggestion
+ic_accessibility_visibility
+ic_accounts_and_backup_arrow_trianglehead_2_counterclockwise_rotate_90
+ic_add_location
+ic_advanced_features_plus_gearshape
+ic_apps
+ic_apps_alt
+ic_apps_circle_grid_2x2
+ic_apps_dot_grid_3x3_supervision
+ic_apps_expressive
+ic_apps_filled
+ic_apps_filter_settings_24dp
+ic_apps_library
+ic_device_care_phone_circle
+ic_digital_wellbeing_heart_circle
+ic_double_tap_power_lockscreen_shortcut_tip_icon
+ic_emergency_enabled_beacon_exclamationmark
+ic_emergency_gesture_24dp
+ic_external_display
+ic_external_display_32dp
+ic_general_management_slider_horizontal_3
+ic_google
+ic_header_display_mode
+ic_homepage_accessibility
+ic_homepage_accounts_and_backup
+ic_homepage_display
+ic_homepage_emergency
+ic_homepage_location
+ic_homepage_night_display
+ic_homepage_privacy
+ic_homepage_safety_center
+ic_homepage_wallpaper
+ic_location
+ic_location_blocked
+ic_location_home
+ic_location_sharing_location_left_and_right_arrow_supervision
+ic_location_supervision
+ic_location_work
+ic_media_display_device
+ic_mute_all_sounds
+ic_notifications
+ic_notifications_alert
+ic_notifications_bell
+ic_notifications_expressive
+ic_notifications_filled
+ic_notifications_off_24dp
+ic_notifications_white
+ic_perm_group_location
+ic_preference_location
+ic_privacy
+ic_privacy_shield_24dp
+ic_remove_location
+ic_routines_accidental_touch_protection
+ic_routines_adaptive_color_tone
+ic_routines_checkmark_dashed_arrow_trianglehead_clockwise
+ic_routines_ic_camera_flash_noti
+ic_routines_ic_color_correction
+ic_routines_ic_color_inversion
+ic_routines_ic_color_lens
+ic_routines_ic_dialing_keyboard
+ic_routines_ic_do_not_disturb
+ic_routines_ic_extra_dim
+ic_routines_ic_font_style
+ic_routines_ic_keyboard_sound
+ic_routines_ic_keyboard_vibration
+ic_routines_ic_live_caption
+ic_routines_ic_media_volume
+ic_routines_ic_mono_audio
+ic_routines_ic_motion_smoothness
+ic_routines_ic_mute_all_sound
+ic_routines_ic_screen_flash_noti
+ic_routines_ic_screen_resolution
+ic_routines_ic_separate
+ic_routines_ic_sound_balance
+ic_routines_ic_sounds
+ic_routines_ic_unlock_with_biometrics
+ic_routines_ic_vibrate_while_ringing
+ic_routines_screen_mode
+ic_routines_touch_sensitivity
+ic_routines_vpn_connect
+ic_routines_vpn_disconnect
+ic_safety_center_shield
+ic_safety_empty
+ic_safety_info
+ic_safety_null_state
+ic_safety_recommendation
+ic_safety_warn
+ic_security_google_account
+ic_security_google_play_protect
+ic_security_google_play_system_updates
+ic_security_privacy
+ic_security_privacy_alert_primary
+ic_settings_accessibility
+ic_settings_accessibility_expressive
+ic_settings_accessibility_filled
+ic_settings_accounts_and_backup_expressive
+ic_settings_accounts_and_backup_filled
+ic_settings_display
+ic_settings_display_expressive
+ic_settings_display_filled
+ic_settings_display_white
+ic_settings_emergency
+ic_settings_emergency_expressive
+ic_settings_emergency_filled
+ic_settings_location
+ic_settings_location_expressive
+ic_settings_location_filled
+ic_settings_night_display
+ic_settings_night_display_white
+ic_settings_privacy
+ic_settings_privacy_expressive
+ic_settings_privacy_filled
+ic_settings_safety_center
+ic_settings_safety_center_expressive
+ic_settings_safety_center_filled
+ic_settings_tv_displays
+ic_settings_wallpaper_expressive
+ic_settings_wallpaper_filled
+ic_settings_wallpaper_white
+ic_software_update
+ic_suggested_notifications
+ic_suggested_notifications_expressive
+ic_suggestion_night_display
+ic_wallpaper
+ic_zen_mode_category_display
+ic_zen_mode_display_aod
+ic_zen_mode_display_dark_theme
+ic_zen_mode_display_grayscale
+ic_zen_mode_display_wallpaper
+lock_screen_notification_compact_view
+lock_screen_notification_full_list_view
+no_external_display_connected
+photo_ambient_wallpaper
+routines_ic_ai_assistant_volume
+routines_ic_mobile_hotspot
+safety_center_account_security_subpage_illustration
+safety_center_app_security_subpage_illustration
+safety_center_device_finders_subpage_illustration
+safety_center_device_unlock_subpage_illustration
+safety_center_expressive_shield_glyph_icon_status_level_high
+safety_center_expressive_shield_glyph_icon_status_level_low
+safety_center_expressive_shield_glyph_icon_status_level_medium
+safety_center_expressive_shield_status_level_high_anim
+safety_center_expressive_shield_status_level_low_anim
+safety_center_expressive_shield_status_level_medium_anim
+safety_center_sensor_toggle_disabled
+safety_center_sensor_toggle_enabled
+safety_center_system_and_updates_subpage_illustration
+safety_entity_top_large_bottom_large_background
+sec_display_help_dark_mode
+sec_display_help_dark_mode_fold_main_screen
+sec_display_help_dark_mode_landscape_fold_main_screen_portrait
+sec_display_help_dark_mode_tablet
+sec_display_help_light_mode
+sec_display_help_light_mode_fold_main_screen
+sec_display_help_light_mode_landscape_fold_main_screen_portrait
+sec_display_help_light_mode_tablet
+sec_display_ic_minus_mtrl
+sec_display_ic_plus_mtrl
+sec_display_setting_screen_zoom_button_background
+sec_display_setting_screen_zoom_style_background
+sec_display_setting_seek_bar_controller_background
+sec_display_tw_list_icon_create
+sec_display_tw_list_icon_minus
+sec_ic_display_settings_gear
+sec_ic_emergency
+sec_ic_location
+sec_ic_routines_ic_data_saver
+sec_ic_settings_accessibility
+sec_ic_settings_connections
+sec_ic_settings_digitalwellbeing
+sec_ic_settings_display
+sec_ic_settings_emergency
+sec_ic_settings_galaxy_ai
+sec_ic_settings_google
+sec_ic_settings_homescreen
+sec_ic_settings_location
+sec_ic_settings_lockscreen
+sec_ic_settings_notifications
+sec_ic_settings_privacy
+sec_ic_settings_software_update
+sec_ic_settings_themes
+sec_ic_settings_wallpaper
+sec_lockscreen_bottom_button_background
+sec_lockscreen_choose_lock_hint_img_container_background
+sec_lockscreen_notification_show_content_btn
+sec_privacy_status_rounded_button
+sec_safety_assistance_help_image_01
+sec_safety_assistance_help_image_02
+sec_safety_assistance_help_image_tablet_01
+sec_safety_assistance_help_image_tablet_02
+sec_security_privacy_status_bg_red
+sec_security_privacy_status_bg_yellow
+sec_settings_status_blue_privacy
+sec_st_ic_display_brightness
+sesl_action_bar_icon_current_location_mtrl
+setting_img_dashboard_lockscreen
+setting_img_dashboard_lockscreen_tablet
+setting_img_dashboard_lockscreen_tablet_land
+sud_accessibility_button_background
+sud_ic_accessibility_menu
+tw_ic_audio_accessibility_mtrl
+use_accessibility_button
+use_accessibility_button_dialog
+use_accessibility_button_floating
+use_accessibility_button_floating_dialog
+use_accessibility_gesture_2
+use_accessibility_gesture_2_dialog
+use_accessibility_gesture_3
+use_accessibility_gesture_3_dialog
+work_challenge_emergency_button_background
+
+
+===== Names with SF-symbol style suffixes (whole file) =====
+$ grep -iE '(gearshape|trianglehead|_circle$|slider_horizontal|rectangle_and|heart_circle|phone_circle|bell|speaker|wifi$|antenna|paintbrush|paintpalette|lock$|shield|house|person|globe|sun_max|moon|hand_raised|star$|arrow_down_to_line|exclamationmark)' /data/data/com.hexnext.themer/files/scan/com.android.settings/names-drawable.txt | head -300
+$$safety_center_expressive_shield_status_level_high_anim__0__0
+$$safety_center_expressive_shield_status_level_high_anim__0__1
+$$safety_center_expressive_shield_status_level_high_anim__1__0
+$$safety_center_expressive_shield_status_level_high_anim__1__1
+$$safety_center_expressive_shield_status_level_low_anim__0__0
+$$safety_center_expressive_shield_status_level_low_anim__0__1
+$$safety_center_expressive_shield_status_level_low_anim__1__0
+$$safety_center_expressive_shield_status_level_low_anim__1__1
+$$safety_center_expressive_shield_status_level_medium_anim__0__0
+$$safety_center_expressive_shield_status_level_medium_anim__0__1
+$$safety_center_expressive_shield_status_level_medium_anim__1__0
+$$safety_center_expressive_shield_status_level_medium_anim__1__1
+$safety_center_expressive_shield_status_level_high_anim__0
+$safety_center_expressive_shield_status_level_high_anim__1
+$safety_center_expressive_shield_status_level_high_anim__2
+$safety_center_expressive_shield_status_level_high_anim__3
+$safety_center_expressive_shield_status_level_low_anim__0
+$safety_center_expressive_shield_status_level_low_anim__1
+$safety_center_expressive_shield_status_level_low_anim__2
+$safety_center_expressive_shield_status_level_low_anim__3
+$safety_center_expressive_shield_status_level_medium_anim__0
+$safety_center_expressive_shield_status_level_medium_anim__1
+$safety_center_expressive_shield_status_level_medium_anim__2
+$safety_center_expressive_shield_status_level_medium_anim__3
+eye_comfort_shield_icon
+glance_component_btn_circle
+ic_a11y_mute_all_sound_exclamationmark
+ic_account_circle
+ic_accounts_and_backup_arrow_trianglehead_2_counterclockwise_rotate_90
+ic_add_circle
+ic_add_shortcut_to_home_plus_house
+ic_advanced_features_plus_gearshape
+ic_ambient_sound_person
+ic_auto_wifi
+ic_battery_defender_tip_shield
+ic_block
+ic_brightness_sun_max
+ic_bt_le_audio_speakers
+ic_carrier_wifi
+ic_dark_mode_moon_supervision
+ic_device_care_phone_circle
+ic_device_protection_shield
+ic_digital_wellbeing_heart_circle
+ic_docomo_au_gearshape
+ic_dream_check_circle
+ic_emergency_enabled_beacon_exclamationmark
+ic_frequency_antenna
+ic_general_device_rectangle_and_phone
+ic_general_management_slider_horizontal_3
+ic_globe
+ic_hearing_enhancements_speaker_plusminus
+ic_help_info_contact_us_circle
+ic_help_info_questionmark_circle
+ic_home_house
+ic_illust_appnoti_lock
+ic_info_detail_circle
+ic_installed_services_arrow_down_to_line_square
+ic_internet_web_globe_supervision
+ic_lgu__gearshape
+ic_lock
+ic_m3_chip_checked_circle
+ic_media_speaker_device
+ic_mtrl_arrow_circle
+ic_mtrl_checked_circle
+ic_mtrl_chip_checked_circle
+ic_mtrl_chip_close_circle
+ic_noise_controls_off_person
+ic_notification_intelligence_bell
+ic_notifications_bell
+ic_parental_controls_person2
+ic_person
+ic_person_add
+ic_person_remove
+ic_privacy_shield_24dp
+ic_remove_circle
+ic_routines_checkmark_dashed_arrow_trianglehead_clockwise
+ic_safety_center_shield
+ic_school_time_person_figure_raise_hand_line_supervision
+ic_security_lock
+ic_security_status_lock
+ic_settings_globe
+ic_theme_paintbrush
+ic_tv_box_internal_speaker
+ic_updates_arrow_down_to_line_rectangle_portrait
+ic_vol_type_speaker_dark
+ic_vol_type_speaker_group_dark
+ic_vol_type_speaker_group_light
+ic_vol_type_speaker_light
+ic_volume_media_speaker_wave_2
+ic_wifi
+ic_wifi_signal_lock
+list_ic_ai_speaker
+list_ic_ai_speaker_galaxy_home_mini
+list_ic_gear_circle
+list_ic_samsung_ai_speaker
+noti_hide_lock
+noti_type_lock
+safety_center_expressive_shield_glyph_icon_status_level_high
+safety_center_expressive_shield_glyph_icon_status_level_low
+safety_center_expressive_shield_glyph_icon_status_level_medium
+safety_center_expressive_shield_status_level_high_anim
+safety_center_expressive_shield_status_level_low_anim
+safety_center_expressive_shield_status_level_medium_anim
+sec_auracast_ic_guided_popup_broadcast_antenna
+sec_auracast_ic_guided_popup_button_play_circle
+sec_auracast_listen_ic_lock
+sec_auracast_share_ic_lock
+sec_auracast_share_ic_unlock
+sec_badge_icon_circle
+sec_bluetooth_bg_circle
+sec_energy_star
+sec_ic_biometrics_lock
+sec_ic_lock
+sec_ic_pd_custom_lock
+sec_ic_settings_gearshape
+sec_nfc_antenna_animation_jpn
+sec_qr_code_wifi
+sec_uwb_labs_clock
+sec_wifi_circle
+sec_wifi_labs_clock
+sesl_progress_circle
+tap_duration_progress_circle
+ws_ic_system_lock
+
+
+===== Settings APK =====
+apk: /system/priv-app/SecSettings/SecSettings.apk
+
+
+===== Homepage xml candidates inside the APK =====
+$ unzip -l '/system/priv-app/SecSettings/SecSettings.apk' | grep -iE 'res/xml[^ ]*(top_level|home|dashboard|sec_settings)' | head -40
+     1620  2009-01-01 00:00   res/xml/storage_dashboard_header_fragment.xml
+     2164  2009-01-01 00:00   res/xml/accounts_work_dashboard_settings.xml
+     1172  2009-01-01 00:00   res/xml/sec_accounts_work_dashboard_settings.xml
+     2392  2009-01-01 00:00   res/xml/accounts_dashboard_settings.xml
+     1176  2009-01-01 00:00   res/xml/sec_accounts_private_dashboard_settings.xml
+     4716  2009-01-01 00:00   res/xml/sec_reset_dashboard_fragment.xml
+     2240  2009-01-01 00:00   res/xml/accounts_private_dashboard_settings_credman.xml
+     1700  2009-01-01 00:00   res/xml/home_time_zone_prefs.xml
+     2440  2009-01-01 00:00   res/xml/reset_dashboard_fragment.xml
+      424  2009-01-01 00:00   res/xml/sec_autofill_dashboard_settings_header.xml
+     1532  2009-01-01 00:00   res/xml/credman_dashboard_settings.xml
+    19284  2009-01-01 00:00   res/xml/sec_top_level_settings.xml
+     4212  2009-01-01 00:00   res/xml/storage_dashboard_fragment.xml
+     9612  2009-01-01 00:00   res/xml/top_level_settings_expressive_desktop.xml
+      964  2009-01-01 00:00   res/xml/accounts_and_backup_dashboard.xml
+     9736  2009-01-01 00:00   res/xml/top_level_settings_expressive.xml
+     2148  2009-01-01 00:00   res/xml/accounts_work_dashboard_settings_credman.xml
+     1976  2009-01-01 00:00   res/xml/sec_top_level_settings_prokiosk.xml
+     1332  2009-01-01 00:00   res/xml/security_dashboard_about_alert_center_fragment.xml
+      424  2009-01-01 00:00   res/xml/accounts_dashboard_settings_header.xml
+     1336  2009-01-01 00:00   res/xml/sec_home_settings_list_item.xml
+      676  2009-01-01 00:00   res/xml/clo_dashboard.xml
+     2100  2009-01-01 00:00   res/xml/sec_accounts_dashboard_settings.xml
+     2056  2009-01-01 00:00   res/xml/accounts_personal_dashboard_settings.xml
+     5368  2009-01-01 00:00   res/xml/system_dashboard_fragment_desktop.xml
+     1336  2009-01-01 00:00   res/xml/sec_home_settings_list_item_third.xml
+     6000  2009-01-01 00:00   res/xml/privacy_dashboard_settings.xml
+     2780  2009-01-01 00:00   res/xml/sec_privacy_dashboard_settings.xml
+     1548  2009-01-01 00:00   res/xml/manage_accounts_dashboard_settings.xml
+     9760  2009-01-01 00:00   res/xml/top_level_settings.xml
+     2424  2009-01-01 00:00   res/xml/device_dashboard_fragment.xml
+     2060  2009-01-01 00:00   res/xml/accounts_private_dashboard_settings.xml
+     1752  2009-01-01 00:00   res/xml/sec_accounts_personal_dashboard_settings.xml
+     2128  2009-01-01 00:00   res/xml/accounts_personal_dashboard_settings_credman.xml
+     2484  2009-01-01 00:00   res/xml/accounts_dashboard_settings_credman.xml
+      332  2009-01-01 00:00   res/xml/shortcut_accessibility_homepage.xml
+      704  2009-01-01 00:00   res/xml/sec_action_dashboard_settings.xml
+     2076  2009-01-01 00:00   res/xml/security_dashboard_settings.xml
+     6716  2009-01-01 00:00   res/xml/system_dashboard_fragment.xml
+
+
+===== Hex Next overlays before =====
+$ cmd overlay list --user current | grep -i hexnext
+[x] com.android.shell:HexNext_com_samsung_android_app_aodservice
+[x] com.android.shell:HexNext_com_samsung_android_smartmirroring
+[x] com.android.shell:HexNext_com_samsung_android_incallui
+[x] com.android.shell:HexNext_com_samsung_android_service_tagservice
+[x] com.android.shell:HexNext_com_samsung_android_app_galaxyraw
+[x] com.android.shell:HexNext_com_sec_android_app_voicenote
+[x] com.android.shell:HexNext_com_sec_android_daemonapp
+[x] com.android.shell:HexNext_com_samsung_android_secsoundpicker
+[x] com.android.shell:HexNext_com_sec_android_app_soundalive
+[x] com.android.shell:HexNext_android
+[x] com.android.shell:HexNext_com_samsung_android_app_telephonyui
+[x] com.android.shell:HexNext_com_samsung_android_bixby_agent
+[x] com.android.shell:HexNext_com_android_settings_intelligence
+[x] com.android.shell:HexNext_com_samsung_android_privacydashboard
+[x] com.android.shell:HexNext_com_sec_android_gallery3d
+[x] com.android.shell:HexNext_com_samsung_accessibility
+[x] com.android.shell:HexNext_com_samsung_android_app_contacts
+[x] com.android.shell:HexNext_com_samsung_android_app_reminder
+[x] com.android.shell:HexNext_com_samsung_android_app_smartcapture
+[x] com.android.shell:HexNext_com_samsung_accessory_budsunitemgr
+[x] com.android.shell:HexNext_com_samsung_android_biometrics_app_setting
+[x] com.android.shell:HexNext_com_sec_android_app_myfiles
+[x] com.android.shell:HexNext_com_sec_android_mimage_photoretouching
+[x] com.android.shell:HexNext_com_sec_android_app_launcher
+[x] com.android.shell:HexNext_com_samsung_android_app_interpreter
+[x] com.android.shell:HexNext_com_samsung_android_dialer
+[x] com.android.shell:HexNext_com_samsung_android_app_cameraassistant
+[x] com.android.shell:HexNext_com_samsung_android_callassistant
+[x] com.android.shell:HexNext_com_sec_android_app_shealth
+[x] com.android.shell:HexNext_com_sec_unifiedwfc
+[x] com.android.shell:HexNext_com_samsung_android_honeyboard
+[x] com.android.shell:HexNext_com_samsung_android_app_soundpicker
+[x] com.android.shell:HexNext_com_android_settings
+[x] com.android.shell:HexNext_com_samsung_app_newtrim
+[x] com.android.shell:HexNext_com_samsung_android_lool
+[x] com.android.shell:HexNext_com_samsung_android_scpm
+[x] com.android.shell:HexNext_com_android_systemui
+[x] com.android.shell:HexNext_com_samsung_android_smartsuggestions
+[x] com.android.shell:HexNext_com_sec_android_app_camera
+[x] com.android.shell:HexNext_com_android_bluetooth
+[x] com.android.shell:HexNext_com_samsung_android_app_dressroom
+[x] com.android.shell:HexNext_com_samsung_android_video
+
+
+===== Lookups of overridden icons =====
+$ for n in ic_advanced_features_plus_gearshape ic_accounts_and_backup_arrow_trianglehead_2_counterclockwise_rotate_90 ic_about_phone_info ic_apps ic_accessibility; do printf '%s: ' $n; cmd overlay lookup --user current com.android.settings com.android.settings:drawable/$n; done
+ic_advanced_features_plus_gearshape: frro://data/resource-cache/com.android.shell-HexNext_com_android_settings-kIUD.frro?offset=45854&size=1763
+ic_accounts_and_backup_arrow_trianglehead_2_counterclockwise_rotate_90: frro://data/resource-cache/com.android.shell-HexNext_com_android_settings-kIUD.frro?offset=42328&size=1763
+ic_about_phone_info: frro://data/resource-cache/com.android.shell-HexNext_com_android_settings-kIUD.frro?offset=10594&size=1763
+ic_apps: frro://data/resource-cache/com.android.shell-HexNext_com_android_settings-kIUD.frro?offset=54669&size=1763
+ic_accessibility: frro://data/resource-cache/com.android.shell-HexNext_com_android_settings-kIUD.frro?offset=12357&size=1763
+
+
+===== Settings process before =====
+$ ps -A -o PID,STIME,NAME | grep -E ' com.android.settings$'
+ 4603 14:26:58 com.android.settings
+
+
+===== Force-stop Settings, reopen, screenshot =====
+$ am force-stop com.android.settings; sleep 2; am start -W -a android.settings.SETTINGS | grep -E 'Status|TotalTime'; sleep 5; screencap -p /sdcard/Download/hexnext-settings-restart.png && ls -la /sdcard/Download/hexnext-settings-restart.png
+Status: ok
+TotalTime: 168
+-rw-rw---- 1 u0_a332 media_rw 743104 2026-11-01 15:21 /sdcard/Download/hexnext-settings-restart.png
+
+
+===== Settings process after =====
+$ ps -A -o PID,STIME,NAME | grep -E ' com.android.settings$'
+31363 15:21:30 com.android.settings
+
+
+===== Dashboard view ids (uiautomator) =====
+$ uiautomator dump /sdcard/Download/hexnext-ui.xml >/dev/null 2>&1; grep -oE 'resource-id="[^"]+"' /sdcard/Download/hexnext-ui.xml | sort | uniq -c | sort -rn | head -40
+      1 resource-id="com.termux:id/terminal_view"
+      1 resource-id="com.termux:id/terminal_toolbar_view_pager"
+      1 resource-id="com.termux:id/terminal_toolbar_extra_keys"
+      1 resource-id="com.termux:id/drawer_layout"
+      1 resource-id="com.termux:id/activity_termux_root_view"
+      1 resource-id="com.termux:id/activity_termux_root_relative_layout"
+      1 resource-id="com.termux:id/activity_termux_bottom_space_view"
+      1 resource-id="com.termux:id/action_bar_root"
+      1 resource-id="android:id/statusBarBackground"
+      1 resource-id="android:id/content"
+
+
+===== Settings resource-loading errors (logcat) =====
+$ logcat -d 2>/dev/null | grep -iE 'frro|Resources.*com.android.settings|Drawable.*settings|VectorDrawable|BitmapFactory' | tail -40
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_wallpaper","key":"top_level_wallpaper","order":10,"isVisible":true,"title":"Wallpaper and style","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_general_device_management","key":"top_level_general","order":11,"isVisible":true,"title":"General management","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_battery","key":"top_level_battery","order":12,"isVisible":false,"title":"Battery","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_galaxy_ai","key":"top_level_galaxy_ai","order":14,"isVisible":true,"title":"Galaxy AI","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_sound","key":"top_level_sounds","order":15,"isVisible":true,"title":"Sounds and vibration","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_notifications","key":"top_level_notifications","order":16,"isVisible":true,"title":"Notifications","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_themes","key":"dashboard_tile_pref_com.samsung.android.themestore.activity.LauncherfromSetting","order":17,"isVisible":true,"title":"Themes","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_biometrics_and_security","key":"top_level_security_and_privacy","order":19,"isVisible":true,"title":"Security and privacy","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_lockscreen","key":"top_level_lockscreen","order":20,"isVisible":true,"title":"Lock screen and AOD","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_accessibility","key":"top_level_accessibility","order":21,"isVisible":true,"title":"Accessibility","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_location","key":"top_level_location","order":22,"isVisible":true,"title":"Location","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_multi_devices","key":"top_level_multi_devices","order":24,"isVisible":false,"title":"Connected devices","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_emergency","key":"top_level_emergency","order":25,"isVisible":false,"title":"Safety and emergency","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_user_manual","key":"top_level_user_manual","order":26,"isVisible":false,"title":"User guide","type":"menu"}
+11-01 15:21:32.262 31363 31363 D [GS]PolicyManager: {"icon":"com.android.settings:drawable/sec_ic_settings_about","key":"top_level_about_phone","order":27,"isVisible":true,"title":"About phone","type":"menu"}
+11-01 15:21:32.268 31363 31363 I GoodSettingsTopLevelPreferenceParser: key = top_level_google, order = -120000, title = Google services, summary = Google services, icon = com.android.settings:drawable/sec_ic_settings_google
+11-01 15:21:32.268 31363 31363 I GoodSettingsTopLevelPreferenceParser: key = top_level_google, order = -120000, title = Google services, summary = Google services, icon = com.android.settings:drawable/sec_ic_settings_google
+11-01 15:21:32.268 31363 31363 I GoodSettingsTopLevelPreferenceParser: key = dashboard_tile_pref_com.samsung.android.themestore.activity.LauncherfromSetting, order = -260000, title = Themes, summary = Themes, Wallpapers, Icons, icon = com.android.settings:drawable/sec_ic_settings_themes
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_cloud_and_account","key":"top_level_accounts_backup","order":1,"isVisible":true,"title":"Accounts and backup","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_google","key":"top_level_google","order":2,"isVisible":true,"title":"Google services","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_connections","key":"top_level_connections","order":4,"isVisible":true,"title":"Connections","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_devicecare","key":"top_level_devicecare","order":5,"isVisible":true,"title":"Device care","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_applications","key":"top_level_apps","order":6,"isVisible":true,"title":"Apps","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_display","key":"top_level_display","order":8,"isVisible":true,"title":"Display","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_advanced_feature","key":"top_level_advanced_features","order":9,"isVisible":true,"title":"Advanced features","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_wallpaper","key":"top_level_wallpaper","order":10,"isVisible":true,"title":"Wallpaper and style","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_general_device_management","key":"top_level_general","order":11,"isVisible":true,"title":"General management","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_battery","key":"top_level_battery","order":12,"isVisible":false,"title":"Battery","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_galaxy_ai","key":"top_level_galaxy_ai","order":14,"isVisible":true,"title":"Galaxy AI","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_sound","key":"top_level_sounds","order":15,"isVisible":true,"title":"Sounds and vibration","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_notifications","key":"top_level_notifications","order":16,"isVisible":true,"title":"Notifications","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_themes","key":"dashboard_tile_pref_com.samsung.android.themestore.activity.LauncherfromSetting","order":17,"isVisible":true,"title":"Themes","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_biometrics_and_security","key":"top_level_security_and_privacy","order":19,"isVisible":true,"title":"Security and privacy","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_lockscreen","key":"top_level_lockscreen","order":20,"isVisible":true,"title":"Lock screen and AOD","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_accessibility","key":"top_level_accessibility","order":21,"isVisible":true,"title":"Accessibility","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_location","key":"top_level_location","order":22,"isVisible":true,"title":"Location","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_multi_devices","key":"top_level_multi_devices","order":24,"isVisible":false,"title":"Connected devices","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_emergency","key":"top_level_emergency","order":25,"isVisible":false,"title":"Safety and emergency","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_user_manual","key":"top_level_user_manual","order":26,"isVisible":false,"title":"User guide","type":"menu"}
+11-01 15:21:32.268 31363 31363 D TopLevelSettings: {"icon":"com.android.settings:drawable/sec_ic_settings_about","key":"top_level_about_phone","order":27,"isVisible":true,"title":"About phone","type":"menu"}

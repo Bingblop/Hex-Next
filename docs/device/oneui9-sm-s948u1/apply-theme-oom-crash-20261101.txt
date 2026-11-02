@@ -1,0 +1,104 @@
+--------- beginning of crash
+10-31 20:24:38.659  6396  6396 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+10-31 20:24:38.659  6396  6396 F DEBUG   : Build fingerprint: 'samsung/m3quew/m3q:17/CP2A.260605.016/S948U1UEU4BZID_OYM4BZID:user/release-keys'
+10-31 20:24:38.659  6396  6396 F DEBUG   : Kernel Release: '6.12.69-android16-6-pee899be-abogkiS948USQU4BZID-4k'
+10-31 20:24:38.659  6396  6396 F DEBUG   : Revision: '16'
+10-31 20:24:38.659  6396  6396 F DEBUG   : ABI: 'arm64'
+10-31 20:24:38.659  6396  6396 F DEBUG   : Processor: '-1'
+10-31 20:24:38.659  6396  6396 F DEBUG   : Timestamp: 2026-10-31 20:24:38.542450937-0400
+10-31 20:24:38.659  6396  6396 F DEBUG   : Process uptime: 1s
+10-31 20:24:38.659  6396  6396 F DEBUG   : Executable: /system/bin/app_process64
+10-31 20:24:38.659  6396  6396 F DEBUG   : Cmdline: me.weishu.kernelsu_zygote
+10-31 20:24:38.659  6396  6396 F DEBUG   : pid: 6396, ppid: 6375, tid: 6396, name: kernelsu_zygote  >>> me.weishu.kernelsu_zygote <<<
+10-31 20:24:38.659  6396  6396 F DEBUG   : uid: 10367
+10-31 20:24:38.659  6396  6396 F DEBUG   : tagged_addr_ctrl: 0000000000000001 (PR_TAGGED_ADDR_ENABLE)
+10-31 20:24:38.659  6396  6396 F DEBUG   : pac_enabled_keys: 000000000000000f (PR_PAC_APIAKEY, PR_PAC_APIBKEY, PR_PAC_APDAKEY, PR_PAC_APDBKEY)
+10-31 20:24:38.659  6396  6396 F DEBUG   : esr: 0000000092000006 (Data Abort Exception 0x24)
+10-31 20:24:38.659  6396  6396 F DEBUG   : signal 31 (SIGSYS), code 1 (SYS_SECCOMP), fault addr --------
+10-31 20:24:38.659  6396  6396 F DEBUG   : Cause: seccomp prevented call to disallowed arm64 system call 146
+10-31 20:24:38.659  6396  6396 F DEBUG   :     x0  0000000000000000  x1  0000007992ddb080  x2  0000007992ddb080  x3  0000000000004000
+10-31 20:24:38.659  6396  6396 F DEBUG   :     x4  0000007992cf9b65  x5  00000079ab342070  x6  00000079ab342070  x7  000000000000000f
+10-31 20:24:38.659  6396  6396 F DEBUG   :     x8  0000000000000092  x9  00000000000018fc  x10 00000000000018fc  x11 0000000000000075
+10-31 20:24:38.659  6396  6396 F DEBUG   :     x12 0000000000000018  x13 0000000000000001  x14 0000000000000000  x15 5f64616f6c657250
+10-31 20:24:38.659  6396  6396 F DEBUG   :     x16 000000769cb57f20  x17 0000007992db9980  x18 00000079aa100000  x19 00000077a0030c80
+10-31 20:24:38.660  6396  6396 F DEBUG   :     x20 00000076f002ec50  x21 0000007fc493683c  x22 b4000078a000b310  x23 0000007fc4936838
+10-31 20:24:38.660  6396  6396 F DEBUG   :     x24 0000000000000000  x25 0000007fc4936858  x26 b40000775000a210  x27 00000078700558d0
+10-31 20:24:38.660  6396  6396 F DEBUG   :     x28 0000007fc4936750  x29 0000007fc493686c
+10-31 20:24:38.660  6396  6396 F DEBUG   :     lr  000000769cb535c0  sp  0000007fc49366f0  pc  0000007992db998c  pst 0000000080001000
+10-31 20:24:38.660  6396  6396 F DEBUG   :     esr 0000000092000006  vg  0000000000000002
+10-31 20:24:38.660  6396  6396 F DEBUG   : 2 total frames
+10-31 20:24:38.660  6396  6396 F DEBUG   : backtrace:
+10-31 20:24:38.660  6396  6396 F DEBUG   :       #00 pc 00000000000de98c  /apex/com.android.runtime/lib64/bionic/libc.so (setuid+12) (BuildId: 8dd29b5be3344cf1545af1db8c58e42c)
+10-31 20:24:38.660  6396  6396 F DEBUG   :       #01 pc 00000000000065bc  /data/app/~~6ep_YkzwFs5Bc9hdWaG_-A==/me.weishu.kernelsu-FW5gDcmoY1b0j4nEslgKGQ==/lib/arm64/libkernelsu.so (Java_me_weishu_kernelsu_magica_AppZygotePreload_forkDontCareAndExecKsud+336) (BuildId: 1d3c61ecc7e4e3e043ec31be13272411b9c20986)
+10-31 20:24:38.660  6396  6396 F DEBUG   : Note: To display stack pointer information, use the pbtombstone tool:
+10-31 20:24:38.660  6396  6396 F DEBUG   :         pbtombstone --display-sp tombstone_XX.pb
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: FATAL EXCEPTION: main
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: Process: com.hexnext.themer, PID: 17316
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: java.lang.OutOfMemoryError: Failed to allocate a 80 byte allocation with 473376 free bytes and 462KB until OOM, target footprint 268435456, growth limit 268435456; giving up on allocation because <1% of heap free after GC.
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.graphics.Matrix.constructor-impl$default(Matrix.kt:33)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.GraphicsLayerOwnerLayer.updateMatrix(GraphicsLayerOwnerLayer.android.kt:399)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.GraphicsLayerOwnerLayer.getMatrix-sQKQjiQ(GraphicsLayerOwnerLayer.android.kt:377)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.GraphicsLayerOwnerLayer.getInverseMatrix-3i98HWw(GraphicsLayerOwnerLayer.android.kt:382)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.GraphicsLayerOwnerLayer.mapOffset-8S9VItk(GraphicsLayerOwnerLayer.android.kt:315)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.node.NodeCoordinator.fromParentPosition-8S9VItk(NodeCoordinator.kt:1043)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.node.NodeCoordinator.ancestorToLocal-S_NoaFU(NodeCoordinator.kt:973)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.node.NodeCoordinator.localPositionOf-S_NoaFU(NodeCoordinator.kt:881)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.node.NodeCoordinator.localPositionOf-R5De75A(NodeCoordinator.kt:850)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.input.pointer.Node.buildCache(HitPathTracker.kt:470)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.input.pointer.NodeParent.buildCache(HitPathTracker.kt:199)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.input.pointer.Node.buildCache(HitPathTracker.kt:433)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.input.pointer.NodeParent.buildCache(HitPathTracker.kt:199)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.input.pointer.HitPathTracker.dispatchChanges(HitPathTracker.kt:135)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.input.pointer.PointerInputEventProcessor.process-BIzXfog(PointerInputEventProcessor.kt:120)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeView.sendMotionEvent-8iAsVTc(AndroidComposeView.android.kt:1994)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeView.handleMotionEvent-8iAsVTc(AndroidComposeView.android.kt:1945)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeView.dispatchTouchEvent(AndroidComposeView.android.kt:1829)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTransformedTouchEvent(ViewGroup.java:3580)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTouchEvent(ViewGroup.java:3256)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTransformedTouchEvent(ViewGroup.java:3580)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTouchEvent(ViewGroup.java:3256)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTransformedTouchEvent(ViewGroup.java:3580)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTouchEvent(ViewGroup.java:3256)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTransformedTouchEvent(ViewGroup.java:3580)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewGroup.dispatchTouchEvent(ViewGroup.java:3256)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at com.android.internal.policy.DecorView.superDispatchTouchEvent(DecorView.java:1189)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at com.android.internal.policy.PhoneWindow.superDispatchTouchEvent(PhoneWindow.java:2278)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.app.Activity.dispatchTouchEvent(Activity.java:4935)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at com.android.internal.policy.DecorView.dispatchTouchEvent(DecorView.java:1135)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.View.dispatchPointerEvent(View.java:18083)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$ViewPostImeInputStage.processPointerEvent(ViewRootImpl.java:10496)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$ViewPostImeInputStage.onProcess(ViewRootImpl.java:10204)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:9527)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:9584)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:9550)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:9755)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:9558)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:9812)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:9531)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:9584)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:9550)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:9558)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:9531)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl.deliverInputEvent(ViewRootImpl.java:13778)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl.doProcessInputEvents(ViewRootImpl.java:13659)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl.enqueueInputEvent(ViewRootImpl.java:13614)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl.processRawInputEvent(ViewRootImpl.java:14139)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$WindowInputEventReceiver.onInputEvent(ViewRootImpl.java:13914)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.InputEventReceiver.dispatchInputEvent(InputEventReceiver.java:366)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.InputEventReceiver.nativeConsumeBatchedInputEvents(Native Method)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.InputEventReceiver.consumeBatchedInputEvents(InputEventReceiver.java:306)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl.doConsumeBatchedInput(ViewRootImpl.java:13885)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.ViewRootImpl$ConsumeBatchedInputCallback.onVsync(ViewRootImpl.java:13979)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1995)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.Choreographer.doCallbacks(Choreographer.java:1440)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.Choreographer.doFrame(Choreographer.java:1378)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1957)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:1095)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.os.Handler.dispatchMessageImpl(Handler.java:135)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:125)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:321)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:422)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:10616)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:635)
+11-01 13:22:26.662 17316 17316 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:982)

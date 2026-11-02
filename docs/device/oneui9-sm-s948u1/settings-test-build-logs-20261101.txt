@@ -1,0 +1,101 @@
+/data/user/0/com.hexnext.themer/files:
+logs
+profileInstalled
+reports
+requests
+scan
+
+/data/user/0/com.hexnext.themer/files/logs:
+20261101-132107.jsonl
+20261101-132213.jsonl
+20261101-132306.jsonl
+20261101-132521.jsonl
+
+/data/user/0/com.hexnext.themer/files/reports:
+20261101-132101.json
+20261101-132101.txt
+20261101-132301.json
+20261101-132301.txt
+20261101-132517.json
+20261101-132517.txt
+
+/data/user/0/com.hexnext.themer/files/requests:
+com.android.settings.json
+
+/data/user/0/com.hexnext.themer/files/scan:
+android
+com.android.settings
+com.android.systemui
+com.samsung.android.app.aodservice
+com.samsung.android.app.contacts
+com.samsung.android.app.reminder
+com.samsung.android.app.smartcapture
+com.samsung.android.dialer
+com.samsung.android.honeyboard
+com.samsung.android.incallui
+com.samsung.android.lool
+com.sec.android.app.launcher
+com.sec.android.app.myfiles
+com.sec.android.gallery3d
+frro
+semwt
+system_shades.json
+
+/data/user/0/com.hexnext.themer/files/scan/android:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.android.settings:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.android.systemui:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.app.aodservice:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.app.contacts:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.app.reminder:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.app.smartcapture:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.dialer:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.honeyboard:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.incallui:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.samsung.android.lool:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.sec.android.app.launcher:
+resources.arsc
+
+/data/user/0/com.hexnext.themer/files/scan/com.sec.android.app.myfiles:
+---
+==> /data/user/0/com.hexnext.themer/files/logs/20261101-132107.jsonl <==
+{"timestamp":1793557267542,"level":"INFO","target":"com.android.settings","message":"probe lookup before","data":{"resource":"com.android.settings:color\/sec_widget_round_and_bgcolor","value":"@2131102849 -> #ff010102"}}
+{"timestamp":1793557267543,"level":"INFO","target":"com.android.settings","message":"build started","data":{"overlay":"HexNext_com_android_settings","colors":350,"drawables":3}}
+{"timestamp":1793557267888,"level":"ERROR","target":"com.android.settings","message":"applyOverlay finished","data":{"code":3,"resourceCount":350,"skipped":[{"name":"com.android.settings:drawable\/ic_settings","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"},{"name":"com.android.settings:drawable\/ic_settings_24dp","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"},{"name":"com.android.settings:drawable\/ic_settings_about_device","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"}],"serviceMillis":334,"lookup":"#ff82d3e1","output":"[UID 0] com.android.shell:HexNext_com_android_settings -> com.android.settings: 350 colours, 3 drawables\nCommit with caller descriptors failed: SecurityException: commit failed: failed to create fabricated overlay\nCommit with staged PNGs failed: SecurityException: commit failed: failed to create fabricated overlay\nCommitted colours only; every drawable was dropped.\nRegistered 350 resources, enabled.\nset-priority highest (best-effort): exit 255 Error: Unable to retrieve overlay information for com.android.shell:HexNext_com_android_settings\nOrder: on top of com.android.settings."}}
+{"timestamp":1793557268011,"level":"INFO","target":"com.android.settings","message":"probe lookup after","data":{"resource":"com.android.settings:color\/sec_widget_round_and_bgcolor","value":"#ff00e5ff","expected":"#ff00e5ff","matches":true}}
+
+==> /data/user/0/com.hexnext.themer/files/logs/20261101-132213.jsonl <==
+{"timestamp":1793557333456,"level":"INFO","target":"","message":"Applying theme \"Hex Next\" (default)","data":{}}
+
+==> /data/user/0/com.hexnext.themer/files/logs/20261101-132306.jsonl <==
+{"timestamp":1793557386729,"level":"INFO","target":"com.android.settings","message":"probe lookup before","data":{"resource":"com.android.settings:color\/sec_widget_round_and_bgcolor","value":"#ff253335"}}
+{"timestamp":1793557386729,"level":"INFO","target":"com.android.settings","message":"build started","data":{"overlay":"HexNext_com_android_settings","colors":350,"drawables":3}}
+{"timestamp":1793557387272,"level":"ERROR","target":"com.android.settings","message":"applyOverlay finished","data":{"code":3,"resourceCount":350,"skipped":[{"name":"com.android.settings:drawable\/ic_settings","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"},{"name":"com.android.settings:drawable\/ic_settings_24dp","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"},{"name":"com.android.settings:drawable\/ic_settings_about_device","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"}],"serviceMillis":528,"lookup":"#ff9eeffe","output":"[UID 0] com.android.shell:HexNext_com_android_settings -> com.android.settings: 350 colours, 3 drawables\nCommit with caller descriptors failed: SecurityException: commit failed: failed to create fabricated overlay\nCommit with staged PNGs failed: SecurityException: commit failed: failed to create fabricated overlay\nCommitted colours only; every drawable was dropped.\nRegistered 350 resources, enabled.\nset-priority highest (best-effort): exit 255 Error: Unable to retrieve overlay information for com.android.shell:HexNext_com_android_settings\nOrder: on top of com.android.settings."}}
+{"timestamp":1793557387393,"level":"INFO","target":"com.android.settings","message":"probe lookup after","data":{"resource":"com.android.settings:color\/sec_widget_round_and_bgcolor","value":"#ff00e5ff","expected":"#ff00e5ff","matches":true}}
+
+==> /data/user/0/com.hexnext.themer/files/logs/20261101-132521.jsonl <==
+{"timestamp":1793557521573,"level":"INFO","target":"com.android.settings","message":"probe lookup before","data":{"resource":"com.android.settings:color\/sec_widget_round_and_bgcolor","value":"#ff00e5ff"}}
+{"timestamp":1793557521574,"level":"INFO","target":"com.android.settings","message":"build started","data":{"overlay":"HexNext_com_android_settings","colors":350,"drawables":3}}
+{"timestamp":1793557522001,"level":"ERROR","target":"com.android.settings","message":"applyOverlay finished","data":{"code":3,"resourceCount":350,"skipped":[{"name":"com.android.settings:drawable\/ic_settings","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"},{"name":"com.android.settings:drawable\/ic_settings_24dp","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"},{"name":"com.android.settings:drawable\/ic_settings_about_device","reason":"drawable commit failed: SecurityException: commit failed: failed to create fabricated overlay"}],"serviceMillis":419,"lookup":"#ff9eeffe","output":"[UID 0] com.android.shell:HexNext_com_android_settings -> com.android.settings: 350 colours, 3 drawables\nCommit with caller descriptors failed: SecurityException: commit failed: failed to create fabricated overlay\nCommit with staged PNGs failed: SecurityException: commit failed: failed to create fabricated overlay\nCommitted colours only; every drawable was dropped.\nRegistered 350 resources, enabled.\nset-priority highest (best-effort): exit 255 Error: Unable to retrieve overlay information for com.android.shell:HexNext_com_android_settings\nOrder: on top of com.android.settings."}}
+{"timestamp":1793557522123,"level":"INFO","target":"com.android.settings","message":"probe lookup after","data":{"resource":"com.android.settings:color\/sec_widget_round_and_bgcolor","value":"#ff00e5ff","expected":"#ff00e5ff","matches":true}}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files ReportSharer may hand to other apps through ${applicationId}.files. -->
+<paths>
+    <files-path name="reports" path="reports/" />
+    <files-path name="logs" path="logs/" />
+</paths>

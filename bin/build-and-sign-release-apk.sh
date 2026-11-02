@@ -8,7 +8,7 @@ OUTPUT_APK="$(cd "$(dirname "$OUTPUT_APK")" && pwd)/$(basename "$OUTPUT_APK")"
 
 cd "$ROOT_DIR/android"
 ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true \
-  :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+  :engine:test :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
 
 SOURCE_APK="$ROOT_DIR/android/app/build/outputs/apk/release/app-universal-release.apk"
 python3 "$ROOT_DIR/bin/verify-release-apk.py" "$SOURCE_APK"

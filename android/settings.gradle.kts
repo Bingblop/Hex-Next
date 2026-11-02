@@ -15,4 +15,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "HexNext"
+
+// Pure-JVM engine (arsc/frro parsers, pack model, resource mapping). The app depends on it
+// with implementation("com.hexnext:engine"); Gradle substitutes this included build.
+includeBuild("engine")
 include(":app")

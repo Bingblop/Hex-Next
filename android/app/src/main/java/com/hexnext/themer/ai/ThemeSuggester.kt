@@ -1,0 +1,161 @@
+package com.hexnext.themer.ai
+
+import com.hexnext.engine.compile.ThemeMode
+import com.hexnext.engine.compile.ThemeSpec
+import com.hexnext.themer.theme.InstalledPack
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
+/**
+ * A theme proposed from a description ("warm sunset, cosy, dark").
+ *
+ * @property seedArgb opaque accent seed.
+ * @property accents up to six further opaque colours, most important first.
+ * @property mode `light`, `dark` or `system`.
+ * @property packStyle one of [ThemeSuggester.PACK_STYLES].
+ */
+data class ThemeSuggestion(
+    val name: String,
+    val seedArgb: Int,
+    val accents: List<Int>,
+    val mode: String,
+    val packStyle: String,
+    val notes: String,
+) {
+    /** True for `dark`. */
+    val isDark: Boolean get() = mode == "dark"
+
+    /** True for `light`. */
+    val isLight: Boolean get() = mode == "light"
+}
+
+/**
+ * "Describe your theme": asks a [TextProvider] for a palette and maps the answer onto a
+ * [ThemeSpec]. Nothing here touches the phone; the caller puts the spec into the editor and the
+ * user applies it as usual.
+ */
+object ThemeSuggester {
+    val PACK_STYLES: List<String> = listOf("minimal", "playful", "glass", "retro", "neon", "nature")
+
+    val SYSTEM_PROMPT: String = """
+        You are a colour designer for Android system themes. From the user's description, answer with ONLY a JSON object, no prose, no code fences:
+        {"name":"<2-4 word theme name>","seed":"#RRGGBB","accents":["#RRGGBB", ... up to 6],"mode":"light|dark|system","packStyle":"minimal|playful|glass|retro|neon|nature","notes":"<one sentence on the mood>"}
+        "seed" is the main accent colour; "accents" are secondary colours that work with it, most important first. Choose "mode" from the description, "system" when it does not say. Keep colours saturated enough to read as accents on both light and dark surfaces.
+    """.trimIndent()
+
+    /** Asks [provider] to turn [description] into a suggestion. Throws [AiProviderException]. */
+    suspend fun suggest(keys: AiKeyStore, provider: TextProvider, description: String): ThemeSuggestion =
+        withContext(Dispatchers.IO) {
+            val apiKey = keys.get(provider.id) ?: throw AiProviderException("No key for ${provider.displayName}. Add one in Settings > AI providers.")
+            val text = description.trim()
+            if (text.isEmpty()) throw AiProviderException("Describe the theme first.")
+            parse(provider.complete(SYSTEM_PROMPT, text, apiKey))
+        }
+
+    /** Parses a model reply (fences and surrounding prose tolerated). Throws [AiProviderException]. */
+    fun parse(reply: String): ThemeSuggestion {
+        val root = try {
+            AiHttp.json.parseToJsonElement(GlyphRasterizer.extractJson(reply)) as? JsonObject
+                ?: throw AiProviderException("The model did not answer with a theme.")
+        } catch (e: AiProviderException) {
+            throw e
+        } catch (e: Exception) {
+            throw AiProviderException("The model answered with malformed theme JSON. Try again.", e)
+        }
+        val seed = root.string("seed")?.let(GlyphRasterizer::parseCssHex)?.let { it or OPAQUE }
+            ?: throw AiProviderException("The theme has no valid seed colour.")
+        val accents = (root["accents"] as? JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonPrimitive)?.contentOrNull()?.let(GlyphRasterizer::parseCssHex) }
+            .map { it or OPAQUE }
+            .filter { it != seed }
+            .distinct()
+            .take(MAX_ACCENTS)
+        val mode = root.string("mode")?.trim()?.lowercase()?.takeIf { it in MODES } ?: "system"
+        val style = root.string("packStyle")?.trim()?.lowercase()?.takeIf { it in PACK_STYLES } ?: "minimal"
+        val name = root.string("name")?.trim()?.take(40)?.ifEmpty { null } ?: "Suggested theme"
+        return ThemeSuggestion(name, seed, accents, mode, style, root.string("notes")?.trim()?.take(200).orEmpty())
+    }
+
+    /**
+     * Maps [suggestion] onto [current]:
+     * - seed → `source.seedArgb` (the caller must also push it to the seed preference, see
+     *   `MainViewModel.setSeed`, because the apply path takes the seed from there);
+     * - accents[0] → `source.secondaryArgb`, accents[1] → `source.tertiaryArgb`: these are the
+     *   accent roles the compiler already derives every `system_accent2_*` / `system_accent3_*`
+     *   shade and pack slot from, so they follow light and dark correctly; further accents are
+     *   display only;
+     * - mode → background lightness of both adjustments, and nothing else in them (dark: darker
+     *   dark surfaces, light: brighter light surfaces; the other mode, and both for `system`, go
+     *   back to Samsung's default 100). Suggestions are the only thing that sets this value, so
+     *   each one sets it outright: a darker dark mode from an earlier suggestion must not stay
+     *   behind when a later light or system suggestion is applied. The phone's own light/dark
+     *   setting is left as it is;
+     * - packStyle → the installed pack whose name, features or categories match best, else the
+     *   current pack; in [ThemeMode.ADVANCED] a matched pack also clears the per-element packs,
+     *   which would otherwise win over it, so every element really uses the pack the card names;
+     * - name → theme name.
+     */
+    fun toThemeSpec(suggestion: ThemeSuggestion, current: ThemeSpec, packs: List<InstalledPack>): ThemeSpec {
+        val source = current.source.copy(
+            seedArgb = suggestion.seedArgb,
+            secondaryArgb = suggestion.accents.getOrNull(0),
+            tertiaryArgb = suggestion.accents.getOrNull(1),
+        )
+        val dark = current.darkAdjustments.copy(backgroundLightness = if (suggestion.isDark) 85 else 100)
+        val light = current.lightAdjustments.copy(backgroundLightness = if (suggestion.isLight) 110 else 100)
+        val matched = matchPack(suggestion.packStyle, packs)?.id
+        val elementPacks = if (matched != null && current.mode == ThemeMode.ADVANCED) emptyMap() else current.elementPacks
+        return current.copy(
+            name = suggestion.name,
+            source = source,
+            darkAdjustments = dark,
+            lightAdjustments = light,
+            simplePackId = matched ?: current.simplePackId,
+            elementPacks = elementPacks,
+        )
+    }
+
+    /** The installed pack whose name, id, features and category labels match [packStyle] best, or null. */
+    fun matchPack(packStyle: String, packs: List<InstalledPack>): InstalledPack? {
+        val words = STYLE_WORDS[packStyle] ?: return null
+        return packs
+            .map { pack -> pack to score(pack, words) }
+            .filter { it.second > 0 }
+            .maxWithOrNull(compareBy<Pair<InstalledPack, Int>> { it.second }.thenBy { it.first.name })
+            ?.first
+    }
+
+    private fun score(pack: InstalledPack, words: List<String>): Int {
+        val haystack = buildList {
+            add(pack.name)
+            add(pack.id)
+            addAll(pack.features)
+            addAll(pack.pack.categories.keys)
+            addAll(pack.pack.categories.values)
+        }.joinToString(" ").lowercase()
+        return words.count { wordPattern(it).containsMatchIn(haystack) }
+    }
+
+    /**
+     * [word] as a whole word (an optional plural "s"/"es" allowed), so "round" does not match
+     * "background", "old" does not match "bold" and "bubble" does not match "misc-wabubble".
+     */
+    private fun wordPattern(word: String): Regex =
+        Regex("(?<![a-z0-9])" + Regex.escape(word) + "(?:e?s)?(?![a-z0-9])")
+
+    private val STYLE_WORDS: Map<String, List<String>> = mapOf(
+        "minimal" to listOf("minimal", "clean", "simple", "line", "outline", "mono", "thin", "flat"),
+        "playful" to listOf("playful", "fun", "cartoon", "bubble", "round", "cute", "candy", "pop"),
+        "glass" to listOf("glass", "blur", "frost", "translucent", "acrylic", "crystal", "aero"),
+        "retro" to listOf("retro", "vintage", "classic", "pixel", "8bit", "8-bit", "old", "legacy"),
+        "neon" to listOf("neon", "glow", "cyber", "vivid", "led", "synth", "laser"),
+        "nature" to listOf("nature", "leaf", "forest", "wood", "earth", "organic", "green", "flora"),
+    )
+
+    private val MODES = setOf("light", "dark", "system")
+    private const val MAX_ACCENTS = 6
+    private const val OPAQUE: Int = 0xFF000000.toInt()
+}

@@ -1,0 +1,1475 @@
+Hex Next diagnostics Sun Nov  1 04:34:47 PM UTC 2026
+
+### Build
+$ getprop ro.build.version.oneui; getprop ro.build.version.sem; getprop ro.build.version.sep; getprop ro.build.version.sdk; getprop ro.build.version.release; getprop ro.product.model; getprop ro.build.display.id; getprop ro.build.version.security_patch
+90000
+3701
+180000
+37
+17
+SM-S948U1
+CP2A.260605.016.S948U1UEU4BZID
+2026-09-05
+
+### Identity
+$ id; command -v su; su -c id
+uid=10472(u0_a472) gid=10472(u0_a472) groups=10472(u0_a472),1077(external_storage),1079(ext_obb_rw),3003(inet),9997(everybody),20472(u0_a472_cache),50472(all_a472)
+/data/data/com.termux/files/usr/bin/su
+uid=0(root) gid=0(root) groups=0(root) context=u:r:ksu:s0
+
+### Shizuku
+$ pm list packages | grep -iE 'shizuku|rikka'; pidof shizuku_server; ps -A | grep -iE 'shizuku|rikka' | grep -v grep
+(via su, exit 0)
+package:moe.shizuku.privileged.api
+27390
+root         27390     1   14441944  99668 do_epoll_wait       0 S shizuku_server
+
+### Overlay list
+$ cmd overlay list --user current
+(via su, exit 0)
+com.google.android.networkstack.tethering
+[x] com.google.android.networkstack.tethering.overlay
+
+com.samsung.android.app.galaxyfinder
+--- android:SemWT_com.samsung.android.app.galaxyfinder
+
+com.samsung.android.app.aodservice
+[x] android:SemWT_com.samsung.android.app.aodservice
+
+com.samsung.android.app.cocktailbarservice
+--- android:SemWT_com.samsung.android.app.cocktailbarservice
+
+com.android.providers.telephony
+--- com.android.providers.telephony.auto_generated_characteristics_rro
+
+com.samsung.android.calendar
+--- android:SemWT_com.samsung.android.calendar
+
+com.samsung.android.emergency
+--- android:SemWT_com.samsung.android.emergency
+
+com.samsung.android.aremoji
+--- android:SemWT_com.samsung.android.aremoji
+
+com.samsung.android.service.airviewdictionary
+--- android:SemWT_com.samsung.android.service.airviewdictionary
+
+com.android.providers.media
+--- android:SemWT_com.android.providers.media
+
+com.samsung.android.smartmirroring
+[x] android:SemWT_com.samsung.android.smartmirroring
+
+com.android.virtualdevicemanager
+--- com.android.virtualdevicemanager.auto_generated_characteristics_rro
+
+com.sec.android.app.safetyassurance
+--- android:SemWT_com.sec.android.app.safetyassurance
+
+com.samsung.android.incallui
+[x] android:SemWT_com.samsung.android.incallui
+
+com.samsung.android.service.tagservice
+[x] android:SemWT_com.samsung.android.service.tagservice
+
+com.samsung.font
+--- android:SemWT_com.samsung.font
+
+com.samsung.android.easysetup
+--- android:SemWT_com.samsung.android.easysetup
+
+com.samsung.android.vtcamerasettings
+--- android:SemWT_com.samsung.android.vtcamerasettings
+
+com.samsung.android.app.galaxyraw
+[x] android:SemWT_com.samsung.android.app.galaxyraw
+
+com.android.companiondevicemanager
+--- com.android.companiondevicemanager.auto_generated_characteristics_rro
+
+com.samsung.android.rubin.app
+--- android:SemWT_com.samsung.android.rubin.app
+
+com.samsung.osmnuui
+--- android:SemWT_com.samsung.osmnuui
+
+com.samsung.android.mdx.quickboard
+--- android:SemWT_com.samsung.android.mdx.quickboard
+
+com.wsomacp
+--- android:SemWT_com.wsomacp
+
+com.sec.android.app.voicenote
+[x] android:SemWT_com.sec.android.app.voicenote
+
+com.samsung.android.inputshare
+--- android:SemWT_com.samsung.android.inputshare
+
+com.samsung.android.accessibility.talkback
+--- android:SemWT_com.samsung.android.accessibility.talkback
+
+com.google.android.providers.media.module
+[x] com.google.android.overlay.modules.mediaprovider
+
+com.sec.sesl.tester
+--- android:SemWT_com.sec.sesl.tester
+
+com.sec.android.app.desktoplauncher
+--- android:SemWT_com.sec.android.app.desktoplauncher
+
+com.sec.android.daemonapp
+[x] android:SemWT_com.sec.android.daemonapp
+
+com.samsung.android.hwresourceshare
+--- android:SemWT_com.samsung.android.hwresourceshare
+
+com.samsung.android.secsoundpicker
+[x] android:SemWT_com.samsung.android.secsoundpicker
+
+com.sec.android.app.soundalive
+[x] android:SemWT_com.sec.android.app.soundalive
+
+com.samsung.android.knox.containeragent
+--- android:SemWT_com.samsung.android.knox.containeragent
+
+android
+[x] android.auto_generated_rro_vendor__
+[x] com.google.android.overlay.modules.captiveportallogin.forframework
+[x] com.samsung.android.internal.overlay.config.default_contextual_search
+[x] com.google.android.overlay.gmsconfig.asi
+[x] com.google.android.overlay.gmsconfig.common
+[x] com.google.android.overlay.gmsconfig.gsa
+[x] com.google.android.overlay.gmsconfig.geotz
+[x] com.google.android.overlay.modules.ext.services
+[x] com.google.android.overlay.modules.healthfitness.forframework
+[x] com.google.android.overlay.modules.permissioncontroller.forframework
+[x] com.google.android.overlay.modules.modulemetadata.forframework
+[x] com.google.android.overlay.aicoreconfig
+[x] com.google.android.verifier.overlay
+[x] android.auto_generated_rro_product__
+[ ] com.android.internal.display.cutout.emulation.corner
+[ ] com.android.internal.display.cutout.emulation.double
+[ ] com.samsung.internal.systemui.navbar.sec_gestural
+[ ] com.android.internal.display.cutout.emulation.hole
+[ ] com.android.internal.display.cutout.emulation.tall
+[ ] com.android.internal.systemui.navbar.threebutton
+[ ] com.samsung.internal.systemui.navbar.sec_gestural_no_hint
+[ ] com.android.internal.display.cutout.emulation.waterfall
+[x] com.samsung.internal.systemui.navbar.gestural_no_hint
+[ ] com.android.internal.systemui.navbar.gestural
+[x] com.android.internal.systemui.navbar.transparent
+[x] android:SemWT_MonetPalette
+[x] android:ThemePark_dummy
+[ ] android:SemWT_G_MonetPalette
+[x] com.android.shell:aam_monet
+[x] android:SemWT_android
+[x] com.android.shell:HexNextMonetShades
+
+com.samsung.android.sm.devicesecurity
+--- android:SemWT_com.samsung.android.sm.devicesecurity
+
+com.android.nfc
+[x] com.samsung.android.nfc.resources.usa
+
+com.samsung.android.messaging
+--- android:SemWT_com.samsung.android.messaging
+
+com.samsung.android.sidegesturepad
+--- android:SemWT_com.samsung.android.sidegesturepad
+
+com.samsung.android.app.tips
+--- android:SemWT_com.samsung.android.app.tips
+
+com.samsung.android.app.telephonyui
+[x] android:SemWT_com.samsung.android.app.telephonyui
+
+com.samsung.android.bixby.agent
+[x] android:SemWT_com.samsung.android.bixby.agent
+
+com.sec.android.app.sbrowser.beta
+--- android:SemWT_com.sec.android.app.sbrowser.beta
+
+com.android.settings.intelligence
+[x] android:SemWT_com.android.settings.intelligence
+
+com.samsung.android.privacydashboard
+[x] android:SemWT_com.samsung.android.privacydashboard
+
+com.google.android.permissioncontroller
+[x] com.google.android.overlay.modules.permissioncontroller
+[x] android:PermissionControllerDA_FRRO
+
+com.samsung.android.tadownloader
+--- android:SemWT_com.samsung.android.tadownloader
+
+com.sec.android.gallery3d
+[x] android:SemWT_com.sec.android.gallery3d
+
+com.samsung.accessibility
+[x] android:SemWT_com.samsung.accessibility
+
+com.google.android.euicc
+[x] com.sec.android.app.googlelpaoverlay
+
+com.samsung.android.rampart
+--- android:SemWT_com.samsung.android.rampart
+
+com.samsung.knox.securefolder
+--- android:SemWT_com.samsung.knox.securefolder
+
+com.samsung.android.game.gametools
+--- android:SemWT_com.samsung.android.game.gametools
+
+com.samsung.android.app.contacts
+[x] android:SemWT_com.samsung.android.app.contacts
+
+com.samsung.android.service.peoplestripe
+--- android:SemWT_com.samsung.android.service.peoplestripe
+
+com.samsung.android.da.daagent
+--- android:SemWT_com.samsung.android.da.daagent
+
+com.samsung.android.app.reminder
+[x] android:SemWT_com.samsung.android.app.reminder
+
+com.samsung.android.app.smartcapture
+[x] android:SemWT_com.samsung.android.app.smartcapture
+
+com.sec.android.desktopmode.uiservice
+--- android:SemWT_com.sec.android.desktopmode.uiservice
+
+com.samsung.android.app.taskedge
+--- android:SemWT_com.samsung.android.app.taskedge
+
+com.samsung.android.dynamiclock
+--- android:SemWT_com.samsung.android.dynamiclock
+
+com.sec.android.app.clockpackage
+--- android:SemWT_com.sec.android.app.clockpackage
+
+com.samsung.android.mdecservice
+--- android:SemWT_com.samsung.android.mdecservice
+
+com.google.android.networkstack
+[x] com.samsung.android.networkstack
+[ ] com.samsung.android.wcmurlsnetworkstack
+
+com.samsung.accessory.budsunitemgr
+[x] android:SemWT_com.samsung.accessory.budsunitemgr
+
+com.samsung.android.app.readingglass
+--- android:SemWT_com.samsung.android.app.readingglass
+
+com.samsung.android.opencalendar
+--- android:SemWT_com.samsung.android.opencalendar
+
+com.google.android.gms
+[x] com.sec.android.app.qsfastpairoverlay
+
+com.samsung.android.coldwalletservice
+--- android:SemWT_com.samsung.android.coldwalletservice
+
+com.android.wifi.resources
+[x] com.samsung.android.wifi.softapwpathree.resources
+[x] com.samsung.android.wifi.p2paware.resources
+[x] com.samsung.android.wifi.softap.resources
+[x] com.samsung.android.wifi.softapqc.resources
+[x] com.samsung.android.wifi.resources
+[x] com.samsung.android.wifi.h2e.resources
+[x] com.samsung.android.wifi.largetcpbuffer.resources
+[x] com.samsung.android.wifi.resources.lls
+[x] com.samsung.android.wifi.saeupgradeoffload.resources
+[x] com.samsung.android.wifi.resources.wifilock
+
+com.samsung.android.biometrics.app.setting
+[x] android:SemWT_com.samsung.android.biometrics.app.setting
+
+com.samsung.android.icecone
+--- android:SemWT_com.samsung.android.icecone
+
+com.sec.android.app.myfiles
+[x] android:SemWT_com.sec.android.app.myfiles
+
+com.samsung.android.app.routines
+--- android:SemWT_com.samsung.android.app.routines
+
+com.sec.android.app.dexonpc
+--- android:SemWT_com.sec.android.app.dexonpc
+
+com.sec.android.mimage.photoretouching
+[x] android:SemWT_com.sec.android.mimage.photoretouching
+
+com.sec.android.app.launcher
+[x] android:SemWT_com.sec.android.app.launcher
+
+com.google.android.connectivity.resources
+[x] com.samsung.android.ConnectivityOverlay
+[x] com.samsung.android.ConnectivityUxOverlay
+
+com.samsung.android.setting.multisound
+--- android:SemWT_com.samsung.android.setting.multisound
+
+com.android.networkstack.tethering
+--- com.samsung.android.networkstack.tethering.overlay
+
+com.sec.android.app.sbrowser
+--- android:SemWT_com.sec.android.app.sbrowser
+
+com.google.android.documentsui
+[x] com.google.android.overlay.modules.documentsui
+
+com.samsung.android.app.interpreter
+[x] android:SemWT_com.samsung.android.app.interpreter
+
+com.samsung.android.dialer
+[x] android:SemWT_com.samsung.android.dialer
+
+com.samsung.android.app.cameraassistant
+[x] android:SemWT_com.samsung.android.app.cameraassistant
+
+com.samsung.android.drivingplus
+--- android:SemWT_com.samsung.android.drivingplus
+
+com.samsung.android.forest
+--- android:SemWT_com.samsung.android.forest
+
+com.samsung.android.callassistant
+[x] android:SemWT_com.samsung.android.callassistant
+
+com.sec.android.app.popupcalculator
+--- android:SemWT_com.sec.android.app.popupcalculator
+
+com.sec.android.app.quicktool
+--- android:SemWT_com.sec.android.app.quicktool
+
+com.samsung.android.fmm
+--- android:SemWT_com.samsung.android.fmm
+
+com.samsung.android.mdx
+--- android:SemWT_com.samsung.android.mdx
+
+com.sec.android.app.shealth
+[x] android:SemWT_com.sec.android.app.shealth
+
+com.samsung.android.warrantycare
+--- android:SemWT_com.samsung.android.warrantycare
+
+com.sec.unifiedwfc
+[x] android:SemWT_com.sec.unifiedwfc
+
+com.samsung.android.appseparation
+--- android:SemWT_com.samsung.android.appseparation
+
+com.samsung.android.honeyboard
+[x] android:SemWT_com.samsung.android.honeyboard
+
+com.samsung.android.scloud
+--- android:SemWT_com.samsung.android.scloud
+
+com.samsung.android.app.soundpicker
+[x] android:SemWT_com.samsung.android.app.soundpicker
+
+com.samsung.android.app.sharelive
+--- android:SemWT_com.samsung.android.app.sharelive
+
+com.android.settings
+[x] android:SemWT_com.android.settings
+
+com.samsung.android.widget.pictureframe
+--- android:SemWT_com.samsung.android.widget.pictureframe
+
+com.samsung.app.newtrim
+[x] android:SemWT_com.samsung.app.newtrim
+
+com.samsung.android.fast
+--- android:SemWT_com.samsung.android.fast
+
+com.samsung.android.lool
+[x] android:SemWT_com.samsung.android.lool
+
+com.samsung.android.scpm
+[x] android:SemWT_com.samsung.android.scpm
+
+com.sec.hearingadjust
+--- android:SemWT_com.sec.hearingadjust
+
+com.samsung.android.visionintelligence
+--- android:SemWT_com.samsung.android.visionintelligence
+
+com.samsung.android.hwresourceshare.storage
+--- android:SemWT_com.samsung.android.hwresourceshare.storage
+
+com.samsung.android.callbgprovider
+--- android:SemWT_com.samsung.android.callbgprovider
+
+com.sec.android.app.firewall
+--- android:SemWT_com.sec.android.app.firewall
+
+com.samsung.android.mateagent
+--- android:SemWT_com.samsung.android.mateagent
+
+com.samsung.android.service.aircommand
+--- android:SemWT_com.samsung.android.service.aircommand
+
+com.android.vpndialogs
+--- android:SemWT_com.android.vpndialogs
+
+com.android.phone
+--- com.android.phone.auto_generated_characteristics_rro
+
+com.wssyncmldm
+--- android:SemWT_com.wssyncmldm
+
+com.samsung.android.app.appsedge
+--- android:SemWT_com.samsung.android.app.appsedge
+
+com.samsung.android.samsungpassautofill
+--- android:SemWT_com.samsung.android.samsungpassautofill
+
+com.android.systemui
+[x] android:SemWT_com.android.systemui
+[x] android:ThemePark_NotificationPanel
+[x] android:ThemePark_VolumePanel
+
+com.samsung.android.app.clockpack
+--- android:SemWT_com.samsung.android.app.clockpack
+
+com.samsung.android.smartsuggestions
+[x] android:SemWT_com.samsung.android.smartsuggestions
+
+com.sec.android.app.camera
+[x] android:SemWT_com.sec.android.app.camera
+
+com.android.bluetooth
+[x] android:SemWT_com.android.bluetooth
+
+com.samsung.android.app.clipboardedge
+--- android:SemWT_com.samsung.android.app.clipboardedge
+
+com.samsung.android.app.dressroom
+[x] android:SemWT_com.samsung.android.app.dressroom
+
+com.samsung.advancedcalling
+--- android:SemWT_com.samsung.advancedcalling
+
+com.samsung.android.mcfds
+--- android:SemWT_com.samsung.android.mcfds
+
+com.samsung.android.sm_cn
+--- android:SemWT_com.samsung.android.sm_cn
+
+com.samsung.android.video
+[x] android:SemWT_com.samsung.android.video
+
+com.samsung.android.bixbytouch
+--- android:SemWT_com.samsung.android.bixbytouch
+
+### Samsung theme state (/data/overlays)
+$ ls -la /data/overlays; ls -la /data/overlays/wallpapertheme
+(via su, exit 0)
+total 68
+drwxr-xr-x 21 system system 3452 2026-10-31 20:24 .
+drwxrwx--x 79 system system 4096 2026-10-31 20:24 ..
+drwxr-xr-x  2 system system 3452 2026-10-28 18:00 cached_data
+drwxr-xr-x  3 system system 3452 2026-08-25 21:54 coverwallpaper
+drwxr-xr-x  3 system system 3452 2026-08-25 21:54 currentstyle
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 flipcoverwallpaper
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 font
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 homewallpaper
+drwxr-xr-x  8 system system 3452 2026-10-22 18:14 jsonfiles
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 lockwallpaper
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 main_packages
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 media
+drwxr-xr-x  2 system system 3452 2026-10-28 18:00 preferences
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 preview
+drwxr--r-x  2 system system 3452 2026-10-30 14:45 remaps
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 sound
+drwxrwx--x  2 system system 3452 2026-08-25 21:54 spen_theme
+drwxr--r-x  3 system system 3452 2026-08-25 21:54 sticker
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 style
+drwxr-xr-x  2 system system 3452 2026-08-25 21:54 version
+drwxrwxrwx  2 system system 3452 2026-10-23 10:48 wallpapertheme
+total 18
+drwxrwxrwx  2 system system 3452 2026-10-23 10:48 .
+drwxr-xr-x 21 system system 3452 2026-10-31 20:24 ..
+-rw-rw----  1 system system  252 2026-10-22 18:14 fota_preference.xml
+-rw-r--r--  1 system system 3660 2026-11-01 10:35 last_package_list.txt
+-rw-r--r--  1 system system 1166 2026-10-31 20:29 last_palette.txt
+
+### Fabricated overlay files
+$ find /data/resource-cache -name '*.frro' -exec ls -la {} \;
+(via su, exit 0)
+-rw-r--r-- 1 system system 469 2026-10-30 13:43 /data/resource-cache/android-PermissionControllerDA_FRRO-B7ph.frro
+-rw-r--r-- 1 system system 8868 2026-10-31 20:29 /data/resource-cache/android-SemWT_android-dX00.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:26 /data/resource-cache/com.android.systemui-accent-Kl9G.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:26 /data/resource-cache/com.android.systemui-neutral-uCxE.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:26 /data/resource-cache/com.android.systemui-dynamic-kTnK.frro
+-rw-r--r-- 1 system system 2653 2026-10-31 20:29 /data/resource-cache/android-SemWT_G_MonetPalette-skzM.frro
+-rw-r--r-- 1 system system 2651 2026-10-30 14:49 /data/resource-cache/android-SemWT_MonetPalette-C8IU.frro
+-rw-r--r-- 1 system system 11919 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.android.vpndialogs-wCyi.frro
+-rw-r--r-- 1 system system 37104 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.messaging-6Gfq.frro
+-rw-r--r-- 1 system system 22467 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.clockpackage-BzTE.frro
+-rw-r--r-- 1 system system 14742 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.opencalendar-nIY1.frro
+-rw-r--r-- 1 system system 99 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.font-jS0F.frro
+-rw-r--r-- 1 system system 12878 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.hearingadjust-AUSE.frro
+-rw-r--r-- 1 system system 11999 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.android.bluetooth-IYmE.frro
+-rw-r--r-- 1 system system 14140 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.safetyassurance-cGem.frro
+-rw-r--r-- 1 system system 13543 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.cocktailbarservice-V7bc.frro
+-rw-r--r-- 1 system system 13458 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.accessibility-EXA5.frro
+-rw-r--r-- 1 system system 11979 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.accessibility.talkback-bjFM.frro
+-rw-r--r-- 1 system system 15393 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.scloud-EKr2.frro
+-rw-r--r-- 1 system system 13465 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.da.daagent-IfBq.frro
+-rw-r--r-- 1 system system 12833 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.setting.multisound-Cy1U.frro
+-rw-r--r-- 1 system system 12846 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.soundalive-oENF.frro
+-rw-r--r-- 1 system system 14141 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.easysetup-PDng.frro
+-rw-r--r-- 1 system system 11934 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.dexonpc-W1dL.frro
+-rw-r--r-- 1 system system 13208 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.vtcamerasettings-5nSR.frro
+-rw-r--r-- 1 system system 14772 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.tips-1Dhi.frro
+-rw-r--r-- 1 system system 13219 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.samsungpassautofill-vPjD.frro
+-rw-r--r-- 1 system system 13007 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.firewall-lqF6.frro
+-rw-r--r-- 1 system system 16547 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.sm_cn-Ubnv.frro
+-rw-r--r-- 1 system system 12759 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.mdx.quickboard-6RMH.frro
+-rw-r--r-- 1 system system 11983 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.sesl.tester-w8x4.frro
+-rw-r--r-- 1 system system 15876 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.aodservice-xigU.frro
+-rw-r--r-- 1 system system 12655 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.emergency-wnt1.frro
+-rw-r--r-- 1 system system 11988 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.service.airviewdictionary-Rc9c.frro
+-rw-r--r-- 1 system system 12044 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.incallui-8MGO.frro
+-rw-r--r-- 1 system system 13041 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.service.tagservice-BkCd.frro
+-rw-r--r-- 1 system system 14562 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.rubin.app-MTx2.frro
+-rw-r--r-- 1 system system 18928 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.voicenote-BrXM.frro
+-rw-r--r-- 1 system system 14748 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.daemonapp-51HV.frro
+-rw-r--r-- 1 system system 135 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.sidegesturepad-KjI1.frro
+-rw-r--r-- 1 system system 20319 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:26 /data/resource-cache/com.android.shell-aam_monet-i7W4.frro
+-rw-r--r-- 1 system system 2651 2026-10-31 20:29 /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro
+-rw-r--r-- 1 system system 13865 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.dynamiclock-Cnt4.frro
+-rw-r--r-- 1 system system 12817 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.clockpack-ZYIt.frro
+-rw-r--r-- 1 system system 12668 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.privacydashboard-fprW.frro
+-rw-r--r-- 1 system system 6126 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.popupcalculator-pqaL.frro
+-rw-r--r-- 1 system system 21835 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.calendar-8aUf.frro
+-rw-r--r-- 1 system system 8868 2026-10-30 14:49 /data/resource-cache/android-SemWT_android-PRiB.frro
+-rw-r--r-- 1 system system 1937 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.appsedge-pmH0.frro
+-rw-r--r-- 1 system system 12042 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.android.providers.media-4Ik7.frro
+-rw-r--r-- 1 system system 135 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.callbgprovider-LnZS.frro
+-rw-r--r-- 1 system system 11961 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.galaxyfinder-1lCa.frro
+-rw-r--r-- 1 system system 12667 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.knox.containeragent-QtiS.frro
+-rw-r--r-- 1 system system 13736 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.mateagent-jIUU.frro
+-rw-r--r-- 1 system system 12506 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.smartcapture-x5ku.frro
+-rw-r--r-- 1 system system 12566 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.fmm-lJL7.frro
+-rw-r--r-- 1 system system 11919 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.android.vpndialogs-wNyd.frro
+-rw-r--r-- 1 system system 13354 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.icecone-SYYn.frro
+-rw-r--r-- 1 system system 99 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.font-UPBT.frro
+-rw-r--r-- 1 system system 12470 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.biometrics.app.setting-1okn.frro
+-rw-r--r-- 1 system system 12048 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.tadownloader-4jm3.frro
+-rw-r--r-- 1 system system 12483 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.dressroom-UDK1.frro
+-rw-r--r-- 1 system system 13796 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.desktopmode.uiservice-8Tlb.frro
+-rw-r--r-- 1 system system 13085 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.desktoplauncher-M0d0.frro
+-rw-r--r-- 1 system system 11995 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.osmnuui-DS9T.frro
+-rw-r--r-- 1 system system 13618 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.unifiedwfc-UzkR.frro
+-rw-r--r-- 1 system system 12762 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.advancedcalling-tYgz.frro
+-rw-r--r-- 1 system system 13241 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.bixbytouch-gXWf.frro
+-rw-r--r-- 1 system system 13193 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.aremoji-DVb2.frro
+-rw-r--r-- 1 system system 12030 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.smartmirroring-6ra3.frro
+-rw-r--r-- 1 system system 12055 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.galaxyraw-0att.frro
+-rw-r--r-- 1 system system 12620 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.wsomacp-p1g0.frro
+-rw-r--r-- 1 system system 12142 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.inputshare-Zztv.frro
+-rw-r--r-- 1 system system 12994 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.hwresourceshare-qzY4.frro
+-rw-r--r-- 1 system system 12032 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.secsoundpicker-B1nz.frro
+-rw-r--r-- 1 system system 13025 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.sm.devicesecurity-Sosh.frro
+-rw-r--r-- 1 system system 18985 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.telephonyui-qTmA.frro
+-rw-r--r-- 1 system system 14757 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.android.settings.intelligence-PVZt.frro
+-rw-r--r-- 1 system system 25692 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.gallery3d-0vxq.frro
+-rw-r--r-- 1 system system 12383 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.bixby.agent-l3mk.frro
+-rw-r--r-- 1 system system 13068 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.coldwalletservice-LXZ6.frro
+-rw-r--r-- 1 system system 17627 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.myfiles-RavK.frro
+-rw-r--r-- 1 system system 30882 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.routines-AS66.frro
+-rw-r--r-- 1 system system 13286 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.mimage.photoretouching-KiLU.frro
+-rw-r--r-- 1 system system 20381 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.launcher-mUiQ.frro
+-rw-r--r-- 1 system system 39163 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.sbrowser-aTE1.frro
+-rw-r--r-- 1 system system 12033 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.cameraassistant-4D1f.frro
+-rw-r--r-- 1 system system 12001 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.drivingplus-MLEK.frro
+-rw-r--r-- 1 system system 17082 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.forest-xQT9.frro
+-rw-r--r-- 1 system system 14099 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.callassistant-Dmuy.frro
+-rw-r--r-- 1 system system 27185 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.honeyboard-MET8.frro
+-rw-r--r-- 1 system system 16404 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.sharelive-7T58.frro
+-rw-r--r-- 1 system system 13101 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.widget.pictureframe-Yndo.frro
+-rw-r--r-- 1 system system 11925 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.scpm-UQr4.frro
+-rw-r--r-- 1 system system 2653 2026-10-30 14:49 /data/resource-cache/android-SemWT_G_MonetPalette-EuSk.frro
+-rw-r--r-- 1 system system 13865 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.dynamiclock-Bagw.frro
+-rw-r--r-- 1 system system 19116 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.lool-ZPHj.frro
+-rw-r--r-- 1 system system 37104 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.messaging-U5f6.frro
+-rw-r--r-- 1 system system 22467 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.clockpackage-Ou9C.frro
+-rw-r--r-- 1 system system 21835 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.calendar-9ROe.frro
+-rw-r--r-- 1 system system 1937 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.appsedge-B2Ra.frro
+-rw-r--r-- 1 system system 13458 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.accessibility-tlVw.frro
+-rw-r--r-- 1 system system 12846 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.soundalive-jVVt.frro
+-rw-r--r-- 1 system system 13354 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.icecone-qXG2.frro
+-rw-r--r-- 1 system system 12048 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.tadownloader-Z5za.frro
+-rw-r--r-- 1 system system 14141 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.easysetup-cjvK.frro
+-rw-r--r-- 1 system system 14772 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.tips-aBdl.frro
+-rw-r--r-- 1 system system 12762 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.advancedcalling-gapc.frro
+-rw-r--r-- 1 system system 16547 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.sm_cn-jHJH.frro
+-rw-r--r-- 1 system system 12759 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.mdx.quickboard-6NtQ.frro
+-rw-r--r-- 1 system system 13041 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.service.tagservice-y1vw.frro
+-rw-r--r-- 1 system system 18985 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.telephonyui-XHkW.frro
+-rw-r--r-- 1 system system 13420 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.rampart-RYQW.frro
+-rw-r--r-- 1 system system 16266 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.knox.securefolder-tVIt.frro
+-rw-r--r-- 1 system system 904 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.taskedge-FyV8.frro
+-rw-r--r-- 1 system system 16941 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.accessory.budsunitemgr-SUbu.frro
+-rw-r--r-- 1 system system 12056 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.readingglass-9MVM.frro
+-rw-r--r-- 1 system system 30882 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.routines-xrkp.frro
+-rw-r--r-- 1 system system 13286 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.mimage.photoretouching-luiW.frro
+-rw-r--r-- 1 system system 11925 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.scpm-P3pE.frro
+-rw-r--r-- 1 system system 39178 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.sbrowser.beta-MWEE.frro
+-rw-r--r-- 1 system system 23092 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.dialer-Kb1t.frro
+-rw-r--r-- 1 system system 12017 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.quicktool-RY89.frro
+-rw-r--r-- 1 system system 11922 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.mdx-9bIv.frro
+-rw-r--r-- 1 system system 13405 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.shealth-O0rk.frro
+-rw-r--r-- 1 system system 14902 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.warrantycare-s4RB.frro
+-rw-r--r-- 1 system system 16278 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.appseparation-hxdf.frro
+-rw-r--r-- 1 system system 12694 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.wssyncmldm-emvp.frro
+-rw-r--r-- 1 system system 14457 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.smartsuggestions-EOnN.frro
+-rw-r--r-- 1 system system 12550 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.sec.android.app.camera-CBgz.frro
+-rw-r--r-- 1 system system 13319 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.video-3P1g.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:30 /data/resource-cache/com.android.systemui-neutral-Qut6.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:31 /data/resource-cache/com.android.systemui-dynamic-qZTZ.frro
+-rw-r--r-- 1 system system 6126 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.popupcalculator-272k.frro
+-rw-r--r-- 1 system system 11999 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.android.bluetooth-ciHh.frro
+-rw-r--r-- 1 system system 14140 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.safetyassurance-YUfF.frro
+-rw-r--r-- 1 system system 12042 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.android.providers.media-tGAa.frro
+-rw-r--r-- 1 system system 12833 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.setting.multisound-MQ7u.frro
+-rw-r--r-- 1 system system 13007 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.firewall-1UQ9.frro
+-rw-r--r-- 1 system system 13618 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.unifiedwfc-gYtf.frro
+-rw-r--r-- 1 system system 11983 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.sesl.tester-amXj.frro
+-rw-r--r-- 1 system system 12655 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.emergency-qKHU.frro
+-rw-r--r-- 1 system system 13193 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.aremoji-tFgJ.frro
+-rw-r--r-- 1 system system 12044 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.incallui-HM1a.frro
+-rw-r--r-- 1 system system 12620 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.wsomacp-rybJ.frro
+-rw-r--r-- 1 system system 12142 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.inputshare-JoD9.frro
+-rw-r--r-- 1 system system 135 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.sidegesturepad-Bxwa.frro
+-rw-r--r-- 1 system system 25692 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.gallery3d-mrbB.frro
+-rw-r--r-- 1 system system 13295 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.service.peoplestripe-sUws.frro
+-rw-r--r-- 1 system system 13068 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.coldwalletservice-qDes.frro
+-rw-r--r-- 1 system system 17627 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.myfiles-VDIp.frro
+-rw-r--r-- 1 system system 23092 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.dialer-sfKC.frro
+-rw-r--r-- 1 system system 17082 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.forest-xsiR.frro
+-rw-r--r-- 1 system system 16278 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.appseparation-T5Xo.frro
+-rw-r--r-- 1 system system 17297 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.fast-nYBZ.frro
+-rw-r--r-- 1 system system 13420 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.rampart-poAK.frro
+-rw-r--r-- 1 system system 16266 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.knox.securefolder-cvAn.frro
+-rw-r--r-- 1 system system 23316 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.contacts-vvJJ.frro
+-rw-r--r-- 1 system system 904 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.taskedge-91Zz.frro
+-rw-r--r-- 1 system system 16941 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.accessory.budsunitemgr-zuN4.frro
+-rw-r--r-- 1 system system 12834 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.soundpicker-rT6D.frro
+-rw-r--r-- 1 system system 13002 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.app.newtrim-OBQD.frro
+-rw-r--r-- 1 system system 17297 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.fast-NpRq.frro
+-rw-r--r-- 1 system system 13747 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.visionintelligence-4JVj.frro
+-rw-r--r-- 1 system system 13259 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.hwresourceshare.storage-4rK5.frro
+-rw-r--r-- 1 system system 281 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.clipboardedge-eOB3.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:29 /data/resource-cache/com.android.systemui-dynamic-TVek.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:30 /data/resource-cache/com.android.systemui-dynamic-RViY.frro
+-rw-r--r-- 1 system system 12817 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.clockpack-amIT.frro
+-rw-r--r-- 1 system system 12668 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.privacydashboard-ZcpJ.frro
+-rw-r--r-- 1 system system 15393 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.scloud-n9QO.frro
+-rw-r--r-- 1 system system 135 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.callbgprovider-zXAN.frro
+-rw-r--r-- 1 system system 12667 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.knox.containeragent-lzAd.frro
+-rw-r--r-- 1 system system 12470 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.biometrics.app.setting-daPE.frro
+-rw-r--r-- 1 system system 12483 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.dressroom-ZIte.frro
+-rw-r--r-- 1 system system 11988 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.service.airviewdictionary-mVCk.frro
+-rw-r--r-- 1 system system 18928 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.voicenote-Mipm.frro
+-rw-r--r-- 1 system system 12994 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.hwresourceshare-rdAm.frro
+-rw-r--r-- 1 system system 12032 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.secsoundpicker-KUt1.frro
+-rw-r--r-- 1 system system 13025 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.sm.devicesecurity-ipHA.frro
+-rw-r--r-- 1 system system 12383 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.bixby.agent-V3UZ.frro
+-rw-r--r-- 1 system system 29089 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.reminder-jd13.frro
+-rw-r--r-- 1 system system 12033 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.cameraassistant-D1d7.frro
+-rw-r--r-- 1 system system 12017 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.quicktool-4XVm.frro
+-rw-r--r-- 1 system system 13405 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.shealth-nw8Z.frro
+-rw-r--r-- 1 system system 14902 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.warrantycare-MFyt.frro
+-rw-r--r-- 1 system system 11955 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.game.gametools-79Qx.frro
+-rw-r--r-- 1 system system 13295 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.service.peoplestripe-lCBL.frro
+-rw-r--r-- 1 system system 29089 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.reminder-SJeu.frro
+-rw-r--r-- 1 system system 14869 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.mdecservice-Uj5W.frro
+-rw-r--r-- 1 system system 12056 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.readingglass-8vuK.frro
+-rw-r--r-- 1 system system 15629 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.app.interpreter-NivC.frro
+-rw-r--r-- 1 system system 19116 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.lool-2myX.frro
+-rw-r--r-- 1 system system 15188 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.service.aircommand-a33x.frro
+-rw-r--r-- 1 system system 14742 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.opencalendar-PR7Y.frro
+-rw-r--r-- 1 system system 12878 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.hearingadjust-eCR3.frro
+-rw-r--r-- 1 system system 13543 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.cocktailbarservice-mpS4.frro
+-rw-r--r-- 1 system system 11979 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.accessibility.talkback-KAIQ.frro
+-rw-r--r-- 1 system system 12566 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.fmm-N65R.frro
+-rw-r--r-- 1 system system 13465 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.da.daagent-axk1.frro
+-rw-r--r-- 1 system system 11961 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.galaxyfinder-9IOe.frro
+-rw-r--r-- 1 system system 13736 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.mateagent-SL6R.frro
+-rw-r--r-- 1 system system 12506 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.smartcapture-eroi.frro
+-rw-r--r-- 1 system system 13796 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.desktopmode.uiservice-79rw.frro
+-rw-r--r-- 1 system system 13085 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.desktoplauncher-QBXO.frro
+-rw-r--r-- 1 system system 11934 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.dexonpc-kEmg.frro
+-rw-r--r-- 1 system system 13208 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.vtcamerasettings-yFdM.frro
+-rw-r--r-- 1 system system 13219 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.samsungpassautofill-dP4L.frro
+-rw-r--r-- 1 system system 11995 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.osmnuui-Z6OY.frro
+-rw-r--r-- 1 system system 13241 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.bixbytouch-ydUd.frro
+-rw-r--r-- 1 system system 15876 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.aodservice-b68o.frro
+-rw-r--r-- 1 system system 12030 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.smartmirroring-dalu.frro
+-rw-r--r-- 1 system system 12055 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.galaxyraw-qRRv.frro
+-rw-r--r-- 1 system system 14562 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.rubin.app-FmkW.frro
+-rw-r--r-- 1 system system 14748 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.daemonapp-WzJ6.frro
+-rw-r--r-- 1 system system 14757 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.android.settings.intelligence-4Spi.frro
+-rw-r--r-- 1 system system 11955 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.game.gametools-4q11.frro
+-rw-r--r-- 1 system system 11922 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.mdx-wISb.frro
+-rw-r--r-- 1 system system 39163 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.sbrowser-JjKK.frro
+-rw-r--r-- 1 system system 14099 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.callassistant-xqsQ.frro
+-rw-r--r-- 1 system system 13259 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.hwresourceshare.storage-MLUz.frro
+-rw-r--r-- 1 system system 15145 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.android.systemui-9wHe.frro
+-rw-r--r-- 1 system system 11928 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.samsung.android.mcfds-Veeg.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:30 /data/resource-cache/com.android.shell-aam_monet-urHG.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:31 /data/resource-cache/com.android.systemui-dynamic-hh8K.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:32 /data/resource-cache/com.android.systemui-accent-DQQZ.frro
+-rw-r--r-- 1 system system 13319 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.video-QfkO.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:31 /data/resource-cache/com.android.shell-aam_monet-Ug9B.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:32 /data/resource-cache/com.android.systemui-dynamic-jiiy.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:32 /data/resource-cache/com.android.systemui-accent-ten7.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:32 /data/resource-cache/com.android.systemui-neutral-onMG.frro
+-rw-r--r-- 1 system system 16404 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.sharelive-ioux.frro
+-rw-r--r-- 1 system system 15188 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.service.aircommand-M7yj.frro
+-rw-r--r-- 1 system system 14457 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.smartsuggestions-ah6E.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:32 /data/resource-cache/com.android.systemui-dynamic-6grp.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:35 /data/resource-cache/com.android.systemui-neutral-qLqa.frro
+-rw-r--r-- 1 system system 23316 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.contacts-dJQL.frro
+-rw-r--r-- 1 system system 14869 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.mdecservice-3o0h.frro
+-rw-r--r-- 1 system system 20381 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.launcher-MjIi.frro
+-rw-r--r-- 1 system system 12001 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.drivingplus-XaPe.frro
+-rw-r--r-- 1 system system 20319 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.android.settings-xFbI.frro
+-rw-r--r-- 1 system system 12694 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.wssyncmldm-n3ED.frro
+-rw-r--r-- 1 system system 11928 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.mcfds-nskz.frro
+-rw-r--r-- 1 system system 15145 2026-10-31 20:29 /data/resource-cache/android-SemWT_com.android.systemui-WzVE.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:30 /data/resource-cache/com.android.systemui-dynamic-Up5R.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:31 /data/resource-cache/com.android.systemui-neutral-GIK1.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:31 /data/resource-cache/com.android.shell-aam_monet-2ajK.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:32 /data/resource-cache/com.android.systemui-neutral-DWe6.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:33 /data/resource-cache/com.android.shell-aam_monet-xhqi.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:35 /data/resource-cache/com.android.systemui-accent-T0Hq.frro
+-rw-r--r-- 1 system system 2209 2026-10-31 22:58 /data/resource-cache/com.android.shell-HexNextMonetShades-MpoW.frro
+-rw-r--r-- 1 system system 2209 2026-10-31 23:49 /data/resource-cache/com.android.shell-HexNextMonetShades-MrMc.frro
+-rw-r--r-- 1 system system 6561 2026-10-30 14:59 /data/resource-cache/android-ThemePark_NotificationPanel-W65x.frro
+-rw-r--r-- 1 system system 152 2026-10-30 14:59 /data/resource-cache/android-ThemePark_dummy-UUGe.frro
+-rw-r--r-- 1 system system 15629 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.interpreter-1sDH.frro
+-rw-r--r-- 1 system system 27185 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.honeyboard-5us5.frro
+-rw-r--r-- 1 system system 12834 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.soundpicker-cYCu.frro
+-rw-r--r-- 1 system system 281 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.app.clipboardedge-yxgc.frro
+-rw-r--r-- 1 system system 152 2026-10-31 20:29 /data/resource-cache/android-ThemePark_dummy-w6vG.frro
+-rw-r--r-- 1 system system 2103 2026-10-31 20:29 /data/resource-cache/android-ThemePark_VolumePanel-Deuw.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:30 /data/resource-cache/com.android.systemui-accent-O8VS.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:30 /data/resource-cache/com.android.systemui-neutral-XwQb.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:31 /data/resource-cache/com.android.systemui-accent-nuRb.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:31 /data/resource-cache/com.android.systemui-accent-z9GE.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:31 /data/resource-cache/com.android.systemui-neutral-mgxq.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:33 /data/resource-cache/com.android.systemui-neutral-moO2.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:33 /data/resource-cache/com.android.systemui-dynamic-8sJy.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:33 /data/resource-cache/com.android.systemui-dynamic-0fUG.frro
+-rw-r--r-- 1 system system 8134 2026-10-31 20:35 /data/resource-cache/com.android.systemui-dynamic-EvKr.frro
+-rw-r--r-- 1 system system 12550 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.camera-Jx9c.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:35 /data/resource-cache/com.android.shell-aam_monet-W6XS.frro
+-rw-r--r-- 1 system system 2103 2026-10-30 14:59 /data/resource-cache/android-ThemePark_VolumePanel-802H.frro
+-rw-r--r-- 1 system system 13101 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.widget.pictureframe-1wql.frro
+-rw-r--r-- 1 system system 13002 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.app.newtrim-6o8G.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:30 /data/resource-cache/com.android.shell-aam_monet-TqUD.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:30 /data/resource-cache/com.android.systemui-accent-Muy8.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:32 /data/resource-cache/com.android.shell-aam_monet-EfqQ.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:32 /data/resource-cache/com.android.shell-aam_monet-d6Tn.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:33 /data/resource-cache/com.android.systemui-accent-JoF4.frro
+-rw-r--r-- 1 system system 2100 2026-10-31 20:33 /data/resource-cache/com.android.systemui-neutral-uKrE.frro
+-rw-r--r-- 1 system system 15137 2026-10-31 20:33 /data/resource-cache/com.android.shell-aam_monet-HY95.frro
+-rw-r--r-- 1 system system 39178 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.sec.android.app.sbrowser.beta-9tCD.frro
+-rw-r--r-- 1 system system 13747 2026-10-30 14:49 /data/resource-cache/android-SemWT_com.samsung.android.visionintelligence-E6IM.frro
+-rw-r--r-- 1 system system 6561 2026-10-31 20:29 /data/resource-cache/android-ThemePark_NotificationPanel-l2Xx.frro
+-rw-r--r-- 1 system system 3016 2026-10-31 20:33 /data/resource-cache/com.android.systemui-accent-oCtf.frro
+
+### Package paths
+$ for p in android com.android.systemui com.android.settings com.sec.android.app.launcher com.samsung.android.honeyboard com.samsung.android.dialer com.samsung.android.incallui com.samsung.android.app.contacts com.sec.android.app.myfiles com.sec.android.gallery3d com.sec.android.app.clockpackage com.sec.android.app.popupcalculator com.samsung.android.calendar com.samsung.android.lool com.samsung.android.app.aodservice com.samsung.android.app.smartcapture com.samsung.android.app.notes com.samsung.android.app.reminder com.samsung.android.messaging; do echo "$p -> $(pm path $p 2>/dev/null | head -1)"; done
+android -> package:/system/framework/framework-res.apk
+com.android.systemui -> package:/system_ext/priv-app/SystemUI/SystemUI.apk
+com.android.settings -> package:/system/priv-app/SecSettings/SecSettings.apk
+com.sec.android.app.launcher -> package:/system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk
+com.samsung.android.honeyboard -> package:/system/app/HoneyBoard/HoneyBoard.apk
+com.samsung.android.dialer -> package:/system/priv-app/SamsungDialer/SamsungDialer.apk
+com.samsung.android.incallui -> package:/data/app/~~lYkDW_KRrUTcIsTp3lHcyQ==/com.samsung.android.incallui-xBm1FX1ftGLaHncCT8h1xg==/base.apk
+com.samsung.android.app.contacts -> package:/system/priv-app/SamsungContacts/SamsungContacts.apk
+com.sec.android.app.myfiles -> package:/data/app/~~Dx2fZNshUI61V-D7TIq8qQ==/com.sec.android.app.myfiles-ly5aTDiWDU7qW-Cykr6B8w==/base.apk
+com.sec.android.gallery3d -> package:/data/app/~~Q4hw6qs64G1TYQo1HVqHFg==/com.sec.android.gallery3d-G1LJWvA7lh54RTVkaOeT1w==/base.apk
+com.sec.android.app.clockpackage -> 
+com.sec.android.app.popupcalculator -> 
+com.samsung.android.calendar -> 
+com.samsung.android.lool -> package:/system/priv-app/SmartManager_v5/SmartManager_v5.apk
+com.samsung.android.app.aodservice -> package:/data/app/~~FSHnOyzIgtkMkZ9jvgD49g==/com.samsung.android.app.aodservice-ZqmFlJU1G_KJJVA5J-7W8Q==/base.apk
+com.samsung.android.app.smartcapture -> package:/system/app/SmartCapture/SmartCapture.apk
+com.samsung.android.app.notes -> 
+com.samsung.android.app.reminder -> package:/data/app/~~YiLQ9qhY3Mqory9MeeGucQ==/com.samsung.android.app.reminder-xGeyYMXGFinV-boFJOW6SQ==/base.apk
+com.samsung.android.messaging -> 
+
+### Uninstalled (debloated) packages
+$ pm list packages -u | sort > /data/local/tmp/hx_all.txt 2>/dev/null || pm list packages -u | sort > $PWD/hx_all.txt; pm list packages | sort > /data/local/tmp/hx_inst.txt 2>/dev/null || pm list packages | sort > $PWD/hx_inst.txt; comm -23 /data/local/tmp/hx_all.txt /data/local/tmp/hx_inst.txt 2>/dev/null || comm -23 $PWD/hx_all.txt $PWD/hx_inst.txt
+(via su, exit 0)
+package:android.autoinstalls.config.samsung
+package:com.android.DeviceAsWebcam
+package:com.android.apps.tag
+package:com.android.avatarpicker
+package:com.android.bluetoothmidiservice
+package:com.android.calllogbackup
+package:com.android.cameraextensions
+package:com.android.carrierdefaultapp
+package:com.android.devicediagnostics
+package:com.android.dreams.basic
+package:com.android.dreams.phototable
+package:com.android.egg
+package:com.android.eyedropper
+package:com.android.hotwordenrollment.okgoogle
+package:com.android.hotwordenrollment.xgoogle
+package:com.android.managedprovisioning
+package:com.android.microdroid.empty_payload
+package:com.android.providers.partnerbookmarks
+package:com.android.role.notes.enabled
+package:com.android.settings.supervision.overlay
+package:com.android.simappdialog
+package:com.android.theme.font.notoserifsource
+package:com.android.traceur
+package:com.android.virtualization.terminal
+package:com.android.wallpaperbackup
+package:com.facebook.appmanager
+package:com.facebook.services
+package:com.facebook.system
+package:com.google.ambient.streaming
+package:com.google.android.adservices.api
+package:com.google.android.apps.accessibility.voiceaccess
+package:com.google.android.apps.aiwallpapers
+package:com.google.android.apps.restore
+package:com.google.android.apps.tachyon
+package:com.google.android.cellbroadcastreceiver
+package:com.google.android.cellbroadcastservice
+package:com.google.android.feedback
+package:com.google.android.glasses.core
+package:com.google.android.gms.location.history
+package:com.google.android.gms.policy_sidecar_aps
+package:com.google.android.gms.supervision
+package:com.google.android.marvin.talkback
+package:com.google.android.mosey
+package:com.google.android.overlay.modules.cellbroadcastreceiver
+package:com.google.android.overlay.modules.cellbroadcastservice
+package:com.google.android.partnersetup
+package:com.google.android.printservice.recommendation
+package:com.google.android.projection.gearhead
+package:com.google.android.setupwizard
+package:com.google.android.signature
+package:com.google.android.verifier
+package:com.google.ar.core
+package:com.google.mainline.adservices
+package:com.knox.vpn.proxyhandler
+package:com.microsoft.appmanager
+package:com.microsoft.skydrive
+package:com.monotype.android.font.foundation
+package:com.monotype.android.font.roboto
+package:com.monotype.android.font.samsungone
+package:com.qti.qcc
+package:com.qualcomm.location
+package:com.samsung.InputEventApp
+package:com.samsung.SMT.lang_es_mx_f00
+package:com.samsung.SMT.lang_es_us_l01
+package:com.samsung.SMT.lang_pt_br_l01
+package:com.samsung.aasaservice
+package:com.samsung.android.accessibility.talkback
+package:com.samsung.android.aircommandmanager
+package:com.samsung.android.allshare.service.mediashare
+package:com.samsung.android.app.camera.sticker.facearavatar.preload
+package:com.samsung.android.app.clipboardedge
+package:com.samsung.android.app.earphonetypec
+package:com.samsung.android.app.moments
+package:com.samsung.android.app.omcagent
+package:com.samsung.android.app.parentalcare
+package:com.samsung.android.app.readingglass
+package:com.samsung.android.app.routines
+package:com.samsung.android.app.sharelive
+package:com.samsung.android.app.sketchbook
+package:com.samsung.android.app.taskedge
+package:com.samsung.android.app.telephonyui.esimclient
+package:com.samsung.android.app.updatecenter
+package:com.samsung.android.app.watchmanagerstub
+package:com.samsung.android.appseparation
+package:com.samsung.android.aremoji
+package:com.samsung.android.audiomirroring
+package:com.samsung.android.authfw
+package:com.samsung.android.aware.service
+package:com.samsung.android.bbc.bbcagent
+package:com.samsung.android.beaconmanager
+package:com.samsung.android.bixby.wakeup
+package:com.samsung.android.cameraxservice
+package:com.samsung.android.carkey
+package:com.samsung.android.coldwalletservice
+package:com.samsung.android.container
+package:com.samsung.android.da.daagent
+package:com.samsung.android.dbsc
+package:com.samsung.android.dck.timesync
+package:com.samsung.android.dkey
+package:com.samsung.android.dqagent
+package:com.samsung.android.drivingplus
+package:com.samsung.android.dsms
+package:com.samsung.android.dynamiclock
+package:com.samsung.android.easysetup
+package:com.samsung.android.emergency
+package:com.samsung.android.ese
+package:com.samsung.android.fast
+package:com.samsung.android.fmm
+package:com.samsung.android.forest
+package:com.samsung.android.game.gametools
+package:com.samsung.android.hdmapp
+package:com.samsung.android.hwresourceshare
+package:com.samsung.android.hwresourceshare.storage
+package:com.samsung.android.inputshare
+package:com.samsung.android.ipsgeofence
+package:com.samsung.android.kidsinstaller
+package:com.samsung.android.kmxservice
+package:com.samsung.android.knox.analytics.uploader
+package:com.samsung.android.knox.attestation
+package:com.samsung.android.knox.containercore
+package:com.samsung.android.knox.er
+package:com.samsung.android.knox.kfbp
+package:com.samsung.android.knox.knnr
+package:com.samsung.android.knox.kpecore
+package:com.samsung.android.knox.mpos
+package:com.samsung.android.knox.pushmanager
+package:com.samsung.android.knox.sandbox
+package:com.samsung.android.knox.zt.framework
+package:com.samsung.android.liveeffectservice
+package:com.samsung.android.location
+package:com.samsung.android.mapsagent
+package:com.samsung.android.mcfds
+package:com.samsung.android.mcfserver
+package:com.samsung.android.mdecservice
+package:com.samsung.android.mdm
+package:com.samsung.android.mdx
+package:com.samsung.android.mdx.kit
+package:com.samsung.android.messageguardsync
+package:com.samsung.android.mobileservice
+package:com.samsung.android.mocca
+package:com.samsung.android.mydevice
+package:com.samsung.android.networkdiagnostic
+package:com.samsung.android.privateaccesstokens
+package:com.samsung.android.qmdservice
+package:com.samsung.android.rampart
+package:com.samsung.android.rubin.app
+package:com.samsung.android.safetycenteroverlay
+package:com.samsung.android.samsungpass
+package:com.samsung.android.samsungpassautofill
+package:com.samsung.android.samsungpositioning
+package:com.samsung.android.scloud
+package:com.samsung.android.sdk.handwriting
+package:com.samsung.android.sdm.config
+package:com.samsung.android.securitybrief
+package:com.samsung.android.server.wifi.mobilewips
+package:com.samsung.android.service.aircommand
+package:com.samsung.android.service.airviewdictionary
+package:com.samsung.android.service.peoplestripe
+package:com.samsung.android.service.stplatform
+package:com.samsung.android.setting.multisound
+package:com.samsung.android.shortcutbackupservice
+package:com.samsung.android.skpm.agent
+package:com.samsung.android.sm.devicesecurity
+package:com.samsung.android.smartface.overlay
+package:com.samsung.android.smartswitchassistant
+package:com.samsung.android.stickercenter
+package:com.samsung.android.uwb.resources
+package:com.samsung.android.vexfwk.service
+package:com.samsung.android.visionintelligence
+package:com.samsung.android.vtcamerasettings
+package:com.samsung.android.wallpaper.live
+package:com.samsung.android.warrantycare
+package:com.samsung.android.widget.pictureframe
+package:com.samsung.faceservice
+package:com.samsung.gamedriver.sm8850
+package:com.samsung.gpuwatchapp
+package:com.samsung.ipservice
+package:com.samsung.knox.securefolder
+package:com.samsung.petservice
+package:com.samsung.safetyinformation
+package:com.samsung.ts43authservice
+package:com.samsung.videoscan
+package:com.samsung.vvm
+package:com.sec.android.CcInfo
+package:com.sec.android.app.billing
+package:com.sec.android.app.bluetoothagent
+package:com.sec.android.app.chromecustomizations
+package:com.sec.android.app.factorykeystring
+package:com.sec.android.app.quicktool
+package:com.sec.android.app.safetyassurance
+package:com.sec.android.app.sbrowser
+package:com.sec.android.app.setupwizard
+package:com.sec.android.app.setupwizardlegalprovider
+package:com.sec.android.app.uwbtest
+package:com.sec.android.app.ve.vebgm
+package:com.sec.android.app.vepreload
+package:com.sec.android.app.volumemonitorprovider
+package:com.sec.android.easyMover
+package:com.sec.android.easyMover.Agent
+package:com.sec.android.easyonehand
+package:com.sec.android.iaft
+package:com.sec.android.provider.badge
+package:com.sec.android.soagent
+package:com.sec.android.widgetapp.easymodecontactswidget
+package:com.sec.app.RilErrorNotifier
+package:com.sec.bcservice
+package:com.sec.enterprise.knox.cloudmdm.smdms
+package:com.sec.epdgtestapp
+package:com.sec.facatfunction
+package:com.sec.factory.camera
+package:com.sec.hearingadjust
+package:com.sec.imslogger
+package:com.sec.location.nfwlocationprivacy
+package:com.sec.location.nsflp2
+package:com.sec.mhs.smarttethering
+package:com.sec.modem.settings
+package:com.sec.phone
+package:com.sec.providers.assisteddialing
+package:com.sec.spp.push
+package:com.sec.vsim.ericssonnsds.webapp
+package:com.sem.factoryapp
+package:com.skms.android.agent
+package:com.wsomacp
+package:com.wssyncmldm
+package:vendor.qti.data.txpwradmin
+
+### Dump android:SemWT_com.android.settings
+$ cmd overlay dump android:SemWT_com.android.settings | head -300
+(via su, exit 0)
+android:SemWT_com.android.settings:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.android.settings
+  mUserId................: 0
+  mTargetPackageName.....: com.android.settings
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro
+  mState.................: STATE_ENABLED
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+IDMAP OF android:SemWT_com.android.settings
+Paths:
+    target path  : /system/priv-app/SecSettings/SecSettings.apk
+    overlay path : /data/resource-cache/android-SemWT_com.android.settings-Ozaw.frro
+Overlay name: SemWT_com.android.settings
+Debug info:
+    W failed to find resource 'com.android.settings:color/sec_search_view_hint_text_color'
+    W failed to find resource 'com.android.settings:color/sec_search_view_hint_text_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_action_button_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_action_button_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_close_button_bg_color'
+    W failed to find resource 'com.android.settings:color/sec_suggestion_card_close_button_bg_color'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_background_for_theme'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_background_for_theme'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_icon_text_for_theme'
+    W failed to find resource 'com.android.settings:color/sesl_bottom_navigation_floating_icon_text_for_theme'
+    W failed to find resource 'com.android.settings:color/sesl_color_picker_tab_selected_dark'
+    W failed to find resource 'com.android.settings:color/sesl_color_picker_tab_selected_dark'
+    W failed to find resource 'com.android.settings:color/sesl_color_picker_tab_selected_light'
+    W failed to find resource 'com.android.settings:color/sesl_color_picker_tab_selected_light'
+    W failed to find resource 'com.android.settings:color/sesl_simple_month_view_selected_day_color'
+    W failed to find resource 'com.android.settings:color/sesl_simple_month_view_selected_day_color'
+    W failed to find resource 'com.android.settings:color/sesl_switch_thumb_on_stroke_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_switch_thumb_on_stroke_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_switch_track_on_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_switch_track_on_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_switchbar_on_text_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_switchbar_on_text_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_tablayout_subtab_background_stroke_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_tablayout_subtab_background_stroke_color_dark'
+    W failed to find resource 'com.android.settings:color/sesl_tablayout_subtab_background_stroke_color_light'
+    W failed to find resource 'com.android.settings:color/sesl_tablayout_subtab_background_stroke_color_light'
+    W failed to find resource 'com.android.settings:color/wifi_hidden_ap_list_empty_text'
+    W failed to find resource 'com.android.settings:color/wifi_hidden_ap_list_empty_text'
+Constraints:
+    None
+Mapping:
+    0x7f060020 -> color 0xff0b4d5f    0x7f060020 -> color 0xff6ed4ef (color/actionbar_text_color)
+    0x7f06025c -> color 0x4d19b9e5    0x7f06025c -> color 0x4d19b9e5 (color/data_usage_progress_bar_bg_color)
+    0x7f06025d -> color 0xff19b9e5    0x7f06025d -> color 0xff19b9e5 (color/data_usage_progress_bar_color)
+    0x7f060283 -> color 0xffdae4e7    0x7f060283 -> color 0xff354a50 (color/device_info_button_background_color)
+    0x7f060286 -> color 0xff0b4d5f    0x7f060286 -> color 0xff6ed4ef (color/device_info_device_name_text_color)
+    0x7f06028a -> color 0xff7196a0    0x7f06028a -> color 0xff93b0b7 (color/device_info_info_chart_content_text_color)
+    0x7f06028b -> color 0xff7196a0    0x7f06028b -> color 0xff93b0b7 (color/device_info_info_chart_text_color)
+    0x7f06037b -> color 0xffdae4e7    0x7f06037b -> color 0xff354a50 (color/langpack_download_icon_bg_color)
+    0x7f060763 -> color 0xff0b4d5f    0x7f060763 -> color 0xff6ed4ef (color/picker_app_list_no_results_found_color)
+    0x7f060773 -> color 0xff7196a0    0x7f060773 -> color 0xff93b0b7 (color/privacy_dashboard_category_text_color)
+    0x7f06077a -> color 0xffdae4e7    0x7f06077a -> color 0xff354a50 (color/privacy_more_bg_color)
+    0x7f0607bb -> color 0x80dae4e7    0x7f0607bb -> color 0x80354a50 (color/screen_flash_color_button_inner_circle_stroke_color)
+    0x7f0607de -> color 0xff0b4d5f    0x7f0607de -> color 0xff6ed4ef (color/sec_app_name_text_color)
+    0x7f0607e5 -> color 0xff7196a0    0x7f0607e5 -> color 0xff93b0b7 (color/sec_app_state_text_color)
+    0x7f060888 -> color 0xff0e667e    0x7f060888 -> color 0xff6ed4ef (color/sec_dashboard_account_default_id_color)
+    0x7f060889 -> color 0xff0e667e    0x7f060889 -> color 0xff6ed4ef (color/sec_dashboard_account_default_id_color2)
+    0x7f06088a -> color 0xff0e667e    0x7f06088a -> color 0xff6ed4ef (color/sec_dashboard_account_default_id_color3)
+    0x7f0608ac -> color 0xff7196a0    0x7f0608ac -> color 0xff93b0b7 (color/sec_dashboard_simplified_summary_text_color)
+    0x7f0608ae -> color 0xff0b4d5f    0x7f0608ae -> color 0xff6ed4ef (color/sec_dashboard_simplified_title_text_color)
+    0x7f0608b9 -> color 0x8019b9e5    0x7f0608b9 -> color 0x8019b9e5 (color/sec_data_usage_blue_color)
+    0x7f0608ba -> color 0x8019b9e5    0x7f0608ba -> color 0x8019b9e5 (color/sec_data_usage_blue_color_alpha)
+    0x7f0608bc -> color 0x807196a0    0x7f0608bc -> color 0x8093b0b7 (color/sec_data_usage_graph_bottom_line_color)
+    0x7f0608bf -> color 0xff19b9e5    0x7f0608bf -> color 0xff19b9e5 (color/sec_data_usage_graph_line_color)
+    0x7f0608c2 -> color 0xff0b4d5f    0x7f0608c2 -> color 0xff6ed4ef (color/sec_data_usage_header_title_text_color)
+    0x7f0608c6 -> color 0xff7196a0    0x7f0608c6 -> color 0xff93b0b7 (color/sec_data_usage_progress_bar_background_color)
+    0x7f0608c8 -> color 0xff19b9e5    0x7f0608c8 -> color 0xff19b9e5 (color/sec_data_usage_progress_blue_end_color)
+    0x7f0608c9 -> color 0xff19b9e5    0x7f0608c9 -> color 0xff19b9e5 (color/sec_data_usage_progress_blue_start_color)
+    0x7f0608cc -> color 0xff19b9e5    0x7f0608cc -> color 0xff19b9e5 (color/sec_data_usage_settings_gear_color)
+    0x7f0608ea -> color 0xfffcfcfc    0x7f0608ea -> color 0xff141c1f (color/sec_display_setting_seek_bar_controller_background_color)
+    0x7f0608ec -> color 0xfffcfcfc    0x7f0608ec -> color 0xff141c1f (color/sec_display_setting_seek_bar_controller_thumb_drawable_solid_color)
+    0x7f0608f4 -> color 0xfffcfcfc    0x7f0608f4 -> color 0xff141c1f (color/sec_dnd_schedule_bg_color)
+    0x7f06091d -> color 0xff0e667e    0x7f06091d -> color 0xff6ed4ef (color/sec_high_refresh_rate_vi_text_color)
+    0x7f06091e -> color 0xff0e667e    0x7f06091e -> color 0xff6ed4ef (color/sec_highlight_text_color)
+    0x7f060926 -> color 0xffdae4e7    0x7f060926 -> color 0xff354a50 (color/sec_intelligence_service_download_icon_color)
+    0x7f060937 -> color 0xff159cc1    0x7f060937 -> color 0xff159cc1 (color/sec_loading_progress_color2)
+    0x7f060938 -> color 0xfffcfcfc    0x7f060938 -> color 0xff141c1f (color/sec_locale_drag_cell_background_color)
+    0x7f060939 -> color 0xff19b9e5    0x7f060939 -> color 0xff19b9e5 (color/sec_locale_drag_cell_stroke_color)
+    0x7f06093b -> color 0xff19b9e5    0x7f06093b -> color 0xff19b9e5 (color/sec_lock_pattern_line_color_confirm)
+    0x7f06093e -> color 0xfffcfcfc    0x7f06093e -> color 0xff141c1f (color/sec_lock_suw_background_color)
+    0x7f060941 -> color 0xff0e667e    0x7f060941 -> color 0xff6ed4ef (color/sec_lockscreen_biometrics_summary_color)
+    0x7f060949 -> color 0xff0e667e    0x7f060949 -> color 0xff6ed4ef (color/sec_lockscreen_ppp_help_text_color)
+    0x7f060956 -> color 0xff0b4d5f    0x7f060956 -> color 0xff6ed4ef (color/sec_no_item_sub_text_color)
+    0x7f060957 -> color 0xff0b4d5f    0x7f060957 -> color 0xff6ed4ef (color/sec_no_item_text_color)
+    0x7f060991 -> color 0xff19b9e5    0x7f060991 -> color 0xff19b9e5 (color/sec_screen_zoom_seekbar_thumb_drawable_solid_color)
+    0x7f060992 -> color 0xff19b9e5    0x7f060992 -> color 0xff19b9e5 (color/sec_screen_zoom_seekbar_tickmark_drawable_solid_color)
+    0x7f0609a5 -> color 0xff0b4d5f    0x7f0609a5 -> color 0xff6ed4ef (color/sec_security_alert_center_sub_text_color)
+    0x7f0609d0 -> color 0xff0e667e    0x7f0609d0 -> color 0xff6ed4ef (color/sec_sound_multi_button_selected_color)
+    0x7f0609d3 -> color 0xff19b9e5    0x7f0609d3 -> color 0xff19b9e5 (color/sec_sound_routine_sound_mode_selected_icon_color)
+    0x7f0609e2 -> color 0xfffcfcfc    0x7f0609e2 -> color 0xff141c1f (color/sec_suggestion_card_background_color)
+    0x7f0609f9 -> color 0xff0e667e    0x7f0609f9 -> color 0xff6ed4ef (color/sec_tips_description_link_text_color)
+    0x7f0609fb -> color 0xff0b4d5f    0x7f0609fb -> color 0xff6ed4ef (color/sec_tips_title_text_color)
+    0x7f060a22 -> color 0xff19b9e5    0x7f060a22 -> color 0xff19b9e5 (color/sec_volume_icon_color)
+    0x7f060a25 -> color 0xfffcfcfc    0x7f060a25 -> color 0xff141c1f (color/sec_volume_limit_ear_shock_thumb_color)
+    0x7f060a28 -> color 0xff19b9e5    0x7f060a28 -> color 0xff19b9e5 (color/sec_volume_limit_seekbar_tickmark_drawable_solid_color)
+    0x7f060a29 -> color 0xfffcfcfc    0x7f060a29 -> color 0xff141c1f (color/sec_volume_limit_thumb_color)
+    0x7f060a2b -> color 0xff19b9e5    0x7f060a2b -> color 0xff19b9e5 (color/sec_volume_limit_thumb_drawable_solid_color)
+    0x7f060a36 -> color 0xffedf1f3    0x7f060a36 -> color 0xff010101 (color/sec_widget_bottom_bar_bg_color)
+    0x7f060a38 -> color 0xff0b4d5f    0x7f060a38 -> color 0xff6ed4ef (color/sec_widget_bottom_bar_button_text_color)
+    0x7f060a3c -> color 0xff19b9e5    0x7f060a3c -> color 0xff19b9e5 (color/sec_widget_color_round_button_bg_color)
+    0x7f060a3f -> color 0xffdae4e7    0x7f060a3f -> color 0xff354a50 (color/sec_widget_default_round_button_bg_color)
+    0x7f060a51 -> color 0xff0e667e    0x7f060a51 -> color 0xff6ed4ef (color/sec_widget_multi_button_selected_color)
+    0x7f060a52 -> color 0xff19b9e5    0x7f060a52 -> color 0xff19b9e5 (color/sec_widget_multi_button_selected_icon_color)
+    0x7f060a58 -> color 0x1a19b9e5    0x7f060a58 -> color 0x1a19b9e5 (color/sec_widget_relative_link_bg_color)
+    0x7f060a5c -> color 0xff0e667e    0x7f060a5c -> color 0xff6ed4ef (color/sec_widget_relative_link_text_color)
+    0x7f060a67 -> color 0xfffcfcfc    0x7f060a67 -> color 0xff141c1f (color/sec_widget_switchbar_background_color)
+    0x7f060a68 -> color 0x1a0b4d5f    0x7f060a68 -> color 0x1a6ed4ef (color/sec_widget_switchbar_checked_background_color)
+    0x7f060a6a -> color 0xff0e667e    0x7f060a6a -> color 0xff6ed4ef (color/sec_widget_switchbar_on_text_color)
+    0x7f060a70 -> color 0xff0b4d5f    0x7f060a70 -> color 0xff6ed4ef (color/sec_wifi_action_menu_text)
+    0x7f060a73 -> color 0xff0e667e    0x7f060a73 -> color 0xff6ed4ef (color/sec_wifi_ap_activity_label_text_color)
+    0x7f060a83 -> color 0xff0e667e    0x7f060a83 -> color 0xff6ed4ef (color/sec_wifi_icon_blue_color)
+    0x7f060aaf -> color 0xffdae4e7    0x7f060aaf -> color 0xff354a50 (color/sec_wifi_nearby_share_button_background)
+    0x7f060ace -> color 0xff7196a0    0x7f060ace -> color 0xff93b0b7 (color/sec_wifi_subtitle_text_color)
+    0x7f060af0 -> color 0xfffcfcfc    0x7f060af0 -> color 0xff141c1f (color/security_dashboard_status_background)
+    0x7f060b06 -> color 0xffedf1f3    0x7f060b06 -> color 0xff010101 (color/sesl_action_bar_background_color_dark)
+    0x7f060b07 -> color 0xffedf1f3    0x7f060b07 -> color 0xff010101 (color/sesl_action_bar_background_color_light)
+    0x7f060b09 -> color 0xff0b4d5f    0x7f060b09 -> color 0xff6ed4ef (color/sesl_action_bar_text_color_menu_dark)
+    0x7f060b0a -> color 0xff0b4d5f    0x7f060b0a -> color 0xff6ed4ef (color/sesl_action_bar_text_color_menu_light)
+    0x7f060b0b -> color 0x997196a0    0x7f060b0b -> color 0x9993b0b7 (color/sesl_action_bar_text_color_subtitle_dark)
+    0x7f060b0c -> color 0x997196a0    0x7f060b0c -> color 0x9993b0b7 (color/sesl_action_bar_text_color_subtitle_light)
+    0x7f060b0d -> color 0xff0b4d5f    0x7f060b0d -> color 0xff6ed4ef (color/sesl_action_bar_text_color_title_dark)
+    0x7f060b0e -> color 0xff0b4d5f    0x7f060b0e -> color 0xff6ed4ef (color/sesl_action_bar_text_color_title_light)
+    0x7f060b12 -> color 0xff19b9e5    0x7f060b12 -> color 0xff19b9e5 (color/sesl_app_picker_list_action_icon_tint_color)
+    0x7f060b26 -> color 0xfffcfcfc    0x7f060b26 -> color 0xff141c1f (color/sesl_background_color_dark)
+    0x7f060b27 -> color 0xfffcfcfc    0x7f060b27 -> color 0xff141c1f (color/sesl_background_color_light)
+    0x7f060b42 -> color 0xffedf1f3    0x7f060b42 -> color 0xff010101 (color/sesl_bottom_navigation_background_dark)
+    0x7f060b43 -> color 0xffedf1f3    0x7f060b43 -> color 0xff010101 (color/sesl_bottom_navigation_background_light)
+    0x7f060b44 -> color 0xffedf1f3    0x7f060b44 -> color 0xff010101 (color/sesl_bottom_navigation_floating_background_dark)
+    0x7f060b45 -> color 0xffedf1f3    0x7f060b45 -> color 0xff010101 (color/sesl_bottom_navigation_floating_background_light)
+    0x7f060b48 -> color 0xff0b4d5f    0x7f060b48 -> color 0xff6ed4ef (color/sesl_bottom_navigation_floating_icon_text_dark)
+    0x7f060b49 -> color 0xff0b4d5f    0x7f060b49 -> color 0xff6ed4ef (color/sesl_bottom_navigation_floating_icon_text_light)
+    0x7f060b4a -> color 0xff0b4d5f    0x7f060b4a -> color 0xff6ed4ef (color/sesl_bottom_navigation_icon_dark)
+    0x7f060b4b -> color 0xff0b4d5f    0x7f060b4b -> color 0xff6ed4ef (color/sesl_bottom_navigation_icon_light)
+    0x7f060b4f -> color 0xff0b4d5f    0x7f060b4f -> color 0xff6ed4ef (color/sesl_bottom_navigation_text_dark)
+    0x7f060b52 -> color 0xff0b4d5f    0x7f060b52 -> color 0xff6ed4ef (color/sesl_bottom_navigation_text_light)
+    0x7f060b53 -> color 0xff0b4d5f    0x7f060b53 -> color 0xff6ed4ef (color/sesl_bottom_navigation_text_text_dark)
+    0x7f060b54 -> color 0xff0b4d5f    0x7f060b54 -> color 0xff6ed4ef (color/sesl_bottom_navigation_text_text_light)
+    0x7f060b55 -> color 0xffdae4e7    0x7f060b55 -> color 0xff354a50 (color/sesl_btn_background_color_dark)
+    0x7f060b56 -> color 0xffdae4e7    0x7f060b56 -> color 0xff354a50 (color/sesl_btn_background_color_light)
+    0x7f060b8b -> color 0xff0e667e    0x7f060b8b -> color 0xff6ed4ef (color/sesl_date_picker_saturday_text_color_light)
+    0x7f060b8c -> color 0x800e667e    0x7f060b8c -> color 0x806ed4ef (color/sesl_date_picker_saturday_week_text_color_light)
+    0x7f060b8d -> color 0xfffcfcfc    0x7f060b8d -> color 0xff141c1f (color/sesl_date_picker_selected_day_number_text_color_dark)
+    0x7f060b8e -> color 0xfffcfcfc    0x7f060b8e -> color 0xff141c1f (color/sesl_date_picker_selected_day_number_text_color_light)
+    0x7f060b8f -> color 0xffdb332a    0x7f060b8f -> color 0xffdb332a (color/sesl_date_picker_sunday_number_text_color_light)
+    0x7f060b90 -> color 0x40db332a    0x7f060b90 -> color 0x40db332a (color/sesl_date_picker_sunday_text_color_dark)
+    0x7f060b91 -> color 0x40db332a    0x7f060b91 -> color 0x40db332a (color/sesl_date_picker_sunday_text_color_light)
+    0x7f060bd9 -> color 0x997196a0    0x7f060bd9 -> color 0x9993b0b7 (color/sesl_extended_appbar_subtitle_dark)
+    0x7f060bda -> color 0x997196a0    0x7f060bda -> color 0x9993b0b7 (color/sesl_extended_appbar_subtitle_light)
+    0x7f060c3b -> color 0xff7196a0    0x7f060c3b -> color 0xff93b0b7 (color/sesl_list_subheader_text_color)
+    0x7f060c3c -> color 0xff7196a0    0x7f060c3c -> color 0xff93b0b7 (color/sesl_list_subheader_text_color_dark)
+    0x7f060c3d -> color 0xff19b9e5    0x7f060c3d -> color 0xff19b9e5 (color/sesl_loading_progress_color1)
+    0x7f060c3e -> color 0x9919b9e5    0x7f060c3e -> color 0x9919b9e5 (color/sesl_loading_progress_color2)
+    0x7f060c43 -> color 0xffb6c9ce    0x7f060c43 -> color 0xff354a50 (color/sesl_menu_popup_background_stroke_color)
+    0x7f060c44 -> color 0xffb6c9ce    0x7f060c44 -> color 0xff354a50 (color/sesl_menu_popup_background_stroke_color_dark)
+    0x7f060c5b -> color 0xff0e667e    0x7f060c5b -> color 0xff6ed4ef (color/sesl_number_picker_text_color_scroll)
+    0x7f060c6d -> color 0xff19b9e5    0x7f060c6d -> color 0xff19b9e5 (color/sesl_primary_color_dark)
+    0x7f060c6e -> color 0xff19b9e5    0x7f060c6e -> color 0xff19b9e5 (color/sesl_primary_color_light)
+    0x7f060c6f -> color 0xff0e667e    0x7f060c6f -> color 0xff6ed4ef (color/sesl_primary_dark_color_dark)
+    0x7f060c70 -> color 0xff0e667e    0x7f060c70 -> color 0xff6ed4ef (color/sesl_primary_dark_color_light)
+    0x7f060c75 -> color 0xff19b9e5    0x7f060c75 -> color 0xff19b9e5 (color/sesl_progress_control_color_activated_dark)
+    0x7f060c76 -> color 0xff19b9e5    0x7f060c76 -> color 0xff19b9e5 (color/sesl_progress_control_color_activated_light)
+    0x7f060c79 -> color 0x4d19b9e5    0x7f060c79 -> color 0x4d19b9e5 (color/sesl_progress_control_color_normal_dark)
+    0x7f060c7a -> color 0x4d19b9e5    0x7f060c7a -> color 0x4d19b9e5 (color/sesl_progress_control_color_normal_light)
+    0x7f060c81 -> color 0xffedf1f3    0x7f060c81 -> color 0xff010101 (color/sesl_round_and_bgcolor_dark)
+    0x7f060c82 -> color 0xffedf1f3    0x7f060c82 -> color 0xff010101 (color/sesl_round_and_bgcolor_light)
+    0x7f060c9c -> color 0xff7196a0    0x7f060c9c -> color 0xff93b0b7 (color/sesl_search_view_hint_text_color)
+    0x7f060c9d -> color 0xff7196a0    0x7f060c9d -> color 0xff93b0b7 (color/sesl_search_view_hint_text_color_dark)
+    0x7f060c9e -> color 0xff0b4d5f    0x7f060c9e -> color 0xff6ed4ef (color/sesl_search_view_icon_color)
+    0x7f060c9f -> color 0xff0b4d5f    0x7f060c9f -> color 0xff6ed4ef (color/sesl_search_view_icon_color_dark)
+    0x7f060ca1 -> color 0xff0b4d5f    0x7f060ca1 -> color 0xff6ed4ef (color/sesl_search_view_text_color)
+    0x7f060ca2 -> color 0xff0b4d5f    0x7f060ca2 -> color 0xff6ed4ef (color/sesl_search_view_text_color_dark)
+    0x7f060ca8 -> color 0xff19b9e5    0x7f060ca8 -> color 0xff19b9e5 (color/sesl_seekbar_control_color_activated)
+    0x7f060ca9 -> color 0x4d19b9e5    0x7f060ca9 -> color 0x4d19b9e5 (color/sesl_seekbar_control_color_default)
+    0x7f060caa -> color 0x4d19b9e5    0x7f060caa -> color 0x4d19b9e5 (color/sesl_seekbar_control_color_default_dark)
+    0x7f060cae -> color 0x4d19b9e5    0x7f060cae -> color 0x4d19b9e5 (color/sesl_seekbar_level_control_color_default)
+    0x7f060ce9 -> color 0xff19b9e5    0x7f060ce9 -> color 0xff19b9e5 (color/sesl_swipe_refresh_color1)
+    0x7f060cea -> color 0x9919b9e5    0x7f060cea -> color 0x9919b9e5 (color/sesl_swipe_refresh_color2)
+    0x7f060ced -> color 0xfffcfcfc    0x7f060ced -> color 0xfffcfcfc (color/sesl_switch_thumb_off_color)
+    0x7f060cee -> color 0xfffcfcfc    0x7f060cee -> color 0xfffcfcfc (color/sesl_switch_thumb_off_disabled_color)
+    0x7f060cef -> color 0xfffcfcfc    0x7f060cef -> color 0xfffcfcfc (color/sesl_switch_thumb_off_disabled_color_dark)
+    0x7f060cf4 -> color 0xfffcfcfc    0x7f060cf4 -> color 0xfffcfcfc (color/sesl_switch_thumb_on_color)
+    0x7f060cf5 -> color 0xfffcfcfc    0x7f060cf5 -> color 0xfffcfcfc (color/sesl_switch_thumb_on_disabled_color)
+    0x7f060cf6 -> color 0xfffcfcfc    0x7f060cf6 -> color 0xfffcfcfc (color/sesl_switch_thumb_on_disabled_color_dark)
+    0x7f060cf7 -> color 0x6619b9e5    0x7f060cf7 -> color 0x6619b9e5 (color/sesl_switch_thumb_on_disabled_stroke_color)
+    0x7f060cf8 -> color 0x6619b9e5    0x7f060cf8 -> color 0x6619b9e5 (color/sesl_switch_thumb_on_disabled_stroke_color_dark)
+    0x7f060cf9 -> color 0xff19b9e5    0x7f060cf9 -> color 0xff19b9e5 (color/sesl_switch_thumb_on_stroke_color_light)
+    0x7f060cfe -> color 0xff19b9e5    0x7f060cfe -> color 0xff19b9e5 (color/sesl_switch_track_on_color_light)
+    0x7f060cff -> color 0x6619b9e5    0x7f060cff -> color 0x6619b9e5 (color/sesl_switch_track_on_disabled_color)
+    0x7f060d00 -> color 0xfffcfcfc    0x7f060d00 -> color 0xff141c1f (color/sesl_switchbar_off_background_color_dark)
+    0x7f060d01 -> color 0xfffcfcfc    0x7f060d01 -> color 0xff141c1f (color/sesl_switchbar_off_background_color_light)
+    0x7f060d04 -> color 0x1a0b4d5f    0x7f060d04 -> color 0x1a6ed4ef (color/sesl_switchbar_on_background_color_dark)
+    0x7f060d05 -> color 0x1a0b4d5f    0x7f060d05 -> color 0x1a6ed4ef (color/sesl_switchbar_on_background_color_light)
+    0x7f060d06 -> color 0xff0e667e    0x7f060d06 -> color 0xff6ed4ef (color/sesl_switchbar_on_text_color_light)
+    0x7f060d1b -> color 0xff0b4d5f    0x7f060d1b -> color 0xff6ed4ef (color/sesl_tablayout_selected_indicator_color)
+    0x7f060d1d -> color 0xff0b4d5f    0x7f060d1d -> color 0xff6ed4ef (color/sesl_tablayout_selected_text_color)
+    0x7f060d2b -> color 0x260b4d5f    0x7f060d2b -> color 0x266ed4ef (color/sesl_tablayout_subtab_indicator_background)
+    0x7f060d2c -> color 0x260b4d5f    0x7f060d2c -> color 0x266ed4ef (color/sesl_tablayout_subtab_indicator_background_dark)
+    0x7f060d2e -> color 0xff7196a0    0x7f060d2e -> color 0xff93b0b7 (color/sesl_tablayout_subtab_sub_text_color_default)
+    0x7f060d2f -> color 0xff7196a0    0x7f060d2f -> color 0xff93b0b7 (color/sesl_tablayout_subtab_sub_text_color_default_dark)
+    0x7f060d32 -> color 0xff0e667e    0x7f060d32 -> color 0xff6ed4ef (color/sesl_tablayout_subtab_sub_text_color_selected)
+    0x7f060d33 -> color 0xff0e667e    0x7f060d33 -> color 0xff6ed4ef (color/sesl_tablayout_subtab_sub_text_color_selected_dark)
+    0x7f060d35 -> color 0xff7196a0    0x7f060d35 -> color 0xff93b0b7 (color/sesl_tablayout_subtab_text_color_default)
+    0x7f060d36 -> color 0xff7196a0    0x7f060d36 -> color 0xff93b0b7 (color/sesl_tablayout_subtab_text_color_default_dark)
+    0x7f060d3a -> color 0xff0b4d5f    0x7f060d3a -> color 0xff6ed4ef (color/sesl_tablayout_subtab_text_color_selected)
+    0x7f060d3b -> color 0xff0b4d5f    0x7f060d3b -> color 0xff6ed4ef (color/sesl_tablayout_subtab_text_color_selected_dark)
+    0x7f060d3e -> color 0xff7196a0    0x7f060d3e -> color 0xff93b0b7 (color/sesl_tablayout_text_color_default)
+    0x7f060d3f -> color 0xff7196a0    0x7f060d3f -> color 0xff93b0b7 (color/sesl_tablayout_text_color_default_dark)
+    0x7f060d5b -> color 0xff19b9e5    0x7f060d5b -> color 0xff19b9e5 (color/sesl_thumb_control_color_activated)
+    0x7f060d5c -> color 0xfffcfcfc    0x7f060d5c -> color 0xff141c1f (color/sesl_thumb_control_fill_color_activated)
+    0x7f060d60 -> color 0x6619b9e5    0x7f060d60 -> color 0x6619b9e5 (color/sesl_tick_mark_seekbar_level)
+    0x7f060fa1 -> color 0x8019b9e5    0x7f060fa1 -> color 0x8019b9e5 (color/usage_graph_dots)
+    0x7f060fc1 -> color 0xff0e667e    0x7f060fc1 -> color 0xff6ed4ef (color/wifi_ap_connecting)
+    0x7f060fce -> color 0xff0e667e    0x7f060fce -> color 0xff6ed4ef (color/wifi_ap_dialog_label_text_color)
+    0x7f060ff2 -> color 0x4d19b9e5    0x7f060ff2 -> color 0x4d19b9e5 (color/wifi_ap_progressbar_color_bg)
+    0x7f061018 -> color 0xfffcfcfc    0x7f061018 -> color 0xff141c1f (color/winset_content_background_color_theme)
+
+
+ Color palette history :
+10-31 05:56:38.697: V SWT_MetaDataManager(4216): metadata rpUID [80] replaced by com.samsung.android.secsoundpicker
+10-31 05:56:38.714: V SWT_MetaDataManager(4216): metadata rpUID [10_1] replaced by com.samsung.android.sm.devicesecurity
+10-31 05:56:38.718: V SWT_MetaDataManager(4216): metadata rpUID [null] replaced by com.samsung.android.sidegesturepad
+10-31 05:56:38.721: V SWT_MetaDataManager(4216): metadata rpUID [35] replaced by com.samsung.android.app.telephonyui
+10-31 05:56:38.723: V SWT_MetaDataManager(4216): metadata rpUID [36] replaced by com.samsung.android.app.telephonyui
+10-31 05:56:38.758: V SWT_MetaDataManager(4216): metadata rpUID [238] replaced by com.samsung.android.bixby.agent
+10-31 05:56:38.762: V SWT_MetaDataManager(4216): metadata rpUID [215] replaced by com.android.settings.intelligence
+10-31 05:56:38.763: V SWT_MetaDataManager(4216): metadata rpUID [9_1] replaced by com.android.settings.intelligence
+10-31 05:56:38.793: V SWT_MetaDataManager(4216): metadata rpUID [21] replaced by com.sec.android.gallery3d
+10-31 05:56:38.800: V SWT_MetaDataManager(4216): metadata rpUID [98] replaced by com.samsung.android.rampart
+10-31 05:56:38.811: V SWT_MetaDataManager(4216): metadata rpUID [64] replaced by com.samsung.knox.securefolder
+10-31 05:56:38.816: V SWT_MetaDataManager(4216): metadata rpUID [null] replaced by com.samsung.android.game.gametools
+10-31 05:56:38.838: V SWT_MetaDataManager(4216): metadata rpUID [12] replaced by com.samsung.android.app.contacts
+10-31 05:56:38.843: V SWT_MetaDataManager(4216): metadata rpUID [44_3] replaced by com.samsung.android.service.peoplestripe
+10-31 05:56:38.860: V SWT_MetaDataManager(4216): metadata rpUID [62] replaced by com.samsung.android.app.reminder
+10-31 05:56:38.865: V SWT_MetaDataManager(4216): metadata rpUID [44_2] replaced by com.samsung.android.app.taskedge
+10-31 05:56:38.877: V SWT_MetaDataManager(4216): metadata rpUID [84] replaced by com.samsung.android.mdecservice
+10-31 05:56:38.909: V SWT_MetaDataManager(4216): metadata rpUID [248] replaced by com.samsung.accessory.budsunitemgr
+10-31 05:56:38.913: V SWT_MetaDataManager(4216): metadata rpUID [97] replaced by com.samsung.android.app.readingglass
+10-31 05:56:38.924: V SWT_MetaDataManager(4216): metadata rpUID [228] replaced by com.samsung.android.coldwalletservice
+10-31 05:56:38.950: V SWT_MetaDataManager(4216): metadata rpUID [17] replaced by com.sec.android.app.myfiles
+10-31 05:56:38.952: V SWT_MetaDataManager(4216): metadata rpUID [66] replaced by com.samsung.android.app.routines
+10-31 05:56:38.981: V SWT_MetaDataManager(4216): metadata rpUID [245] replaced by com.sec.android.mimage.photoretouching
+10-31 05:56:39.006: V SWT_MetaDataManager(4216): metadata rpUID [33] replaced by com.sec.android.app.launcher
+10-31 05:56:39.007: V SWT_MetaDataManager(4216): metadata rpUID [8] replaced by com.sec.android.app.launcher
+10-31 05:56:39.008: V SWT_MetaDataManager(4216): metadata rpUID [8] replaced by com.sec.android.app.launcher
+10-31 05:56:39.009: V SWT_MetaDataManager(4216): metadata rpUID [61] replaced by com.sec.android.app.launcher
+10-31 05:56:39.009: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 44_1, existed package : com.samsung.android.app.appsedge, requested package : com.sec.android.app.launcher
+10-31 05:56:39.010: V SWT_MetaDataManager(4216): metadata rpUID [44_1] replaced by com.sec.android.app.launcher
+10-31 05:56:39.011: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 44, existed package : com.samsung.android.app.cocktailbarservice, requested package : com.sec.android.app.launcher
+10-31 05:56:39.011: V SWT_MetaDataManager(4216): metadata rpUID [44] replaced by com.sec.android.app.launcher
+10-31 05:56:39.012: V SWT_MetaDataManager(4216): metadata rpUID [4_1] replaced by com.sec.android.app.launcher
+10-31 05:56:39.080: V SWT_MetaDataManager(4216): metadata rpUID [87] replaced by com.sec.android.app.sbrowser
+10-31 05:56:39.081: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 87, existed package : com.sec.android.app.sbrowser.beta, requested package : com.sec.android.app.sbrowser
+10-31 05:56:39.083: V SWT_MetaDataManager(4216): metadata rpUID [87] replaced by com.sec.android.app.sbrowser
+10-31 05:56:39.092: V SWT_MetaDataManager(4216): metadata rpUID [236] replaced by com.samsung.android.app.interpreter
+10-31 05:56:39.122: V SWT_MetaDataManager(4216): metadata rpUID [26] replaced by com.samsung.android.dialer
+10-31 05:56:39.129: V SWT_MetaDataManager(4216): metadata rpUID [247] replaced by com.samsung.android.app.cameraassistant
+10-31 05:56:39.139: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 58, existed package : com.samsung.android.smartmirroring, requested package : com.samsung.android.drivingplus
+10-31 05:56:39.140: V SWT_MetaDataManager(4216): metadata rpUID [58] replaced by com.samsung.android.drivingplus
+10-31 05:56:39.155: V SWT_MetaDataManager(4216): metadata rpUID [67] replaced by com.samsung.android.forest
+10-31 05:56:39.162: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 54, existed package : com.samsung.android.incallui, requested package : com.samsung.android.callassistant
+10-31 05:56:39.163: V SWT_MetaDataManager(4216): metadata rpUID [54] replaced by com.samsung.android.callassistant
+10-31 05:56:39.167: V SWT_MetaDataManager(4216): metadata rpUID [44_4] replaced by com.sec.android.app.quicktool
+10-31 05:56:39.173: V SWT_MetaDataManager(4216): metadata rpUID [null] replaced by com.samsung.android.mdx
+10-31 05:56:39.355: V SWT_MetaDataManager(4216): metadata rpUID [242] replaced by com.sec.android.app.shealth
+10-31 05:56:39.361: V SWT_MetaDataManager(4216): metadata rpUID [250] replaced by com.samsung.android.warrantycare
+10-31 05:56:39.369: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 64, existed package : com.samsung.knox.securefolder, requested package : com.samsung.android.appseparation
+10-31 05:56:39.370: V SWT_MetaDataManager(4216): metadata rpUID [64] replaced by com.samsung.android.appseparation
+10-31 05:56:39.372: V SWT_MetaDataManager(4216): metadata rpUID [75] replaced by com.samsung.android.honeyboard
+10-31 05:56:39.376: V SWT_MetaDataManager(4216): metadata rpUID [232] replaced by com.samsung.android.app.soundpicker
+10-31 05:56:39.401: V SWT_MetaDataManager(4216): metadata rpUID [226] replaced by com.samsung.android.app.sharelive
+10-31 05:56:39.404: V SWT_MetaDataManager(4216): metadata rpUID [9] replaced by com.android.settings
+10-31 05:56:39.404: V SWT_MetaDataManager(4216): metadata rpUID [40] replaced by com.android.settings
+10-31 05:56:39.405: V SWT_MetaDataManager(4216): metadata rpUID [9_5] replaced by com.android.settings
+10-31 05:56:39.411: V SWT_MetaDataManager(4216): metadata rpUID [96] replaced by com.samsung.android.widget.pictureframe
+10-31 05:56:39.423: V SWT_MetaDataManager(4216): metadata rpUID [46] replaced by com.samsung.app.newtrim
+10-31 05:56:39.432: V SWT_MetaDataManager(4216): metadata rpUID [65] replaced by com.samsung.android.fast
+10-31 05:56:39.449: V SWT_MetaDataManager(4216): metadata rpUID [10] replaced by com.samsung.android.lool
+10-31 05:56:39.452: V SWT_MetaDataManager(4216): metadata rpUID [null] replaced by com.samsung.android.scpm
+10-31 05:56:39.463: V SWT_MetaDataManager(4216): metadata rpUID [214] replaced by com.samsung.android.visionintelligence
+10-31 05:56:39.468: V SWT_MetaDataManager(4216): metadata rpUID [315] replaced by com.samsung.android.hwresourceshare.storage
+10-31 05:56:39.484: V SWT_MetaDataManager(4216): metadata rpUID [50] replaced by com.samsung.android.service.aircommand
+10-31 05:56:39.490: V SWT_MetaDataManager(4216): metadata rpUID [42] replaced by com.wssyncmldm
+10-31 05:56:39.501: V SWT_MetaDataManager(4216): metadata rpUID [4] replaced by com.android.systemui
+10-31 05:56:39.501: V SWT_MetaDataManager(4216): metadata rpUID [213] replaced by com.android.systemui
+10-31 05:56:39.543: V SWT_MetaDataManager(4216): metadata rpUID [205] replaced by com.samsung.android.smartsuggestions
+10-31 05:56:39.563: V SWT_MetaData(4216): Abnormal metadata replacement attempts detected, RpUid : 49, existed package : com.samsung.android.app.galaxyraw, requested package : com.sec.android.app.camera
+10-31 05:56:39.563: V SWT_MetaDataManager(4216): metadata rpUID [49] replaced by com.sec.android.app.camera
+10-31 05:56:39.568: V SWT_MetaDataManager(4216): metadata rpUID [44_5] replaced by com.samsung.android.app.clipboardedge
+10-31 05:56:39.572: V SWT_MetaDataManager(4216): metadata rpUID [null] replaced by com.samsung.android.mcfds
+
+### Overlay dump android (first 120 lines)
+$ cmd overlay dump android | head -120
+(via su, exit 0)
+android:PermissionControllerDA_FRRO:0 {
+  mPackageName...........: android
+  mOverlayName...........: PermissionControllerDA_FRRO
+  mUserId................: 0
+  mTargetPackageName.....: com.google.android.permissioncontroller
+  mTargetOverlayableName.: PermissionControllerStyles
+  mBaseCodePath..........: /data/resource-cache/android-PermissionControllerDA_FRRO-B7ph.frro
+  mState.................: STATE_ENABLED
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_MonetPalette:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_MonetPalette
+  mUserId................: 0
+  mTargetPackageName.....: android
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_MonetPalette-pmkz.frro
+  mState.................: STATE_ENABLED
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_com.samsung.android.dynamiclock:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.samsung.android.dynamiclock
+  mUserId................: 0
+  mTargetPackageName.....: com.samsung.android.dynamiclock
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.samsung.android.dynamiclock-Cnt4.frro
+  mState.................: STATE_MISSING_TARGET
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_com.samsung.android.app.clockpack:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.samsung.android.app.clockpack
+  mUserId................: 0
+  mTargetPackageName.....: com.samsung.android.app.clockpack
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.samsung.android.app.clockpack-ZYIt.frro
+  mState.................: STATE_MISSING_TARGET
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_com.android.vpndialogs:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.android.vpndialogs
+  mUserId................: 0
+  mTargetPackageName.....: com.android.vpndialogs
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.android.vpndialogs-wCyi.frro
+  mState.................: STATE_NO_IDMAP
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_com.samsung.android.privacydashboard:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.samsung.android.privacydashboard
+  mUserId................: 0
+  mTargetPackageName.....: com.samsung.android.privacydashboard
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.samsung.android.privacydashboard-fprW.frro
+  mState.................: STATE_ENABLED
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_com.samsung.android.messaging:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.samsung.android.messaging
+  mUserId................: 0
+  mTargetPackageName.....: com.samsung.android.messaging
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.samsung.android.messaging-6Gfq.frro
+  mState.................: STATE_MISSING_TARGET
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+android:SemWT_com.sec.android.app.clockpackage:0 {
+  mPackageName...........: android
+  mOverlayName...........: SemWT_com.sec.android.app.clockpackage
+  mUserId................: 0
+  mTargetPackageName.....: com.sec.android.app.clockpackage
+  mTargetOverlayableName.: 
+  mBaseCodePath..........: /data/resource-cache/android-SemWT_com.sec.android.app.clockpackage-BzTE.frro
+  mState.................: STATE_MISSING_TARGET
+  mIsEnabled.............: true
+  mIsMutable.............: true
+  mPriority..............: 2147483647
+  mCategory..............: null
+  mIsFabricated..........: true
+  mConstraints...........: None
+}
+
+### Lookup sample
+$ cmd overlay lookup --user current com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor; cmd overlay lookup --user current android android:color/system_accent1_500
+(via su, exit 0)
+@2131102849 -> #ff010101
+#ff008396
+
+### Sample frro
+/data/resource-cache/android-SemWT_android-dX00.frro -> /sdcard/Download/hexnext-sample.frro

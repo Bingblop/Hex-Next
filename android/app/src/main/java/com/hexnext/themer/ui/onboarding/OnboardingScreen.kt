@@ -1,0 +1,599 @@
+package com.hexnext.themer.ui.onboarding
+
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hexnext.engine.compile.ThemeMode
+import com.hexnext.themer.device.Compatibility
+import com.hexnext.themer.device.CompatibilityCheck
+import com.hexnext.themer.shizuku.ShizukuState
+import com.hexnext.themer.theme.Capability
+import com.hexnext.themer.theme.InstalledPack
+import com.hexnext.themer.ui.EmptyState
+import com.hexnext.themer.ui.LocalAppSettings
+import com.hexnext.themer.ui.MainViewModel
+import com.hexnext.themer.ui.RootGuide
+import com.hexnext.themer.ui.SHIZUKU_DOWNLOAD_URL
+import com.hexnext.themer.ui.SectionCard
+import com.hexnext.themer.ui.connectionSummary
+import com.hexnext.themer.ui.openShizuku
+import com.hexnext.themer.ui.settings.rememberSafeUriHandler
+
+/** The five pages of the setup guide, in order. */
+private enum class Step(val title: String) {
+    WELCOME("Welcome"),
+    COMPATIBILITY("Your phone"),
+    ACCESS("Root or Shizuku"),
+    PACK("Starting pack"),
+    DONE("All set"),
+}
+
+/**
+ * The first-launch setup guide, also reachable from App settings > About > Setup guide:
+ * Welcome → Compatibility → Root or Shizuku → Pick a starting pack → Done. Every page can be
+ * skipped; Back steps through the pages and leaves on the first one. [onFinish] is called for
+ * Done and Skip alike, so the host marks the guide as seen either way.
+ *
+ * @param shizuku the live connection state, so the access page updates as the user acts.
+ * @param rootToolLinks the newest APK links of the root tools, as the Connection card shows them.
+ * @param packs the installed packs to pick from; an empty list shows how to get some.
+ * @param selectedPackId the editor's current pack (null = colours only).
+ * @param onImportPack copies a chosen pack file into the app, so a fresh install can end the
+ *   guide with a pack without leaving it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OnboardingScreen(
+    shizuku: ShizukuState,
+    versionLine: String,
+    rootToolLinks: Map<String, String>,
+    packs: List<InstalledPack>,
+    selectedPackId: String?,
+    onSelectPack: (String?) -> Unit,
+    onImportPack: (Uri) -> Unit,
+    onRequestPermission: () -> Unit,
+    onFinish: () -> Unit,
+) {
+    var index by rememberSaveable { mutableIntStateOf(0) }
+    // MainScreen's saveable holder keeps this screen's state for the whole process, so a guide
+    // left with Done or Skip would reopen on that page. Finishing marks it, and the next visit
+    // starts again on Welcome. A plain rotation keeps the page, because the mark is not set then.
+    var finished by rememberSaveable { mutableStateOf(false) }
+    // Runs once when this screen enters composition. It returns a value (not Unit) so the reset
+    // happens before the first frame; a LaunchedEffect would flash the old page first.
+    @Suppress("UNUSED_VARIABLE")
+    val restartedFromFinish = remember {
+        val wasFinished = finished
+        if (wasFinished) {
+            index = 0
+            finished = false
+        }
+        wasFinished
+    }
+    // The same activity-scoped view model MainScreen uses: the guide shows the import's progress
+    // and its failure notice here, instead of the notice waiting for the editor.
+    val mainViewModel: MainViewModel = viewModel()
+    val ui by mainViewModel.ui.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val notice = ui.notice
+    LaunchedEffect(notice?.id) {
+        val current = notice ?: return@LaunchedEffect
+        try {
+            snackbar.showSnackbar(
+                message = current.message,
+                withDismissAction = true,
+                duration = if (current.isError) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+        } finally {
+            mainViewModel.consumeNotice(current.id)
+        }
+    }
+    // In Advanced mode the parts with their own pack keep it (ThemeSpec.packFor), so the pack
+    // chosen here is only the default for the rest; the pages say so instead of calling it the
+    // theme's pack.
+    val ownPackParts = if (ui.spec.mode == ThemeMode.ADVANCED) ui.spec.elementPacks.size else 0
+    val steps = Step.entries
+    val step = steps[index.coerceIn(0, steps.lastIndex)]
+    val last = index == steps.lastIndex
+    val reduceMotion = LocalAppSettings.current.reduceMotion
+
+    fun finish() {
+        finished = true
+        onFinish()
+    }
+
+    fun back() {
+        if (index > 0) index-- else finish()
+    }
+    BackHandler(onBack = ::back)
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Set up Hex Next", fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    if (!last) TextButton(onClick = ::finish) { Text("Skip") }
+                },
+            )
+        },
+        bottomBar = {
+            // Scaffold leaves the bottom bar to handle the navigation bar inset itself.
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StepDots(count = steps.size, current = index)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (index > 0) {
+                        OutlinedButton(onClick = ::back, modifier = Modifier.heightIn(min = 52.dp)) { Text("Back") }
+                    }
+                    Button(
+                        onClick = { if (last) finish() else index++ },
+                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                    ) { Text(if (last) "Done" else "Next") }
+                }
+            }
+        },
+    ) { padding ->
+        val page: @Composable (Step) -> Unit = { current ->
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                when (current) {
+                    Step.WELCOME -> WelcomePage()
+                    Step.COMPATIBILITY -> CompatibilityPage(versionLine)
+                    Step.ACCESS -> AccessPage(shizuku, rootToolLinks, onRequestPermission)
+                    Step.PACK -> PackPage(packs, selectedPackId, ownPackParts, ui.busy, onSelectPack, onImportPack)
+                    Step.DONE -> DonePage(shizuku, packs, selectedPackId, ownPackParts)
+                }
+            }
+        }
+        Box(Modifier.padding(padding)) {
+            if (reduceMotion) {
+                page(step)
+            } else {
+                Crossfade(targetState = step, label = "onboarding") { current -> page(current) }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pages
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun WelcomePage() {
+    Hero(
+        icon = Icons.Outlined.Star,
+        title = "Make One UI yours",
+        body = "Hex Next changes the colours, icons, backgrounds and font of your Samsung phone. " +
+            "Pick a look, preview it, and apply it in one tap. This short guide gets you ready.",
+    )
+    SectionCard("What you'll need") {
+        Bullet("A Samsung phone on One UI 7 or later.")
+        Bullet("Root access with Shizuku started with root. The next pages show the easiest way.")
+        Bullet("A theme pack, or just your favourite colour.")
+    }
+}
+
+@Composable
+private fun CompatibilityPage(versionLine: String) {
+    val uriHandler = rememberSafeUriHandler()
+    when (val compat = CompatibilityCheck.check()) {
+        Compatibility.Supported -> {
+            Hero(
+                icon = Icons.Outlined.CheckCircle,
+                title = "Your phone is supported",
+                body = "$versionLine. Everything Hex Next does works on this One UI version.",
+            )
+            SectionCard("Good to know") {
+                Bullet("Quick Settings keeps Samsung's layout and only takes your colours, so it stays usable on every One UI version.")
+                Bullet("Apps you've removed from the phone are skipped automatically.")
+            }
+        }
+        is Compatibility.TooOld -> {
+            Hero(
+                icon = Icons.Outlined.Warning,
+                title = "This phone is too old for Hex Next",
+                body = "Hex Next needs Android 15 and One UI 7 or later. This phone runs Android " +
+                    "${Build.VERSION.RELEASE} with ${compat.oneUi ?: "an unknown One UI version"}.",
+            )
+            SectionCard("Older phones") {
+                Text(
+                    "The Hex Installer app supports Android 14 and earlier.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(onClick = { uriHandler.openUri(CompatibilityCheck.HEX_INSTALLER_URL) }) { Text("Get Hex Installer") }
+            }
+        }
+        Compatibility.NotOneUi -> Hero(
+            icon = Icons.Outlined.Warning,
+            title = "Not a One UI phone",
+            body = "Hex Next themes Samsung One UI only. This phone is not running One UI.",
+        )
+    }
+}
+
+@Composable
+private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequestPermission: () -> Unit) {
+    val uriHandler = rememberSafeUriHandler()
+    val context = LocalContext.current
+    val ready = shizuku as? ShizukuState.Ready
+    // su without Shizuku (SU mode) cannot apply themes: the service then runs in the app process.
+    val suOnly = ready?.viaSu == true
+    val connected = ready?.isPrivileged == true && !suOnly
+    // Shizuku over ADB or wireless debugging (uid 2000): Apply works, for the system palette only.
+    val paletteOnly = !connected && Capability.of(shizuku) == Capability.SHELL
+    Hero(
+        icon = if (connected || paletteOnly) Icons.Outlined.CheckCircle else Icons.Outlined.Lock,
+        title = when {
+            connected -> "Connected"
+            paletteOnly -> "Connected, system palette only"
+            suOnly -> "Start Shizuku with root"
+            else -> "Give Hex Next access"
+        },
+        // The shared summary reads "root, or Shizuku": here, where the steps below end in
+        // Shizuku, say plainly that root alone is not enough.
+        body = if (shizuku == ShizukuState.NotRunning) {
+            "Hex Next needs root, and Shizuku started with root, to change your phone's theme. Theme Park is not required."
+        } else {
+            connectionSummary(shizuku)
+        },
+    )
+    when (shizuku) {
+        ShizukuState.PermissionNeeded -> SectionCard("Shizuku") {
+            Text("Shizuku is running. Allow Hex Next to use it.", style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = onRequestPermission) { Text("Allow access") }
+        }
+        ShizukuState.NotRunning, ShizukuState.TooOld -> SectionCard("Shizuku") {
+            Text(
+                "Already rooted? Install Shizuku and start it with root, then come back here.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
+        }
+        ShizukuState.PermissionDenied -> SectionCard("Shizuku") {
+            Text(
+                "Shizuku turned Hex Next down. Ask again, or open Shizuku and allow Hex Next under Authorised apps.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onRequestPermission) { Text("Try again") }
+                OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+            }
+        }
+        is ShizukuState.Ready -> if (suOnly) {
+            SectionCard("Shizuku") {
+                Text(
+                    "Your phone is rooted, but Hex Next applies themes through Shizuku. Install Shizuku, start it with root, then come back here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
+                    OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+                }
+            }
+        } else if (!connected) {
+            SectionCard("Shizuku") {
+                Text(
+                    "Shizuku is running without root. Open it and start it again with root.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
+            }
+        }
+    }
+    if (!connected) {
+        // A rooted phone in SU mode only needs Shizuku, not the rooting guide.
+        if (!suOnly) {
+            SectionCard("No root yet?") {
+                // RootGuide opens its download links through LocalUriHandler; hand it the safe
+                // handler so a phone with every browser disabled shows a message, not a crash.
+                CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                    RootGuide(links, startExpanded = true)
+                }
+                // RootGuide's steps end at root for Hex Next, which on its own is SU mode and
+                // cannot apply. Finish with the Shizuku step every rooted phone still needs.
+                Text(
+                    "Root alone cannot apply a theme. After these steps, install Shizuku, turn on Superuser for Shizuku " +
+                        "in KernelSU too, then open Shizuku, start it with root and come back here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
+            }
+        }
+    } else {
+        SectionCard("You're ready") {
+            Text(
+                "Hex Next can now build and apply overlays. You can change this later from the Connection card on the main screen.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PackPage(
+    packs: List<InstalledPack>,
+    selectedPackId: String?,
+    ownPackParts: Int,
+    busy: Boolean,
+    onSelectPack: (String?) -> Unit,
+    onImportPack: (Uri) -> Unit,
+) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onImportPack(uri)
+    }
+    Hero(
+        icon = Icons.Outlined.Star,
+        title = "Pick a starting pack",
+        body = if (ownPackParts > 0) {
+            "Advanced mode is on and ${ownPackParts.partsPhrase()}, which Apply keeps. " +
+                "The pack you pick here is the default for every other part. You can change this any time."
+        } else {
+            "A pack brings icons and other artwork. Colours only keeps Samsung's artwork and recolours it. " +
+                "You can change this any time."
+        },
+    )
+    SectionCard(if (ownPackParts > 0) "Default pack" else "Theme pack") {
+        ChoiceRow(selected = selectedPackId == null, onClick = { onSelectPack(null) }) {
+            Column(Modifier.weight(1f)) {
+                Text("Colours only", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Just your accent colour, everywhere.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        packs.forEach { pack ->
+            ChoiceRow(selected = selectedPackId == pack.id, onClick = { onSelectPack(pack.id) }) {
+                Column(Modifier.weight(1f)) {
+                    Text(pack.name, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        listOfNotNull(
+                            pack.author.takeIf { it.isNotBlank() },
+                            "${pack.drawableCount} drawables",
+                            if (pack.hasSettingsIcons) "Settings icons" else null,
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        if (packs.isEmpty()) {
+            if (busy) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text("Importing the pack file…", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            EmptyState(
+                icon = Icons.Outlined.Info,
+                text = "No packs yet. Import a pack file now, or download some with \"Get packs\" on the main screen.",
+                actionLabel = "Import pack file",
+                enabled = !busy,
+                onAction = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DonePage(shizuku: ShizukuState, packs: List<InstalledPack>, selectedPackId: String?, ownPackParts: Int) {
+    val ready = shizuku as? ShizukuState.Ready
+    val suOnly = ready?.viaSu == true
+    val connected = ready?.isPrivileged == true && !suOnly
+    // Shizuku over ADB or wireless debugging (uid 2000): Apply works, for the system palette only.
+    val paletteOnly = !connected && Capability.of(shizuku) == Capability.SHELL
+    val packName = packs.firstOrNull { it.id == selectedPackId }?.name ?: "Colours only"
+    Hero(
+        icon = Icons.Outlined.CheckCircle,
+        title = "All set",
+        body = "Pick an accent colour, preview the result and tap Apply theme. " +
+            "The gear icon at the top opens App settings, including this guide.",
+    )
+    SectionCard("Summary") {
+        SummaryRow(
+            "Access",
+            when {
+                connected -> "Connected"
+                paletteOnly -> "System palette only (Shizuku)"
+                suOnly -> "Root found, Shizuku not running"
+                else -> "Not connected yet"
+            },
+        )
+        if (ownPackParts > 0) {
+            SummaryRow("Default pack", "$packName · ${ownPackParts.partsPhrase()}")
+        } else {
+            SummaryRow("Theme pack", packName)
+        }
+        if (paletteOnly) {
+            Text(
+                Capability.NEEDS_ROOT_REASON,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else if (!connected) {
+            Text(
+                "You can still prepare your theme now and apply it once root or Shizuku is ready.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Building blocks
+// ---------------------------------------------------------------------------------------------
+
+/** A large icon, a headline and one paragraph: the top of every page. */
+@Composable
+private fun Hero(icon: ImageVector, title: String, body: String) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
+        Text(
+            body,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun Bullet(text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("•", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** One radio row, written like the editor's pack rows: the row is the one selectable node, the button only draws. */
+@Composable
+private fun ChoiceRow(selected: Boolean, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        content()
+    }
+}
+
+/** The page indicator: one dot per step, the current one wider and tinted; read out as "Step 2 of 5". */
+@Composable
+private fun StepDots(count: Int, current: Int) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription = "Step ${current + 1} of $count"
+                liveRegion = LiveRegionMode.Polite
+            },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(count) { i ->
+            val active = i == current
+            Box(
+                Modifier
+                    .padding(horizontal = 3.dp)
+                    .height(8.dp)
+                    .width(if (active) 20.dp else 8.dp)
+                    .clip(CircleShape)
+                    .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+            )
+        }
+    }
+}
+
+/** "1 part has its own pack" / "3 parts have their own pack", for the Advanced-mode notes. */
+private fun Int.partsPhrase(): String = if (this == 1) "1 part has its own pack" else "$this parts have their own pack"

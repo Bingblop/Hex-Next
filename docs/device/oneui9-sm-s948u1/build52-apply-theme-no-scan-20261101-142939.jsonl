@@ -1,0 +1,25 @@
+{"timestamp":1793561379683,"level":"INFO","target":"","message":"Applying theme \"Hex Next\" (default)","data":{}}
+{"timestamp":1793561379685,"level":"INFO","target":"","message":"Device snapshot: unknown One UI, 0 targets, 65 system shades","data":{}}
+{"timestamp":1793561379698,"level":"INFO","target":"android","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.android.systemui","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.android.settings","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.sec.android.app.launcher","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.honeyboard","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.dialer","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.incallui","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.app.contacts","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.sec.android.app.myfiles","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.sec.android.gallery3d","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.sec.android.app.clockpackage","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.sec.android.app.popupcalculator","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.calendar","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.lool","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.app.aodservice","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.app.smartcapture","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.app.notes","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"com.samsung.android.app.reminder","message":"target skipped","data":{"reason":"not scanned"}}
+{"timestamp":1793561379698,"level":"INFO","target":"","message":"Compiled 0 targets (0 colours, 0 drawables); 18 skipped","data":{}}
+{"timestamp":1793561379819,"level":"INFO","target":"","message":"No legacy Hex Next overlays present","data":{}}
+{"timestamp":1793561382112,"level":"INFO","target":"","message":"Stability monitor: Stability monitor pid 21786 watching system_server + SystemUI for 120 s","data":{}}
+{"timestamp":1793561382259,"level":"INFO","target":"","message":"No SemWT guard running","data":{}}
+{"timestamp":1793561382266,"level":"OK","target":"","message":"theme apply finished","data":{"summary":"0 ok, 0 failed, 0 debloated, 18 skipped, 0 SemWT disabled","millis":2585}}

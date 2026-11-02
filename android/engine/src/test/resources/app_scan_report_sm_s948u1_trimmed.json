@@ -1,0 +1,590 @@
+{
+ "source": "docs/device/oneui9-sm-s948u1/app-scan-report-20261101.json (trimmed: packages and semWt status only)",
+ "props": {
+  "ro.build.version.oneui": "90000",
+  "ro.build.version.sem": "3701",
+  "ro.build.version.sdk": "37",
+  "ro.build.version.release": "17",
+  "ro.product.model": "SM-S948U1",
+  "ro.build.display.id": "CP2A.260605.016.S948U1UEU4BZID"
+ },
+ "packages": [
+  {
+   "pkg": "android",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/framework/framework-res.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.android.systemui",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system_ext/priv-app/SystemUI/SystemUI.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.android.settings",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/priv-app/SecSettings/SecSettings.apk",
+   "semwtState": "STATE_DISABLED"
+  },
+  {
+   "pkg": "com.sec.android.app.launcher",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.honeyboard",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/app/HoneyBoard/HoneyBoard.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.dialer",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/priv-app/SamsungDialer/SamsungDialer.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.incallui",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/data/app/~~lYkDW_KRrUTcIsTp3lHcyQ==/com.samsung.android.incallui-xBm1FX1ftGLaHncCT8h1xg==/base.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.app.contacts",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/priv-app/SamsungContacts/SamsungContacts.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.sec.android.app.myfiles",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/data/app/~~Dx2fZNshUI61V-D7TIq8qQ==/com.sec.android.app.myfiles-ly5aTDiWDU7qW-Cykr6B8w==/base.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.sec.android.gallery3d",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/data/app/~~Q4hw6qs64G1TYQo1HVqHFg==/com.sec.android.gallery3d-G1LJWvA7lh54RTVkaOeT1w==/base.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.sec.android.app.clockpackage",
+   "deprecated": false,
+   "installed": false,
+   "debloated": false,
+   "apkPath": null,
+   "semwtState": "STATE_MISSING_TARGET"
+  },
+  {
+   "pkg": "com.sec.android.app.popupcalculator",
+   "deprecated": false,
+   "installed": false,
+   "debloated": false,
+   "apkPath": null,
+   "semwtState": "STATE_MISSING_TARGET"
+  },
+  {
+   "pkg": "com.samsung.android.calendar",
+   "deprecated": false,
+   "installed": false,
+   "debloated": false,
+   "apkPath": null,
+   "semwtState": "STATE_MISSING_TARGET"
+  },
+  {
+   "pkg": "com.samsung.android.lool",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/priv-app/SmartManager_v5/SmartManager_v5.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.app.aodservice",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/data/app/~~FSHnOyzIgtkMkZ9jvgD49g==/com.samsung.android.app.aodservice-ZqmFlJU1G_KJJVA5J-7W8Q==/base.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.app.smartcapture",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/system/app/SmartCapture/SmartCapture.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.app.notes",
+   "deprecated": false,
+   "installed": false,
+   "debloated": false,
+   "apkPath": null,
+   "semwtState": null
+  },
+  {
+   "pkg": "com.samsung.android.app.reminder",
+   "deprecated": false,
+   "installed": true,
+   "debloated": false,
+   "apkPath": "/data/app/~~YiLQ9qhY3Mqory9MeeGucQ==/com.samsung.android.app.reminder-xGeyYMXGFinV-boFJOW6SQ==/base.apk",
+   "semwtState": "STATE_ENABLED"
+  },
+  {
+   "pkg": "com.samsung.android.messaging",
+   "deprecated": true,
+   "installed": false,
+   "debloated": false,
+   "apkPath": null,
+   "semwtState": "STATE_MISSING_TARGET"
+  }
+ ],
+ "semWt": [
+  {
+   "target": "android",
+   "overlayId": "android:SemWT_android",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.android.systemui",
+   "overlayId": "android:SemWT_com.android.systemui",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.android.settings",
+   "overlayId": "android:SemWT_com.android.settings",
+   "found": true,
+   "state": "STATE_DISABLED",
+   "enabled": false,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.launcher",
+   "overlayId": "android:SemWT_com.sec.android.app.launcher",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.honeyboard",
+   "overlayId": "android:SemWT_com.samsung.android.honeyboard",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.dialer",
+   "overlayId": "android:SemWT_com.samsung.android.dialer",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.incallui",
+   "overlayId": "android:SemWT_com.samsung.android.incallui",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.contacts",
+   "overlayId": "android:SemWT_com.samsung.android.app.contacts",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.myfiles",
+   "overlayId": "android:SemWT_com.sec.android.app.myfiles",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.gallery3d",
+   "overlayId": "android:SemWT_com.sec.android.gallery3d",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.clockpackage",
+   "overlayId": "android:SemWT_com.sec.android.app.clockpackage",
+   "found": true,
+   "state": "STATE_MISSING_TARGET",
+   "enabled": true,
+   "source": "frro",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.popupcalculator",
+   "overlayId": "android:SemWT_com.sec.android.app.popupcalculator",
+   "found": true,
+   "state": "STATE_MISSING_TARGET",
+   "enabled": true,
+   "source": "frro",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.calendar",
+   "overlayId": "android:SemWT_com.samsung.android.calendar",
+   "found": true,
+   "state": "STATE_MISSING_TARGET",
+   "enabled": true,
+   "source": "frro",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.lool",
+   "overlayId": "android:SemWT_com.samsung.android.lool",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.aodservice",
+   "overlayId": "android:SemWT_com.samsung.android.app.aodservice",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.smartcapture",
+   "overlayId": "android:SemWT_com.samsung.android.app.smartcapture",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.notes",
+   "overlayId": "android:SemWT_com.samsung.android.app.notes",
+   "found": false,
+   "state": null,
+   "enabled": false,
+   "source": "none",
+   "error": "dump: Transaction failed on small parcel; remote process probably died, but this could also be caused by running out of binder buffer space"
+  },
+  {
+   "target": "com.samsung.android.app.reminder",
+   "overlayId": "android:SemWT_com.samsung.android.app.reminder",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.messaging",
+   "overlayId": "android:SemWT_com.samsung.android.messaging",
+   "found": true,
+   "state": "STATE_MISSING_TARGET",
+   "enabled": true,
+   "source": "frro",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.smartmirroring",
+   "overlayId": "android:SemWT_com.samsung.android.smartmirroring",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.service.tagservice",
+   "overlayId": "android:SemWT_com.samsung.android.service.tagservice",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.galaxyraw",
+   "overlayId": "android:SemWT_com.samsung.android.app.galaxyraw",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.voicenote",
+   "overlayId": "android:SemWT_com.sec.android.app.voicenote",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.daemonapp",
+   "overlayId": "android:SemWT_com.sec.android.daemonapp",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.secsoundpicker",
+   "overlayId": "android:SemWT_com.samsung.android.secsoundpicker",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.soundalive",
+   "overlayId": "android:SemWT_com.sec.android.app.soundalive",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.telephonyui",
+   "overlayId": "android:SemWT_com.samsung.android.app.telephonyui",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.bixby.agent",
+   "overlayId": "android:SemWT_com.samsung.android.bixby.agent",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.android.settings.intelligence",
+   "overlayId": "android:SemWT_com.android.settings.intelligence",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.privacydashboard",
+   "overlayId": "android:SemWT_com.samsung.android.privacydashboard",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.accessibility",
+   "overlayId": "android:SemWT_com.samsung.accessibility",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.accessory.budsunitemgr",
+   "overlayId": "android:SemWT_com.samsung.accessory.budsunitemgr",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.biometrics.app.setting",
+   "overlayId": "android:SemWT_com.samsung.android.biometrics.app.setting",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.mimage.photoretouching",
+   "overlayId": "android:SemWT_com.sec.android.mimage.photoretouching",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.interpreter",
+   "overlayId": "android:SemWT_com.samsung.android.app.interpreter",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.cameraassistant",
+   "overlayId": "android:SemWT_com.samsung.android.app.cameraassistant",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.callassistant",
+   "overlayId": "android:SemWT_com.samsung.android.callassistant",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.shealth",
+   "overlayId": "android:SemWT_com.sec.android.app.shealth",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.unifiedwfc",
+   "overlayId": "android:SemWT_com.sec.unifiedwfc",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.soundpicker",
+   "overlayId": "android:SemWT_com.samsung.android.app.soundpicker",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.app.newtrim",
+   "overlayId": "android:SemWT_com.samsung.app.newtrim",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.scpm",
+   "overlayId": "android:SemWT_com.samsung.android.scpm",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.smartsuggestions",
+   "overlayId": "android:SemWT_com.samsung.android.smartsuggestions",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.sec.android.app.camera",
+   "overlayId": "android:SemWT_com.sec.android.app.camera",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.android.bluetooth",
+   "overlayId": "android:SemWT_com.android.bluetooth",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.app.dressroom",
+   "overlayId": "android:SemWT_com.samsung.android.app.dressroom",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  },
+  {
+   "target": "com.samsung.android.video",
+   "overlayId": "android:SemWT_com.samsung.android.video",
+   "found": true,
+   "state": "STATE_ENABLED",
+   "enabled": true,
+   "source": "dump",
+   "error": null
+  }
+ ]
+}
