@@ -4,6 +4,16 @@ updates:
     directory: /android
     schedule:
       interval: weekly
+    ignore:
+      # hiddenapibypass 6.2+ needs compileSdk 37; the app compiles against 36 until the toolchain upgrade.
+      - dependency-name: org.lsposed.hiddenapibypass:hiddenapibypass
+        versions: [">= 6.2"]
+      # AGP 9, Gradle 9 and Kotlin/Compose plugin bumps go together in one planned toolchain upgrade.
+      - dependency-name: com.android.application
+        update-types: [version-update:semver-major]
+      - dependency-name: org.jetbrains.kotlin*
+      - dependency-name: gradle-wrapper
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
