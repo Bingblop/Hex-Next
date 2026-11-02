@@ -2,7 +2,8 @@ import type { VerifyRequest } from "./providers/types";
 
 export const MAX_BODY_BYTES = 4096;
 /** Most purchases in one POST /v1/verify-batch body. */
-export const MAX_BATCH_ITEMS = 50;
+/** Kept well under the Workers Free limit of 50 subrequests per call: one Play lookup per item plus OAuth refreshes. */
+export const MAX_BATCH_ITEMS = 25;
 /** Body limit for /v1/verify-batch: room for MAX_BATCH_ITEMS full-length tokens. */
 export const MAX_BATCH_BODY_BYTES = 128 * 1024;
 

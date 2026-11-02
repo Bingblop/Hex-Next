@@ -9,7 +9,7 @@ object LicenseServer {
     const val VERIFY_BATCH_PATH = "/v1/verify-batch"
 
     /** Most purchases the server accepts in one [VERIFY_BATCH_PATH] request. */
-    const val MAX_BATCH = 50
+    const val MAX_BATCH = 25
 
     /** Retries after HTTP 429 before the answer counts as "unknown". */
     const val MAX_RATE_LIMIT_RETRIES = 3

@@ -219,6 +219,10 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (_state.value.busy) return
+        if (com.hexnext.themer.safety.OtherBuild.isInstalled(getApplication<Application>())) {
+            log(LogLevel.ERROR, com.hexnext.themer.safety.OtherBuild.refusal + ".")
+            return
+        }
         // The editor drives the same service: never run alongside its Apply theme or Remove theme.
         if (!ServiceTasks.tryStart(name)) {
             log(LogLevel.WARN, "$name did not start: ${ServiceTasks.running.value ?: "another task"} is still running. Try again when it finishes.")

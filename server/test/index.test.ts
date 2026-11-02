@@ -156,19 +156,19 @@ describe("handleRequest /v1/verify-batch", () => {
     };
     const many = {
       packageName: "com.hexnext.themer",
-      purchases: Array.from({ length: 50 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
+      purchases: Array.from({ length: 25 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
     };
     const result = await call(post(many, "/v1/verify-batch"), { provider, rateLimiter: counting });
     expect(result.status).toBe(200);
-    expect((result.json as { results: unknown[] }).results).toHaveLength(50);
+    expect((result.json as { results: unknown[] }).results).toHaveLength(25);
     expect(count).toBe(1);
   });
 
-  it("rejects more than 50 purchases, an empty list and a wrong package", async () => {
+  it("rejects more than 25 purchases, an empty list and a wrong package", async () => {
     const { provider, calls } = fakeProvider(async () => ({}));
     const tooMany = {
       packageName: "com.hexnext.themer",
-      purchases: Array.from({ length: 51 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
+      purchases: Array.from({ length: 26 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
     };
     expect(await call(post(tooMany, "/v1/verify-batch"), { provider, rateLimiter: allowAll })).toEqual({
       status: 400,

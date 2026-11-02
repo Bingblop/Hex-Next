@@ -1155,6 +1155,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             return
         }
         if (_ui.value.busy) return
+        if (com.hexnext.themer.safety.OtherBuild.isInstalled(getApplication<Application>())) {
+            log(LogLine(LogLevel.ERROR, "${com.hexnext.themer.safety.OtherBuild.packageName} is installed; refusing to change the theme while two builds share the overlays."))
+            postNotice(Notice(com.hexnext.themer.safety.OtherBuild.refusal, isError = true))
+            return
+        }
         // Diagnostics drives the same service: never run alongside one of its tasks.
         if (!ServiceTasks.tryStart(EDITOR_TASK)) {
             val other = ServiceTasks.running.value ?: "A Diagnostics task"

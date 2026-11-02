@@ -22,7 +22,7 @@ The app sends the purchase token it got from Play Billing, and the Worker asks G
 | 503 | `reason: provider_unavailable` or `unknown_provider` | The Worker could not reach the store, or it is misconfigured. The client should treat this as "unknown" and keep its cached state, not as "not purchased". |
 | 404, 405 | `not_found`, `method_not_allowed` | Wrong path or method. |
 
-`POST /v1/verify-batch` checks up to 50 purchases in one request, so restoring every owned pack on a new install counts once against the rate limit. The body may be up to 128 KB:
+`POST /v1/verify-batch` checks up to 25 purchases in one request (each needs one Play API subrequest, and Workers Free allows 50 per call including OAuth refreshes), so restoring every owned pack on a new install counts once against the rate limit. The body may be up to 128 KB:
 
 ```json
 { "packageName": "com.hexnext.themer", "purchases": [{ "productId": "pack_neon", "purchaseToken": "..." }] }
@@ -38,7 +38,7 @@ It answers HTTP 200 with one result per purchase, in request order, and never ec
 ] }
 ```
 
-An item with `provider_unavailable` (or `internal_error`) means "unknown" for that purchase only. A malformed batch is rejected whole with 400 and the reasons above, plus `invalid_purchases` (missing, empty or a non-object entry) and `too_many_purchases` (over 50). The 413, 429, 503, 404 and 405 answers are the same as for `/v1/verify`. The app uses the batch endpoint and falls back to `/v1/verify` when a server answers 404, and on 429 it waits for `Retry-After` (bounded) before retrying a few times.
+An item with `provider_unavailable` (or `internal_error`) means "unknown" for that purchase only. A malformed batch is rejected whole with 400 and the reasons above, plus `invalid_purchases` (missing, empty or a non-object entry) and `too_many_purchases` (over 25). The 413, 429, 503, 404 and 405 answers are the same as for `/v1/verify`. The app uses the batch endpoint and falls back to `/v1/verify` when a server answers 404, and on 429 it waits for `Retry-After` (bounded) before retrying a few times.
 
 The Worker checks that `packageName` equals `PACKAGE_NAME`, then calls `purchases.products.get` on the Google Play Developer API. It returns `valid: true` only when `purchaseState` is `0`. Purchase tokens are never logged.
 
