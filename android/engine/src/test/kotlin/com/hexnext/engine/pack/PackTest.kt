@@ -157,4 +157,18 @@ class PackTest {
         assertEquals(null, Pack.parseColor("#12"))
         assertEquals(null, Pack.parseColor("#GGGGGG"))
     }
+
+    @Test
+    fun `entries inflating past the cap are rejected, not read`() {
+        val zip = tmp.newFile("bomb.zip")
+        ZipOutputStream(zip.outputStream()).use { out ->
+            out.putNextEntry(ZipEntry(PackReader.PACK_JSON))
+            val chunk = ByteArray(1024 * 1024) { ' '.code.toByte() }
+            repeat(PackReader.MAX_ENTRY_BYTES / chunk.size + 1) { out.write(chunk) }
+            out.closeEntry()
+        }
+        assertFailsWith<PackFormatException> { PackReader.read(zip) }
+        assertEquals(null, PackReader.readBounded(ByteArray(11).inputStream(), 10))
+        assertEquals(10, PackReader.readBounded(ByteArray(10).inputStream(), 10)!!.size)
+    }
 }

@@ -50,6 +50,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -102,6 +105,11 @@ data class UiState(
      * armed and two restarts within 10 minutes turn the overlays off.
      */
     val applyUnconfirmed: Boolean = false,
+    /**
+     * True when [applyUnconfirmed] but the 10-minute window has passed: restarts can no longer
+     * turn the overlays off, so the Apply card must not say protection is on.
+     */
+    val applyProtectionExpired: Boolean = false,
     /** True when the editor asked for a phone scan; Diagnostics starts it and clears the flag. */
     val scanRequested: Boolean = false,
     /** Pack zips in `files/packs` that could be read. */
@@ -223,13 +231,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /**
      * Re-reads the saved apply report into [UiState.lastApply]. Diagnostics ("Turn off all Hex
      * Next overlays") deletes it behind this view model's back, so the editor syncs on its return.
-     * Skipped while an apply or remove runs, which sets the report itself when it ends.
+     * Skipped while an apply or remove runs ([UiState.serviceBusy]), which sets the report itself
+     * when it ends; a pack download or import does not touch the report, so it does not skip this.
      */
     private fun refreshLastApply() {
-        if (_ui.value.busy) return
+        if (_ui.value.serviceBusy) return
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { ThemeApplier.lastReport(getApplication<Application>()) }
-            _ui.update { if (it.busy || it.lastApply == report) it else it.copy(lastApply = report) }
+            _ui.update { if (it.serviceBusy || it.lastApply == report) it else it.copy(lastApply = report) }
         }
     }
 
@@ -246,7 +255,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      */
     fun refreshGuard() {
         val unconfirmed = !guard.confirmed
-        _ui.update { if (it.applyUnconfirmed == unconfirmed) it else it.copy(applyUnconfirmed = unconfirmed) }
+        val expired = guard.protectionExpired()
+        _ui.update {
+            if (it.applyUnconfirmed == unconfirmed && it.applyProtectionExpired == expired) it
+            else it.copy(applyUnconfirmed = unconfirmed, applyProtectionExpired = expired)
+        }
     }
 
     /** Marks the setup guide as seen (finished or skipped) and leaves it. */
@@ -282,10 +295,18 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 val capability = Capability.of(it)
                 _ui.update { state -> if (state.capability == capability) state else state.copy(capability = capability) }
                 if (it is ShizukuState.Ready) {
-                    checkSafeMode()
-                    reassertSemWt()
+                    runStartupChecks()
                     loadDeviceInfo()
                 }
+            }
+        }
+        viewModelScope.launch {
+            // A Diagnostics task ("Turn off all Hex Next overlays", the Settings test) can end after
+            // the user left Diagnostics, and it changes the report and the guard behind this view
+            // model's back: sync both whenever the service slot comes free.
+            ServiceTasks.running.drop(1).filter { it == null }.collect {
+                refreshGuard()
+                refreshLastApply()
             }
         }
         viewModelScope.launch {
@@ -298,6 +319,22 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                     refreshPreview()
                 }
             }
+        }
+    }
+
+    /**
+     * Runs [checkSafeMode] and [reassertSemWt] (once per app run) holding the [ServiceTasks] slot,
+     * so an Apply theme, Remove theme or Diagnostics task can never interleave with them on the
+     * service. Waits while another task holds the slot.
+     */
+    private suspend fun runStartupChecks() {
+        if (safeModeChecked && semwtReasserted) return
+        ServiceTasks.running.first { running -> running == null && ServiceTasks.tryStart(STARTUP_TASK) }
+        try {
+            checkSafeMode()
+            reassertSemWt()
+        } finally {
+            ServiceTasks.finish()
         }
     }
 
@@ -336,7 +373,23 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
         }
         if (guard.safeModeActive()) {
-            _ui.update { it.copy(safeModeBanner = SAFE_MODE_TEXT, safeModeFailed = false) }
+            // Safe mode (here or in the boot receiver) turned the overlays off, so a report from
+            // an apply that started before it would still read "Applied to N apps" in the editor
+            // and in Diagnostics. Same fix as Remove theme; a later apply's report is kept.
+            val app = getApplication<Application>()
+            val safeModeAt = guard.safeModeAt
+            val dropped = withContext(Dispatchers.IO) {
+                val stale = ThemeApplier.lastReport(app)?.let { it.startedAt < safeModeAt } == true
+                if (stale) runCatching { ThemeApplier.reportFile(app).delete() }
+                stale
+            }
+            _ui.update {
+                it.copy(
+                    safeModeBanner = SAFE_MODE_TEXT,
+                    safeModeFailed = false,
+                    lastApply = if (dropped) null else it.lastApply,
+                )
+            }
         }
     }
 
@@ -365,6 +418,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         oneUiVersion = CompatibilityCheck.oneUiName(),
         lastApply = ThemeApplier.lastReport(getApplication<Application>()),
         applyUnconfirmed = !guard.confirmed,
+        applyProtectionExpired = guard.protectionExpired(),
         capability = Capability.of(ShizukuManager.state.value),
     )
 
@@ -387,7 +441,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun applyTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
         val spec = specToApply()
         val report = applier.apply(service, spec, ::log)
-        _ui.update { it.copy(lastApply = report, applyUnconfirmed = !guard.confirmed) }
+        _ui.update { it.copy(lastApply = report, applyUnconfirmed = !guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
         if (report.success && !guard.confirmed) {
             postNotice(
                 Notice(
@@ -414,13 +468,15 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun confirmWorks() {
         // An apply (here or a Diagnostics Settings test) still running has armed the guard for
         // itself: confirming now would disarm restart protection for overlays nobody has checked.
-        if (_ui.value.busy || ServiceTasks.running.value != null) {
+        // A pack download or import only sets busy and never touches the guard, so it does not block this.
+        val running = ServiceTasks.running.value
+        if (_ui.value.serviceBusy || running != null) {
             log(LogLine(LogLevel.WARN, "Wait for the running task to finish, check your phone, then tap \"It works\"."))
-            postNotice(Notice("Wait for the apply to finish, then confirm"))
+            postNotice(Notice(if (running == null || running == EDITOR_TASK) "Wait for the apply to finish, then confirm" else "Wait for $running to finish, then confirm"))
             return
         }
         guard.confirm()
-        _ui.update { it.copy(applyUnconfirmed = false) }
+        _ui.update { it.copy(applyUnconfirmed = false, applyProtectionExpired = false) }
         log(LogLine(LogLevel.OK, "Confirmed: restarts will no longer turn the theme off"))
         if (ShizukuManager.state.value !is ShizukuState.Ready) return
         viewModelScope.launch {
@@ -819,7 +875,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         // The saved report would otherwise come back as "Applied to N apps" on the next start
         // (and in Diagnostics) although nothing is applied any more.
         if (ok) runCatching { ThemeApplier.reportFile(getApplication<Application>()).delete() }
-        _ui.update { it.copy(lastApply = null, applyUnconfirmed = !guard.confirmed) }
+        // A failed remove keeps the report (overlays may still be on), so the card keeps its line.
+        _ui.update { it.copy(lastApply = if (ok) null else it.lastApply, applyUnconfirmed = !guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
         if (ok) {
             postNotice(Notice("Theme removed", isSuccess = true))
         } else {
@@ -849,8 +906,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         // Diagnostics drives the same service: never run alongside one of its tasks.
         if (!ServiceTasks.tryStart(EDITOR_TASK)) {
             val other = ServiceTasks.running.value ?: "A Diagnostics task"
-            log(LogLine(LogLevel.WARN, "$other is still running in Diagnostics. Try again when it finishes."))
-            postNotice(Notice("Wait for Diagnostics to finish ($other)", isError = true))
+            if (other == STARTUP_TASK) {
+                log(LogLine(LogLevel.WARN, "The startup safety check is still running. Try again when it finishes."))
+                postNotice(Notice("Wait a moment: the startup safety check is still running", isError = true))
+            } else {
+                log(LogLine(LogLevel.WARN, "$other is still running in Diagnostics. Try again when it finishes."))
+                postNotice(Notice("Wait for Diagnostics to finish ($other)", isError = true))
+            }
             return
         }
         _ui.update { it.copy(busy = true, serviceBusy = true, log = emptyList()) }
@@ -899,6 +961,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
         /** [ServiceTasks] name of the editor's Apply theme or Remove theme. */
         const val EDITOR_TASK = "Apply theme in the editor"
+
+        /** [ServiceTasks] name of the startup safe-mode check and SemWT re-assert. */
+        const val STARTUP_TASK = "Startup safety check"
 
         private const val KEY_BACK_STACK = "back_stack"
         private const val PREF_SEED = "seed"

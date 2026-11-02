@@ -46,7 +46,10 @@ run "Samsung theme state (/data/overlays)" "ls -la /data/overlays; ls -la /data/
 # not /data/overlays (that directory holds Samsung's theme-store state).
 run "Fabricated overlay files" "find /data/resource-cache -name '*.frro' -exec ls -la {} \\;"
 run "Package paths" "for p in android com.android.systemui com.android.settings com.sec.android.app.launcher com.samsung.android.honeyboard com.samsung.android.dialer com.samsung.android.incallui com.samsung.android.app.contacts com.sec.android.app.myfiles com.sec.android.gallery3d com.sec.android.app.clockpackage com.sec.android.app.popupcalculator com.samsung.android.calendar com.samsung.android.lool com.samsung.android.app.aodservice com.samsung.android.app.smartcapture com.samsung.android.app.notes com.samsung.android.app.reminder com.samsung.android.messaging; do echo \"\$p -> \$(pm path \$p 2>/dev/null | head -1)\"; done"
-run "Uninstalled (debloated) packages" "pm list packages -u | sort > /data/local/tmp/hx_all.txt 2>/dev/null || pm list packages -u | sort > \$PWD/hx_all.txt; pm list packages | sort > /data/local/tmp/hx_inst.txt 2>/dev/null || pm list packages | sort > \$PWD/hx_inst.txt; comm -23 /data/local/tmp/hx_all.txt /data/local/tmp/hx_inst.txt 2>/dev/null || comm -23 \$PWD/hx_all.txt \$PWD/hx_inst.txt"
+# Packages in `-u` (installed + uninstalled-for-user) but not installed appear once in the
+# merged list. Kept in a pipe: run() may repeat a command as root, and root writes into the
+# shell-writable /data/local/tmp (or $PWD) would follow a planted symlink.
+run "Uninstalled (debloated) packages" "{ pm list packages; pm list packages -u; } | sort | uniq -u"
 
 # Anchor on end-of-line so com.android.settings.intelligence doesn't match first.
 settings_semwt=$(sh -c "cmd overlay list --user current" 2>/dev/null | grep -E 'SemWT_com\.android\.settings$' | head -1 | sed 's/^\[[ x]\] //; s/^--- //')

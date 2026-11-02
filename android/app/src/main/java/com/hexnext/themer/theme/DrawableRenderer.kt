@@ -13,6 +13,7 @@ import com.hexnext.engine.compile.PlannedDrawableJob
 import com.hexnext.engine.frro.NinePatch
 import com.hexnext.engine.frro.NinePatchException
 import com.hexnext.engine.pack.DirectoryPackResolver
+import com.hexnext.engine.pack.PackReader
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.DataInputStream
@@ -273,27 +274,68 @@ class DrawableRenderer(
     private fun entry(zip: ZipFile, path: String): ZipEntry =
         zip.getEntry(path) ?: throw IOException("$path not found in ${zip.name.substringAfterLast('/')}")
 
-    /** The bytes of [path]; sized from the entry header when the zip records the size. */
+    /**
+     * The bytes of [path]; sized from the entry header when the zip records the size. Like
+     * [PackReader.openLayer], an entry that declares or inflates to more than
+     * [PackReader.MAX_ENTRY_BYTES] is refused with an [IOException], so a corrupt or hostile pack
+     * cannot make this allocate past the heap (an OutOfMemoryError is not an Exception).
+     */
     private fun read(zip: ZipFile, path: String): ByteArray {
         val entry = entry(zip, path)
         val size = entry.size
-        if (size < 0 || size > Int.MAX_VALUE.toLong()) return zip.getInputStream(entry).use { it.readBytes() }
+        if (size > PackReader.MAX_ENTRY_BYTES) throw IOException("$path is too large ($size bytes)")
+        if (size < 0) return zip.getInputStream(entry).use { readBounded(it, path) }
         val bytes = ByteArray(size.toInt())
         zip.getInputStream(entry).use { DataInputStream(it).readFully(bytes) }
         return bytes
     }
 
-    /** Decodes [path] straight from the zip stream, without copying its bytes first. */
+    /** Reads [input] to the end, throwing once it yields more than [PackReader.MAX_ENTRY_BYTES]. */
+    private fun readBounded(input: InputStream, path: String): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            total += n
+            if (total > PackReader.MAX_ENTRY_BYTES) throw IOException("$path inflates past ${PackReader.MAX_ENTRY_BYTES} bytes")
+            out.write(buffer, 0, n)
+        }
+        return out.toByteArray()
+    }
+
+    /**
+     * Decodes [path] straight from the zip stream, without copying its bytes first. The header is
+     * read first ([checkPixels]), so an oversized entry or image fails with an [IOException]
+     * instead of an OutOfMemoryError.
+     */
     private fun decodeEntry(zip: ZipFile, path: String): Bitmap {
         val entry = entry(zip, path)
+        if (entry.size > PackReader.MAX_ENTRY_BYTES) throw IOException("$path is too large (${entry.size} bytes)")
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        zip.getInputStream(entry).use { BitmapFactory.decodeStream(it, null, bounds) }
+        checkPixels(bounds, path)
         return zip.getInputStream(entry).use { decodeStream(it, path) }
     }
 
     private fun decodeStream(input: InputStream, path: String): Bitmap =
         BitmapFactory.decodeStream(input, null, decodeOptions()) ?: throw IOException("cannot decode $path")
 
-    private fun decode(bytes: ByteArray, path: String): Bitmap =
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions()) ?: throw IOException("cannot decode $path")
+    private fun decode(bytes: ByteArray, path: String): Bitmap {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        checkPixels(bounds, path)
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions()) ?: throw IOException("cannot decode $path")
+    }
+
+    /** Rejects a header-only decode result that is unreadable or larger than [MAX_LAYER_PIXELS]. */
+    private fun checkPixels(bounds: BitmapFactory.Options, path: String) {
+        val width = bounds.outWidth
+        val height = bounds.outHeight
+        if (width <= 0 || height <= 0) throw IOException("cannot decode $path")
+        if (width.toLong() * height > MAX_LAYER_PIXELS) throw IOException("$path is too large (${width}x$height px)")
+    }
 
     /**
      * Decodes [bytes] (of [sourceWidth]x[sourceHeight]) with the largest power-of-two
@@ -398,6 +440,12 @@ class DrawableRenderer(
     }
 
     private companion object {
+        /**
+         * Most pixels one decoded pack layer may have: 4096x4096, 64 MB as ARGB. Real layers are
+         * icons and panels well below this; the cap keeps a crafted PNG header from an OOM.
+         */
+        const val MAX_LAYER_PIXELS = 4096L * 4096L
+
         /** Initial PNG buffer: a 144 px ARGB icon encodes well under this. */
         const val PNG_BUFFER_BYTES = 128 * 1024
 

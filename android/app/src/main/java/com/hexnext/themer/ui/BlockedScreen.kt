@@ -13,12 +13,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.hexnext.themer.device.Compatibility
 import com.hexnext.themer.device.CompatibilityCheck
+import com.hexnext.themer.ui.settings.rememberSafeUriHandler
 
 /**
  * Shown instead of [MainScreen] when [CompatibilityCheck.check] is not [Compatibility.Supported]:
@@ -27,7 +27,8 @@ import com.hexnext.themer.device.CompatibilityCheck
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlockedScreen(compat: Compatibility) {
-    val uriHandler = LocalUriHandler.current
+    // Never the raw handler: it throws out of the click when no browser is enabled.
+    val uriHandler = rememberSafeUriHandler()
     Scaffold(
         topBar = { LargeTopAppBar(title = { Text("Hex Next", fontWeight = FontWeight.SemiBold) }) },
     ) { padding ->

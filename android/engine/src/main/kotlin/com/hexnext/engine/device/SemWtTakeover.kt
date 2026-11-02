@@ -189,13 +189,16 @@ public object SemWtPlanner {
     /**
      * Disable `android:SemWT_<target>` and, when [overlays] is given and shows ours below another
      * enabled overlay, raise [hexOverlayId] with a disable/enable cycle. Without a list only the
-     * SemWT disable is planned: a fresh enable already landed ours on top.
+     * SemWT disable is planned: a fresh enable already landed ours on top. The raise check reads
+     * [overlays] as it will be after the SemWT disable, so SemWT alone never causes a raise.
      */
     public fun takeover(target: String, hexOverlayId: String, overlays: List<OverlayListEntry>? = null): List<String> {
         val semwt = OneUi9Facts.semWtOverlayId(target)
         if (!isSafeId(semwt) || !isSafeId(hexOverlayId)) return emptyList()
         val out = mutableListOf(disable(semwt))
-        if (overlays != null && needsRaise(overlays, target, hexOverlayId)) out += raiseCycle(hexOverlayId)
+        if (overlays != null && needsRaise(withDisabled(overlays, setOf(semwt)), target, hexOverlayId)) {
+            out += raiseCycle(hexOverlayId)
+        }
         return out
     }
 
@@ -204,21 +207,27 @@ public object SemWtPlanner {
         state.toRestore.map { it.semwtId }.filter(::isSafeId).distinct().map(::enable)
 
     /**
-     * Commands for the records whose Hex overlay is enabled: disable the SemWT overlay when it is
-     * enabled again, and raise the Hex overlay when anything enabled is listed after it.
+     * Commands for the records whose Hex overlay is enabled: first disable every SemWT overlay
+     * that is enabled again, then raise each Hex overlay (at most once, since several records can
+     * share one) when anything enabled is still listed after it once those SemWT overlays are off.
      */
     public fun reassert(state: SemWtState, overlays: List<OverlayListEntry>): List<String> {
         val enabled = overlays.filter { it.enabled }.mapTo(HashSet()) { it.overlayId }
-        return state.records
+        val records = state.records
             .filter { it.hexOverlayId in enabled }
             .filter { isSafeId(it.semwtId) && isSafeId(it.hexOverlayId) }
-            .flatMap { record ->
-                val out = ArrayList<String>()
-                if (record.semwtId in enabled) out += disable(record.semwtId)
-                if (needsRaise(overlays, record.target, record.hexOverlayId)) out += raiseCycle(record.hexOverlayId)
-                out
-            }
+        val semwtOff = records.map { it.semwtId }.filter { it in enabled }.distinct()
+        val after = withDisabled(overlays, semwtOff.toSet())
+        val raised = records
+            .filter { needsRaise(after, it.target, it.hexOverlayId) }
+            .map { it.hexOverlayId }
+            .distinct()
+        return semwtOff.map(::disable) + raised.flatMap(::raiseCycle)
     }
+
+    /** [overlays] with the rows of [ids] shown as disabled, as `cmd overlay list` reads after disabling them. */
+    private fun withDisabled(overlays: List<OverlayListEntry>, ids: Set<String>): List<OverlayListEntry> =
+        overlays.map { if (it.enabled && it.overlayId in ids) it.copy(enabled = false, marker = "[ ]") else it }
 
     private fun checked(id: String): String {
         require(isSafeId(id)) { "unsafe overlay id: $id" }
@@ -346,8 +355,14 @@ public object SemWtGuardScript {
           }
         }
 
-        fix_pairs() {
+        list_overlays() {
           LIST=£(cmd overlay list --user current 2>/dev/null | sed 's/^[[:space:]]*//')
+        }
+
+        # LIST is read again after every change, so a SemWT overlay just disabled (or a Hex
+        # overlay just raised, which several pairs can share) never triggers a needless raise.
+        fix_pairs() {
+          list_overlays
           [ -n "£LIST" ] || return 0
           printf '%s\n' "£PAIRS" | while IFS='|' read -r sem hex; do
             [ -n "£sem" ] && [ -n "£hex" ] || continue
@@ -356,11 +371,13 @@ public object SemWtGuardScript {
             if printf '%s\n' "£LIST" | grep -qxF "[x] £sem"; then
               cmd overlay disable --user current "£sem" >/dev/null 2>&1
               acted=1
+              list_overlays
             fi
-            if [ "£(needs_raise "£hex")" = 1 ]; then
+            if [ -n "£LIST" ] && [ "£(needs_raise "£hex")" = 1 ]; then
               cmd overlay disable --user current "£hex" >/dev/null 2>&1
               cmd overlay enable --user current "£hex" >/dev/null 2>&1
               acted=1
+              list_overlays
             fi
             [ "£acted" = 1 ] && echo fixed
           done

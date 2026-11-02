@@ -340,8 +340,9 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
         Column(Modifier.heightIn(min = 48.dp), verticalArrangement = Arrangement.Center) {
             Text("Restart protection", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Always on. If the phone restarts twice within 10 minutes of an unconfirmed apply, " +
-                    "Hex Next turns its overlays off and shows a notice.",
+                "Needs root. On a rooted phone, if it restarts twice within 10 minutes of an unconfirmed apply, " +
+                    "Hex Next turns its overlays off and shows a notice. Without root (Shizuku over ADB or " +
+                    "wireless debugging) nothing can do this after a restart, so there is no automatic recovery.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

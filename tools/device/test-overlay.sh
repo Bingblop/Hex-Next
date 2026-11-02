@@ -20,9 +20,12 @@ PROBE=HexNext_probe
 PROBE_ID="com.android.shell:$PROBE"
 COLOR=sec_widget_round_and_bgcolor
 # Pinned CI artifact and its SHA-256 as reported by the GitHub artifacts API. Keep these
-# equal to RUN_ID / APK_ZIP_SHA256 in install.sh so both scripts test the same build.
-RUN_ID="${RUN_ID:-41401228089}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-5ccffc2055db9177214b6c239b75dda304cf6154daf488d2e7050c51529e03a2}"
+# equal to RUN_ID / APK_ZIP_SHA256 in install.sh so both scripts test the same build
+# (tests/test_device_scripts.py fails when they drift apart).
+# Empty until a CI run signed with the pinned debug key exists (see install.sh); without them
+# the test skips the install and tests the build that is already installed.
+RUN_ID="${RUN_ID:-}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
 WORK="$OUT_DIR/hexnext-apk"
@@ -57,6 +60,10 @@ step "Build" "getprop ro.build.version.oneui; getprop ro.product.model; getprop 
 mkdir -p "$WORK"
 log ""; log "### Download"
 ok=0
+if [ -z "${SKIP_INSTALL:-}" ] && { [ -z "$RUN_ID" ] || [ -z "$APK_ZIP_SHA256" ]; }; then
+  log "No pinned CI run (RUN_ID / APK_ZIP_SHA256 unset); testing the build that is already installed."
+  SKIP_INSTALL=1
+fi
 if [ -n "${SKIP_INSTALL:-}" ]; then
   log "SKIP_INSTALL set; testing the build that is already installed."
 elif [ -n "${GH_TOKEN:-}" ]; then
@@ -88,8 +95,12 @@ elif [ $ok -eq 1 ]; then
   else
     (cd "$WORK" && unzip -o -q hexnext-debug.zip) && APK=$(find "$WORK" -name '*.apk' | head -1)
     if [ -n "${APK:-}" ]; then
-      root "cp '$APK' /data/local/tmp/hexnext-debug.apk && chmod 644 /data/local/tmp/hexnext-debug.apk"
-      step "Install" "pm install -r /data/local/tmp/hexnext-debug.apk"
+      # Stream the APK to pm on stdin instead of staging it in the shell-writable
+      # /data/local/tmp, where a planted symlink could redirect a root copy.
+      size=$(wc -c <"$APK" | tr -d ' ')
+      log ""; log "### Install"; log "# pm install -r -S $size < $APK"
+      res=$(su -c "pm install -r -S $size" <"$APK" 2>&1); code=$?
+      log "(exit $code)"; log "$res"
       case "$res" in
         *Success*) log "installed run $RUN_ID" ;;
         *) log "WARNING: install of run $RUN_ID FAILED; the app sections below describe the build that was already installed."
@@ -107,6 +118,14 @@ step "Installed package" "pm list packages | grep -i hexnext; dumpsys package $P
 # 2. Baseline.
 step "Baseline overlay list" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings\$|aam_monet'"
 baseline_semwt=$(semwt_line); log "baseline SemWT line: $baseline_semwt"
+# Enabled Hex Next overlays on the target that sit above SemWT (the list is in priority
+# order, lowest first). Re-enabling SemWT in revert() puts it on top (last-enabled wins and
+# set-priority does not work on fabricated overlays), so revert() cycles these afterwards,
+# in this order, to restore the order they had before the run.
+baseline_above_semwt=$(root "cmd overlay list --user 0 $TARGET" | sed 's/^[[:space:]]*//' \
+  | sed -n '/SemWT_com\.android\.settings$/,$p' | sed -n 's/^\[x\] //p' \
+  | grep -i hexnext | grep -v ":$PROBE\$")
+log "baseline Hex Next overlays above SemWT: ${baseline_above_semwt:-none}"
 
 # From here on the script changes overlay state. revert() puts it back; the trap runs it on
 # any exit, including Ctrl-C, closing the Termux session (HUP) and TERM, so an interrupted
@@ -119,7 +138,10 @@ revert() {
   reverted=1
   step "Revert: disable probe" "cmd overlay disable --user 0 $PROBE_ID"
   case "$baseline_semwt" in
-    "[x]"*) step "Revert: re-enable SemWT" "cmd overlay enable --user 0 $SEMWT";;
+    "[x]"*) step "Revert: re-enable SemWT" "cmd overlay enable --user 0 $SEMWT"
+      for id in $baseline_above_semwt; do
+        step "Revert: put $id back above SemWT" "cmd overlay disable --user 0 $id; cmd overlay enable --user 0 $id"
+      done;;
     *) step "Revert: SemWT was disabled at baseline, disabling again" "cmd overlay disable --user 0 $SEMWT";;
   esac
 }
@@ -172,6 +194,7 @@ step "SELinux denials" "dmesg | grep -i avc | grep -iE 'hexnext|shizuku|overlay'
 # 6. Revert (the same function the EXIT trap runs if the test is interrupted).
 revert
 step "Final state" "cmd overlay list --user 0 | grep -iE 'hexnext|SemWT_com.android.settings\$'"
+step "Final $TARGET order (lowest first)" "cmd overlay list --user 0 $TARGET | grep -iE 'hexnext|SemWT_com.android.settings\$'"
 log ""; log "Note: the fabricated probe $PROBE_ID stays registered but disabled; it is harmless and the app removes HexNext* overlays."
 
 echo "Wrote $OUT"

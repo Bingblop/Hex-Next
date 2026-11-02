@@ -75,6 +75,9 @@ fun AiProvidersScreen(onBack: () -> Unit) {
     val masked = remember { mutableStateMapOf<String, String>() }
     val tests = remember { mutableStateMapOf<String, TestResult>() }
     val testing = remember { mutableStateMapOf<String, Boolean>() }
+    // Bumped per provider by each Test and each key save; a test whose number is no longer the
+    // latest belongs to a key that has since been replaced, so its verdict is dropped.
+    val testRuns = remember { mutableMapOf<String, Int>() }
     var editing by remember { mutableStateOf<IconProvider?>(null) }
     var clearing by remember { mutableStateOf<IconProvider?>(null) }
     var saving by remember { mutableStateOf(false) }
@@ -98,6 +101,8 @@ fun AiProvidersScreen(onBack: () -> Unit) {
     }
 
     fun test(provider: IconProvider) {
+        val run = (testRuns[provider.id] ?: 0) + 1
+        testRuns[provider.id] = run
         testing[provider.id] = true
         tests.remove(provider.id)
         scope.launch {
@@ -109,8 +114,10 @@ fun AiProvidersScreen(onBack: () -> Unit) {
             } catch (t: Exception) {
                 TestResult(false, describeFailure(t))
             }
-            tests[provider.id] = result
-            testing[provider.id] = false
+            if (testRuns[provider.id] == run) {
+                tests[provider.id] = result
+                testing[provider.id] = false
+            }
         }
     }
 
@@ -171,6 +178,9 @@ fun AiProvidersScreen(onBack: () -> Unit) {
                 saving = true
                 saveError = null
                 tests.remove(provider.id)
+                // A test still running checks the key being replaced; drop its verdict.
+                testRuns[provider.id] = (testRuns[provider.id] ?: 0) + 1
+                testing[provider.id] = false
                 scope.launch {
                     try {
                         withContext(Dispatchers.IO) { keys.set(provider.id, value) }

@@ -1,5 +1,6 @@
 package com.hexnext.themer.ui.ai
 
+import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +71,7 @@ import com.hexnext.themer.ai.IconRequest
 import com.hexnext.themer.ai.IconStyle
 import com.hexnext.themer.ai.ProviderKind
 import com.hexnext.themer.theme.CustomAssetStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -147,27 +149,7 @@ fun GenerateIconSheet(
 
     /** Stores [icon] (or, with [file], the gallery file read on IO) as a custom icon and reports it. */
     fun use(index: Int, icon: GeneratedIcon?, file: File? = null) {
-        if (state.busy) return
-        state.busy = true
-        state.error = null
-        scope.launch {
-            try {
-                val asset = withContext(Dispatchers.IO) {
-                    val source = icon ?: GeneratedIcon(
-                        png = requireNotNull(file).readBytes(),
-                        providerId = "gallery",
-                        prompt = file.nameWithoutExtension.removePrefix("ai-").substringBeforeLast('-'),
-                    )
-                    IconGenerator.importAsCustomIcon(context, source)
-                }
-                if (index >= 0) state.used.add(index)
-                onUse(asset)
-            } catch (t: Exception) {
-                state.error = describeFailure(t)
-            } finally {
-                state.busy = false
-            }
-        }
+        state.use(context, index, icon, file, onUse)
     }
 
     fun save(index: Int, icon: GeneratedIcon) {
@@ -357,6 +339,47 @@ internal class GenerateIconState : ViewModel() {
         viewModelScope.launch {
             try {
                 results.addAll(IconGenerator.generate(keys, provider, request))
+            } catch (t: Exception) {
+                error = describeFailure(t)
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    /**
+     * Stores [icon] (or, with [file], the gallery file read on IO) as a custom icon and reports it
+     * through [onUse]. Runs in [viewModelScope], like [generate], so rotating or unfolding the
+     * phone while the import runs does not cancel it: the asset is written either way, and a
+     * cancelled composition scope would drop the result and show "Something went wrong" for an
+     * import that worked. [onUse] must not hold on to the composition (the host passes a
+     * `MainViewModel` method). Ignored while something is running.
+     */
+    fun use(
+        context: Context,
+        index: Int,
+        icon: GeneratedIcon?,
+        file: File?,
+        onUse: (CustomAssetStore.Asset) -> Unit,
+    ) {
+        if (busy) return
+        busy = true
+        error = null
+        val appContext = context.applicationContext
+        viewModelScope.launch {
+            try {
+                val asset = withContext(Dispatchers.IO) {
+                    val source = icon ?: GeneratedIcon(
+                        png = requireNotNull(file).readBytes(),
+                        providerId = "gallery",
+                        prompt = file.nameWithoutExtension.removePrefix("ai-").substringBeforeLast('-'),
+                    )
+                    IconGenerator.importAsCustomIcon(appContext, source)
+                }
+                if (index >= 0) used.add(index)
+                onUse(asset)
+            } catch (t: CancellationException) {
+                throw t
             } catch (t: Exception) {
                 error = describeFailure(t)
             } finally {

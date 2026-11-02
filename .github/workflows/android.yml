@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      # Run once from the default branch to create the cached debug-keystore pin (see below).
+      # Only a run started with this set may save a key it generated, so an evicted pin is never
+      # replaced silently by an ordinary push.
+      bootstrap_debug_keystore:
+        type: boolean
+        required: false
+        default: false
   workflow_call:
     inputs:
       # Set by a caller (release.yml passes the release tag). When called, github.workflow and
@@ -62,8 +70,9 @@ jobs:
       # ~/.android/debug.keystore, so pin it. The HEXNEXT_DEBUG_KEYSTORE_BASE64 secret (store/key
       # password "android", alias "androiddebugkey") is the only durable pin. Without it the
       # keystore lives in the Actions cache, which GitHub evicts (7 days unread, or LRU over the
-      # quota) and scopes per ref, so: only a push to the default branch may create the cached
-      # pin (every ref can read it), and tools/device/debug-keystore.sha256, once it holds the
+      # quota) and scopes per ref, so: only a manual bootstrap run on the default branch
+      # (workflow_dispatch with bootstrap_debug_keystore) may create the cached pin (every ref can
+      # read it), and tools/device/debug-keystore.sha256, once it holds the
       # pinned certificate's SHA-256, fails the build when the keystore in use differs instead of
       # silently shipping a build that cannot update over the installed one.
       - name: Restore pinned debug keystore from cache
@@ -82,11 +91,16 @@ jobs:
           mkdir -p ~/.android
           printf '%s' "$HEXNEXT_DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
           chmod 600 ~/.android/debug.keystore
+      # A newly generated key also fails the run at its end ("Fail when the debug build ...") and is
+      # never cached outside a bootstrap run, so an evicted pin keeps every build red, even while
+      # debug-keystore.sha256 is still empty, until the secret is set or a bootstrap run re-pins.
       - name: Check debug keystore against the pinned certificate
+        id: debug-keystore-check
         run: |
           set -euo pipefail
           if [ ! -f ~/.android/debug.keystore ]; then
             echo "::warning::No pinned debug keystore (cache miss and no HEXNEXT_DEBUG_KEYSTORE_BASE64 secret); generating a new one. Its builds will not update over builds signed with an earlier key."
+            echo "generated=true" >> "$GITHUB_OUTPUT"
             mkdir -p ~/.android
             keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android \
               -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
@@ -102,13 +116,16 @@ jobs:
             echo "::error::The debug keystore's certificate ($actual) is not the pinned one ($expected). The cached pin was probably evicted; set the HEXNEXT_DEBUG_KEYSTORE_BASE64 secret to the original debug.keystore, or update tools/device/debug-keystore.sha256 if the key change is intended (testers must then uninstall once)."
             exit 1
           fi
-      # Only a push to the default branch creates the cached pin, so PR and release/** refs never
-      # save a pin of their own that the default branch cannot see.
+      # Only a deliberate bootstrap run on the default branch caches a key generated in this run.
+      # PR and release/** refs never save a pin the default branch cannot see, and an ordinary push
+      # after an eviction does not quietly turn its new key into the pin (its run fails below).
       - name: Save pinned debug keystore to cache
         if: >-
           env.HEXNEXT_HAS_DEBUG_KEYSTORE_SECRET != 'true'
           && steps.debug-keystore-cache.outputs.cache-hit != 'true'
-          && github.event_name == 'push'
+          && steps.debug-keystore-check.outputs.generated == 'true'
+          && github.event_name == 'workflow_dispatch'
+          && inputs.bootstrap_debug_keystore == true
           && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: actions/cache/save@v4
         with:
@@ -162,3 +179,19 @@ jobs:
             -alias "$HEXNEXT_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=HexNext CI Test"
           ../bin/build-and-sign-release-apk.sh "$RUNNER_TEMP/HexNext-ci-test.apk"
+
+      # Last, so the artifacts above are still uploaded: a debug build signed with a key generated
+      # in this run cannot update over any installed test build and is not cached, so the next run
+      # signs with yet another key. Fail instead of passing with only a warning.
+      # A release validation (workflow_call with concurrency_key) is not blocked by the debug key,
+      # and a bootstrap run on the default branch passes because it just cached its key as the pin.
+      - name: Fail when the debug build was signed with a new, unpinned key
+        if: >-
+          steps.debug-keystore-check.outputs.generated == 'true'
+          && !inputs.concurrency_key
+          && !(inputs.bootstrap_debug_keystore == true
+            && github.event_name == 'workflow_dispatch'
+            && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+        run: |
+          echo "::error::This run's debug build is signed with a newly generated key (no HEXNEXT_DEBUG_KEYSTORE_BASE64 secret and no cached pin), so it will not install over earlier test builds. Set the secret to the original debug.keystore, or (no key worth keeping yet) run this workflow on the default branch with bootstrap_debug_keystore, then commit the certificate SHA-256 to tools/device/debug-keystore.sha256 and pin that run in tools/device/install.sh."
+          exit 1

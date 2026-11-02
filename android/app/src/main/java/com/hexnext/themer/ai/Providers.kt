@@ -340,16 +340,23 @@ private fun chatChoiceText(reply: JsonObject?): String? {
 
 /**
  * Asks a text model [count] times for a glyph and rasterises each answer. Variants carry a
- * "variation n" suffix so the model does not repeat itself; the first failure of a later
- * variant is dropped as long as one icon came back.
+ * "variation n" suffix so the model does not repeat itself. A glyph that cannot be drawn is
+ * skipped and the next variant is tried, but a failed request (timeout, rejected key, rate
+ * limit, empty credit) stops the run: the next request would only fail again, could still be
+ * billed, and keeps the sheet busy. The first failure is thrown only when no icon came back.
  */
 private suspend fun glyphIcons(provider: IconProvider, request: IconRequest, ask: suspend (String) -> String): List<GeneratedIcon> {
     val icons = ArrayList<GeneratedIcon>(request.count)
     var firstError: AiProviderException? = null
     for (n in 1..request.count) {
         val prompt = if (request.count == 1) request.fullPrompt() else "${request.fullPrompt()} (variation $n of ${request.count}, make it distinct)"
+        val reply = try {
+            ask(prompt)
+        } catch (e: AiProviderException) {
+            if (firstError == null) firstError = e
+            break
+        }
         try {
-            val reply = ask(prompt)
             icons += GeneratedIcon(GlyphRasterizer.rasterize(reply, request.sizePx), provider.id, request.prompt)
         } catch (e: AiProviderException) {
             if (firstError == null) firstError = e

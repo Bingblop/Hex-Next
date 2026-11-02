@@ -70,9 +70,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.themer.device.Compatibility
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.shizuku.ShizukuState
+import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.ui.EmptyState
 import com.hexnext.themer.ui.LocalAppSettings
@@ -153,6 +155,10 @@ fun OnboardingScreen(
             mainViewModel.consumeNotice(current.id)
         }
     }
+    // In Advanced mode the parts with their own pack keep it (ThemeSpec.packFor), so the pack
+    // chosen here is only the default for the rest; the pages say so instead of calling it the
+    // theme's pack.
+    val ownPackParts = if (ui.spec.mode == ThemeMode.ADVANCED) ui.spec.elementPacks.size else 0
     val steps = Step.entries
     val step = steps[index.coerceIn(0, steps.lastIndex)]
     val last = index == steps.lastIndex
@@ -212,8 +218,8 @@ fun OnboardingScreen(
                     Step.WELCOME -> WelcomePage()
                     Step.COMPATIBILITY -> CompatibilityPage(versionLine)
                     Step.ACCESS -> AccessPage(shizuku, rootToolLinks, onRequestPermission)
-                    Step.PACK -> PackPage(packs, selectedPackId, ui.busy, onSelectPack, onImportPack)
-                    Step.DONE -> DonePage(shizuku, packs, selectedPackId)
+                    Step.PACK -> PackPage(packs, selectedPackId, ownPackParts, ui.busy, onSelectPack, onImportPack)
+                    Step.DONE -> DonePage(shizuku, packs, selectedPackId, ownPackParts)
                 }
             }
         }
@@ -292,10 +298,13 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
     // su without Shizuku (SU mode) cannot apply themes: the service then runs in the app process.
     val suOnly = ready?.viaSu == true
     val connected = ready?.isPrivileged == true && !suOnly
+    // Shizuku over ADB or wireless debugging (uid 2000): Apply works, for the system palette only.
+    val paletteOnly = !connected && Capability.of(shizuku) == Capability.SHELL
     Hero(
-        icon = if (connected) Icons.Outlined.CheckCircle else Icons.Outlined.Lock,
+        icon = if (connected || paletteOnly) Icons.Outlined.CheckCircle else Icons.Outlined.Lock,
         title = when {
             connected -> "Connected"
+            paletteOnly -> "Connected, system palette only"
             suOnly -> "Start Shizuku with root"
             else -> "Give Hex Next access"
         },
@@ -369,6 +378,7 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
 private fun PackPage(
     packs: List<InstalledPack>,
     selectedPackId: String?,
+    ownPackParts: Int,
     busy: Boolean,
     onSelectPack: (String?) -> Unit,
     onImportPack: (Uri) -> Unit,
@@ -379,10 +389,15 @@ private fun PackPage(
     Hero(
         icon = Icons.Outlined.Star,
         title = "Pick a starting pack",
-        body = "A pack brings icons and other artwork. Colours only keeps Samsung's artwork and recolours it. " +
-            "You can change this any time.",
+        body = if (ownPackParts > 0) {
+            "Advanced mode is on and ${ownPackParts.partsPhrase()}, which Apply keeps. " +
+                "The pack you pick here is the default for every other part. You can change this any time."
+        } else {
+            "A pack brings icons and other artwork. Colours only keeps Samsung's artwork and recolours it. " +
+                "You can change this any time."
+        },
     )
-    SectionCard("Theme pack") {
+    SectionCard(if (ownPackParts > 0) "Default pack" else "Theme pack") {
         ChoiceRow(selected = selectedPackId == null, onClick = { onSelectPack(null) }) {
             Column(Modifier.weight(1f)) {
                 Text("Colours only", style = MaterialTheme.typography.titleSmall)
@@ -432,10 +447,12 @@ private fun PackPage(
 }
 
 @Composable
-private fun DonePage(shizuku: ShizukuState, packs: List<InstalledPack>, selectedPackId: String?) {
+private fun DonePage(shizuku: ShizukuState, packs: List<InstalledPack>, selectedPackId: String?, ownPackParts: Int) {
     val ready = shizuku as? ShizukuState.Ready
     val suOnly = ready?.viaSu == true
     val connected = ready?.isPrivileged == true && !suOnly
+    // Shizuku over ADB or wireless debugging (uid 2000): Apply works, for the system palette only.
+    val paletteOnly = !connected && Capability.of(shizuku) == Capability.SHELL
     val packName = packs.firstOrNull { it.id == selectedPackId }?.name ?: "Colours only"
     Hero(
         icon = Icons.Outlined.CheckCircle,
@@ -448,12 +465,23 @@ private fun DonePage(shizuku: ShizukuState, packs: List<InstalledPack>, selected
             "Access",
             when {
                 connected -> "Connected"
+                paletteOnly -> "System palette only (Shizuku)"
                 suOnly -> "Root found, Shizuku not running"
                 else -> "Not connected yet"
             },
         )
-        SummaryRow("Theme pack", packName)
-        if (!connected) {
+        if (ownPackParts > 0) {
+            SummaryRow("Default pack", "$packName · ${ownPackParts.partsPhrase()}")
+        } else {
+            SummaryRow("Theme pack", packName)
+        }
+        if (paletteOnly) {
+            Text(
+                Capability.NEEDS_ROOT_REASON,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else if (!connected) {
             Text(
                 "You can still prepare your theme now and apply it once root or Shizuku is ready.",
                 style = MaterialTheme.typography.bodySmall,
@@ -552,3 +580,6 @@ private fun StepDots(count: Int, current: Int) {
         }
     }
 }
+
+/** "1 part has its own pack" / "3 parts have their own pack", for the Advanced-mode notes. */
+private fun Int.partsPhrase(): String = if (this == 1) "1 part has its own pack" else "$this parts have their own pack"

@@ -5,8 +5,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.util.zip.ZipException
 import java.util.zip.ZipFile
 
@@ -44,13 +47,42 @@ public data class Pack(
     }
 
     /**
-     * The option tokens the legacy Hex plugin had on before the user touched anything: the first
-     * key of every `select` option is `"true"`; `switch` options are off. The compiler overlays
+     * The option tokens the legacy Hex plugin had on before the user touched anything, read from
+     * the plugin defaults in [settings] (keys `<plugin>:<option key>`, value `"true"`): a `switch`
+     * is on when its key is `"true"` there; a `select` uses the first of its keys that is `"true"`
+     * there, else its first key. When an option key appears under several plugin prefixes, the
+     * prefix that names the most option keys of this pack wins. The compiler overlays
      * [com.hexnext.engine.compile.ThemeSpec.elementOptions] on these, so a pack whose only
      * Settings icons live under `settingsicon-1sett` still themes the dashboard by default.
      */
     public val defaultOptions: Map<String, String> by lazy {
-        options.filter { it.type == PackOption.SELECT }.mapNotNull { it.keys.firstOrNull() }.associateWith { "true" }
+        val optionKeys = options.flatMapTo(HashSet()) { if (it.type == PackOption.SELECT) it.keys else listOfNotNull(it.key) }
+        val byPrefix = LinkedHashMap<String, MutableMap<String, String>>()
+        for ((name, value) in settings) {
+            val sep = name.indexOf(':')
+            if (sep <= 0) continue
+            val key = name.substring(sep + 1)
+            if (key !in optionKeys) continue
+            val text = (value as? JsonPrimitive)?.content ?: continue
+            byPrefix.getOrPut(name.substring(0, sep)) { LinkedHashMap() }[key] = text
+        }
+        val ranked: List<Map<String, String>> = byPrefix.entries
+            .sortedWith(compareByDescending<Map.Entry<String, Map<String, String>>> { it.value.size }.thenBy { it.key })
+            .map { it.value }
+        val result = LinkedHashMap<String, String>()
+        for (option in options) {
+            when (option.type) {
+                PackOption.SELECT -> {
+                    val chosen = ranked.firstNotNullOfOrNull { values -> option.keys.firstOrNull { values[it] == "true" } }
+                    (chosen ?: option.keys.firstOrNull())?.let { result[it] = "true" }
+                }
+                PackOption.SWITCH -> {
+                    val key = option.key
+                    if (key != null && ranked.firstNotNullOfOrNull { it[key] } == "true") result[key] = "true"
+                }
+            }
+        }
+        result
     }
 
     public companion object {
@@ -175,10 +207,37 @@ public object PackReader {
     /** Reads `pack.json` from the pack [zipFile]. */
     public fun read(zipFile: File): Pack = String(openLayer(zipFile, PACK_JSON), Charsets.UTF_8).let(::parse)
 
-    /** Returns the bytes of the zip entry [path] (e.g. `layers/once/base/xx1/qs/foo.png`). */
+    /**
+     * Largest inflated size accepted for one zip entry. Real layers and `pack.json` are a few MB
+     * at most; the cap stops a hostile zip from inflating past the heap.
+     */
+    public const val MAX_ENTRY_BYTES: Int = 32 * 1024 * 1024
+
+    /**
+     * Returns the bytes of the zip entry [path] (e.g. `layers/once/base/xx1/qs/foo.png`).
+     *
+     * @throws PackFormatException when the entry is missing or inflates past [MAX_ENTRY_BYTES].
+     */
     public fun openLayer(zip: File, path: String): ByteArray = withZip(zip) { z ->
         val entry = z.getEntry(path) ?: throw PackFormatException("$path not found in ${zip.name}")
-        z.getInputStream(entry).use { it.readBytes() }
+        if (entry.size > MAX_ENTRY_BYTES) throw PackFormatException("$path in ${zip.name} is too large (${entry.size} bytes)")
+        z.getInputStream(entry).use { input -> readBounded(input, MAX_ENTRY_BYTES) }
+            ?: throw PackFormatException("$path in ${zip.name} inflates past $MAX_ENTRY_BYTES bytes")
+    }
+
+    /** Reads [input] to the end, or returns null as soon as it yields more than [limit] bytes. */
+    internal fun readBounded(input: InputStream, limit: Int): ByteArray? {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            total += n
+            if (total > limit) return null
+            out.write(buffer, 0, n)
+        }
+        return out.toByteArray()
     }
 
     /** Returns the names of all file entries in [zip]; pass to [LayerPlanner.plan] as `entryNames`. */

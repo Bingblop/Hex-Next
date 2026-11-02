@@ -113,17 +113,28 @@ object SemWtController {
         // state-file write truncates the file in place.
         stopGuard(service, log)
         if (state.records.isEmpty()) return
-        val write = service.writeStateFile(SemWtGuardScript.FILE_NAME, SemWtGuardScript.text(state))
+        val text = SemWtGuardScript.text(state)
+        val write = service.writeStateFile(SemWtGuardScript.FILE_NAME, text)
         if (write.code() != 0) {
             log(LogLine(LogLevel.WARN, "SemWT guard not written: ${write.output()}"))
             return
         }
-        val start = service.exec(SemWtGuardScript.startCommand())
+        // Root runs the text held here, not the copy in the shell-owned state directory (kept for
+        // diagnostics), which a uid 2000 process could swap between the write and the run.
+        val start = service.exec(guardStartCommand(text))
         if (start.code() == 0) {
             log(LogLine(LogLevel.INFO, "SemWT guard watching ${state.records.size} targets (${SemWtGuardScript.PATH})"))
         } else {
             log(LogLine(LogLevel.WARN, "SemWT guard did not start: exit ${start.code()} ${start.output()}"))
         }
+    }
+
+    /** Like [SemWtGuardScript.startCommand], but runs [text] inline (`sh -c`) with `$0` = the script name. */
+    private fun guardStartCommand(text: String): String {
+        val script = ThemeService.inlineScript(text, SemWtGuardScript.FILE_NAME, SemWtGuardScript.DEFAULT_INTERVAL.toString())
+        return "if command -v setsid >/dev/null 2>&1; then " +
+            "nohup setsid $script >/dev/null 2>&1 & " +
+            "else nohup $script >/dev/null 2>&1 & fi"
     }
 
     fun stopGuard(service: IThemeService, log: (LogLine) -> Unit) {
@@ -138,10 +149,26 @@ object SemWtController {
     fun reassert(service: IThemeService, log: (LogLine) -> Unit, restartGuard: Boolean = true): Int {
         val state = readState(service, log)
         if (state.records.isEmpty()) return 0
-        val commands = SemWtPlanner.reassert(state, listOverlays(service))
-        val ok = run(service, commands, log)
-        if (commands.isNotEmpty()) {
-            log(LogLine(LogLevel.INFO, "Re-asserted Hex overlays over ${commands.size / 2} re-enabled SemWT overlays"))
+        val before = listOverlays(service)
+        // Several records can share one Hex overlay (android, MonetPalette and G_MonetPalette all
+        // use HexNext_android), and a list read before the SemWT disables still shows SemWT above
+        // ours. So: run the SemWT disables first, read the list again, then raise each Hex overlay
+        // at most once. Every raise of the framework overlay restarts the whole UI.
+        val semwtDisables = state.records.map { it.semwtId }.filter(SemWtPlanner::isSafeId)
+            .mapTo(HashSet()) { SemWtPlanner.disable(it) }
+        val planned = SemWtPlanner.reassert(state, before)
+        val disables = planned.filter { it in semwtDisables }.distinct()
+        var ok = run(service, disables, log)
+        val after = if (disables.isEmpty()) before else listOverlays(service).ifEmpty { before }
+        val raises = SemWtPlanner.reassert(state, after).filterNot { it in semwtDisables }.distinct()
+        ok += run(service, raises, log)
+        if (disables.isNotEmpty() || raises.isNotEmpty()) {
+            log(
+                LogLine(
+                    LogLevel.INFO,
+                    "Re-asserted Hex overlays: disabled ${disables.size} re-enabled SemWT overlays, raised ${raises.size / 2} Hex overlays",
+                ),
+            )
         }
         if (restartGuard) startGuard(service, state, log)
         return ok

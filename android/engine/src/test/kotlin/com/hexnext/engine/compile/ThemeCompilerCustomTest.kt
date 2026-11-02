@@ -123,6 +123,25 @@ class ThemeCompilerCustomTest {
     }
 
     @Test
+    fun `custom icon on a resource the pack themes only at night also gets day jobs`() {
+        val nightOnly = pack(
+            "icons-night",
+            listOf(layer("settingsicon_night", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("sec_ic_settings_battery"))),
+            palette = mapOf("xx3" to "#FF654321"),
+        )
+        val resolver = InMemoryPackResolver(listOf(nightOnly))
+        val base = baseSpec.copy(simplePackId = "icons-night", synthesizeMissingIcons = false)
+        // The pack alone themes the battery row in dark mode only.
+        val packOnly = compile(base, resolver).target(settings)!!
+        assertEquals(setOf("night-xxhdpi", "night-xxxhdpi"), packOnly.drawables.named("sec_ic_settings_battery").map { it.configuration }.toSet())
+
+        val spec = base.copy(customIcons = mapOf("$settings:drawable/sec_ic_settings_battery" to "bat-00000001.png"))
+        val jobs = compile(spec, resolver).target(settings)!!.drawables.named("sec_ic_settings_battery")
+        assertEquals(setOf("xxhdpi", "xxxhdpi", "night-xxhdpi", "night-xxxhdpi"), jobs.map { it.configuration }.toSet())
+        assertTrue(jobs.all { it.custom == "bat-00000001.png" && it.elementId == "settings_icons" })
+    }
+
+    @Test
     fun `custom icon keeps a night configuration when the THEME table read drops night variants`() {
         // drawable-xxhdpi and drawable-night-xxhdpi, read the way the app reads target tables.
         val b = ArscTestBuilder(settings)

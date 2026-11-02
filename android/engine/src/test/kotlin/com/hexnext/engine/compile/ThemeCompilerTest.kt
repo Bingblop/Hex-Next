@@ -298,6 +298,98 @@ class ThemeCompilerTest {
     }
 
     @Test
+    fun `Android release categories apply and the newest release wins`() {
+        val versioned = pack(
+            "versioned-1",
+            listOf(
+                layer("settingsicon", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("ic_settings_wifi")),
+                layer("settingsiconHr", "base", Tint(Tint.SLOT, slot = "xx2"), listOf("ic_settings_wifi", "ic_settings_display")),
+                layer("settingsiconHp", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("ic_settings_wifi")),
+                layer("drawable-xxhdpi-v26#r", "base", Tint(Tint.SLOT, slot = "xx4"), listOf("account_radio_check")),
+            ),
+        )
+        val t = compile(baseSpec.copy(simplePackId = "versioned-1"), InMemoryPackResolver(listOf(versioned))).target(settings)!!
+        val day = t.drawables.filter { "night" !in it.configuration }
+        assertEquals(setOf("settingsiconHr"), day.filter { it.resourceName.endsWith("/ic_settings_wifi") }.map { it.source.category }.toSet())
+        assertTrue(day.any { it.resourceName.endsWith("/ic_settings_display") && it.source.category == "settingsiconHr" })
+        assertTrue(t.drawables.any { it.resourceName.endsWith("/account_radio_check") && it.source.category == "drawable-xxhdpi-v26#r" })
+    }
+
+    @Test
+    fun `the higher v-sdk category wins over legacy v4 and v8 artwork`() {
+        val legacy = pack(
+            "legacy-1",
+            listOf(
+                layer("drawable-xxhdpi-v26", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("account_radio_check")),
+                layer("drawable-xxhdpi-v4", "base", Tint(Tint.SLOT, slot = "xx2"), listOf("account_radio_check")),
+                layer("drawable-night-xxhdpi-v26", "base", Tint(Tint.SLOT, slot = "xx3"), listOf("account_radio_check")),
+                layer("drawable-night-xxhdpi-v8", "base", Tint(Tint.SLOT, slot = "xx4"), listOf("account_radio_check")),
+            ),
+        )
+        val t = compile(baseSpec.copy(simplePackId = "legacy-1"), InMemoryPackResolver(listOf(legacy))).target(settings)!!
+        val radio = t.drawables.filter { it.resourceName.endsWith("/account_radio_check") }
+        val day = radio.filter { "night" !in it.configuration }
+        val night = radio.filter { "night" in it.configuration }
+        assertTrue(day.isNotEmpty())
+        assertTrue(night.isNotEmpty())
+        assertEquals(setOf("drawable-xxhdpi-v26"), day.map { it.source.category }.toSet())
+        assertEquals(setOf("drawable-night-xxhdpi-v26"), night.map { it.source.category }.toSet())
+    }
+
+    @Test
+    fun `recoloured RGB8 colours with a cleared alpha byte stay opaque`() {
+        val semwt = FrroReader.read(
+            FrroWriter("android", "SemWT_$settings", settings)
+                .setResourceValue("color/dashboard_tint", 0x1d, ref("system_accent1_500") and 0x00FFFFFF)
+                .toByteArray(),
+        )
+        val dev = device(mapOf(settings to TargetSnapshot(settings, installed = true, table = settingsTable, semwt = semwt)))
+        val t = compile(dev = dev).target(settings)!!
+        assertEquals(resolved.light.shade(PaletteRole.ACCENT1, 500), t.color("dashboard_tint")!!.argb)
+        assertEquals(0xFF, t.color("dashboard_tint")!!.argb ushr 24)
+        assertNull(t.reason("$settings:color/dashboard_tint"))
+    }
+
+    @Test
+    fun `pack defaults follow the plugin settings`() {
+        val p = iconPack.copy(
+            id = "settings-1",
+            options = listOf(
+                com.hexnext.engine.pack.PackOption("select", "Dashboard icon style", keys = listOf("1sett", "2sett")),
+                com.hexnext.engine.pack.PackOption("switch", "Frame", key = "settframe"),
+                com.hexnext.engine.pack.PackOption("switch", "Glow", key = "glow"),
+            ),
+            settings = mapOf(
+                "plug:2sett" to kotlinx.serialization.json.JsonPrimitive("true"),
+                "plug:settframe" to kotlinx.serialization.json.JsonPrimitive("true"),
+                "plug:glow" to kotlinx.serialization.json.JsonPrimitive("false"),
+                "settframe" to kotlinx.serialization.json.JsonPrimitive("false"),
+                "other:1sett" to kotlinx.serialization.json.JsonPrimitive("true"),
+            ),
+        )
+        // "plug" names the most option keys, so its 2sett beats the other plugin's 1sett.
+        assertEquals(mapOf("2sett" to "true", "settframe" to "true"), p.defaultOptions)
+        val select = p.options[0]
+        assertEquals("2sett", PackOptions.value(baseSpec, p, select, "settings_icons"))
+    }
+
+    @Test
+    fun `the exact-name pack resource wins over aliases renamed onto it`() {
+        val rules = OneUiRules.load(9)
+        assertEquals("drawable/sec_ic_settings_themes", rules.rename("drawable/sec_ic_themes"))
+        val themesPack = pack(
+            "themes-1",
+            listOf(layer("settingsicon", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("ic_theme", "sec_ic_settings_themes", "sec_ic_themes"))),
+        )
+        val oneUi9Settings = table(settings, listOf("dashboard_tint"), mapOf("sec_ic_settings_themes" to listOf(0)))
+        val dev = device(mapOf(settings to TargetSnapshot(settings, installed = true, table = oneUi9Settings, semwt = settingsSemwt)))
+        val t = compile(baseSpec.copy(simplePackId = "themes-1"), InMemoryPackResolver(listOf(themesPack)), rules, dev).target(settings)!!
+        val themes = t.drawables.filter { it.resourceName.endsWith("/sec_ic_settings_themes") }
+        assertTrue(themes.isNotEmpty())
+        assertTrue(themes.all { it.source.resourceName == "sec_ic_settings_themes" }, themes.map { it.source }.toString())
+    }
+
+    @Test
     fun `One UI 9 renames legacy Settings icon names onto the dashboard rows`() {
         val rules = OneUiRules.load(9)
         assertEquals("drawable/sec_ic_settings_display", rules.rename("drawable/ic_settings_display"))

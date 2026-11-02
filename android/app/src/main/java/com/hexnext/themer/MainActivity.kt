@@ -1,6 +1,7 @@
 package com.hexnext.themer
 
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -24,8 +25,14 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
-    /** Samsung One UI 7+ on Android 15+; anything else gets [BlockedScreen] and no view model. */
-    private val compat: Compatibility by lazy { CompatibilityCheck.check() }
+    /**
+     * Samsung One UI 7+ on Android 15+; anything else gets [BlockedScreen] and no view model.
+     * A non-Samsung phone is turned away on the manufacturer alone, before the One UI properties
+     * are read: there they are all unset, and reading them can start getprop on this main thread.
+     */
+    private val compat: Compatibility by lazy {
+        if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) Compatibility.NotOneUi else CompatibilityCheck.check()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

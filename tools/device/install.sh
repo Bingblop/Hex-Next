@@ -2,19 +2,24 @@
 # Hex Next: install the pinned CI debug build (root required).
 # Downloads the GitHub Actions artifact, checks its SHA-256 against the value the GitHub
 # artifacts API reported, installs it with `pm install -r` (keeps app data), then prints
-# the installed version. Exits non-zero when pm rejects the APK. CI pins one debug keystore
-# across runs (android.yml), so test builds update in place. A build signed with another key
-# (one made before the key was pinned, or a local build) fails with
-# INSTALL_FAILED_UPDATE_INCOMPATIBLE and needs `pm uninstall` first (loses app data).
+# the installed version. Exits non-zero when pm rejects the APK. Test builds update in place
+# only when they are signed with the pinned CI debug key (android.yml: the
+# HEXNEXT_DEBUG_KEYSTORE_BASE64 secret or the cached pin whose certificate is in
+# debug-keystore.sha256). A build signed with another key (a run that generated its own key, or
+# a local build) fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE and needs `pm uninstall` first
+# (loses app data). No CI run is signed with a pinned key yet, so there is no default pin: pin a
+# run only once debug-keystore.sha256 holds its certificate, and until then pass RUN_ID and
+# APK_ZIP_SHA256 yourself, knowing the next build will again need an uninstall.
 #
 # Usage (Termux):  sh install.sh
 #   Private repo:  GH_TOKEN=github_pat_... sh install.sh
 #                  (a fine-grained token with read access to Contents and Actions; it is
 #                  used only for the download and never stored)
 #   Overrides:     RUN_ID=... APK_ZIP_SHA256=... sh install.sh
+# When you change the pin, change RUN_ID / APK_ZIP_SHA256 in test-overlay.sh too.
 set -u
-RUN_ID="${RUN_ID:-41435774504}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-77f890b534928401c69f685cda154f31c362819678d029fc6d1e1d431e17cb64}"
+RUN_ID="${RUN_ID:-}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-}"
 ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
 REPO=Bingblop/Hex-Next
 PKG=com.hexnext.themer
@@ -29,6 +34,13 @@ sha256_file() {
   else echo "no-sha256-tool"; fi
 }
 
+if [ -z "$RUN_ID" ] || [ -z "$APK_ZIP_SHA256" ]; then
+  echo "No CI build signed with the pinned debug key is pinned yet, so there is nothing to install by default."
+  echo "Every build so far has its own throwaway key: installing one over another fails, and the"
+  echo "uninstall it then needs deletes Hex Next's themes, packs, AI keys and settings."
+  echo "To install a specific run anyway:  RUN_ID=... APK_ZIP_SHA256=... sh install.sh"
+  exit 1
+fi
 rm -rf "$WORK"; mkdir -p "$WORK" || { echo "cannot create $WORK"; exit 1; }
 if [ -n "${GH_TOKEN:-}" ]; then
   # Private repo: resolve the artifact through the API and follow its signed download URL.
@@ -63,7 +75,11 @@ fi
 (cd "$WORK" && unzip -o -q hexnext-debug.zip) || { echo "unzip failed"; exit 3; }
 APK=$(find "$WORK" -name '*.apk' | head -1)
 [ -n "$APK" ] || { echo "no apk inside zip"; exit 4; }
-OUT=$(su -c "cp '$APK' /data/local/tmp/hexnext-debug.apk && chmod 644 /data/local/tmp/hexnext-debug.apk && pm install -r /data/local/tmp/hexnext-debug.apk" 2>&1)
+# Stream the APK to pm on stdin instead of staging it in the shell-writable /data/local/tmp,
+# where a planted symlink could redirect a root copy and the file could be swapped before pm.
+SIZE=$(wc -c <"$APK" | tr -d ' ')
+case "$SIZE" in ''|*[!0-9]*) echo "cannot read the size of $APK"; exit 4 ;; esac
+OUT=$(su -c "pm install -r -S $SIZE" <"$APK" 2>&1)
 code=$?
 echo "$OUT"
 # pm prints "Success" on success; anything else means the old build (if any) is still installed.

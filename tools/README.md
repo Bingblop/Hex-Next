@@ -53,7 +53,7 @@ argument.
 
 | Script | Purpose |
 |---|---|
-| `install.sh` | Download the pinned CI debug artifact, verify its SHA-256, install with `pm install -r`. `GH_TOKEN` for a private repo; `RUN_ID` and `APK_ZIP_SHA256` to pin another run. |
+| `install.sh` | Download the pinned CI debug artifact, verify its SHA-256, install with `pm install -r`. `GH_TOKEN` for a private repo; `RUN_ID` and `APK_ZIP_SHA256` to pick a run. There is no default pin until a run is signed with the pinned debug key (the `HEXNEXT_DEBUG_KEYSTORE_BASE64` secret, or the cache created by running the Android workflow on the default branch with `bootstrap_debug_keystore`, its certificate committed to `device/debug-keystore.sha256`). |
 | `pack.sh` | Put a pack zip (local path or URL) into the app's pack folder. |
 | `diag.sh` | Read-only diagnostics: One UI version, `SemWT_*` overlays, root and Shizuku state, one sample `.frro`. |
 | `collect.sh` | Collect apply reports, build logs, scan output and overlay state into `hexnext-collect.txt`. |

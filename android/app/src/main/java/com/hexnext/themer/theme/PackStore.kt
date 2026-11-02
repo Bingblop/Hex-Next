@@ -49,6 +49,7 @@ data class CatalogueEntry(
     val file: String,
     val hasSettingsIcons: Boolean,
     val dayNight: Boolean,
+    /** True when a zip with this id and this (or a newer) version is already on the device. */
     val installed: Boolean,
 )
 
@@ -181,8 +182,12 @@ class PackStore(context: Context) {
         } catch (e: PackFormatException) {
             throw IOException("The catalogue index is invalid: ${e.message}", e)
         }
-        val installedIds = installed().packs.mapTo(HashSet()) { it.id }
-        return index.packs.map { it.toEntry(it.id in installedIds) }
+        // An entry counts as installed only when the catalogue does not list a newer version than
+        // the zip on the device; otherwise the row offers the download, which replaces <id>.zip.
+        val installedVersions = installed().packs.associate { it.id to it.version }
+        return index.packs.map { entry ->
+            entry.toEntry(isCatalogueInstalled(entry.version, installedVersions[entry.id]))
+        }
     }
 
     /**
@@ -349,6 +354,32 @@ class PackStore(context: Context) {
     )
 
     companion object {
+        /**
+         * True when [candidate] is a later version than [current]: dot-separated numbers are
+         * compared part by part (a missing part counts as 0); when either has a non-numeric part,
+         * any difference counts as newer.
+         */
+        internal fun isNewerVersion(candidate: String, current: String): Boolean {
+            val a = candidate.trim().split('.').map { it.toIntOrNull() }
+            val b = current.trim().split('.').map { it.toIntOrNull() }
+            if (a.any { it == null } || b.any { it == null }) return candidate.trim() != current.trim()
+            for (i in 0 until maxOf(a.size, b.size)) {
+                val x = a.getOrNull(i) ?: 0
+                val y = b.getOrNull(i) ?: 0
+                if (x != y) return x > y
+            }
+            return false
+        }
+
+        /**
+         * The [CatalogueEntry.installed] flag: true when the device holds the pack
+         * ([installedVersion] non-null) and the catalogue's [catalogueVersion] is not newer, so an
+         * available update keeps its download button. Callers that recompute the flag after a
+         * download, import or delete must use this rather than a plain id check.
+         */
+        fun isCatalogueInstalled(catalogueVersion: String, installedVersion: String?): Boolean =
+            installedVersion != null && !isNewerVersion(catalogueVersion, installedVersion)
+
         /** Catalogue of the `packs` branch of the Hex Next repository. */
         const val DEFAULT_CATALOGUE_URL = "https://raw.githubusercontent.com/Bingblop/Hex-Next/packs/"
 

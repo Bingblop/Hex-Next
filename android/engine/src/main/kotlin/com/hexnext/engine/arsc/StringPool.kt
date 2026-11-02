@@ -103,7 +103,7 @@ internal class ResStringPool private constructor(
             if (len and 0x8000 != 0) {
                 len = ((len and 0x7FFF) shl 16) or data.u16(p); p += 2
             }
-            if (p + len * 2 > chunkEnd) throw ArscFormatException("UTF-16 string overruns pool")
+            if (p.toLong() + len.toLong() * 2 > chunkEnd) throw ArscFormatException("UTF-16 string overruns pool")
             val chars = CharArray(len) { data.u16(p + it * 2).toChar() }
             String(chars)
         }

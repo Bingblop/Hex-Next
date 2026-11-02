@@ -297,6 +297,9 @@ class ThemePreviewer(context: Context) {
             decode(renderer.render(job).png)
         } catch (e: Exception) {
             return null
+        } catch (e: OutOfMemoryError) {
+            // A corrupt or crafted pack layer must cost only its own preview tile, not crash the app.
+            return null
         }
         iconCache.put(key, bitmap)
         return bitmap

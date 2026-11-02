@@ -3,7 +3,8 @@
 
 Reads every pack zip in <in-dir>, rewrites its pack.json with the catalogue id, name and com.hexnext.pack.* package
 (dropping the source plugin's package),
-writes <new-id>.zip into <out-dir> and regenerates index.json there. A zip whose id is
+writes <new-id>.zip into <out-dir> and regenerates index.json there. With <in-dir> == <out-dir>
+the source zip is removed once its renamed copy is written. A zip whose id is
 already a catalogue id is rewritten with duplicate entries removed. A zip whose id is neither
 a mapped source id nor a catalogue id is refused: nothing is written and the tool exits 1,
 so a pack can never ship under its source plugin's id or name. hex_pack_builder.py applies the same mapping
@@ -113,14 +114,22 @@ def main() -> int:
         print(f"refused: {len(unknown)} unmapped pack(s); nothing was written", file=sys.stderr)
         return 1
     out.mkdir(parents=True, exist_ok=True)
-    index, unmapped = [], []
+    in_place = src.resolve() == out.resolve()
+    index: dict[str, dict] = {}
+    unmapped = []
     for path in zips:
         entry, mapped = rename_zip(path, out)
-        index.append(entry)
+        # Two inputs with one catalogue id (a source zip and an earlier rename of it) write the
+        # same <id>.zip; list it once.
+        index[entry["id"]] = entry
         if not mapped:
             unmapped.append(path.name)
         print(f"  {path.name} -> {entry['file']}  ({entry['name']})")
-    index.sort(key=lambda e: e["name"].lower())
+        # With <in-dir> == <out-dir> the source zip would stay next to its renamed copy and
+        # still carry the source plugin's id, name and package; remove it.
+        if in_place and path.resolve() != (out / entry["file"]).resolve():
+            path.unlink()
+    index = sorted(index.values(), key=lambda e: e["name"].lower())
     (out / "index.json").write_text(json.dumps({"format": 1, "packs": index}, indent=1) + "\n")
     # An unmapped pack here carries a catalogue id (checked above; a second pass over the
     # catalogue itself); it is rewritten with duplicate entries removed and reported only.

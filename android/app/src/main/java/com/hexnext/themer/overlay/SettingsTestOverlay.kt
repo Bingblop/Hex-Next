@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import com.hexnext.engine.compile.AccentRecolor
 import com.hexnext.engine.compile.OverlayLookup
+import com.hexnext.engine.compile.TargetResult
 import com.hexnext.engine.device.MappedResource
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.device.ArscReader
@@ -14,15 +15,20 @@ import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.ThemeService
+import com.hexnext.themer.theme.SemWtController
 import com.hexnext.themer.theme.SnapshotBuilder
+import com.hexnext.themer.theme.ThemeApplier
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
- * First real One UI 9 test: one `HexNext_com_android_settings` fabricated overlay plus 3
- * accent-filled PNG icons.
+ * First real One UI 9 test: one `HexNext_com_android_settings` fabricated overlay plus up to
+ * [MAX_DRAWABLES] accent-filled PNG icons.
+ *
+ * That is the overlay name (and saved repair request) a theme uses for Settings, so the test
+ * refuses to run while an applied theme holds it ([themeHoldsSettings]): Remove theme first.
  *
  * The colours are the ones Samsung's theme actually drives: every colour of the Settings SemWT
  * mapping saved by the scan (`files/scan/semwt/com.android.settings.json`), each re-derived from
@@ -39,6 +45,7 @@ import java.io.File
 class SettingsTestOverlay(context: Context) {
 
     private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     /**
      * @property mapping the SemWT colour mappings to recolour (empty in the arsc fallback).
@@ -147,6 +154,13 @@ class SettingsTestOverlay(context: Context) {
             )
             return null
         }
+        if (themeHoldsSettings(service)) {
+            log(
+                "A theme is applied to Settings: the test would replace its ${OverlayBuilder.overlayName(TARGET)} overlay " +
+                    "and the saved request Repair uses. Remove theme first, then run the test."
+            )
+            return null
+        }
         val colors = if (plan.fromSemWt) {
             val reference = SnapshotBuilder.loadSystemShades(appContext) ?: SnapshotBuilder.readSystemShades(appContext)
             if (reference.isEmpty()) log("No system shades available: every colour falls back to the accent.")
@@ -195,6 +209,7 @@ class SettingsTestOverlay(context: Context) {
             log("Lookup before ($PROBE_COLOR): ${before.ifBlank { "(empty)" }}")
         }
 
+        prefs.edit().putLong(KEY_LAST_RUN, System.currentTimeMillis()).apply()
         val result = OverlayBuilder(appContext).apply(service, request, buildLog, log)
 
         if (!plan.probe) {
@@ -214,6 +229,19 @@ class SettingsTestOverlay(context: Context) {
         log("Lookup after: $summary")
         log("Build log: ${result.logFile.path}")
         return result.copy(lookup = summary)
+    }
+
+    /**
+     * True when the last theme apply built Settings after the last test run and its
+     * `HexNext_com_android_settings` is enabled (or the overlay list could not be read).
+     */
+    private fun themeHoldsSettings(service: IThemeService): Boolean {
+        val report = ThemeApplier.lastReport(appContext) ?: return false
+        val themed = report.outcomes.any { it.target == TARGET && (it.result == TargetResult.OK || it.result == TargetResult.PARTIAL) }
+        if (!themed || report.startedAt <= prefs.getLong(KEY_LAST_RUN, 0L)) return false
+        val name = OverlayBuilder.overlayName(TARGET)
+        val overlays = SemWtController.listOverlays(service)
+        return overlays.isEmpty() || overlays.any { it.enabled && it.target == TARGET && it.overlayId.substringAfter(':') == name }
     }
 
     private fun lookup(service: IThemeService, resource: String): String =
@@ -244,6 +272,8 @@ class SettingsTestOverlay(context: Context) {
         const val TARGET = "com.android.settings"
         const val MONITOR_SECONDS = 120
         private const val MAX_COLORS = 10
+        private const val PREFS = "hexnext_settings_test"
+        private const val KEY_LAST_RUN = "lastRunAt"
 
         /** Colour the shell probe proved visible; always set to the plain accent when present. */
         const val PROBE_COLOR = "color/sec_widget_round_and_bgcolor"

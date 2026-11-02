@@ -73,9 +73,19 @@ class SemWtTakeoverTest {
             [x] android:SemWT_com.android.settings
             """.trimIndent(),
         )
+        // SemWT above ours: its disable alone puts ours on top.
+        assertEquals(listOf(disableSem), SemWtPlanner.takeover("com.android.settings", hex, below))
+        val otherAbove = OverlayList.parse(
+            """
+            com.android.settings
+            [x] $hex
+            [x] android:SemWT_com.android.settings
+            [x] com.example:other
+            """.trimIndent(),
+        )
         assertEquals(
             listOf(disableSem, "cmd overlay disable --user current $hex", "cmd overlay enable --user current $hex"),
-            SemWtPlanner.takeover("com.android.settings", hex, below),
+            SemWtPlanner.takeover("com.android.settings", hex, otherAbove),
         )
         assertTrue(SemWtPlanner.takeover("com.android.settings", "x; reboot").isEmpty())
         assertFailsWith<IllegalArgumentException> { SemWtPlanner.enable("a:b c") }
@@ -125,13 +135,28 @@ class SemWtTakeoverTest {
             [x] android:SemWT_android
             """.trimIndent(),
         )
+        // SemWT re-enabled above ours: disabling it is enough, ours is then the top enabled overlay.
+        assertEquals(
+            listOf("cmd overlay disable --user current android:SemWT_android"),
+            SemWtPlanner.reassert(state, reordered),
+        )
+        // Another enabled overlay above ours still needs a raise, once per shared Hex overlay.
+        val shared = state.withTakeover("MonetPalette", "com.android.shell:HexNext_android", semwtEnabledNow = true, now = 12)
+        val otherAbove = OverlayList.parse(
+            """
+            android
+            [x] com.android.shell:HexNext_android
+            [x] android:SemWT_android
+            [x] com.example:other
+            """.trimIndent(),
+        )
         assertEquals(
             listOf(
                 "cmd overlay disable --user current android:SemWT_android",
                 "cmd overlay disable --user current com.android.shell:HexNext_android",
                 "cmd overlay enable --user current com.android.shell:HexNext_android",
             ),
-            SemWtPlanner.reassert(state, reordered),
+            SemWtPlanner.reassert(shared, otherAbove),
         )
         val hexOff = rows.map { if (it.overlayId == "com.android.shell:HexNext_android") it.copy(enabled = false) else it }
         assertTrue(SemWtPlanner.reassert(state, hexOff).isEmpty())
@@ -151,6 +176,11 @@ class SemWtTakeoverTest {
         assertTrue("grep -qxF \"[x] \$hex\"" in text)
         assertTrue("cksum" in text)
         assertTrue("needs_raise \"\$hex\"" in text)
+        // LIST is re-read after the SemWT disable, before the raise check.
+        val disableSem = text.indexOf("cmd overlay disable --user current \"\$sem\"")
+        val raiseCheck = text.indexOf("needs_raise \"\$hex\"")
+        assertTrue(disableSem in 0 until raiseCheck)
+        assertTrue("list_overlays" in text.substring(disableSem, raiseCheck))
         assertFalse("set-priority" in text)
     }
 

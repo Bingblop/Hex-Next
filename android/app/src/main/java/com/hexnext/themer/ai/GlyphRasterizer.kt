@@ -2,7 +2,6 @@ package com.hexnext.themer.ai
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
@@ -64,6 +63,9 @@ object GlyphRasterizer {
             }
             val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             var drawn = 0
+            // Paths that were actually painted: a path whose fill and stroke are both unreadable
+            // (or "none") draws nothing, and a glyph of only such paths would be a blank icon.
+            var painted = 0
             for (element in paths) {
                 if (drawn >= MAX_PATHS) break
                 val entry = element as? JsonObject ?: continue
@@ -82,6 +84,7 @@ object GlyphRasterizer {
                     paint.color = fill
                     canvas.drawPath(path, paint)
                 }
+                if (fill != null || stroke != null) painted++
                 if (stroke != null) {
                     paint.style = Paint.Style.STROKE
                     paint.strokeWidth = ((strokeWidth ?: 2f).coerceIn(0.25f, 32f)) * scale
@@ -93,6 +96,7 @@ object GlyphRasterizer {
                 drawn++
             }
             if (drawn == 0) throw AiProviderException("The glyph had no drawable paths.")
+            if (painted == 0) throw AiProviderException("The glyph's colours could not be read, so it would be blank. Try again.")
             val out = ByteArrayOutputStream(size * size / 2)
             if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) throw AiProviderException("The glyph could not be encoded as PNG.")
             return out.toByteArray()
@@ -140,19 +144,72 @@ object GlyphRasterizer {
     }
 
     /**
-     * `#RRGGBB` / `#AARRGGBB` / `#RGB` or a CSS colour name (`white`) → ARGB; missing → [default];
-     * `"currentColor"` → the default foreground blue. `"none"`, `"transparent"` and anything else
-     * that cannot be read → null (not painted), so an outline answered with `"fill":"transparent"`
-     * stays an outline instead of turning into a solid blue shape.
+     * `#RRGGBB` / `#RRGGBBAA` / `#RGB` / `#RGBA` or a CSS colour name (`white`) → ARGB (see
+     * [parseCssHex]); key missing → [default]; `"currentColor"` → the default foreground blue.
+     * `null`, `"none"`, `"transparent"` and anything else that cannot be read → null (not
+     * painted), so an outline answered with `"fill":null` or `"fill":"transparent"` stays an
+     * outline instead of turning into a solid blue shape.
      */
     private fun colorOf(element: kotlinx.serialization.json.JsonElement?, default: Int?): Int? {
-        val text = (element as? JsonPrimitive)?.contentOrNull()?.trim() ?: return default
+        if (element == null) return default
+        val text = (element as? JsonPrimitive)?.contentOrNull()?.trim() ?: return null
         if (text.isEmpty() || text.equals("none", ignoreCase = true) || text.equals("transparent", ignoreCase = true)) return null
         if (text.equals("currentColor", ignoreCase = true)) return DEFAULT_FILL
-        Pack.parseColor(text)?.let { return it }
-        // Named colours (white, black, red, grey...); Color.parseColor throws for unknown names.
-        if (!text.all { it.isLetter() }) return null
-        return runCatching { Color.parseColor(text.lowercase()) }.getOrNull()
+        parseCssHex(text)?.let { return it }
+        // Named colours: the full CSS table, since Color.parseColor knows only about 20 names
+        // and throws for orange, pink, gold, brown and the rest.
+        return CSS_NAMED_COLORS[text.lowercase()]
+    }
+
+    /** The CSS Color Module named colours (148, grey spellings included) as opaque ARGB. */
+    private val CSS_NAMED_COLORS: Map<String, Int> = """
+        aliceblue F0F8FF antiquewhite FAEBD7 aqua 00FFFF aquamarine 7FFFD4 azure F0FFFF
+        beige F5F5DC bisque FFE4C4 black 000000 blanchedalmond FFEBCD blue 0000FF blueviolet 8A2BE2
+        brown A52A2A burlywood DEB887 cadetblue 5F9EA0 chartreuse 7FFF00 chocolate D2691E
+        coral FF7F50 cornflowerblue 6495ED cornsilk FFF8DC crimson DC143C cyan 00FFFF
+        darkblue 00008B darkcyan 008B8B darkgoldenrod B8860B darkgray A9A9A9 darkgreen 006400
+        darkgrey A9A9A9 darkkhaki BDB76B darkmagenta 8B008B darkolivegreen 556B2F darkorange FF8C00
+        darkorchid 9932CC darkred 8B0000 darksalmon E9967A darkseagreen 8FBC8F darkslateblue 483D8B
+        darkslategray 2F4F4F darkslategrey 2F4F4F darkturquoise 00CED1 darkviolet 9400D3
+        deeppink FF1493 deepskyblue 00BFFF dimgray 696969 dimgrey 696969 dodgerblue 1E90FF
+        firebrick B22222 floralwhite FFFAF0 forestgreen 228B22 fuchsia FF00FF gainsboro DCDCDC
+        ghostwhite F8F8FF gold FFD700 goldenrod DAA520 gray 808080 green 008000 greenyellow ADFF2F
+        grey 808080 honeydew F0FFF0 hotpink FF69B4 indianred CD5C5C indigo 4B0082 ivory FFFFF0
+        khaki F0E68C lavender E6E6FA lavenderblush FFF0F5 lawngreen 7CFC00 lemonchiffon FFFACD
+        lightblue ADD8E6 lightcoral F08080 lightcyan E0FFFF lightgoldenrodyellow FAFAD2
+        lightgray D3D3D3 lightgreen 90EE90 lightgrey D3D3D3 lightpink FFB6C1 lightsalmon FFA07A
+        lightseagreen 20B2AA lightskyblue 87CEFA lightslategray 778899 lightslategrey 778899
+        lightsteelblue B0C4DE lightyellow FFFFE0 lime 00FF00 limegreen 32CD32 linen FAF0E6
+        magenta FF00FF maroon 800000 mediumaquamarine 66CDAA mediumblue 0000CD mediumorchid BA55D3
+        mediumpurple 9370DB mediumseagreen 3CB371 mediumslateblue 7B68EE mediumspringgreen 00FA9A
+        mediumturquoise 48D1CC mediumvioletred C71585 midnightblue 191970 mintcream F5FFFA
+        mistyrose FFE4E1 moccasin FFE4B5 navajowhite FFDEAD navy 000080 oldlace FDF5E6 olive 808000
+        olivedrab 6B8E23 orange FFA500 orangered FF4500 orchid DA70D6 palegoldenrod EEE8AA
+        palegreen 98FB98 paleturquoise AFEEEE palevioletred DB7093 papayawhip FFEFD5
+        peachpuff FFDAB9 peru CD853F pink FFC0CB plum DDA0DD powderblue B0E0E6 purple 800080
+        rebeccapurple 663399 red FF0000 rosybrown BC8F8F royalblue 4169E1 saddlebrown 8B4513
+        salmon FA8072 sandybrown F4A460 seagreen 2E8B57 seashell FFF5EE sienna A0522D silver C0C0C0
+        skyblue 87CEEB slateblue 6A5ACD slategray 708090 slategrey 708090 snow FFFAFA
+        springgreen 00FF7F steelblue 4682B4 tan D2B48C teal 008080 thistle D8BFD8 tomato FF6347
+        turquoise 40E0D0 violet EE82EE wheat F5DEB3 white FFFFFF whitesmoke F5F5F5 yellow FFFF00
+        yellowgreen 9ACD32
+    """.trim().split(Regex("\\s+")).chunked(2).associate { (name, hex) ->
+        name to (0xFF000000.toInt() or hex.toInt(16))
+    }
+
+    /**
+     * A hex colour as models write it in SVG and CSS: `#RRGGBB`, `#RGB`, and with alpha last,
+     * `#RRGGBBAA` / `#RGBA` (so `#FFFFFF66` is white at 40 %, not opaque pale yellow) → ARGB;
+     * null when it is not a hex colour. Leading `#` optional.
+     */
+    internal fun parseCssHex(text: String): Int? {
+        val hex = text.trim().removePrefix("#")
+        val argb = when (hex.length) {
+            8 -> hex.substring(6) + hex.substring(0, 6)
+            4 -> hex.substring(3) + hex.substring(0, 3)
+            else -> hex
+        }
+        return Pack.parseColor(argb)
     }
 
     private const val DEFAULT_FILL: Int = 0xFF3E91FF.toInt()

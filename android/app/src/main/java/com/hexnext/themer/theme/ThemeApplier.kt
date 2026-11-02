@@ -29,6 +29,7 @@ import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.MonitorScript
 import com.hexnext.themer.shizuku.ThemeService
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 
 /**
@@ -45,7 +46,9 @@ import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
  * puts an overlay on top on every enable), then verify with `cmd overlay lookup` that the first
  * plain colour resolves to the value set (a mismatch makes the target PARTIAL). A failing target
  * is recorded and the next one is built. A final pass disables any SemWT overlay of a themed
- * target that is still enabled. The SemWT state is saved and the re-assert guard started.
+ * target that is still enabled, and [retireUnbuilt] takes an earlier theme's overlay and SemWT
+ * takeover off the targets this one no longer builds. The SemWT state is saved and the re-assert
+ * guard started.
  *
  * The [ApplyReport] in `files/reports/apply-last.json` is written when the apply starts (status
  * `started`, then with the compiled target list), after every target (`running`, with the
@@ -72,6 +75,12 @@ class ThemeApplier(context: Context) {
 
     fun apply(service: IThemeService, spec: EngineThemeSpec, log: (LogLine) -> Unit): ApplyReport {
         val started = System.currentTimeMillis()
+        val generation = APPLY_GENERATION.incrementAndGet()
+        // A post-apply trip handler already running for the previous apply finishes first, so it
+        // cannot unregister or bury the overlays this apply builds; one not yet started sees the
+        // new generation and does nothing.
+        synchronized(TRIP_LOCK) {}
+        var monitorStartedAt = 0L
         val buildLog = BuildLog(appContext)
         val notes = ArrayList<String>()
         val outcomes = ArrayList<TargetOutcome>()
@@ -114,8 +123,15 @@ class ThemeApplier(context: Context) {
 
         progress(ApplyReport.STATUS_STARTED)
         return try {
-            applyAll(service, spec, buildLog, log, ::say, ::note, notes, outcomes, { status, left -> pending = left; progress(status) }) { semwt = it }
-            finish()
+            applyAll(
+                service, spec, buildLog, log, ::say, ::note, notes, outcomes,
+                { status, left -> pending = left; progress(status) },
+                { at -> monitorStartedAt = at },
+            ) { semwt = it }
+            val report = finish()
+            // The monitor keeps watching after this returns; a trip then must reach the app too.
+            if (monitorStartedAt > 0L) watchMonitorAfterApply(service, generation, monitorStartedAt, report, log)
+            report
         } catch (t: Throwable) {
             // OutOfMemoryError included: the snapshot, compiled theme and bitmaps are only
             // referenced from applyAll's frame, which is gone here, so there is room to record it.
@@ -153,6 +169,7 @@ class ThemeApplier(context: Context) {
         notes: MutableList<String>,
         outcomes: MutableList<TargetOutcome>,
         onProgress: (status: String, pending: List<String>) -> Unit,
+        onMonitor: (startedAt: Long) -> Unit,
         onSemWt: (SemWtState) -> Unit,
     ) {
         say(LogLevel.INFO, "Applying theme \"${spec.name}\" (${spec.id})", emptyMap())
@@ -248,6 +265,7 @@ class ThemeApplier(context: Context) {
         if (EarlyRecoveryHook.install(service) == false) {
             note(LogLevel.WARN, "Early root recovery hook could not be installed")
         }
+        val monitorAt = System.currentTimeMillis()
         val monitor = service.startStabilityMonitor(MONITOR_SECONDS)
         say(LogLevel.INFO, "Stability monitor: ${monitor.output()}", emptyMap())
 
@@ -258,6 +276,7 @@ class ThemeApplier(context: Context) {
         // Only a monitor this apply started cleared the old safe_mode.json; without one, a file
         // left by an earlier apply would stop this one for nothing.
         val watched = monitor.code() == 0
+        if (watched) onMonitor(monitorAt)
         var tripped = false
         DrawableRenderer(packs, CustomAssetStore.rootDir(appContext), IconSynthesizer(appContext)).use { renderer ->
             compiled.targets.forEachIndexed { index, target ->
@@ -281,6 +300,16 @@ class ThemeApplier(context: Context) {
         if (tripped || (watched && monitorTripped(service))) stopAfterSafeMode(service, log, note, onSemWt, semwt)
         ensureSemWtDisabled(service, outcomes, owner, before, log, persistTakeover)?.let { note(LogLevel.WARN, it) }
         if (watched && monitorTripped(service)) stopAfterSafeMode(service, log, note, onSemWt, semwt)
+        // Targets this theme no longer builds (deprecated, switched off, not installed, compiled
+        // empty) must not keep an earlier theme's overlay, nor have SemWT forced off by the guard.
+        // SKIPPED (the shell tier: "needs root") built nothing either, so a root theme applied
+        // earlier is taken off those targets instead of staying on under this theme's name.
+        val built = outcomes.filter { it.result != TargetResult.EMPTY && it.result != TargetResult.SKIPPED }.mapTo(HashSet()) { it.target }
+        val retired = retireUnbuilt(service, built, semwt, log, note)
+        if (retired != semwt) {
+            semwt = retired
+            onSemWt(semwt)
+        }
 
         if (!SemWtController.writeState(service, semwt)) {
             note(LogLevel.WARN, "Could not save ${SemWtState.FILE_NAME}; removal cannot restore SemWT overlays automatically.")
@@ -324,6 +353,10 @@ class ThemeApplier(context: Context) {
         if (!capability.canApplyDrawables) {
             // The font module lives under /data and is bound as root; the shell can neither install nor remove it.
             if (font != null) note(LogLevel.WARN, "Font \"${font.displayName}\" needs root; the system font was left unchanged")
+            // Without a font in this theme, a font an earlier (root) apply bound stays: say so.
+            if (font == null && runCatching { FontInstaller(service).hasState() }.getOrDefault(false)) {
+                note(LogLevel.WARN, "The font of an earlier theme is still installed; removing it needs root (start Shizuku as root and apply or remove again)")
+            }
             return
         }
         val installer = FontInstaller(service)
@@ -555,6 +588,9 @@ class ThemeApplier(context: Context) {
      * palette was put back (or never changed) and no Hex Next font is left installed.
      */
     fun remove(service: IThemeService, log: (LogLine) -> Unit): Boolean {
+        // Ends the post-apply monitor watch: a trip after Remove has nothing left to turn off.
+        APPLY_GENERATION.incrementAndGet()
+        synchronized(TRIP_LOCK) {}
         val buildLog = BuildLog(appContext)
         val say: (LogLevel, String) -> Unit = { level, text ->
             log(LogLine(level, text))
@@ -660,6 +696,85 @@ class ThemeApplier(context: Context) {
             }
         }
         return if (stillOn.isEmpty()) null else "Still enabled after the apply: ${stillOn.joinToString()}"
+    }
+
+    /**
+     * After all targets: turns off what an earlier apply left for the targets this one did not
+     * build ([built]: the targets with an outcome other than EMPTY; deprecated, switched-off or
+     * missing targets never get one). Every enabled `HexNext_<target>` of another target is
+     * disabled, and every SemWT record whose Hex overlay is no longer enabled is handed back: its
+     * SemWT overlay is re-enabled when it was enabled before the takeover, and the record dropped,
+     * so the guard stops turning Samsung's overlay off. A record is kept when its Hex overlay
+     * could not be disabled or its SemWT overlay could not be re-enabled (Remove retries it).
+     * Returns the updated state.
+     */
+    private fun retireUnbuilt(
+        service: IThemeService,
+        built: Set<String>,
+        semwt: SemWtState,
+        log: (LogLine) -> Unit,
+        note: (LogLevel, String) -> Unit,
+    ): SemWtState {
+        val now = SemWtController.listOverlays(service)
+        if (now.isEmpty()) {
+            note(LogLevel.WARN, "Could not list overlays; overlays an earlier theme left on apps this theme does not cover were not checked.")
+            return semwt
+        }
+        // The Monet palette pseudo-targets ride on the android overlay (see ensureSemWtDisabled).
+        val keep = HashSet(built)
+        if ("android" in built) {
+            OneUi9Facts.MONET_PALETTE_OVERLAYS.forEach { keep += it.removePrefix(OneUi9Facts.SEMWT_PREFIX) }
+        }
+        val stale = now.filter { entry ->
+            entry.enabled && entry.target.isNotEmpty() && entry.target !in built &&
+                entry.overlayId.substringAfter(':') == OverlayBuilder.overlayName(entry.target) &&
+                SemWtPlanner.isSafeId(entry.overlayId)
+        }
+        val enabled = now.filter { it.enabled }.mapTo(HashSet()) { it.overlayId }
+        val turnedOff = ArrayList<String>()
+        val stillOn = ArrayList<String>()
+        for (entry in stale) {
+            if (SemWtController.run(service, listOf(SemWtPlanner.disable(entry.overlayId)), log) == 1) {
+                enabled -= entry.overlayId
+                turnedOff += entry.target
+                log(LogLine(LogLevel.INFO, "${entry.target}: not in this theme; turned off ${entry.overlayId}"))
+            } else {
+                stillOn += entry.overlayId
+            }
+        }
+        val handBack = semwt.records.filter { it.target !in keep && it.hexOverlayId !in enabled }
+        val retired = HashSet<String>()
+        val failedSemWt = HashSet<String>()
+        val restored = HashSet<String>()
+        for (record in handBack) {
+            if (record.wasEnabled && SemWtPlanner.isSafeId(record.semwtId) && record.semwtId !in restored) {
+                if (record.semwtId in failedSemWt ||
+                    SemWtController.run(service, listOf(SemWtPlanner.enable(record.semwtId)), log) != 1
+                ) {
+                    failedSemWt += record.semwtId
+                    continue
+                }
+                restored += record.semwtId
+            }
+            retired += record.target
+        }
+        if (turnedOff.isNotEmpty() || restored.isNotEmpty()) {
+            note(
+                LogLevel.INFO,
+                "Earlier theme taken off apps this theme does not cover: " +
+                    (if (turnedOff.isEmpty()) "" else "${turnedOff.size} Hex Next overlays turned off (${turnedOff.joinToString()})") +
+                    (if (turnedOff.isNotEmpty() && restored.isNotEmpty()) "; " else "") +
+                    (if (restored.isEmpty()) "" else "${restored.size} Samsung SemWT overlays re-enabled"),
+            )
+        }
+        if (stillOn.isNotEmpty() || failedSemWt.isNotEmpty()) {
+            note(
+                LogLevel.WARN,
+                "Left from an earlier theme on apps this theme does not cover: " +
+                    (stillOn + failedSemWt.map { "$it (still disabled)" }).joinToString() + ". Run Remove theme to clear them.",
+            )
+        }
+        return if (retired.isEmpty()) semwt else semwt.without(retired, System.currentTimeMillis())
     }
 
     /**
@@ -795,6 +910,68 @@ class ThemeApplier(context: Context) {
         runCatching { service.readStateFile(SAFE_MODE_NAME).code() == 0 }.getOrDefault(false)
 
     /**
+     * Keeps polling for this apply's `safe_mode.json` after [apply] returned, until the monitor's
+     * window is over or another apply or a removal starts. Without this a trip after the apply
+     * (the usual case: SystemUI crash-loops once the theme is on) would leave the app saying the
+     * theme is applied and still asking to confirm it.
+     */
+    private fun watchMonitorAfterApply(
+        service: IThemeService,
+        generation: Int,
+        monitorStartedAt: Long,
+        report: ApplyReport,
+        log: (LogLine) -> Unit,
+    ) {
+        val deadline = monitorStartedAt + (MONITOR_SECONDS + WATCH_GRACE_SECONDS) * 1000L
+        val watcher = Thread({ watchMonitorLoop(service, generation, deadline, report, log) }, "hexnext-monitor-watch")
+        watcher.isDaemon = true
+        watcher.start()
+    }
+
+    private fun watchMonitorLoop(
+        service: IThemeService,
+        generation: Int,
+        deadline: Long,
+        report: ApplyReport,
+        log: (LogLine) -> Unit,
+    ) {
+        while (APPLY_GENERATION.get() == generation && System.currentTimeMillis() < deadline) {
+            if (monitorTripped(service)) {
+                // Checked again under the lock: an apply or removal started meanwhile owns the overlays.
+                synchronized(TRIP_LOCK) {
+                    if (APPLY_GENERATION.get() == generation) onTripAfterApply(service, report, log)
+                }
+                return
+            }
+            try {
+                Thread.sleep(WATCH_INTERVAL_MS)
+            } catch (e: InterruptedException) {
+                return
+            }
+        }
+    }
+
+    /**
+     * The monitor fired after the apply finished. It has already turned the HexNext overlays off
+     * (and the SemWT guard gave Samsung's back), so the app follows as safe mode does: the guard
+     * is marked (confirmed, banner on next start), the SemWT record is restored, the takeover flag
+     * cleared and the saved report no longer says the theme is applied.
+     */
+    private fun onTripAfterApply(service: IThemeService, report: ApplyReport, log: (LogLine) -> Unit) {
+        val why = "SystemUI or system_server restarted twice after the apply; the stability monitor turned the theme off."
+        guard.markSafeModeEntered(by = "stability monitor")
+        runCatching { log(LogLine(LogLevel.ERROR, why)) }
+        runCatching { service.disableHexOverlays() }
+        runCatching { SemWtController.restore(service) { line -> if (line.level != LogLevel.INFO) log(line) } }
+        val left = runCatching { SemWtController.readStateChecked(service).state }.getOrNull()
+        // An unreadable record keeps the flag, so Remove theme still knows there is something to restore.
+        setTakeoverActive(appContext, left == null || left.records.isNotEmpty())
+        if (lastReport(appContext)?.startedAt == report.startedAt) {
+            saveReport(report.copy(status = ApplyReport.STATUS_ABORTED, error = why, notes = report.notes + why))
+        }
+    }
+
+    /**
      * The monitor fired during the apply: turns off the HexNext overlays built after it did,
      * gives the SemWT overlays taken over so far back (as the guard would) and ends the apply
      * as aborted, so the report never says success.
@@ -807,6 +984,8 @@ class ThemeApplier(context: Context) {
         semwt: SemWtState,
     ): Nothing {
         val why = "SystemUI or system_server restarted twice during the apply; the stability monitor turned the theme off and the apply was stopped."
+        // As after the apply: the theme is already off, so there is nothing left to confirm.
+        guard.markSafeModeEntered(by = "stability monitor")
         note(LogLevel.ERROR, why)
         val disabled = runCatching { service.disableHexOverlays() }.getOrNull()
         if (disabled == null || disabled.code() != 0) {
@@ -827,6 +1006,19 @@ class ThemeApplier(context: Context) {
 
     companion object {
         const val MONITOR_SECONDS = 120
+
+        /** Poll interval and slack after the monitor window for [watchMonitorAfterApply]. */
+        private const val WATCH_INTERVAL_MS = 5_000L
+        private const val WATCH_GRACE_SECONDS = 20
+
+        /** Bumped by every apply and removal; a post-apply watch stops once it changes. */
+        private val APPLY_GENERATION = AtomicInteger()
+
+        /**
+         * Held by a post-apply trip handler while it turns the theme off; [apply] and [remove]
+         * take it after bumping [APPLY_GENERATION] so they never overlap a running handler.
+         */
+        private val TRIP_LOCK = Any()
 
         /** The monitor's trip record, as a state file name ([IThemeService.readStateFile]). */
         private val SAFE_MODE_NAME = MonitorScript.SAFE_MODE_FILE.substringAfterLast('/')

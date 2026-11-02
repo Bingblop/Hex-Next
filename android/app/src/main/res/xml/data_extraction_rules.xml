@@ -2,12 +2,44 @@
 <!--
   Encrypted AI provider keys (ai/AiKeyStore, prefs file hexnext_ai_keys.xml) never leave the phone:
   the Keystore key that protects them is not transferable, so a copy would be unreadable anyway.
+
+  Device-specific and large state stays on the phone too, so the cloud backup fits the 25 MB
+  Auto Backup quota (over it Android skips the app's backup entirely) and a new phone never applies
+  with the old phone's scan:
+  - files/scan (and its scan.new / scan.old swaps): copied resources.arsc and SemWT dumps of this
+    phone's targets; a restored copy would be compiled against instead of rescanning.
+  - files/reports: scan reports and apply-last.json of this phone.
+  - files/logs and files/requests: overlay build logs and per-target overlay requests.
+  - files/packs: downloaded pack zips (up to hundreds of MB); they are downloaded again.
+  - hexnext_apply.xml (ApplyGuard, device-protected; plus its old credential-protected copy) and
+    hexnext_theme_applier.xml (takeover flag): they describe overlays that exist only on this phone.
+  The theme choice (theme.json), settings and custom assets are still backed up.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />
+        <exclude domain="sharedpref" path="hexnext_apply.xml" />
+        <exclude domain="sharedpref" path="hexnext_theme_applier.xml" />
+        <exclude domain="device_sharedpref" path="hexnext_apply.xml" />
+        <exclude domain="file" path="scan/" />
+        <exclude domain="file" path="scan.new/" />
+        <exclude domain="file" path="scan.old/" />
+        <exclude domain="file" path="reports/" />
+        <exclude domain="file" path="logs/" />
+        <exclude domain="file" path="requests/" />
+        <exclude domain="file" path="packs/" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="hexnext_ai_keys.xml" />
+        <exclude domain="sharedpref" path="hexnext_apply.xml" />
+        <exclude domain="sharedpref" path="hexnext_theme_applier.xml" />
+        <exclude domain="device_sharedpref" path="hexnext_apply.xml" />
+        <exclude domain="file" path="scan/" />
+        <exclude domain="file" path="scan.new/" />
+        <exclude domain="file" path="scan.old/" />
+        <exclude domain="file" path="reports/" />
+        <exclude domain="file" path="logs/" />
+        <exclude domain="file" path="requests/" />
+        <exclude domain="file" path="packs/" />
     </device-transfer>
 </data-extraction-rules>

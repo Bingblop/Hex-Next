@@ -3,6 +3,7 @@ package com.hexnext.themer.theme
 import android.os.Bundle
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.shizuku.ExecOutput
+import com.hexnext.themer.shizuku.MonitorScript
 import com.hexnext.themer.shizuku.ThemeService
 import java.io.File
 
@@ -18,8 +19,9 @@ import java.io.File
  * live effect without a reboot, bind-mounts every module file over `/system/fonts/<FILE>` in
  * init's mount namespace (`nsenter -t 1 -m`), first unmounting a bind from an earlier install
  * that `/proc/1/mountinfo` shows, and restarts Settings only. The bound paths are saved in the
- * service state file [STATE_FILE].
- * [remove] unmounts them, deletes the module and clears the state.
+ * service state file [STATE_FILE]. When one variable file serves every weight, the bold font is
+ * added as [BOLD_FILE] with rewritten font XMLs ([installSharedBold]), active after a reboot.
+ * [remove] unmounts what is still mounted, deletes the module and clears the state.
  *
  * Every path piece interpolated into a shell command is validated against `[A-Za-z0-9_.-]+`
  * and single-quoted. All functions block on the service; call them off the main thread.
@@ -38,6 +40,15 @@ class FontInstaller(private val service: IThemeService) {
         fun isBold(file: String): Boolean {
             val weights = slots.filter { it.file == file }.map { it.weight }
             return weights.isNotEmpty() && weights.all { it >= BOLD_WEIGHT }
+        }
+
+        /**
+         * True when [file] serves both regular and bold weights (one variable font listed once per
+         * weight, as AOSP has done since Android 12): one static file cannot be both.
+         */
+        fun isShared(file: String): Boolean {
+            val weights = slots.filter { it.file == file }.map { it.weight }
+            return weights.any { it >= BOLD_WEIGHT } && weights.any { it < BOLD_WEIGHT }
         }
     }
 
@@ -89,6 +100,17 @@ class FontInstaller(private val service: IThemeService) {
         var ok = true
         if (!run("mkdir -p '$FONTS_DIR'", log)) return false
         if (!run("printf '%s\\n' $MODULE_PROP_LINES > '$MODULE_DIR/module.prop'", log)) ok = false
+
+        if (boldPath != regularPath && files.any { plan.isShared(it) }) {
+            // The regular file below also stands for the bold weights, so the bold font would be
+            // dropped. Ship it as its own file instead and point the bold weights at it.
+            if (!installSharedBold(boldPath, log)) ok = false
+        } else if (BOLD_FILE !in files) {
+            // No separate bold this time, and the live font XML does not name the module bold
+            // file: drop a bold file and rewritten XMLs left by an earlier install, or they would
+            // bring the previous font's bold back at the next boot.
+            if (!run("rm -f '$FONTS_DIR/$BOLD_FILE' '$ETC_DIR/${FONTS_XML.substringAfterLast('/')}' '$ETC_DIR/${FALLBACK_XML.substringAfterLast('/')}'", log)) ok = false
+        }
 
         val bound = ArrayList<String>()
         val mounted = mountedFontFiles()
@@ -150,9 +172,12 @@ class FontInstaller(private val service: IThemeService) {
             if (recorded.isNotEmpty()) log(LogLine(LogLevel.WARN, "Font changes need a root service (uid 0); running as uid ${uid()}. ${recorded.size} bound font files were left as they are"))
             return
         }
+        // Null when init's mountinfo cannot be read: then every path is unmounted as before.
+        val mountInfo = readMountInfo()
+        val mountPoints = mountInfo?.let { parseFontMountPoints(it) }
         val paths = LinkedHashSet<String>()
         paths += recorded
-        paths += mountedFontFiles()
+        paths += mountInfo?.let { parseMountInfo(it) }.orEmpty()
         if (paths.isEmpty() && service.exec("[ -d '$MODULE_DIR' ]").code() != 0) {
             return
         }
@@ -160,6 +185,13 @@ class FontInstaller(private val service: IThemeService) {
         val stillBound = ArrayList<String>()
         for (path in paths) {
             if (!SAFE_SYSTEM_PATH.matches(path)) continue
+            if (mountPoints != null && path !in mountPoints) {
+                // Recorded but no longer a mount point (a reboot dropped the live bind, or the root
+                // tool mounts modules as an overlay): umount would fail with EINVAL and keep the
+                // record forever, so the path simply leaves the record.
+                log(LogLine(LogLevel.INFO, "$path is no longer mounted; dropping it from the record"))
+                continue
+            }
             if (!run("nsenter -t 1 -m -- umount '$path'", log) && !run("nsenter -t 1 -m -- umount -l '$path'", log)) {
                 stillBound += path
             }
@@ -173,6 +205,60 @@ class FontInstaller(private val service: IThemeService) {
             writeState(stillBound)
             log(LogLine(LogLevel.WARN, "${stillBound.size} font files could not be unmounted; they stay recorded for the next removal. Reboot to restore the system font."))
         }
+    }
+
+    /**
+     * For a `sans-serif` family whose single (variable) file serves every weight: copies the bold
+     * font to the module as [BOLD_FILE] and writes module copies of [FONTS_XML] and [FALLBACK_XML]
+     * whose bold `sans-serif` entries name that file ([rewriteSharedBold]). New files under
+     * `/system` cannot be bound live, so this takes effect after a reboot, when the root tool
+     * mounts the module. Returns false when a step failed.
+     */
+    private fun installSharedBold(boldPath: String, log: (LogLine) -> Unit): Boolean {
+        val moduleBold = "$FONTS_DIR/$BOLD_FILE"
+        val stagedBold = "$moduleBold$STAGED_SUFFIX"
+        if (!run(
+                "rm -f '$stagedBold' && cp '$boldPath' '$stagedBold' && chmod 644 '$stagedBold' && chown root:root '$stagedBold' && chcon u:object_r:system_file:s0 '$stagedBold' && mv -f '$stagedBold' '$moduleBold'",
+                log,
+            )
+        ) {
+            run("rm -f '$stagedBold'", log)
+            return false
+        }
+        if (!run("mkdir -p '$ETC_DIR'", log)) return false
+        var ok = true
+        var rewritten = 0
+        for (path in listOf(FONTS_XML, FALLBACK_XML)) {
+            val (code, text) = ExecOutput.exec(service, "cat '$path'")
+            if (code != 0 || text.isBlank()) continue
+            val xml = rewriteSharedBold(text, BOLD_FILE) ?: continue
+            val name = path.substringAfterLast('/')
+            val stateName = "font_$name"
+            if (service.writeStateFile(stateName, xml).code() != 0) {
+                log(LogLine(LogLevel.WARN, "Could not stage the rewritten $name"))
+                ok = false
+                continue
+            }
+            val moduleXml = "$ETC_DIR/$name"
+            val stagedXml = "$moduleXml$STAGED_SUFFIX"
+            val copied = run(
+                "rm -f '$stagedXml' && cp '${MonitorScript.DIR}/$stateName' '$stagedXml' && chmod 644 '$stagedXml' && chown root:root '$stagedXml' && chcon u:object_r:system_file:s0 '$stagedXml' && mv -f '$stagedXml' '$moduleXml'",
+                log,
+            )
+            run("rm -f '${MonitorScript.DIR}/$stateName'", log)
+            if (copied) {
+                rewritten++
+            } else {
+                run("rm -f '$stagedXml'", log)
+                ok = false
+            }
+        }
+        if (rewritten == 0) {
+            log(LogLine(LogLevel.WARN, "The bold font could not be set up; bold text keeps the regular font"))
+            return false
+        }
+        log(LogLine(LogLevel.INFO, "The default font is one file for every weight; the bold font was added as $BOLD_FILE and applies after a reboot"))
+        return ok
     }
 
     /** True when a previous [install] left bound files recorded. */
@@ -203,10 +289,13 @@ class FontInstaller(private val service: IThemeService) {
     }
 
     /** Mount points under `/system/fonts` whose bind source lives in the font module, from init's mountinfo. */
-    private fun mountedFontFiles(): Set<String> {
+    private fun mountedFontFiles(): Set<String> = readMountInfo()?.let { parseMountInfo(it) }.orEmpty()
+
+    /** Init's `/proc/1/mountinfo`, or null when it could not be read. */
+    private fun readMountInfo(): String? {
         val (code, text) = ExecOutput.exec(service, "cat /proc/1/mountinfo")
-        if (code != 0) return emptySet()
-        return parseMountInfo(text)
+        if (code != 0 || text.isBlank()) return null
+        return text
     }
 
     private fun writeState(bound: List<String>) {
@@ -238,7 +327,11 @@ class FontInstaller(private val service: IThemeService) {
         const val STATE_FILE = "font.json"
         const val FONTS_XML = "/system/etc/fonts.xml"
         const val FALLBACK_XML = "/system/etc/font_fallback.xml"
+        const val ETC_DIR = "$MODULE_DIR/system/etc"
         const val BOLD_WEIGHT = 600
+
+        /** Module font the bold weights point at when one file serves every weight. */
+        const val BOLD_FILE = "HexNextSans-Bold.ttf"
         private const val SETTINGS = "com.android.settings"
         private const val EMPTY_STATE = "{\"bound\":[]}"
 
@@ -262,6 +355,7 @@ class FontInstaller(private val service: IThemeService) {
         private val FONT = Regex("<font\\b([^>]*)>(.*?)</font>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
         private val ATTR = Regex("([A-Za-z_:-]+)\\s*=\\s*\"([^\"]*)\"")
         private val TAGS = Regex("<[^>]*>")
+        private val POST_SCRIPT_NAME = Regex("\\s+postScriptName\\s*=\\s*\"[^\"]*\"")
 
         /**
          * The absolute path of [file] when every segment is a safe shell piece (the app's own
@@ -304,6 +398,43 @@ class FontInstaller(private val service: IThemeService) {
             return slots
         }
 
+        /**
+         * [xml] with every `<font>` of the first `sans-serif` family that weighs [BOLD_WEIGHT] or
+         * more and names a file shared with lighter weights ([FontPlan.isShared]) changed to name
+         * [boldFile]: its variable-font `<axis>` children and `postScriptName` are dropped, its other
+         * attributes kept. Null when no entry needs it.
+         */
+        internal fun rewriteSharedBold(xml: String, boldFile: String): String? {
+            val (start, end) = sansSerifBlock(xml) ?: return null
+            val block = xml.substring(start, end)
+            val plan = FontPlan("", parseSansSerif(xml))
+            val shared = plan.files.filter { plan.isShared(it) }.toSet()
+            if (shared.isEmpty()) return null
+            val newBlock = FONT.replace(block) { m ->
+                val attrs = attributes(m.groupValues[1])
+                val file = m.groupValues[2].replace(TAGS, "").trim()
+                val weight = attrs["weight"]?.toIntOrNull() ?: 400
+                if (attrs.containsKey("fallbackFor") || file !in shared || weight < BOLD_WEIGHT) {
+                    m.value
+                } else {
+                    "<font" + m.groupValues[1].replace(POST_SCRIPT_NAME, "") + ">" + boldFile + "</font>"
+                }
+            }
+            return xml.substring(0, start) + newBlock + xml.substring(end)
+        }
+
+        /** Start (inclusive) and end (exclusive) of the first `sans-serif` family's body. */
+        private fun sansSerifBlock(xml: String): Pair<Int, Int>? {
+            for (open in FAMILY_OPEN.findAll(xml)) {
+                if (attributes(open.groupValues[1])["name"] == "sans-serif") {
+                    val start = open.range.last + 1
+                    val end = xml.indexOf("</family>", start, ignoreCase = true).let { if (it < 0) xml.length else it }
+                    return start to end
+                }
+            }
+            return null
+        }
+
         /** Mount points `/system/fonts/<file>` whose root (field 4) lies inside the font module. */
         internal fun parseMountInfo(text: String): Set<String> {
             val result = LinkedHashSet<String>()
@@ -313,6 +444,18 @@ class FontInstaller(private val service: IThemeService) {
                 val root = fields[3]
                 val mountPoint = fields[4]
                 if (mountPoint.startsWith("$SYSTEM_FONTS/") && root.contains("/$MODULE_ID/")) result += mountPoint
+            }
+            return result
+        }
+
+        /** Every mount point `/system/fonts/<file>` in a mountinfo text, whatever its source. */
+        internal fun parseFontMountPoints(text: String): Set<String> {
+            val result = LinkedHashSet<String>()
+            for (line in text.lineSequence()) {
+                val fields = line.trim().split(Regex("\\s+"))
+                if (fields.size < 5) continue
+                val mountPoint = fields[4]
+                if (mountPoint.startsWith("$SYSTEM_FONTS/")) result += mountPoint
             }
             return result
         }

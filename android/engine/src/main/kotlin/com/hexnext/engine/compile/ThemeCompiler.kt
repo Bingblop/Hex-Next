@@ -149,9 +149,9 @@ public data class CompiledTheme(
  *    [REASON_QS_POLICY], and the System UI target logs one `Quick Settings: colours only
  *    (One UI N layout)` event.
  * 3. **Custom overrides.** Each [ThemeSpec.customIcons] / [ThemeSpec.customBackgrounds] entry of
- *    the target replaces every pack job of its resource with one custom job per configuration
- *    the pack jobs used (else per density/night configuration the target defines, else `""`, each
- *    day configuration with its `night` twin).
+ *    the target replaces every pack job of its resource with custom jobs: a day and a `night`
+ *    job for each density the pack jobs used (also when they were night-only), else for each
+ *    density the target defines, else `""` and `night`.
  *    Resources the target lacks are skipped with [REASON_NOT_IN_TARGET].
  * 4. **Icon synthesis.** For Settings, when [ThemeSpec.synthesizeMissingIcons] is on and the
  *    `settings_icons` element has a pack: every [OneUiRules.dashboardRows] row the target
@@ -365,11 +365,13 @@ public object ThemeCompiler {
                 val typeName = rules.rename(e.typeAndName)
                 val config = e.configuration.orEmpty()
                 val key = typeName to config
-                val out = RoleInference.recolor(e.data, device.systemShades, resolved(), isNight(config))
+                // RGB8 / RGB4 values can arrive with the alpha byte cleared; they are opaque.
+                val data = if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) e.data or OPAQUE else e.data
+                val out = RoleInference.recolor(data, device.systemShades, resolved(), isNight(config))
                 if (out == null) {
                     // Apply disables SemWT, so its value is copied verbatim or the stock APK colour returns.
                     fixed[key] = Skipped(display(typeName, config), REASON_FIXED)
-                    values[key] = if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) e.data or OPAQUE else e.data
+                    values[key] = data
                 } else {
                     values[key] = out
                 }
@@ -490,15 +492,16 @@ public object ThemeCompiler {
                 val resourceName = "$pkg:$typeName"
                 val replaced = jobs.values.filter { it.resourceName == resourceName }
                 replaced.forEach { jobs.remove(it.resourceName to it.configuration) }
-                val configs = replaced.map { it.configuration }.distinct().ifEmpty {
-                    // The app's THEME table read keeps one placeholder per density, carrying the config of
-                    // whichever chunk came first (that can be a night one), so only the density is used and
-                    // every density gets both a day and a night job (as elementJobs does); without the night
-                    // job the target's own night drawable wins in dark mode, and without the day job the
-                    // stock icon stays in light mode.
-                    entry.values.map { it.resConfig.densityQualifier }.distinct().ifEmpty { listOf("") }
-                        .flatMap { d -> listOf(configFor(false, d), configFor(true, d)) }.distinct()
-                }
+                // Only the densities are taken, and every density gets both a day and a night job: without
+                // the night job the target's own night drawable wins in dark mode, and without the day job
+                // the stock icon stays in light mode. The pack jobs give the densities when there are any
+                // (a pack can theme a resource in its night category only, so they may all be night jobs).
+                // Otherwise the table does: the app's THEME table read keeps one placeholder per density,
+                // carrying the config of whichever chunk came first (that can be a night one).
+                val densities = replaced.map { job -> job.configuration.split('-').filter { it != "night" }.joinToString("-") }
+                    .ifEmpty { entry.values.map { it.resConfig.densityQualifier } }
+                    .distinct().ifEmpty { listOf("") }
+                val configs = densities.flatMap { d -> listOf(configFor(false, d), configFor(true, d)) }.distinct()
                 val name = typeName.substringAfter('/')
                 val elementId = replaced.firstOrNull()?.elementId ?: when {
                     category == CustomAssets.CATEGORY_BACKGROUND -> "backgrounds"
@@ -552,7 +555,9 @@ public object ThemeCompiler {
             val categories = pack.layers.map { it.category }.distinct().map(CategoryName::parse)
                 .filter { Elements.elementForCategory(it.raw).id == element.id }
                 .filter { c -> c.optionTokens.all { options[it] == "true" } }
-                .sortedWith(compareBy<CategoryName>({ it.optionTokens.size }, { it.raw }))
+                // Later categories win: more option tokens, then newer Android release artwork,
+                // then the higher v<sdk> qualifier compared as a number (v26 over v4 and v8).
+                .sortedWith(compareBy<CategoryName>({ it.optionTokens.size }, { it.androidRank }, { it.sdkLevel }, { it.raw }))
             if (categories.isEmpty()) return emptyMap()
 
             // System UI: pack drawables only when the version's Quick Settings rules allow them,
@@ -575,8 +580,13 @@ public object ThemeCompiler {
 
             for (category in categories) {
                 val type = if (category.base == "mipmap") "mipmap" else "drawable"
-                val request = pack.layers.filter { it.category == category.raw }.flatMap { it.resources }.distinct()
-                    .associateTo(LinkedHashMap()) { res -> rules.rename("$type/$res") to DrawableSource(pack.id, category.raw, res) }
+                // Several pack names can rename to one target; the pack's exact-name artwork wins over aliases.
+                val request = LinkedHashMap<String, DrawableSource>()
+                for (res in pack.layers.filter { it.category == category.raw }.flatMap { it.resources }.distinct()) {
+                    val target = rules.rename("$type/$res")
+                    if (request[target]?.resourceName?.let { "$type/$it" } == target) continue
+                    request[target] = DrawableSource(pack.id, category.raw, res)
+                }
                 val plan = ResourceMapper.map(table, semwt, ThemeRequest(drawables = request))
                 if (!element.anyTarget) plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name}", it.reason) }
                 for (pd in plan.drawableEntries) {

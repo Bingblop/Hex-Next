@@ -97,6 +97,9 @@ object MonetSeed {
     private const val STATE_SAVED_AT = "savedAt"
     private const val STATE_SEED = "seed"
 
+    /** The seed the previous apply wrote, kept so a failed write of [STATE_SEED] still restores. */
+    private const val STATE_SEED_BEFORE = "seedBefore"
+
     /** `RRGGBB` (no `#`), the form ThemePicker writes. */
     fun hex(argb: Int): String = "%06X".format(argb and 0xFFFFFF)
 
@@ -133,9 +136,11 @@ object MonetSeed {
     }
 
     /** True when [setting] already carries [seedArgb] as palette and accent. */
-    fun holdsSeed(setting: String, seedArgb: Int): Boolean = try {
+    fun holdsSeed(setting: String, seedArgb: Int): Boolean = holdsHex(setting, hex(seedArgb))
+
+    /** [holdsSeed] for a seed already in [hex] form. */
+    private fun holdsHex(setting: String, hex: String): Boolean = try {
         val json = JSONObject(setting)
-        val hex = hex(seedArgb)
         json.optString(KEY_PALETTE).equals(hex, ignoreCase = true) && json.optString(KEY_ACCENT).equals(hex, ignoreCase = true)
     } catch (e: JSONException) {
         false
@@ -143,7 +148,9 @@ object MonetSeed {
 
     /**
      * Sets the seed. The value in place before Hex Next's first write is captured in [FILE_NAME]
-     * (a second apply keeps the first capture, so a remove still restores Samsung's value).
+     * (a second apply keeps the first capture, so a remove still restores Samsung's value), with
+     * the seed written. When the setting no longer holds that seed (the user picked a palette in
+     * Wallpaper and style since), the current value is captured instead: that is the one to restore.
      * When that capture cannot be saved the seed is not written at all: without it a later remove
      * could only restore Hex Next's own value instead of the stock one.
      * Returns true when the setting reads back with the seed.
@@ -154,24 +161,44 @@ object MonetSeed {
             log(LogLine(LogLevel.WARN, "System palette not set: could not read the current $SETTING value (settings get failed). Try applying again."))
             return false
         }
-        if (readState(service) == null) {
-            val state = JSONObject()
-                .put(STATE_PREVIOUS, current)
-                .put(STATE_SAVED_AT, System.currentTimeMillis())
-                .put(STATE_SEED, hex(seedArgb))
-            val saved = service.writeStateFile(FILE_NAME, state.toString())
-            if (saved.code() != 0) {
-                log(
-                    LogLine(
-                        LogLevel.WARN,
-                        "System palette not set: could not save the previous palette to $FILE_NAME " +
-                            "(${saved.output().lineSequence().firstOrNull().orEmpty()}). " +
-                            "Apply once with root (Hex Next then hands ${MonitorScript.DIR} to the shell), " +
-                            "or remove it with `su -c rm -rf ${MonitorScript.DIR}`, then try again.",
-                    ),
-                )
-                return false
-            }
+        val capture = readCapture(service)
+        if (capture == null) {
+            // Unreadable or unparsable: it may hold Samsung's value from the first apply. Writing a
+            // new capture now would record Hex Next's own seed as "previous" and lose it.
+            log(
+                LogLine(
+                    LogLevel.WARN,
+                    "System palette not set: $FILE_NAME (the palette in place before Hex Next) could not be read. " +
+                        "Nothing was changed; try again, or use Remove theme to clear it first.",
+                ),
+            )
+            return false
+        }
+        val savedSeeds = seeds(capture)
+        val heldSeed = savedSeeds.firstOrNull { holdsHex(current, it) }
+        // A capture without a seed predates the seed record: kept as it is, so restore() still
+        // puts it back unconditionally (the seed in place now is unknown).
+        val legacy = capture.has(STATE_PREVIOUS) && savedSeeds.isEmpty()
+        val keep = legacy || (capture.has(STATE_PREVIOUS) && heldSeed != null)
+        val now = System.currentTimeMillis()
+        val state = JSONObject()
+            .put(STATE_PREVIOUS, if (keep) capture.optString(STATE_PREVIOUS) else current)
+            .put(STATE_SAVED_AT, if (keep) capture.optLong(STATE_SAVED_AT, now) else now)
+        if (!legacy) state.put(STATE_SEED, hex(seedArgb))
+        if (heldSeed != null) state.put(STATE_SEED_BEFORE, heldSeed)
+        // Rewritten on every apply so the seed restore() checks for is this apply's.
+        val saved = service.writeStateFile(FILE_NAME, state.toString())
+        if (saved.code() != 0) {
+            log(
+                LogLine(
+                    LogLevel.WARN,
+                    "System palette not set: could not save the previous palette to $FILE_NAME " +
+                        "(${saved.output().lineSequence().firstOrNull().orEmpty()}). " +
+                        "Apply once with root (Hex Next then hands ${MonitorScript.DIR} to the shell), " +
+                        "or remove it with `su -c rm -rf ${MonitorScript.DIR}`, then try again.",
+                ),
+            )
+            return false
         }
         val next = merged(current, seedArgb)
         if (!isShellSafe(next)) {
@@ -196,7 +223,9 @@ object MonetSeed {
 
     /**
      * Puts the captured value back (or deletes the setting when there was none) and clears the
-     * state file. Returns true when it was restored, false when that failed (the state file is
+     * state file. When the setting no longer holds the seed Hex Next wrote (the user picked another
+     * palette since), it is left as it is and only the state file is cleared; that counts as restored.
+     * Returns true when it was restored, false when that failed (the state file is
      * kept, so another call retries) and null when nothing was captured (no file, or a cleared one).
      * A state file that cannot be read or parsed is a failure, never "nothing captured": the seed
      * may still be in place. An unparsable file is kept as [UNREADABLE_FILE_NAME] and cleared, so
@@ -231,6 +260,16 @@ object MonetSeed {
             return false
         }
         if (!state.has(STATE_PREVIOUS)) return null
+        val seeds = seeds(state)
+        val current = if (seeds.isEmpty()) null else read(service)
+        // No seed recorded (an older capture) or a failed read cannot tell, so it restores as before.
+        if (current != null && seeds.none { holdsHex(current, it) }) {
+            log(LogLine(LogLevel.OK, "System palette left as it is: it was changed after Hex Next set its seed"))
+            if (service.writeStateFile(FILE_NAME, JSONObject().toString()).code() != 0) {
+                log(LogLine(LogLevel.WARN, "Could not clear $FILE_NAME"))
+            }
+            return true
+        }
         val previous = state.optString(STATE_PREVIOUS)
         val command = if (previous.isBlank()) {
             "settings delete secure $SETTING"
@@ -257,12 +296,27 @@ object MonetSeed {
         return r.code() == 0
     }
 
-    /** The saved state, or null when there is none (file missing, empty object, unreadable). */
-    private fun readState(service: IThemeService): JSONObject? {
+    /** The seeds Hex Next wrote since the capture, as recorded in [state]. */
+    private fun seeds(state: JSONObject): List<String> =
+        listOf(state.optString(STATE_SEED), state.optString(STATE_SEED_BEFORE)).filter { it.isNotEmpty() }
+
+    /**
+     * The content of [FILE_NAME]: an object with [STATE_PREVIOUS] when it holds a capture, an
+     * object without it when nothing was captured (no file, or the empty object [restore] leaves),
+     * null when the file could not be read or parsed. As in [restore], an unreadable file is never
+     * taken for "nothing captured".
+     */
+    private fun readCapture(service: IThemeService): JSONObject? {
         val bundle = service.readStateFile(FILE_NAME)
-        if (bundle.code() != 0) return null
+        when (bundle.code()) {
+            0 -> Unit
+            1 -> return JSONObject()
+            else -> return null
+        }
+        val raw = bundle.getString(ThemeService.KEY_CONTENT).orEmpty()
+        if (raw.isBlank()) return null
         return try {
-            JSONObject(bundle.getString(ThemeService.KEY_CONTENT).orEmpty()).takeIf { it.has(STATE_PREVIOUS) }
+            JSONObject(raw)
         } catch (e: JSONException) {
             null
         }

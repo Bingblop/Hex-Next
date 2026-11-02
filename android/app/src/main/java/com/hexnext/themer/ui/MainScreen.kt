@@ -96,7 +96,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -117,6 +116,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.Element
 import com.hexnext.engine.compile.Elements
@@ -145,7 +145,11 @@ import com.hexnext.themer.ui.ai.GenerateIconSheet
 import com.hexnext.themer.ui.onboarding.OnboardingScreen
 import com.hexnext.themer.ui.settings.AppSettingsScreen
 import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.settings.rememberSafeUriHandler
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -156,6 +160,9 @@ private val PRESETS = listOf(
     0xFF00E5FF, 0xFF3E7BFA, 0xFF7E57C2, 0xFFEC407A, 0xFFE53935, 0xFFFF7043,
     0xFFF4B400, 0xFF10B981, 0xFF34A853, 0xFF00A6A6, 0xFF8D6E63, 0xFF78909C,
 ).map { it.toInt() }
+
+/** How often the editor re-reads an armed restart-protection guard to notice its window ending. */
+private const val GUARD_RECHECK_MS = 15_000L
 
 /**
  * The app's screens: the editor plus the full-screen destinations the view model's [Screen]
@@ -173,6 +180,31 @@ fun MainScreen(viewModel: MainViewModel) {
     // Each destination keeps its rememberSaveable state (scroll position, collapsed top bar,
     // open blocks) while another screen is on display, so Back lands where the user left.
     val holder = rememberSaveableStateHolder()
+    // The same activity-scoped instance DiagnosticsScreen uses: a scan keeps running after Back.
+    val diagnostics: DiagnosticsViewModel = composeViewModel()
+    LaunchedEffect(diagnostics) {
+        diagnostics.state.map { it.scanFinishedId }.distinctUntilChanged().collect { id ->
+            if (id == 0L) return@collect
+            // The slot lists and the preview come from the scan, wherever the user is now.
+            viewModel.invalidateSlots()
+            // Diagnostics shows "Scan finished" itself; elsewhere the notice is dropped so it
+            // does not replay on the next visit.
+            if (viewModel.screen.value != Screen.DIAGNOSTICS) diagnostics.consumeScanFinished(id)
+        }
+    }
+    // Restart protection ends 10 minutes after an apply even if nobody taps "It works": re-read
+    // the guard now and then while it is armed so the Apply card stops saying it is on.
+    LaunchedEffect(ui.applyUnconfirmed, ui.applyProtectionExpired) {
+        while (ui.applyUnconfirmed && !ui.applyProtectionExpired) {
+            delay(GUARD_RECHECK_MS)
+            viewModel.refreshGuard()
+        }
+    }
+    // A scan that ended just as the user left Diagnostics, before its notice could show.
+    LaunchedEffect(screen) {
+        val id = diagnostics.state.value.scanFinishedId
+        if (screen != Screen.DIAGNOSTICS && id != 0L) diagnostics.consumeScanFinished(id)
+    }
 
     val content: @Composable (Screen) -> Unit = { target ->
         holder.SaveableStateProvider(target) {
@@ -453,8 +485,11 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
                     connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE,
                     busy = ui.busy,
+                    // Only Apply theme or Remove theme shows as running; a pack download or import only disables the buttons.
+                    applying = ui.serviceBusy,
                     report = ui.lastApply,
                     unconfirmed = ui.applyUnconfirmed,
+                    protectionExpired = ui.applyProtectionExpired,
                     progressLine = ui.log.lastOrNull()?.text,
                     onApply = viewModel::applyTheme,
                     onRemove = viewModel::removeTheme,
@@ -629,7 +664,8 @@ private fun StatusCard(
     rootToolLinks: Map<String, String>,
     onRequestPermission: () -> Unit,
 ) {
-    val uriHandler = LocalUriHandler.current
+    // Never the raw handler: it throws out of the click when no browser is enabled.
+    val uriHandler = rememberSafeUriHandler()
     val context = LocalContext.current
     SectionCard(
         title = "Connection",
@@ -747,7 +783,8 @@ private fun NeedsRootReason(text: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun RootGuide(links: Map<String, String>, startExpanded: Boolean = false) {
-    val uriHandler = LocalUriHandler.current
+    // Never the raw handler: it throws out of the click when no browser is enabled.
+    val uriHandler = rememberSafeUriHandler()
     var expanded by rememberSaveable { mutableStateOf(startExpanded) }
     val emphasis = SpanStyle(fontWeight = FontWeight.SemiBold)
     val body = buildAnnotatedString {
@@ -1818,7 +1855,15 @@ private fun FontCard(
     fonts.firstOrNull { it.fileName == deleting }?.let { asset ->
         ConfirmAssetDelete(
             asset = asset,
-            text = "The font file is deleted. The system font goes back to default.",
+            // Deleting only edits the saved theme: a font already installed on the phone stays
+            // until the next Apply theme or Remove theme, so say so instead of promising a reset.
+            text = when (asset.fileName) {
+                font?.regular -> "The font file is deleted and your theme goes back to the system font. " +
+                    "If this font is on your phone now, it stays until you apply or remove the theme."
+                font?.bold -> "The font file is deleted and bold text uses the regular file. " +
+                    "If this bold is on your phone now, it stays until you apply or remove the theme."
+                else -> "The font file is deleted. Your theme doesn't use it, so the font on your phone doesn't change."
+            },
             onConfirm = {
                 deleting = null
                 onDelete(asset)
@@ -2115,8 +2160,10 @@ private fun CatalogueRow(entry: CatalogueEntry, progress: Float?, busy: Boolean,
 private fun CompiledThemeCard(
     connected: Boolean,
     busy: Boolean,
+    applying: Boolean,
     report: ApplyReport?,
     unconfirmed: Boolean,
+    protectionExpired: Boolean,
     progressLine: String?,
     onApply: () -> Unit,
     onRemove: () -> Unit,
@@ -2146,13 +2193,18 @@ private fun CompiledThemeCard(
         }
         if (unconfirmed) {
             Text(
-                "Applied and not confirmed yet: restart protection is on for 10 minutes. If your phone restarts twice " +
-                    "in that time, the theme is turned off. Check your phone, then confirm.",
+                if (protectionExpired) {
+                    "Applied and not confirmed. Restart protection ended 10 minutes after the apply, so restarts " +
+                        "no longer turn the theme off. Tap \"It works\" to clear this."
+                } else {
+                    "Applied and not confirmed yet: restart protection is on for 10 minutes. If your phone restarts twice " +
+                        "in that time, the theme is turned off. Check your phone, then confirm."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
             )
             // Off while an apply runs: it has armed the guard for overlays nobody has checked yet.
-            FilledTonalButton(onClick = onConfirmWorks, enabled = !busy) { Text("It works") }
+            FilledTonalButton(onClick = onConfirmWorks, enabled = !applying) { Text("It works") }
         }
         if (!connected) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2167,13 +2219,13 @@ private fun CompiledThemeCard(
         }
         Actions(
             enabled = connected && !busy,
-            busy = busy,
+            busy = applying,
             applyLabel = "Apply theme",
             onApply = onApply,
             onRemove = { confirmRemove = true },
             removeLabel = "Remove theme",
         )
-        if (busy) {
+        if (applying) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             if (progressLine != null) {
                 Text(

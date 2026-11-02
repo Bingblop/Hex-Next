@@ -2,7 +2,6 @@ package com.hexnext.themer.ai
 
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
-import com.hexnext.engine.pack.Pack
 import com.hexnext.themer.theme.InstalledPack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,10 +65,10 @@ object ThemeSuggester {
         } catch (e: Exception) {
             throw AiProviderException("The model answered with malformed theme JSON. Try again.", e)
         }
-        val seed = root.string("seed")?.let(Pack::parseColor)?.let { it or OPAQUE }
+        val seed = root.string("seed")?.let(GlyphRasterizer::parseCssHex)?.let { it or OPAQUE }
             ?: throw AiProviderException("The theme has no valid seed colour.")
         val accents = (root["accents"] as? JsonArray).orEmpty()
-            .mapNotNull { (it as? JsonPrimitive)?.contentOrNull()?.let(Pack::parseColor) }
+            .mapNotNull { (it as? JsonPrimitive)?.contentOrNull()?.let(GlyphRasterizer::parseCssHex) }
             .map { it or OPAQUE }
             .filter { it != seed }
             .distinct()
@@ -88,8 +87,12 @@ object ThemeSuggester {
      *   accent roles the compiler already derives every `system_accent2_*` / `system_accent3_*`
      *   shade and pack slot from, so they follow light and dark correctly; further accents are
      *   display only;
-     * - mode → background lightness of the matching adjustments (dark: darker dark surfaces,
-     *   light: brighter light surfaces); `system` leaves both as they are;
+     * - mode → background lightness of both adjustments, and nothing else in them (dark: darker
+     *   dark surfaces, light: brighter light surfaces; the other mode, and both for `system`, go
+     *   back to Samsung's default 100). Suggestions are the only thing that sets this value, so
+     *   each one sets it outright: a darker dark mode from an earlier suggestion must not stay
+     *   behind when a later light or system suggestion is applied. The phone's own light/dark
+     *   setting is left as it is;
      * - packStyle → the installed pack whose name, features or categories match best, else the
      *   current pack; in [ThemeMode.ADVANCED] a matched pack also clears the per-element packs,
      *   which would otherwise win over it, so every element really uses the pack the card names;
@@ -101,16 +104,8 @@ object ThemeSuggester {
             secondaryArgb = suggestion.accents.getOrNull(0),
             tertiaryArgb = suggestion.accents.getOrNull(1),
         )
-        val dark = when {
-            suggestion.isDark -> current.darkAdjustments.copy(backgroundLightness = 85)
-            suggestion.isLight -> current.darkAdjustments.copy(backgroundLightness = 100)
-            else -> current.darkAdjustments
-        }
-        val light = when {
-            suggestion.isLight -> current.lightAdjustments.copy(backgroundLightness = 110)
-            suggestion.isDark -> current.lightAdjustments.copy(backgroundLightness = 100)
-            else -> current.lightAdjustments
-        }
+        val dark = current.darkAdjustments.copy(backgroundLightness = if (suggestion.isDark) 85 else 100)
+        val light = current.lightAdjustments.copy(backgroundLightness = if (suggestion.isLight) 110 else 100)
         val matched = matchPack(suggestion.packStyle, packs)?.id
         val elementPacks = if (matched != null && current.mode == ThemeMode.ADVANCED) emptyMap() else current.elementPacks
         return current.copy(

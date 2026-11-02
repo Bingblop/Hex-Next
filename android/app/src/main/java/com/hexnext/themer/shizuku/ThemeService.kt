@@ -9,7 +9,9 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.SystemClock
+import android.system.ErrnoException
 import android.system.Os
+import android.system.OsConstants
 import android.util.TypedValue
 import androidx.annotation.Keep
 import com.hexnext.engine.device.OverlayList
@@ -29,6 +31,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
 import java.lang.reflect.InvocationTargetException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
@@ -772,6 +775,10 @@ class ThemeService() : IThemeService.Stub() {
         )
 
         var applied = 0
+        var mismatched = 0
+        // Skips are held back until the end: when the colour-only file is restored,
+        // restoreColourOnly records every PNG itself, so nothing is listed twice.
+        val pending = ArrayList<Pair<String, String>>()
         val lookedUp = HashMap<String, String>()
         rewrite.pngs.forEach { p ->
             val entry = reread.entries.firstOrNull {
@@ -788,14 +795,31 @@ class ThemeService() : IThemeService.Stub() {
                     ", lookup: ${value.ifEmpty { "(empty)" }}"
             )
             when {
-                !inFile -> skip(skipped, p.input.name, "payload missing or different in the rewritten .frro")
+                !inFile -> {
+                    mismatched++
+                    pending.add(p.input.name to "payload missing or different in the rewritten .frro")
+                }
                 idmapFresh || resolved -> applied++
-                else -> skip(
-                    skipped, p.input.name,
-                    "written to ${rewrite.path} but the idmap still has the old CRC and lookup returned: ${value.ifEmpty { "(empty)" }}"
+                else -> pending.add(
+                    p.input.name to
+                        "written to ${rewrite.path} but the idmap still has the old CRC and lookup returned: ${value.ifEmpty { "(empty)" }}"
                 )
             }
         }
+        // A payload that does not read back as written, or a rewrite with no verified PNG at
+        // all, must not stay registered: the next idmap regeneration (a reboot) would make the
+        // unverified bytes live. Put the colour-only file back instead.
+        if (mismatched > 0 || applied == 0) {
+            val reason = if (mismatched > 0) {
+                "$mismatched PNG payload(s) missing or different in the rewritten .frro"
+            } else {
+                "no PNG verified after the rewrite (idmap crc " +
+                    (idmapCrc?.let { "0x%08x".format(it) } ?: "unreadable") +
+                    ", expected 0x%08x, lookup did not resolve to ${FrroFormat.URI_SCHEME})".format(rewrite.crc)
+            }
+            return DrawableOutcome(restoreColourOnly(id, name, target, owner, rewrite, reason, skipped, log), 0, rewrite.path)
+        }
+        pending.forEach { (drawable, why) -> skip(skipped, drawable, why) }
         log.appendLine("Root rewrite applied $applied/${drawables.size} drawables.")
         return DrawableOutcome(top, applied, rewrite.path)
     }
@@ -1239,13 +1263,16 @@ class ThemeService() : IThemeService.Stub() {
             // A previous monitor gets TERM; give it a second to write its final status first.
             val previous = stopMonitorProcess()
             val settle = if (previous.startsWith("Stopped")) "sleep 1; " else ""
+            // The file is kept for diagnostics only. Root runs the text it holds in memory
+            // (`sh -c '<text>' monitor.sh <seconds>`), never the copy in the shell-owned state
+            // directory, which any uid 2000 process could swap before `sh` reads it.
             writeRootFile(File(MonitorScript.PATH), MonitorScript.text)
-            val script = MonitorScript.PATH
+            val script = inlineScript(MonitorScript.text, MonitorScript.PATH.substringAfterLast('/'), window.toString())
             val launch = shell(
-                settle + "chmod 755 $script; rm -f ${MonitorScript.SAFE_MODE_FILE} ${MonitorScript.PID_FILE}; " +
+                settle + "rm -f ${MonitorScript.SAFE_MODE_FILE} ${MonitorScript.PID_FILE}; " +
                     "if command -v setsid >/dev/null 2>&1; then " +
-                    "nohup setsid sh $script $window >/dev/null 2>&1 & " +
-                    "else nohup sh $script $window >/dev/null 2>&1 & fi"
+                    "nohup setsid $script >/dev/null 2>&1 & " +
+                    "else nohup $script >/dev/null 2>&1 & fi"
             )
             if (launch.getInt(KEY_CODE) != 0) {
                 return result(launch.getInt(KEY_CODE), "Could not start the monitor: ${launch.getString(KEY_OUTPUT)}")
@@ -1301,44 +1328,153 @@ class ThemeService() : IThemeService.Stub() {
      * state file in it, so root hands every directory and file it writes here to the shell
      * (`chown 2000:2000`); uid 1000, which cannot chown, opens its directories to all instead.
      * This also repairs a directory an older build left root-owned, on the next root write.
+     *
+     * Because the shell owns `/data/local/tmp` and this directory, any uid 2000 process can put a
+     * symlink in place of [MonitorScript.DIR] (or `exec`, or a file in them). Root must never chown,
+     * chmod or write through such a link: every directory is opened top-down with O_NOFOLLOW and
+     * changed through its descriptor, and the file is created relative to that descriptor
+     * (`/proc/self/fd/N/name`), so a swap after the check changes nothing. The su path does the
+     * same with `cd -P` and a `pwd -P` check, and works on `.` and relative names only.
      */
     private fun writeRootFile(file: File, content: String) {
+        val dir = file.parentFile ?: error("no parent for ${file.path}")
+        // Top-down: MonitorScript.DIR first, then each subdirectory under it.
+        val stateDirs = stateDirsOf(dir).asReversed()
+        if (stateDirs.isEmpty()) error("${file.path} is outside ${MonitorScript.DIR}")
+        val shellOwned = !file.name.endsWith(".sh")
         if (runsDirectly()) {
-            val dir = file.parentFile ?: error("no parent for ${file.path}")
-            if (!dir.isDirectory && !dir.mkdirs()) error("Cannot create ${dir.path}")
-            for (d in stateDirsOf(dir)) {
-                d.setReadable(true, false)
-                d.setExecutable(true, false)
-                handToShell(d, isDirectory = true)
+            val opened = ArrayList<ParcelFileDescriptor>()
+            try {
+                var anchor = ""
+                stateDirs.forEachIndexed { index, d ->
+                    val pfd = openStateDir(if (index == 0) d.path else "$anchor/${d.name}", d.path)
+                    opened += pfd
+                    anchor = "/proc/self/fd/${pfd.fd}"
+                }
+                val tmp = "$anchor/${file.name}.tmp"
+                val target = "$anchor/${file.name}"
+                writeNew(tmp, content, shellOwned)
+                try {
+                    Os.rename(tmp, target)
+                } catch (e: ErrnoException) {
+                    writeNew(target, content, shellOwned)
+                    runCatching { Os.remove(tmp) }
+                }
+            } finally {
+                opened.forEach { runCatching { it.close() } }
             }
-            val tmp = File(dir, file.name + ".tmp")
-            // A leftover tmp another uid owns cannot be truncated, but it can be unlinked.
-            if (tmp.exists() && !tmp.canWrite()) tmp.delete()
-            tmp.writeText(content)
-            tmp.setReadable(true, false)
-            if (!tmp.renameTo(file)) {
-                if (file.exists() && !file.canWrite()) file.delete()
-                file.writeText(content)
-                tmp.delete()
-            }
-            file.setReadable(true, false)
-            handToShell(file, isDirectory = false)
             return
         }
-        val dir = file.parent ?: error("no parent for ${file.path}")
-        val chownDirs = stateDirsOf(File(dir)).joinToString(" ") { "'${it.path}'" }
-        val process = ProcessBuilder(
-            "su", "-c",
-            "mkdir -p '$dir' && chmod 755 '$dir' && cat > '${file.path}' && chmod 644 '${file.path}'" +
-                (if (chownDirs.isEmpty()) "" else " && chown $SHELL_UID:$SHELL_UID $chownDirs '${file.path}'")
-        ).redirectErrorStream(true).start()
-        process.outputStream.use { it.write(content.toByteArray()) }
-        val out = process.inputStream.bufferedReader().use { it.readText() }
+        // The tmp name is random so that no uid 2000 process can plant it in advance; `set -C`
+        // then creates it with O_EXCL. umask 022 gives 0644 without a chmod that follows links,
+        // and `chown -h` changes a link swapped in afterwards, never its target.
+        val tmpName = ".${file.name}.${UUID.randomUUID()}.tmp"
+        val script = buildString {
+            append("umask 022; ")
+            stateDirs.forEachIndexed { index, d ->
+                val name = if (index == 0) d.path else d.name
+                append("mkdir '$name' 2>/dev/null; ")
+                append("cd -P '$name' && [ \"\$(pwd -P)\" = '${d.path}' ] || { echo '${d.path} is not a real directory' >&2; exit 1; }; ")
+                append("chmod 755 . && chown $SHELL_UID:$SHELL_UID . || exit 1; ")
+            }
+            append("(set -C; cat > '$tmpName') || { rm -f '$tmpName'; exit 1; }; ")
+            if (shellOwned) append("chown -h $SHELL_UID:$SHELL_UID '$tmpName' && ")
+            append("mv -f '$tmpName' '${file.name}' || { rm -f '$tmpName'; exit 1; }")
+        }
+        val process = ProcessBuilder("su", "-c", script).redirectErrorStream(true).start()
+        // Feed stdin and read the output on their own threads, as in shell(): a hung su (an
+        // unanswered root prompt, a stuck daemon) keeps both pipes open, and blocking on either
+        // here would mean the timeout below never fires.
+        val sink = StringBuilder()
+        val reader = Thread({
+            try {
+                process.inputStream.bufferedReader().use { input ->
+                    val buffer = CharArray(8192)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        synchronized(sink) { sink.append(buffer, 0, n) }
+                    }
+                }
+            } catch (ignored: Throwable) {
+                // The stream closed under us (process destroyed); keep what was read.
+            }
+        }, "hexnext-su-write-out")
+        reader.isDaemon = true
+        reader.start()
+        val writer = Thread({
+            runCatching { process.outputStream.use { it.write(content.toByteArray()) } }
+        }, "hexnext-su-write-in")
+        writer.isDaemon = true
+        writer.start()
         if (!process.waitFor(30, TimeUnit.SECONDS)) {
             process.destroyForcibly()
+            runCatching { process.waitFor(5, TimeUnit.SECONDS) }
             error("su write of ${file.path} timed out")
         }
+        reader.join(READER_GRACE_MILLIS)
+        val out = synchronized(sink) { sink.toString() }
         if (process.exitValue() != 0) error("su write of ${file.path} failed (${process.exitValue()}): $out")
+    }
+
+    /**
+     * Unlinks [path] (a symlink itself, never its target) and creates it anew with O_EXCL and
+     * O_NOFOLLOW, 0644. Mode and owner are set on the descriptor, never through the path.
+     */
+    private fun writeNew(path: String, content: String, shellOwned: Boolean) {
+        runCatching { Os.unlink(path) }
+        val fd = Os.open(
+            path,
+            OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or OsConstants.O_NOFOLLOW or OsConstants.O_CLOEXEC,
+            MODE_FILE,
+        )
+        try {
+            runCatching { Os.fchmod(fd, MODE_FILE) }
+            if (shellOwned && Process.myUid() == 0) runCatching { Os.fchown(fd, SHELL_UID, SHELL_UID) }
+            val bytes = content.toByteArray()
+            var offset = 0
+            while (offset < bytes.size) {
+                val n = Os.write(fd, bytes, offset, bytes.size - offset)
+                if (n <= 0) error("short write to $path")
+                offset += n
+            }
+        } finally {
+            Os.close(fd)
+        }
+    }
+
+    /**
+     * Opens the state directory at [path] (created 0755 when missing) without following a
+     * symlink, checks that it is a directory and makes it usable for the shell tier through the
+     * descriptor: root chowns it to uid 2000, uid 1000 (no CAP_CHOWN) opens it to all. [label] is
+     * its real path, for errors.
+     */
+    private fun openStateDir(path: String, label: String): ParcelFileDescriptor {
+        try {
+            Os.mkdir(path, MODE_DIR)
+        } catch (e: ErrnoException) {
+            if (e.errno != OsConstants.EEXIST) throw e
+        }
+        // O_NOFOLLOW fails (ELOOP) on a planted symlink; O_NONBLOCK keeps a planted FIFO from blocking.
+        val fd = try {
+            Os.open(path, OsConstants.O_RDONLY or OsConstants.O_NOFOLLOW or OsConstants.O_NONBLOCK or OsConstants.O_CLOEXEC, 0)
+        } catch (e: ErrnoException) {
+            error("$label is not a real directory (${e.message})")
+        }
+        try {
+            if (!OsConstants.S_ISDIR(Os.fstat(fd).st_mode)) error("$label is not a directory")
+            when (Process.myUid()) {
+                0 -> {
+                    runCatching { Os.fchmod(fd, MODE_DIR) }
+                    runCatching { Os.fchown(fd, SHELL_UID, SHELL_UID) }
+                }
+                1000 -> runCatching { Os.fchmod(fd, MODE_DIR_OPEN) }
+                else -> runCatching { Os.fchmod(fd, MODE_DIR) }
+            }
+            return ParcelFileDescriptor.dup(fd)
+        } finally {
+            Os.close(fd)
+        }
     }
 
     /** [dir] and its parents up to and including [MonitorScript.DIR]; empty when [dir] is outside it. */
@@ -1352,17 +1488,6 @@ class ThemeService() : IThemeService.Stub() {
             d = d.parentFile
         }
         return emptyList()
-    }
-
-    /**
-     * Makes [f] writable for the shell tier: root chowns it to uid 2000, uid 1000 (no CAP_CHOWN)
-     * makes a directory writable for all. Failures are ignored: the write itself already succeeded.
-     */
-    private fun handToShell(f: File, isDirectory: Boolean) {
-        when (Process.myUid()) {
-            0 -> runCatching { Os.chown(f.path, SHELL_UID, SHELL_UID) }
-            1000 -> if (isDirectory) runCatching { f.setWritable(true, false) }
-        }
     }
 
     /**
@@ -1517,12 +1642,32 @@ class ThemeService() : IThemeService.Stub() {
          */
         private val SAFE_TO_FORCE_STOP = setOf("com.android.settings")
         const val KEY_CONTENT = "content"
+
+        /**
+         * `sh -c '<text>' <name> <args>`: runs a script from the text the caller holds rather
+         * than from a file in the shell-owned state directory, which a uid 2000 process could
+         * replace between the write and the run. [name] becomes `$0`, so a `/proc/<pid>/cmdline`
+         * match on the script name (the stop commands) still finds it. [name] and [args] must
+         * be plain tokens (letters, digits, `_`, `-`, `.`).
+         */
+        fun inlineScript(text: String, name: String, vararg args: String): String {
+            val token = Regex("^[A-Za-z0-9_.-]+$")
+            require(token.matches(name) && args.all { token.matches(it) }) { "unsafe script name or argument" }
+            val quoted = "'" + text.replace("'", "'\\''") + "'"
+            return (listOf("sh", "-c", quoted, name) + args).joinToString(" ")
+        }
+
         const val KEY_UID = "uid"
         const val SHELL_OWNER = "com.android.shell"
         const val SYSTEM_OWNER = "android"
 
         /** The ADB shell uid Shizuku runs as without root (colours-only tier). */
         const val SHELL_UID = 2000
+
+        /** 0755, 0777 and 0644 (Kotlin has no octal literals). */
+        private const val MODE_DIR = 493
+        private const val MODE_DIR_OPEN = 511
+        private const val MODE_FILE = 420
         const val HEX_PREFIX = "HexNext"
 
         /** Read-only partitions whose APKs survive a per-user uninstall. */

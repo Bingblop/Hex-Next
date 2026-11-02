@@ -63,6 +63,20 @@ class DeviceScanner(context: Context) {
         val overlays = parseOverlays(overlayBundle, errors)
         val frroPaths = overlayBundle.getStringArray(ThemeService.KEY_FRRO_PATHS)?.toList().orEmpty()
 
+        // A scan whose basic service calls failed must not replace the last good one: the swap
+        // below deletes the previous files/scan, and the broken report would become the latest.
+        // `android` is installed on every phone, so a scan that finds no target installed means
+        // `pm list packages` failed or timed out (the service still returns code 0 then).
+        val basicFailure = when {
+            info.code() != 0 -> "reading package status failed (${info.output().trim().take(200)})"
+            basePackages.none { it.installed } -> "no target app was reported as installed (pm list packages failed or timed out)"
+            overlayBundle.code() != 0 -> "listing overlays failed (${overlayBundle.output().trim().take(200)})"
+            else -> null
+        }
+        if (basicFailure != null) {
+            throw IOException("Scan stopped: $basicFailure. The previous scan was kept; try scanning again.")
+        }
+
         // Everything is written into a fresh staging dir and swapped in only once the scan
         // finished, so an interrupted scan never deletes or truncates the files the previous
         // (still latest) report points at.

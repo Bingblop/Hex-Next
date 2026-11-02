@@ -91,11 +91,28 @@ class ElementsTest {
         assertEquals(listOf("alt", "1sett"), c.optionTokens)
         assertEquals(listOf("settingsicon-alt", "settingsicon-1sett", "settingsicon"), c.lookupKeys)
 
+        assertEquals(emptyList(), a.optionTokens)
+        assertEquals('p' - 'a' + 1, a.androidRank)
+
         val d = CategoryName.parse("navbar_land#p")
-        assertEquals(listOf("land", "p"), d.tokens)
-        assertEquals(listOf("p"), d.optionTokens)
+        assertEquals(listOf("land", "Hp"), d.tokens)
+        assertEquals(emptyList(), d.optionTokens)
+
+        // Android release letters are qualifiers, not options; the newest one ranks highest.
+        val r = CategoryName.parse("drawable-xxhdpi-v26#r")
+        assertEquals(listOf("xxhdpi", "v26", "Hr"), r.tokens)
+        assertEquals(emptyList(), r.optionTokens)
+        assertTrue(r.androidRank > CategoryName.parse("dialpad#q").androidRank)
+        assertEquals(listOf("icoalt"), CategoryName.parse("icons-icoaltHs").optionTokens)
+        assertEquals(0, CategoryName.parse("settingsicon").androidRank)
 
         assertEquals(CategoryName.parse("misc-myfiles"), CategoryName.parse("misc/myfiles").copy(raw = "misc-myfiles"))
         assertEquals(emptyList(), CategoryName.parse("drawable-xxhdpi-v26").optionTokens)
+
+        // v<sdk> qualifiers compare as numbers, not strings.
+        assertEquals(26, CategoryName.parse("drawable-xxhdpi-v26").sdkLevel)
+        assertEquals(4, CategoryName.parse("drawable-xxhdpi-v4").sdkLevel)
+        assertEquals(8, CategoryName.parse("drawable-night-xxhdpi-v8").sdkLevel)
+        assertEquals(0, CategoryName.parse("settingsicon").sdkLevel)
     }
 }

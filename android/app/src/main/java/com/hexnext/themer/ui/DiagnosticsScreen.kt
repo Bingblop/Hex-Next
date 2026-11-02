@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.TargetResult
+import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.device.ReportSharer
 import com.hexnext.themer.shizuku.ShizukuState
@@ -90,7 +91,10 @@ fun DiagnosticsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val ready = shizuku as? ShizukuState.Ready
-    val enabled = ready != null && !state.busy && !editorBusy
+    // Any task on the service, including the editor's startup safety check, which sets neither
+    // state.busy nor editorBusy: an action started now would only be refused.
+    val serviceTask by ServiceTasks.running.collectAsStateWithLifecycle()
+    val enabled = ready != null && !state.busy && !editorBusy && serviceTask == null
     // The Settings test commits an overlay, which only a service running as uid 0 or 1000 can do:
     // not the ADB shell (uid 2000) and not SU mode (the service then runs in the app process).
     val canCommit = ready != null && ready.isPrivileged && !ready.viaSu
@@ -100,8 +104,8 @@ fun DiagnosticsScreen(
     // On open, and again when an editor apply or remove ends: it rewrites the report and the guard.
     LaunchedEffect(editorBusy) { viewModel.refreshApplyReport() }
     // The request waits while a task holds the service, so it is never consumed and then dropped.
-    LaunchedEffect(autoScan, state.busy, editorBusy) {
-        if (autoScan && !state.busy && !editorBusy) {
+    LaunchedEffect(autoScan, state.busy, editorBusy, serviceTask) {
+        if (autoScan && !state.busy && !editorBusy && serviceTask == null) {
             onScanStarted()
             viewModel.runScan()
         }
@@ -173,7 +177,7 @@ fun DiagnosticsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (autoScan && (state.busy || editorBusy)) {
+                    if (autoScan && (state.busy || editorBusy || serviceTask != null)) {
                         Text(
                             "Your scan starts when this finishes.",
                             style = MaterialTheme.typography.bodySmall,
@@ -202,6 +206,7 @@ fun DiagnosticsScreen(
                         report = report,
                         enabled = enabled,
                         canApplyAgain = canApplyAgain,
+                        editorBusy = editorBusy,
                         onScan = viewModel::runScan,
                         onApplyAgain = onApplyAgain,
                         onShareLog = { share(File(report.logFile).takeIf { it.isFile }) },
@@ -213,6 +218,9 @@ fun DiagnosticsScreen(
                     Text(
                         if (state.applyConfirmed) {
                             "Nothing is waiting for confirmation. After the next apply, check your phone and tap \"It works\"."
+                        } else if (state.applyProtectionExpired) {
+                            "The last apply was never confirmed, and its 10 minutes of restart protection are over: " +
+                                "restarts no longer turn the overlays off. Tap \"It works\" to clear this."
                         } else {
                             "The last apply is not confirmed yet. If your phone restarts twice within 10 minutes, " +
                                 "Hex Next turns its overlays off. Tap \"It works\" once everything looks right."
@@ -271,11 +279,17 @@ private fun WhatToDoCard(
     report: ApplyReport,
     enabled: Boolean,
     canApplyAgain: Boolean,
+    editorBusy: Boolean,
     onScan: () -> Unit,
     onApplyAgain: () -> Unit,
     onShareLog: () -> Unit,
 ) {
+    // The editor's Apply theme saves the report as "started" / "running" while it works; that is
+    // only an interrupted apply once nothing is running any more.
+    val inProgress = editorBusy &&
+        (report.status == ApplyReport.STATUS_STARTED || report.status == ApplyReport.STATUS_RUNNING)
     val advice = when {
+        inProgress -> "An apply is running now. This card updates when it finishes."
         !report.finished && report.status == ApplyReport.STATUS_ABORTED ->
             "The last apply stopped early${if (report.error.isNotBlank()) ": ${report.error}" else ""}. Apply again. If it keeps failing, share the build log with support."
         !report.finished -> "The last apply was interrupted. Apply again."
@@ -284,7 +298,7 @@ private fun WhatToDoCard(
         report.okCount == 0 -> "The last apply changed nothing. Scan your phone, then apply again."
         else -> "The last apply went through: ${report.okCount} ${if (report.okCount == 1) "app was" else "apps were"} themed."
     }
-    val problem = report.failedCount > 0 || !report.finished || report.okCount == 0
+    val problem = !inProgress && (report.failedCount > 0 || !report.finished || report.okCount == 0)
     SectionCard("What to do") {
         Text(
             advice,

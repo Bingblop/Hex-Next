@@ -104,6 +104,36 @@ class RenamePacksTest(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in packs.iterdir()),
                              sorted([f"{entry['id']}.zip", "index.json"]))
 
+    def test_in_place_pass_removes_renamed_source_zip(self):
+        # <in-dir> == <out-dir> with a mapped source pack: no zip may keep the source identity,
+        # and a second pass must not list the pack twice.
+        source_id, entry = first_mapping()
+        with tempfile.TemporaryDirectory() as tmp:
+            packs = Path(tmp, "packs")
+            packs.mkdir()
+            write_pack(packs / f"{source_id}.zip", source_id, "Original")
+            for _ in range(2):
+                rc, _ = run_main(packs, packs)
+                self.assertEqual(rc, 0)
+                self.assertEqual(sorted(p.name for p in packs.iterdir()),
+                                 sorted([f"{entry['id']}.zip", "index.json"]))
+                index = json.loads((packs / "index.json").read_text())
+                self.assertEqual([p["id"] for p in index["packs"]], [entry["id"]])
+
+    def test_duplicate_ids_are_indexed_once(self):
+        # A leftover source zip next to its renamed copy (from an older run) is listed once.
+        source_id, entry = first_mapping()
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp, "in"), Path(tmp, "out")
+            src.mkdir()
+            write_pack(src / f"{source_id}.zip", source_id, "Original")
+            write_pack(src / f"{entry['id']}.zip", entry["id"], entry["name"])
+            rc, _ = run_main(src, out)
+            self.assertEqual(rc, 0)
+            index = json.loads((out / "index.json").read_text())
+            self.assertEqual([p["id"] for p in index["packs"]], [entry["id"]])
+            self.assertEqual(len(list(src.iterdir())), 2)
+
     def test_rename_zip_refuses_unknown_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             write_pack(Path(tmp, "z.zip"), "some-plugin-1-2", "Some Plugin")

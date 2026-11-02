@@ -41,9 +41,12 @@ public data class Element(
  * `drawable-night-xxhdpi-v26-note`.
  *
  * Parsing: `/` is treated as `-`; the name is split on `-` and `#`; the first part is the base.
- * A trailing `H<letter>` (`Hp`, `Hr`, `Hs` …) of any part is split off as its own token; a base
- * suffix `_night` marks a night category, `_alt` adds the token `alt`, `_land` the qualifier
- * `land`. A `night` part also marks a night category.
+ * A trailing `H<letter>` (`Hp`, `Hr`, `Hs` …) of any part is split off as its own token, and a
+ * single letter after `#` (`#p`, `#r`) becomes the same `H<letter>` token. These are Android
+ * release letters (p = 9, q = 10, r = 11, s = 12, u = 14) marking artwork for that release and
+ * later: they are qualifiers (see [androidRank]), not options. A base suffix `_night` marks a
+ * night category, `_alt` adds the token `alt`, `_land` the qualifier `land`. A `night` part also
+ * marks a night category.
  *
  * @property raw the category as given.
  * @property base base name without suffixes (`settingsicon`).
@@ -58,10 +61,28 @@ public data class CategoryName(
 ) {
     /**
      * Variant tokens that select optional artwork: [tokens] minus resource qualifiers
-     * (density, `v<sdk>`, `land`, `port`, `sw<N>dp`, layout direction). A category with option
-     * tokens is used only when every token is switched on in the element options.
+     * (density, `v<sdk>`, `land`, `port`, `sw<N>dp`, layout direction, Android release
+     * `H<letter>`). A category with option tokens is used only when every token is switched on in
+     * the element options.
      */
     public val optionTokens: List<String> get() = tokens.filterNot(::isQualifier)
+
+    /**
+     * The newest Android release letter among the `H<letter>` tokens, as a rank (`'a'` = 1 …
+     * `'z'` = 26), or 0 when there is none. Every supported device (Android 15 and later) is newer
+     * than all release letters packs use, so these categories always apply; a higher rank is the
+     * more recent artwork and wins over a lower one.
+     */
+    public val androidRank: Int
+        get() = tokens.filter { ANDROID_RELEASE.matches(it) }.maxOfOrNull { it[1] - 'a' + 1 } ?: 0
+
+    /**
+     * The highest `v<sdk>` qualifier among [tokens] as a number, or 0 when there is none. Every
+     * supported device runs a newer SDK than any level packs use, so the highest level is the
+     * artwork Android itself would pick and wins over lower ones (`v26` over `v4` and `v8`).
+     */
+    public val sdkLevel: Int
+        get() = tokens.mapNotNull { SDK_QUALIFIER.matchEntire(it)?.groupValues?.get(1)?.toIntOrNull() }.maxOrNull() ?: 0
 
     /** Keys tried against element categories, most specific first: `base-<token>` for each token in order, then `base`. */
     public val lookupKeys: List<String>
@@ -69,14 +90,17 @@ public data class CategoryName(
 
     public companion object {
         private val H_SUFFIX = Regex("^(.+?)(H[a-z])$")
-        private val QUALIFIER = Regex("^(v\\d+|[a-z]*dpi|land|port|sw\\d+dp|w\\d+dp|h\\d+dp|ldrtl|ldltr|Idrtl|Idltr|notnight)$")
+        private val ANDROID_RELEASE = Regex("^H[a-z]$")
+        private val SDK_QUALIFIER = Regex("^v(\\d+)$")
+        private val SHARP_RELEASE = Regex("#([a-z])(?=$|[-#/])")
+        private val QUALIFIER = Regex("^(v\\d+|[a-z]*dpi|land|port|sw\\d+dp|w\\d+dp|h\\d+dp|ldrtl|ldltr|Idrtl|Idltr|notnight|H[a-z])$")
 
         /** True for resource qualifier tokens (not artwork options). */
         public fun isQualifier(token: String): Boolean = QUALIFIER.matches(token)
 
         /** Parses [category]. */
         public fun parse(category: String): CategoryName {
-            val parts = category.replace('/', '-').split('-', '#').filter { it.isNotEmpty() }
+            val parts = category.replace(SHARP_RELEASE, "-H\$1").replace('/', '-').split('-', '#').filter { it.isNotEmpty() }
             val expanded = parts.flatMap { part ->
                 H_SUFFIX.matchEntire(part)?.destructured?.let { (head, h) -> listOf(head, h) } ?: listOf(part)
             }

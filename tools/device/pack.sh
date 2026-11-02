@@ -19,16 +19,19 @@ case "$SRC" in
   *) FILE="$SRC" ;;
 esac
 [ -f "$FILE" ] || { echo "not a file: $FILE"; exit 1; }
-# A pack is a zip holding pack.json at its root.
-if command -v unzip >/dev/null 2>&1 && ! unzip -l "$FILE" 2>/dev/null | grep -q ' pack.json$'; then
-  echo "$FILE has no pack.json; not a Hex Next pack"; exit 2
-fi
-NAME=$(basename "$FILE")
-# The name and path are interpolated into a root shell: allow only plain file-name characters,
+# A pack is a zip holding pack.json at its root. It is stored as <id>.zip whatever the source file
+# is called, as the app's own import does: the app deletes and replaces a pack by that name only,
+# so a pack stored as velvet-rope-1.zip could never be deleted and would be listed twice.
+command -v unzip >/dev/null 2>&1 || { echo "unzip is needed to read the pack id (Termux: pkg install unzip)"; exit 1; }
+unzip -l "$FILE" 2>/dev/null | grep -q ' pack.json$' || { echo "$FILE has no pack.json; not a Hex Next pack"; exit 2; }
+ID=$(unzip -p "$FILE" pack.json 2>/dev/null | tr ',{}' '\n\n\n' \
+  | sed -n 's/^[[:space:]]*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+# The id and path are interpolated into a root shell: allow only plain file-name characters,
 # and refuse a source path with a single quote (it would end the quoted expansion).
-case "$NAME" in
-  *[!A-Za-z0-9._-]*|'') echo "pack file name '$NAME' may only contain letters, digits, '.', '_' and '-'; rename it"; exit 1 ;;
+case "$ID" in
+  *[!A-Za-z0-9._-]*|''|.*) echo "pack id '$ID' in pack.json is missing or not a plain name; not a Hex Next pack"; exit 2 ;;
 esac
+NAME="$ID.zip"
 case "$FILE" in
   *"'"*) echo "the path '$FILE' contains a quote; move the file to a plain path first"; exit 1 ;;
 esac
@@ -36,7 +39,7 @@ esac
 # so a planted symlink cannot redirect the root copy.
 su -c "uid=\$(stat -c %u '/data/data/$PKG') && mkdir -p '$DEST' && \
   chown \"\$uid:\$uid\" '/data/data/$PKG/files' '$DEST' && \
-  rm -f '$DEST/.$NAME.tmp' && cp '$FILE' '$DEST/.$NAME.tmp' && mv -f '$DEST/.$NAME.tmp' '$DEST/$NAME' && \
+  rm -f '$DEST/.$NAME.tmp' && cp '$FILE' '$DEST/.$NAME.tmp' && mv -f '$DEST/.$NAME.tmp' '$DEST/$NAME' && rm -f '$DEST/$ID.hexnext' && \
   chown \"\$uid:\$uid\" '$DEST/$NAME' && chmod 600 '$DEST/$NAME' && \
   restorecon -R '/data/data/$PKG/files' && ls -l '$DEST'"
 status=$?

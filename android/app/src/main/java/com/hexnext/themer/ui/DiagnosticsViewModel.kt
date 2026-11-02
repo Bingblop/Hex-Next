@@ -44,11 +44,29 @@ data class DiagnosticsState(
     val log: List<LogLine> = emptyList(),
     /** False while the last apply (theme or Settings test) waits for "It works". */
     val applyConfirmed: Boolean = true,
+    /** The last apply is unconfirmed but its 10-minute restart-protection window has passed. */
+    val applyProtectionExpired: Boolean = false,
     /** Non-zero once a scan finished and the screen has not yet shown its "Scan finished" notice. */
     val scanFinishedId: Long = 0L,
 ) {
     val latestReportTxt: File?
         get() = latestReportJson?.let { File(it.parentFile, it.nameWithoutExtension + ".txt") }?.takeIf { it.isFile }
+}
+
+/**
+ * Mirrors ApplyGuard's private 10-minute window (shouldEnterSafeMode and the early-recovery
+ * script's 600 s): once it has passed, an unconfirmed apply is no longer protected.
+ */
+private const val RESTART_PROTECTION_WINDOW_MS = 10 * 60 * 1000L
+
+/**
+ * True when the last apply is unconfirmed but its restart-protection window is over, so no
+ * restart can turn the overlays off any more although "It works" was never tapped.
+ */
+internal fun ApplyGuard.protectionExpired(now: Long = System.currentTimeMillis()): Boolean {
+    if (confirmed) return false
+    val at = appliedAt
+    return at <= 0L || now < at || now - at > RESTART_PROTECTION_WINDOW_MS
 }
 
 class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
@@ -61,7 +79,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(
         DiagnosticsState(
             latestReportJson = DeviceScanner.latestReport(app),
-            guard = guard.describe(), applyConfirmed = guard.confirmed,
+            guard = guard.describe(), applyConfirmed = guard.confirmed, applyProtectionExpired = guard.protectionExpired(),
             applyReport = ThemeApplier.lastReport(app),
         )
     )
@@ -75,10 +93,14 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
      * model's back. The screen calls it each time it opens.
      */
     fun refreshApplyReport() = _state.update {
+        val app = getApplication<Application>()
         it.copy(
-            applyReport = ThemeApplier.lastReport(getApplication<Application>()),
+            // A running apply rewrites the file; a read that catches it half-written parses to
+            // null, so keep the report already shown while the file is still there.
+            applyReport = ThemeApplier.lastReport(app)
+                ?: it.applyReport.takeIf { _ -> ThemeApplier.reportFile(app).isFile },
             guard = guard.describe(),
-            applyConfirmed = guard.confirmed,
+            applyConfirmed = guard.confirmed, applyProtectionExpired = guard.protectionExpired(),
         )
     }
 
@@ -132,7 +154,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         guard.confirm()
-        _state.update { it.copy(guard = guard.describe(), applyConfirmed = guard.confirmed) }
+        _state.update { it.copy(guard = guard.describe(), applyConfirmed = guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
         log(LogLevel.OK, "Confirmed: restarts will no longer trigger safe mode for this apply.")
         runTask("Stop monitor", clearLog = false) { service, _ ->
             val r = withContext(Dispatchers.IO) {
@@ -181,7 +203,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
             val m = service.readStateFile("safe_mode.json")
             s.contentOrNull() to m.contentOrNull()
         }
-        _state.update { it.copy(monitorStatus = status, safeModeFile = safe, guard = guard.describe(), applyConfirmed = guard.confirmed) }
+        _state.update { it.copy(monitorStatus = status, safeModeFile = safe, guard = guard.describe(), applyConfirmed = guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
     }
 
     private fun android.os.Bundle.contentOrNull(): String? =
@@ -213,7 +235,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
                 log(LogLevel.ERROR, "$name failed: ${t.javaClass.simpleName}: ${t.message}")
             } finally {
                 ServiceTasks.finish()
-                _state.update { it.copy(busy = false, task = null, progress = null, guard = guard.describe(), applyConfirmed = guard.confirmed) }
+                _state.update { it.copy(busy = false, task = null, progress = null, guard = guard.describe(), applyConfirmed = guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
             }
         }
     }

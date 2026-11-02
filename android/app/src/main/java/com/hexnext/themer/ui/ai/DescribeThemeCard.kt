@@ -92,7 +92,10 @@ fun DescribeThemeCard(
     val working = model.working
     val error = model.error
     val suggestion = model.suggestion
-    val applied = model.applied
+    // "Applied" only while the editor still holds the spec this suggestion produced: changing
+    // the pack or anything else in the editor afterwards turns the button back into a plain
+    // Apply, so the suggestion can be put back without paying for a new generation.
+    val applied = model.appliedSpec == spec
 
     val providers = remember(configured) { AiProviders.text.filter { it.id in configured } }
     LaunchedEffect(providers) {
@@ -180,8 +183,9 @@ fun DescribeThemeCard(
                 applied = applied,
                 enabled = !busy && !working,
                 onApply = {
-                    model.applied = true
-                    onApply(s, ThemeSuggester.toThemeSpec(s, spec, packs))
+                    val newSpec = ThemeSuggester.toThemeSpec(s, spec, packs)
+                    model.appliedSpec = newSpec
+                    onApply(s, newSpec)
                 },
             )
         }
@@ -199,14 +203,15 @@ internal class DescribeThemeModel : ViewModel() {
         private set
     var suggestion by mutableStateOf<ThemeSuggestion?>(null)
         private set
-    var applied by mutableStateOf(false)
+    /** The spec the last Apply put into the editor; null until then and after a new generation. */
+    var appliedSpec by mutableStateOf<ThemeSpec?>(null)
 
     /** Asks [provider] for a theme from [description]; ignored while a request is running. */
     fun generate(keys: AiKeyStore, provider: TextProvider, description: String) {
         if (working) return
         working = true
         error = null
-        applied = false
+        appliedSpec = null
         viewModelScope.launch {
             try {
                 suggestion = ThemeSuggester.suggest(keys, provider, description)
@@ -262,13 +267,15 @@ private fun SuggestionPreview(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            InfoPill("Mode: ${modeLabel(suggestion.mode)}")
+            modeLabel(suggestion.mode)?.let { InfoPill(it) }
             InfoPill(if (packName != null) "Pack: $packName" else "Pack: keep current")
         }
-        Button(onClick = onApply, enabled = enabled && !applied) { Text(if (applied) "Applied to editor" else "Apply to editor") }
+        // Never disabled once applied: re-applying is free and puts the suggestion back after
+        // later edits (the accent picker, for one, changes the seed outside the spec).
+        Button(onClick = onApply, enabled = enabled) { Text(if (applied) "Apply again" else "Apply to editor") }
         if (applied) {
             Text(
-                "The editor and preview now show this theme. Press Apply at the bottom to put it on the phone.",
+                "Applied to the editor. Press Apply at the bottom to put it on the phone.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -302,8 +309,14 @@ private fun Swatch(argb: Int, size: Dp, outlined: Boolean) {
     )
 }
 
-private fun modeLabel(mode: String): String = when (mode) {
-    "dark" -> "Dark"
-    "light" -> "Light"
-    else -> "Follows the phone"
+/**
+ * What the suggested mode really changes: only the background lightness of that mode's
+ * surfaces (the other mode goes back to Samsung's default). The phone's own light/dark setting
+ * is never switched, so the pill must not promise a mode; "system" keeps default surfaces and
+ * gets no pill.
+ */
+private fun modeLabel(mode: String): String? = when (mode) {
+    "dark" -> "Darker dark-mode surfaces"
+    "light" -> "Brighter light-mode surfaces"
+    else -> null
 }
