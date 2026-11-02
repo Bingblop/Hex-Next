@@ -11,7 +11,8 @@ import com.hexnext.themer.shizuku.ThemeService
  * there, this hook still runs: it is a small root module (`/data/adb/modules/hexnext_early_recovery`,
  * listed as "Hex Next Early Recovery" in KernelSU / Magisk / APatch) whose `post-fs-data.sh`
  * starts the recovery script detached early in each boot. It needs persistent root; a
- * temporary root that is gone after reboot runs nothing. The script reads the guard's device-protected
+ * temporary root that is gone after reboot runs nothing. The script reads the guard's
+ * device-protected
  * preferences and applies the same rule as [ApplyGuard.shouldEnterSafeMode]: an unconfirmed
  * apply less than 10 minutes old and this is the second restart since it. Then it disables
  * every `HexNext*` overlay and leaves a marker the app reads through the service
@@ -125,7 +126,7 @@ internal object EarlyRecoveryHook {
      * Works for both a Shizuku root service and the in-process `su -c` service, so it checks
      * the effective uid of `exec` rather than the binder uid.
      */
-    fun install(service: IThemeService): Boolean? = runCatching {
+    fun install(service: IThemeService): Boolean? = runCatching<Boolean?> {
         val id = service.exec("id -u")
         if (id.getString(ThemeService.KEY_OUTPUT).orEmpty().trim() != "0") return@runCatching null
         val staged = listOf(SCRIPT_NAME to script, LAUNCHER_NAME to launcher, MODULE_PROP_NAME to MODULE_PROP)
