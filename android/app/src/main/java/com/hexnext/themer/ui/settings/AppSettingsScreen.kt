@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.themer.BuildConfig
+import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.theme.parseHexColor
 import com.hexnext.themer.theme.toHex
@@ -97,6 +98,9 @@ fun AppSettingsScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenAiProviders: () -> Unit,
     onOpenOnboarding: () -> Unit,
+    purchases: EntitlementState,
+    canPurchase: Boolean,
+    onRestorePurchases: () -> Unit,
 ) {
     val settings by store.settings.collectAsStateWithLifecycle()
     BackHandler(onBack = onBack)
@@ -139,6 +143,9 @@ fun AppSettingsScreen(
                         onClick = onOpenDiagnostics,
                     )
                 }
+            }
+            if (canPurchase) {
+                item { PurchasesCard(purchases, onRestorePurchases) }
             }
             item { AboutCard(onOpenOnboarding) }
         }
@@ -354,6 +361,36 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
 // About
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Theme packs are one-time purchases on Google Play. "Restore purchases" reads them from Play
+ * again, for a new phone, a reinstall or a purchase made on another device.
+ */
+@Composable
+private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
+    val error = purchases.error
+    val status = when {
+        purchases.checking -> "Checking your purchases with Google Play…"
+        error != null -> error
+        !purchases.ready -> "Your purchases have not been checked yet."
+        purchases.unlockAll -> "All packs are unlocked, including packs added later."
+        purchases.ownedProductIds.isEmpty() -> "No packs unlocked yet. Unlock packs from the Theme pack card."
+        purchases.ownedProductIds.size == 1 -> "1 pack unlocked."
+        else -> "${purchases.ownedProductIds.size} packs unlocked."
+    }
+    SectionCard("Purchases") {
+        Text(
+            status,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (error != null && !purchases.checking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        NavRow(
+            title = "Restore purchases",
+            summary = "Unlock packs you bought before on this Google account.",
+            onClick = onRestore,
+        )
+    }
+}
+
 @Composable
 private fun AboutCard(onOpenOnboarding: () -> Unit) {
     val uriHandler = rememberSafeUriHandler()
@@ -410,6 +447,7 @@ private val THIRD_PARTY_LIBRARIES = listOf(
     "Material Components for Android, colour utilities (Google) · Apache License 2.0",
     "Shizuku API and provider (RikkaApps) · see github.com/RikkaApps/Shizuku-API",
     "HiddenApiBypass (LSPosed) · Apache License 2.0",
+    "Google Play Billing Library (Play Store build) · Android Software Development Kit License",
 )
 
 @Composable

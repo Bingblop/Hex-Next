@@ -45,6 +45,10 @@ jobs:
       concurrency_key: release-${{ needs.prepare.outputs.tag }}
     secrets:
       HEXNEXT_DEBUG_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_DEBUG_KEYSTORE_BASE64 }}
+      HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 }}
+      HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD }}
+      HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS }}
+      HEXNEXT_KEY_PASSWORD: ${{ secrets.HEXNEXT_KEY_PASSWORD }}
 
   release:
     needs: [prepare, validate]
@@ -67,6 +71,8 @@ jobs:
       - name: Build and verify production-signed universal APK
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          HEXNEXT_LICENSE_SERVER_URL: ${{ vars.HEXNEXT_LICENSE_SERVER_URL }}
+          HEXNEXT_PLAY_LICENSE_KEY: ${{ vars.HEXNEXT_PLAY_LICENSE_KEY }}
           HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 }}
           HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD }}
           HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS }}
@@ -86,7 +92,7 @@ jobs:
           python3 bin/verify-release-apk.py dist/HexNext_OneUI9_Universal_EN_Signed.apk \
             --expected-version "$RELEASE_VERSION" \
             --report dist/HexNext_OneUI9_Universal_EN_Signed.apk.json
-          cp android/app/build/outputs/mapping/release/mapping.txt dist/mapping.txt
+          cp android/app/build/outputs/mapping/playRelease/mapping.txt dist/mapping.txt
       - uses: actions/upload-artifact@v4
         with:
           name: HexNext-Universal-Signed-Release

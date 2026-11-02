@@ -1,7 +1,9 @@
 package com.hexnext.themer.ui
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -22,6 +24,11 @@ import com.hexnext.engine.compile.withOption
 import com.hexnext.engine.compile.withSynthesizeMissingIcons
 import com.hexnext.engine.pack.Pack
 import com.hexnext.themer.ServiceTasks
+import com.hexnext.themer.billing.EntitlementState
+import com.hexnext.themer.billing.EntitlementsProvider
+import com.hexnext.themer.billing.OfficialPacks
+import com.hexnext.themer.billing.PackAccess
+import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
@@ -140,9 +147,23 @@ data class UiState(
      * palette only through the ADB shell, nothing while disconnected. Gates the icon, background and font cards.
      */
     val capability: Capability = Capability.NONE,
+    /** Which packs this install has unlocked, with the store's prices (see billing/PackEntitlements). */
+    val entitlement: EntitlementState = EntitlementState(),
+    /** Test packs bundled into a debuggable build, which count as unlocked there; empty otherwise. */
+    val bundledPackIds: Set<String> = emptySet(),
+    /** Packs seen in a fetched catalogue or downloaded from one: paid even when their id is not in PaidPacks. */
+    val officialPackIds: Set<String> = emptySet(),
+    /** False in a build with no store (everything is unlocked): no prices, no Unlock buttons. */
+    val canPurchase: Boolean = false,
 ) {
     /** [EngineThemeSpec.simplePackId] of the stored theme; null is "colours only". */
     val selectedPackId: String? get() = spec.simplePackId
+
+    /** True when pack [id] may be downloaded, selected and applied. */
+    fun isPackUnlocked(id: String): Boolean = PackAccess.isUnlocked(entitlement, id, bundledPackIds, officialPackIds)
+
+    /** [isPackUnlocked], or the cached purchase hint while the store has not answered: for display only. */
+    fun packLooksUnlocked(id: String): Boolean = PackAccess.looksUnlocked(entitlement, id, bundledPackIds, officialPackIds)
 }
 
 /** The "Preview" card: Settings dashboard icons of the theme to apply, from [ThemePreviewer]. */
@@ -177,6 +198,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private val previewer = ThemePreviewer(app)
     private val assets = CustomAssetStore(app)
     private val appSettings = AppSettingsStore.get(app)
+
+    /** Pack unlocks of this build's store flavor; one instance per process, already started. */
+    private val entitlements = EntitlementsProvider.get(app)
+
+    /** Catalogue pack ids seen by this install (see [PackAccess.isPaid]). */
+    private val officialPacks = OfficialPacks.get(app)
+    private val debuggable = (app.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private var safeModeChecked = false
     private var semwtReasserted = false
 
@@ -331,8 +359,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
             if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
             seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
+            if (debuggable) {
+                val bundled = runCatching { packStore.bundledIds() }.getOrDefault(emptySet())
+                _ui.update { it.copy(bundledPackIds = bundled) }
+            }
             refreshPacks()
             refreshAssets()
+            learnOfficialPacks()
         }
         viewModelScope.launch {
             for (tool in RootTools.ALL) {
@@ -357,6 +390,20 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             ServiceTasks.running.drop(1).filter { it == null }.collect {
                 refreshGuard()
                 refreshLastApply()
+            }
+        }
+        viewModelScope.launch {
+            officialPacks.ids.collect { ids ->
+                _ui.update { if (it.officialPackIds == ids) it else it.copy(officialPackIds = ids) }
+            }
+        }
+        viewModelScope.launch {
+            var previous: EntitlementState? = null
+            entitlements.state.collect { state ->
+                _ui.update { if (it.entitlement == state) it else it.copy(entitlement = state) }
+                val before = previous
+                previous = state
+                onEntitlementsChanged(before, state)
             }
         }
         viewModelScope.launch {
@@ -464,6 +511,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     private fun initialState(): UiState = UiState(
+        entitlement = entitlements.state.value,
+        officialPackIds = officialPacks.ids.value,
+        canPurchase = entitlements.canPurchase,
         seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
         oneUiVersion = CompatibilityCheck.oneUiName(),
         lastApply = ThemeApplier.lastReport(getApplication<Application>()),
@@ -488,8 +538,25 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * seed and pack) to every scanned target. Works without packs (colours only); drawables and
      * night colours need the privileged service.
      */
-    fun applyTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
+    fun applyTheme() {
+        // Catalogue packs are paid unlocks: a theme that uses a locked pack (an imported catalogue file, a pack
+        // whose purchase was refunded, a pick from "Describe your theme") is not applied.
+        val locked = PackAccess.lockedPacksIn(specToApply()) { _ui.value.isPackUnlocked(it) }
+        if (locked.isNotEmpty()) {
+            refuseLocked(locked.first())
+            return
+        }
+        applyUnlockedTheme()
+    }
+
+    private fun applyUnlockedTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
         val spec = specToApply()
+        val stillLocked = PackAccess.lockedPacksIn(spec) { _ui.value.isPackUnlocked(it) }
+        if (stillLocked.isNotEmpty()) {
+            log(LogLine(LogLevel.ERROR, "Not applied: pack ${stillLocked.joinToString()} is locked"))
+            postNotice(Notice("Unlock ${packName(stillLocked.first())} to apply this theme", isError = true))
+            return@runTask false
+        }
         val report = applier.apply(service, spec, ::log)
         // A safe mode from before this apply is over once the new theme is on: left set, it keeps
         // the SemWT re-assert (here and at boot) and early-hook detection off for the new theme,
@@ -616,8 +683,12 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * Advanced mode: [elementId] uses [packId] (null = same as the default pack). Choosing a pack
      * for a part also switches the part back on, so the choice takes effect.
      */
-    fun setElementPack(elementId: String, packId: String?) = updateSpec {
-        it.withElementPack(elementId, packId).withElementEnabled(elementId, true)
+    fun setElementPack(elementId: String, packId: String?) {
+        if (packId != null && !_ui.value.isPackUnlocked(packId)) {
+            refuseLocked(packId)
+            return
+        }
+        updateSpec { it.withElementPack(elementId, packId).withElementEnabled(elementId, true) }
     }
 
     /** Advanced mode: a part that is off gets no drawables from any pack (colours only). */
@@ -828,6 +899,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             val result = runCatching { packStore.installed() }
             result.onSuccess { installed ->
                 val ids = installed.packs.mapTo(HashSet()) { it.id }
+                entitlements.setCatalogue(ids)
                 val versions = installed.packs.associate { it.id to it.version }
                 _ui.update {
                     it.copy(
@@ -856,8 +928,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
     }
 
-    /** Chooses the pack of the next apply (null = colours only) and persists it in the theme. */
-    fun selectPack(id: String?) = updateSpec { it.copy(simplePackId = id) }
+    /** Chooses the pack of the next apply (null = colours only) and persists it in the theme; a locked pack is refused. */
+    fun selectPack(id: String?) {
+        if (id != null && !_ui.value.isPackUnlocked(id)) {
+            refuseLocked(id)
+            return
+        }
+        updateSpec { it.copy(simplePackId = id) }
+    }
 
     /** Copies the chosen document into `files/packs` and lists it. */
     fun importPack(uri: Uri) {
@@ -895,6 +973,21 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
     }
 
+    /**
+     * Store builds only, once at start-up on IO: reads the default catalogue's `index.json` so that
+     * packs added to it after this APK shipped count as paid even if the user never opens "Get
+     * packs" (see [OfficialPacks]). Best effort: offline or a bad answer changes nothing.
+     */
+    private fun learnOfficialPacks() {
+        if (!entitlements.canPurchase) return
+        runCatching { packStore.fetchCatalogue(PackStore.DEFAULT_CATALOGUE_URL) }
+            .onSuccess { entries -> officialPacks.record(entries.map { it.id }) }
+            .onFailure { log(LogLine(LogLevel.INFO, "Catalogue check skipped: ${it.javaClass.simpleName}")) }
+    }
+
+    private fun isOfficialCatalogue(url: String): Boolean =
+        PackStore.normaliseBaseUrl(url) == PackStore.normaliseBaseUrl(PackStore.DEFAULT_CATALOGUE_URL)
+
     fun setCatalogueUrl(url: String) = _ui.update { it.copy(catalogue = it.catalogue.copy(url = url)) }
 
     /** Fetches `index.json` from the catalogue URL; errors show in the dialog, not only the log. */
@@ -905,6 +998,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val entries = packStore.fetchCatalogue(url)
+                // Only the official catalogue marks packs as paid: a catalogue of the user's own
+                // packs elsewhere stays free (official ids also come from learnOfficialPacks).
+                if (isOfficialCatalogue(url)) officialPacks.record(entries.map { it.id })
+                entitlements.setCatalogue(entries.map { it.id })
                 _ui.update { it.copy(catalogue = it.catalogue.copy(entries = entries, loading = false, error = null)) }
                 log(LogLine(LogLevel.OK, "Catalogue: ${entries.size} packs at ${PackStore.normaliseBaseUrl(url)}"))
             } catch (t: Exception) {
@@ -918,6 +1015,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Downloads [entry] into `files/packs` with progress in [CatalogueState.downloading]. */
     fun downloadPack(entry: CatalogueEntry) {
         if (_ui.value.busy || entry.id in _ui.value.catalogue.downloading) return
+        if (!_ui.value.isPackUnlocked(entry.id)) {
+            refuseLocked(entry.id)
+            return
+        }
         val url = _ui.value.catalogue.url
         _ui.update { it.copy(busy = true, catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to 0f))) }
         viewModelScope.launch(Dispatchers.IO) {
@@ -926,6 +1027,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                     val fraction = if (total > 0) (read.toFloat() / total).coerceIn(0f, 1f) else 0f
                     _ui.update { it.copy(catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to fraction))) }
                 }
+                if (isOfficialCatalogue(url)) officialPacks.record(listOf(entry.id, pack.id))
                 log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)"))
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Download of ${entry.name} failed: ${t.message ?: t.javaClass.simpleName}"))
@@ -935,6 +1037,80 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 refreshPacks()
             }
         }
+    }
+
+    // ---- Pack unlocks ----
+
+    /** Starts the store purchase of [productId] ([ProductIds.forPack] or [ProductIds.ALL_PACKS]). */
+    fun unlock(activity: Activity, productId: String) {
+        if (!entitlements.canPurchase) return
+        entitlements.launchPurchase(activity, productId)
+    }
+
+    /** "Restore purchases": reads the purchases from the store again. */
+    fun restorePurchases() {
+        log(LogLine(LogLevel.INFO, "Checking purchases with Google Play"))
+        entitlements.refresh()
+    }
+
+    /** The app came back to the foreground: a purchase may have completed or been refunded meanwhile. */
+    fun refreshEntitlements() = entitlements.refresh()
+
+    /** Tells the user why [packId] cannot be used, or that the purchase check is still running. */
+    private fun refuseLocked(packId: String) {
+        val state = _ui.value
+        val name = packName(packId)
+        when {
+            !state.entitlement.ready && state.packLooksUnlocked(packId) -> {
+                postNotice(Notice("Checking your purchases. Try again in a moment"))
+                entitlements.refresh()
+            }
+            state.entitlement.isPending(packId) -> postNotice(Notice("The payment for $name is still pending"))
+            else -> {
+                log(LogLine(LogLevel.WARN, "$name is locked: unlock it to download or apply it"))
+                postNotice(Notice("Unlock $name to use it", isError = true))
+            }
+        }
+    }
+
+    /** The name of pack [packId] from the installed packs or the catalogue; the id when neither has it. */
+    private fun packName(packId: String): String {
+        val state = _ui.value
+        return state.packs.firstOrNull { it.id == packId }?.name
+            ?: state.catalogue.entries.firstOrNull { it.id == packId }?.name
+            ?: packId
+    }
+
+    /** Snackbars for what a purchase changed; the first state of the run ([before] null or not ready) only logs. */
+    private fun onEntitlementsChanged(before: EntitlementState?, state: EntitlementState) {
+        if (before == null) {
+            state.error?.let { log(LogLine(LogLevel.WARN, "Purchases: $it")) }
+            return
+        }
+        if (state.error != null && state.error != before.error) {
+            log(LogLine(LogLevel.WARN, "Purchases: ${state.error}"))
+            postNotice(Notice(state.error, isError = true))
+        }
+        if (!before.ready) return
+        val newlyOwned = state.ownedProductIds - before.ownedProductIds
+        when {
+            state.unlockAll && !before.unlockAll -> postNotice(Notice("All packs unlocked. Thank you!", isSuccess = true))
+            newlyOwned.isNotEmpty() -> {
+                val names = newlyOwned.map { productId -> productName(productId) }
+                log(LogLine(LogLevel.OK, "Unlocked ${names.joinToString()}"))
+                postNotice(Notice("${names.joinToString()} unlocked. Thank you!", isSuccess = true))
+            }
+            (state.pendingProductIds - before.pendingProductIds).isNotEmpty() ->
+                postNotice(Notice("Payment pending. The pack unlocks once Google Play confirms it"))
+        }
+    }
+
+    private fun productName(productId: String): String {
+        if (productId == ProductIds.ALL_PACKS) return "All packs"
+        val state = _ui.value
+        return state.packs.firstOrNull { ProductIds.forPack(it.id) == productId }?.name
+            ?: state.catalogue.entries.firstOrNull { ProductIds.forPack(it.id) == productId }?.name
+            ?: productId
     }
 
     /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
@@ -979,6 +1155,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             return
         }
         if (_ui.value.busy) return
+        if (com.hexnext.themer.safety.OtherBuild.isInstalled(getApplication<Application>())) {
+            log(LogLine(LogLevel.ERROR, "${com.hexnext.themer.safety.OtherBuild.packageName} is installed; refusing to change the theme while two builds share the overlays."))
+            postNotice(Notice(com.hexnext.themer.safety.OtherBuild.refusal, isError = true))
+            return
+        }
         // Diagnostics drives the same service: never run alongside one of its tasks.
         if (!ServiceTasks.tryStart(EDITOR_TASK)) {
             val other = ServiceTasks.running.value ?: "A Diagnostics task"

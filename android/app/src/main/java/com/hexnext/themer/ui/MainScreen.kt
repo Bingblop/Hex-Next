@@ -129,6 +129,7 @@ import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.pack.Pack
 import com.hexnext.engine.pack.PackOption
 import com.hexnext.themer.R
+import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.BackgroundSlots
@@ -230,6 +231,9 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
             onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
             onOpenAiProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
             onOpenOnboarding = { viewModel.navigate(Screen.ONBOARDING) },
+            purchases = ui.entitlement,
+            canPurchase = ui.canPurchase,
+            onRestorePurchases = viewModel::restorePurchases,
         )
         Screen.DIAGNOSTICS -> DiagnosticsScreen(
             shizuku = shizuku,
@@ -266,6 +270,7 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
             selectedPackId = ui.spec.simplePackId,
             onSelectPack = viewModel::selectPack,
             onImportPack = viewModel::importPack,
+            isPackLocked = { id -> !ui.packLooksUnlocked(id) },
             onRequestPermission = viewModel::requestPermission,
             onFinish = viewModel::finishOnboarding,
         )
@@ -358,6 +363,11 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
         }
     }
 
+    val locks = PackLocks.of(ui)
+    val onUnlock: (String) -> Unit = { productId -> activity?.let { viewModel.unlock(it, productId) } }
+    // "Describe your theme" may only pick packs this install can apply.
+    val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
+
     val paletteHint = remember(ui.packs, ui.spec.simplePackId) {
         ui.packs.firstOrNull { it.id == ui.spec.simplePackId }
             ?.pack?.paletteArgb?.values?.map { it or 0xFF000000.toInt() }?.take(6).orEmpty()
@@ -407,7 +417,7 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
             item(key = "connection") { StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
             item(key = "describe") {
                 DescribeThemeCard(
-                    packs = ui.packs,
+                    packs = unlockedPacks,
                     spec = ui.spec,
                     busy = ui.busy,
                     onApply = { _, newSpec ->
@@ -426,6 +436,8 @@ private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: Shizuku
                     spec = ui.spec,
                     busy = ui.busy,
                     catalogue = ui.catalogue,
+                    locks = locks,
+                    onUnlock = onUnlock,
                     onSelect = viewModel::selectPack,
                     onMode = viewModel::setMode,
                     onOption = viewModel::setOption,
@@ -947,6 +959,8 @@ private fun PackCard(
     spec: ThemeSpec,
     busy: Boolean,
     catalogue: CatalogueState,
+    locks: PackLocks,
+    onUnlock: (String) -> Unit,
     onSelect: (String?) -> Unit,
     onMode: (ThemeMode) -> Unit,
     onOption: (Pack, LiveOption, String, String?) -> Unit,
@@ -1007,14 +1021,27 @@ private fun PackCard(
         }
         packs.forEach { pack ->
             val selected = spec.simplePackId == pack.id
-            PackRow(selected = selected, enabled = !busy, onClick = { onSelect(pack.id) }) {
-                Column(Modifier.weight(1f)) {
+            val locked = locks.locked(pack.id)
+            PackRow(selected = selected, enabled = !busy && !locked, onClick = { onSelect(pack.id) }) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(pack.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         packSummary(pack),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (locked) {
+                        LockedLabel(pending = locks.pending(pack.id))
+                        if (locks.canPurchase) {
+                            UnlockButton(
+                                name = pack.name,
+                                price = locks.price(pack.id),
+                                pending = locks.pending(pack.id),
+                                enabled = !busy,
+                                onClick = { onUnlock(ProductIds.forPack(pack.id)) },
+                            )
+                        }
+                    }
                 }
                 TextButton(
                     onClick = { confirmDelete = pack.id },
@@ -1046,6 +1073,7 @@ private fun PackCard(
                     packs = packs,
                     spec = spec,
                     busy = busy,
+                    locks = locks,
                     onOption = onOption,
                     onElementPack = onElementPack,
                     onElementEnabled = onElementEnabled,
@@ -1055,6 +1083,7 @@ private fun PackCard(
         errors.forEach { (file, why) ->
             Text("$file: $why", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
+        UnlockAllRow(locks = locks, busy = busy, onUnlock = onUnlock)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
@@ -1083,6 +1112,8 @@ private fun PackCard(
         CatalogueDialog(
             state = catalogue,
             busy = busy,
+            locks = locks,
+            onUnlock = onUnlock,
             onUrl = onCatalogueUrl,
             onLoad = onLoadCatalogue,
             onDownload = onDownload,
@@ -1201,6 +1232,7 @@ private fun ElementRow(
     packs: List<InstalledPack>,
     spec: ThemeSpec,
     busy: Boolean,
+    locks: PackLocks,
     onOption: (Pack, LiveOption, String, String?) -> Unit,
     onElementPack: (String, String?) -> Unit,
     onElementEnabled: (String, Boolean) -> Unit,
@@ -1255,6 +1287,7 @@ private fun ElementRow(
             enabled = enabled,
             setId = setId,
             busy = busy,
+            locks = locks,
             onElementPack = onElementPack,
             onElementEnabled = onElementEnabled,
             onDismiss = { showDialog = false },
@@ -1270,6 +1303,7 @@ private fun ElementPackDialog(
     enabled: Boolean,
     setId: String?,
     busy: Boolean,
+    locks: PackLocks,
     onElementPack: (String, String?) -> Unit,
     onElementEnabled: (String, Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -1294,7 +1328,8 @@ private fun ElementPackDialog(
                     }
                 }
                 items(covering) { pack ->
-                    PackRow(selected = enabled && setId == pack.id, enabled = !busy, onClick = { onElementPack(element.id, pack.id) }) {
+                    val locked = locks.locked(pack.id)
+                    PackRow(selected = enabled && setId == pack.id, enabled = !busy && !locked, onClick = { onElementPack(element.id, pack.id) }) {
                         Column(Modifier.weight(1f)) {
                             Text(pack.name, style = MaterialTheme.typography.titleSmall)
                             Text(
@@ -1302,6 +1337,7 @@ private fun ElementPackDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            if (locked) LockedLabel(pending = locks.pending(pack.id))
                         }
                     }
                 }
@@ -2064,6 +2100,8 @@ private const val PREVIEW_ROWS = 6
 private fun CatalogueDialog(
     state: CatalogueState,
     busy: Boolean,
+    locks: PackLocks,
+    onUnlock: (String) -> Unit,
     onUrl: (String) -> Unit,
     onLoad: () -> Unit,
     onDownload: (CatalogueEntry) -> Unit,
@@ -2088,6 +2126,9 @@ private fun CatalogueDialog(
                         TextButton(onClick = { showSource = !showSource }) { Text(if (showSource) "Hide source" else "Change source") }
                         if (state.loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     }
+                }
+                if (locks.offerUnlockAll && state.entries.isNotEmpty()) {
+                    item { UnlockAllRow(locks = locks, busy = busy, onUnlock = onUnlock) }
                 }
                 if (showSource) {
                     item {
@@ -2122,7 +2163,7 @@ private fun CatalogueDialog(
                     }
                 }
                 items(state.entries) { entry ->
-                    CatalogueRow(entry, state.downloading[entry.id], busy, onDownload)
+                    CatalogueRow(entry, state.downloading[entry.id], busy, locks, onUnlock, onDownload)
                 }
             }
         },
@@ -2130,7 +2171,16 @@ private fun CatalogueDialog(
 }
 
 @Composable
-private fun CatalogueRow(entry: CatalogueEntry, progress: Float?, busy: Boolean, onDownload: (CatalogueEntry) -> Unit) {
+private fun CatalogueRow(
+    entry: CatalogueEntry,
+    progress: Float?,
+    busy: Boolean,
+    locks: PackLocks,
+    onUnlock: (String) -> Unit,
+    onDownload: (CatalogueEntry) -> Unit,
+) {
+    // A locked pack shows its name, size and price only: it cannot be downloaded until unlocked.
+    val locked = locks.locked(entry.id)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f)) {
             Text(entry.name, style = MaterialTheme.typography.titleSmall)
@@ -2147,6 +2197,14 @@ private fun CatalogueRow(entry: CatalogueEntry, progress: Float?, busy: Boolean,
         }
         when {
             progress != null -> LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(72.dp))
+            locked && locks.canPurchase -> UnlockButton(
+                name = entry.name,
+                price = locks.price(entry.id),
+                pending = locks.pending(entry.id),
+                enabled = !busy,
+                onClick = { onUnlock(ProductIds.forPack(entry.id)) },
+            )
+            locked -> LockedLabel(pending = false)
             entry.installed -> Text("Installed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             else -> TextButton(
                 onClick = { onDownload(entry) },

@@ -122,6 +122,38 @@ class DebugKeystoreWorkflowTest(unittest.TestCase):
         self.assertNotIn("'push'", cond)
 
 
+class FlavorWorkflowTest(unittest.TestCase):
+    """CI builds the store flavors and keeps the installable test artifact on the Play build."""
+
+    def workflow(self):
+        return (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "android.yml").read_text()
+
+    def test_gradle_tasks_carry_the_flavor(self):
+        text = self.workflow()
+        for task in (":app:testPlayDebugUnitTest", ":app:lintPlayRelease", ":app:assemblePlayRelease",
+                     ":app:assembleOwnerRelease", ":app:bundlePlayRelease", ":app:assemblePlayDebug"):
+            self.assertIn(task, text)
+        for old in (":app:testDebugUnitTest", ":app:lintRelease", ":app:assembleRelease ",
+                    ":app:assembleDebug\n", "outputs/apk/release/", "outputs/apk/debug/"):
+            self.assertNotIn(old, text)
+
+    def test_debug_test_artifact_is_the_play_debug_apk(self):
+        text = self.workflow()
+        match = re.search(r"name: HexNext-Debug-Test-Installable\n\s+path: (\S+)", text)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "android/app/build/outputs/apk/play/debug/app-play-universal-debug.apk")
+
+    def test_owner_release_is_uploaded_only_with_upload_key_secrets(self):
+        text = self.workflow()
+        match = re.search(r"- name: Upload owner release APK\n\s+if: (.+)\n", text)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1).strip(), "env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'")
+        self.assertIn("name: HexNext-Owner-Release", text)
+        self.assertIn("android/app/build/outputs/apk/owner/release/*.apk", text)
+        self.assertIn("name: HexNext-Play-AAB", text)
+        self.assertIn("android/app/build/outputs/bundle/playRelease/*.aab", text)
+
+
 @unittest.skipUnless(shutil.which("unzip"), "unzip is not installed")
 class PackScriptTest(unittest.TestCase):
     """pack.sh stores a pack as <id>.zip, the only name the app deletes and replaces."""

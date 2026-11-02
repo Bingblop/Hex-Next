@@ -65,6 +65,8 @@ class MainActivity : ComponentActivity() {
             ShizukuManager.refresh()
             // The boot receiver or safe mode may have changed restart protection meanwhile.
             viewModel.refreshGuard()
+            // A purchase may have completed (or been refunded) while the app was in the background.
+            viewModel.refreshEntitlements()
         }
     }
 }

@@ -24,8 +24,18 @@ on:
         required: false
         default: ""
     secrets:
-      # Called workflows only see secrets the caller passes in; release.yml passes this one.
+      # Called workflows only see secrets the caller passes in; release.yml passes these.
       HEXNEXT_DEBUG_KEYSTORE_BASE64:
+        required: false
+      # The upload-key secrets release.yml signs with. When all four are set, this workflow also
+      # signs the owner release APK and the Play bundle with them.
+      HEXNEXT_KEYSTORE_BASE64:
+        required: false
+      HEXNEXT_STORE_PASSWORD:
+        required: false
+      HEXNEXT_KEY_ALIAS:
+        required: false
+      HEXNEXT_KEY_PASSWORD:
         required: false
 
 permissions:
@@ -47,6 +57,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HEXNEXT_HAS_DEBUG_KEYSTORE_SECRET: ${{ secrets.HEXNEXT_DEBUG_KEYSTORE_BASE64 != '' }}
+      # Same four secrets release.yml requires for a production-signed build.
+      HEXNEXT_HAS_RELEASE_SIGNING_SECRETS: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 != '' && secrets.HEXNEXT_STORE_PASSWORD != '' && secrets.HEXNEXT_KEY_ALIAS != '' && secrets.HEXNEXT_KEY_PASSWORD != '' }}
+      # Play flavor BuildConfig values (repository variables; not secrets, empty when unset).
+      HEXNEXT_LICENSE_SERVER_URL: ${{ vars.HEXNEXT_LICENSE_SERVER_URL }}
+      HEXNEXT_PLAY_LICENSE_KEY: ${{ vars.HEXNEXT_PLAY_LICENSE_KEY }}
     defaults:
       run:
         working-directory: android
@@ -143,26 +158,34 @@ jobs:
             git show "origin/packs:$pack.zip" > "app/src/debug/assets/packs/$pack.zip"
           done
           ls -l app/src/debug/assets/packs
+      # Flavors (dimension "store"): play is the Play Store build, owner the private build with
+      # every pack unlocked. Both are built so the owner-only source set keeps compiling.
       - name: Test and build unsigned universal candidate
-        run: ./gradlew --no-daemon --console=plain :engine:test :app:verifyAndroidSdkTools :app:testDebugUnitTest :app:lintRelease :app:assembleRelease :app:assembleDebug
+        run: >-
+          ./gradlew --no-daemon --console=plain :engine:test :app:verifyAndroidSdkTools
+          :app:testPlayDebugUnitTest :app:lintPlayRelease
+          :app:assemblePlayRelease :app:assembleOwnerRelease
+          :app:assemblePlayDebug :app:assembleOwnerDebug
+          && ./gradlew --no-daemon --console=plain :app:bundlePlayRelease
       - name: Verify installable universal candidate
         run: |
           python3 ../bin/verify-release-apk.py \
-            app/build/outputs/apk/release/app-universal-release-unsigned.apk --unsigned
+            app/build/outputs/apk/play/release/app-play-universal-release-unsigned.apk --unsigned
       - uses: actions/upload-artifact@v4
         with:
           name: HexNext-Universal-Unsigned-Candidate
           path: |
-            android/app/build/outputs/apk/release/app-universal-release-unsigned.apk
-            android/app/build/outputs/mapping/release/mapping.txt
-            android/app/build/reports/lint-results-release.html
+            android/app/build/outputs/apk/play/release/app-play-universal-release-unsigned.apk
+            android/app/build/outputs/mapping/playRelease/mapping.txt
+            android/app/build/reports/lint-results-playRelease.html
           if-no-files-found: error
 
+      # The PLAY debug APK, so tools/device/install.sh keeps installing com.hexnext.themer.
       - name: Upload installable debug-signed test build
         uses: actions/upload-artifact@v4
         with:
           name: HexNext-Debug-Test-Installable
-          path: android/app/build/outputs/apk/debug/app-universal-debug.apk
+          path: android/app/build/outputs/apk/play/debug/app-play-universal-debug.apk
           if-no-files-found: error
 
       - name: Exercise signed release path with an ephemeral CI-only key
@@ -179,6 +202,43 @@ jobs:
             -alias "$HEXNEXT_KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=HexNext CI Test"
           ../bin/build-and-sign-release-apk.sh "$RUNNER_TEMP/HexNext-ci-test.apk"
+
+      # With the upload-key secrets, sign the owner release APK and the Play bundle (Play Console
+      # only accepts an upload-key-signed bundle). The key file lives in RUNNER_TEMP for this step
+      # only. Without them, the Play bundle uploaded below is the unsigned one from the build step.
+      - name: Sign owner release APK and Play bundle with the upload key
+        if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'
+        env:
+          HEXNEXT_KEYSTORE_BASE64: ${{ secrets.HEXNEXT_KEYSTORE_BASE64 }}
+          HEXNEXT_STORE_PASSWORD: ${{ secrets.HEXNEXT_STORE_PASSWORD }}
+          HEXNEXT_KEY_ALIAS: ${{ secrets.HEXNEXT_KEY_ALIAS }}
+          HEXNEXT_KEY_PASSWORD: ${{ secrets.HEXNEXT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export HEXNEXT_KEYSTORE_PATH="$RUNNER_TEMP/hexnext-release.keystore"
+          trap 'rm -f "$HEXNEXT_KEYSTORE_PATH"' EXIT
+          printf '%s' "$HEXNEXT_KEYSTORE_BASE64" | base64 --decode > "$HEXNEXT_KEYSTORE_PATH"
+          unset HEXNEXT_KEYSTORE_BASE64
+          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true \
+            :app:assembleOwnerRelease
+          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:bundlePlayRelease
+      - name: Upload owner release APK
+        if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Owner-Release
+          path: android/app/build/outputs/apk/owner/release/*.apk
+          if-no-files-found: error
+      - name: Warn that the owner build needs the upload-key secrets
+        if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS != 'true'
+        run: echo "::warning::The owner release build is not uploaded because the upload-key secrets (HEXNEXT_KEYSTORE_BASE64, HEXNEXT_STORE_PASSWORD, HEXNEXT_KEY_ALIAS, HEXNEXT_KEY_PASSWORD) are not configured, and the HexNext-Play-AAB artifact is unsigned. Set them to get a signed owner APK and an uploadable Play bundle."
+      - name: Upload Play bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexNext-Play-AAB
+          path: android/app/build/outputs/bundle/playRelease/*.aab
+          if-no-files-found: error
 
       # Last, so the artifacts above are still uploaded: a debug build signed with a key generated
       # in this run cannot update over any installed test build and is not cached, so the next run

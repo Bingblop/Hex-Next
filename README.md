@@ -52,8 +52,8 @@ Requirements: JDK 17, Android SDK with `platforms;android-36` and `build-tools;3
 
 ```bash
 cd android
-./gradlew assembleDebug                                   # installable debug build
-./gradlew :app:testDebugUnitTest :app:lintRelease         # app unit tests and release lint
+./gradlew assemblePlayDebug                               # installable debug build (Play flavor)
+./gradlew :app:testPlayDebugUnitTest :app:lintPlayRelease # app unit tests and release lint
 cd engine && gradle test                                  # engine tests (no Android SDK needed)
 ```
 
