@@ -1422,7 +1422,7 @@ class ThemeService() : IThemeService.Stub() {
      * O_NOFOLLOW, 0644. Mode and owner are set on the descriptor, never through the path.
      */
     private fun writeNew(path: String, content: String, shellOwned: Boolean) {
-        runCatching { Os.unlink(path) }
+        runCatching { Os.remove(path) }
         val fd = Os.open(
             path,
             OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or OsConstants.O_NOFOLLOW or OsConstants.O_CLOEXEC,
