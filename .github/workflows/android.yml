@@ -76,7 +76,7 @@ jobs:
           packages: "platform-tools"
       - name: Install SDK 36 and build-tools 36.0.0
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       # Test builds must keep one debug certificate across runs, or `pm install -r` over another

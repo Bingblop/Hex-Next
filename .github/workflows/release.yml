@@ -67,7 +67,7 @@ jobs:
         with:
           packages: "platform-tools"
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build and verify production-signed universal APK
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
