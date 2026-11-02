@@ -50,7 +50,7 @@ internal object AiHttp {
 
     /**
      * POSTs [fields] as `multipart/form-data` and returns the raw reply body (an image when the
-     * caller sends `Accept: image/*`).
+     * caller sends an image Accept header).
      */
     fun postMultipart(url: String, headers: Map<String, String>, fields: Map<String, String>): ByteArray {
         val boundary = "hexnext-" + UUID.randomUUID().toString().replace("-", "")
