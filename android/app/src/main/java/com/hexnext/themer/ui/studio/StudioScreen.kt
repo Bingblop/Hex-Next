@@ -172,6 +172,19 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     // Icons are rendered from the night or day jobs to match the mockup's mode.
     LaunchedEffect(previewDark) { viewModel.setPreviewDark(previewDark) }
     var peekCollapsed by rememberSaveable { mutableStateOf(false) }
+    // A committed edit (a picked option, a released slider) opens the peek to the whole phone.
+    // Held here, not in the peek's list item, so an edit made while the peek is scrolled away
+    // still counts; only edits newer than the last one seen open it.
+    var peekFull by rememberSaveable { mutableStateOf(false) }
+    val edits by viewModel.edits.collectAsStateWithLifecycle()
+    var editsSeen by rememberSaveable { mutableIntStateOf(edits) }
+    LaunchedEffect(edits) {
+        if (edits > editsSeen) {
+            peekFull = true
+            peekCollapsed = false
+        }
+        editsSeen = edits
+    }
     var showPrivilege by rememberSaveable { mutableStateOf(false) }
     // The Studio's tap-to-edit sheet: "<group id>:<night>".
     var studioPick by rememberSaveable { mutableStateOf<String?>(null) }
@@ -241,7 +254,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         destination = Destination.SYSTEM
         systemTab = SystemTab.TARGETS
     }
-    val previewModel = remember(previewState, previewTab, previewDark, viewModel) {
+    val previewModel = remember(previewState, previewTab, previewDark, peekFull, viewModel) {
         PreviewModel(
             stateRef = previewState,
             tab = previewTab,
@@ -249,6 +262,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
             dark = previewDark,
             onDark = { previewDark = it },
             onScan = viewModel::openScan,
+            peekFull = peekFull,
+            onPeekFull = { peekFull = it },
         )
     }
     // Studio edits in place; Colours and Icons jump to the element's row (§ 1.3). Remembered: the
@@ -601,6 +616,9 @@ internal class PreviewModel(
     val dark: Boolean,
     val onDark: (Boolean) -> Unit,
     val onScan: () -> Unit,
+    /** The peek shows the whole phone (after an edit) rather than its short top. */
+    val peekFull: Boolean = false,
+    val onPeekFull: (Boolean) -> Unit = {},
 ) {
     val state: StudioPreviewState get() = stateRef.value
 }

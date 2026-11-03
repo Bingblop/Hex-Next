@@ -254,8 +254,8 @@ class ThemeCompilerCustomTest {
         assertTrue(compile(baseSpec.copy(elementEnabled = mapOf("settings_icons" to false))).target(settings)!!.drawables.none { it.synthesis != null })
         assertTrue(compile(baseSpec.copy(simplePackId = null)).target(settings)!!.drawables.none { it.synthesis != null })
         assertTrue(compile(baseSpec.copy(simplePackId = "missing")).target(settings)!!.drawables.none { it.synthesis != null })
-        // My Files never synthesises.
-        assertTrue(compile().target(myFiles)!!.drawables.isEmpty())
+        // My Files never synthesises (a pack without My Files art gets the built-in icons instead).
+        assertTrue(compile().target(myFiles)!!.drawables.none { it.synthesis != null })
     }
 
     @Test

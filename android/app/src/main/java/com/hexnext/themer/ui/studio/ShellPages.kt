@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.animateContentSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -165,6 +166,8 @@ private fun PreviewPeek(
     onCollapsed: (Boolean) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    // A committed edit opens the peek to the whole phone (see peekFull in StudioScreen).
+    val full = preview.peekFull
     val shape = RoundedCornerShape(16.dp)
     Column(
         Modifier
@@ -189,7 +192,11 @@ private fun PreviewPeek(
                 modifier = Modifier.weight(1f).padding(start = 10.dp),
             )
             if (!collapsed) {
-                TextButton(onClick = { expanded = true }) { Text("Expand") }
+                if (full) {
+                    TextButton(onClick = { preview.onPeekFull(false) }) { Text("Shorter") }
+                } else {
+                    TextButton(onClick = { expanded = true }) { Text("Expand") }
+                }
             }
             TextButton(
                 onClick = { onCollapsed(!collapsed) },
@@ -203,7 +210,8 @@ private fun PreviewPeek(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .animateContentSize()
+                    .then(if (full) Modifier else Modifier.height(200.dp))
                     .clipToBounds()
                     .padding(horizontal = 12.dp),
             ) {
@@ -218,13 +226,15 @@ private fun PreviewPeek(
                         .fillMaxWidth()
                         .wrapContentHeight(align = Alignment.Top, unbounded = true),
                 )
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(40.dp)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, fade))),
-                )
+                if (!full) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .background(Brush.verticalGradient(listOf(Color.Transparent, fade))),
+                    )
+                }
             }
         }
     }

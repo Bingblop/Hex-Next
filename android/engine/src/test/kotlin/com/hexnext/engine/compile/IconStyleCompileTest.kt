@@ -204,6 +204,30 @@ class IconStyleCompileTest {
     }
 
     @Test
+    fun `a pack with no settings icon art gets the built-in icons`() {
+        // Many packs draw no icons for One UI 9's names; their users used to keep Samsung's icons.
+        val noIcons = pack(
+            "colours-only",
+            listOf(layer("settingsicon", "base", Tint(Tint.SLOT, slot = "xx0"), listOf("sec_ic_settings_not_on_this_phone"))),
+            palette = mapOf("xx0" to "#FF0A0A0A"),
+        )
+        val result = compile(baseSpec.copy(simplePackId = "colours-only"), InMemoryPackResolver(listOf(noIcons)))
+        val s = result.target(settings)!!
+        assertTrue(s.drawables.isNotEmpty())
+        assertTrue(s.drawables.all { it.badge != null }, s.drawables.toString())
+        // A pack that does draw them keeps its own art, never mixed with built-ins.
+        assertTrue(compile().target(settings)!!.drawables.none { it.badge != null })
+        // A custom icon is not the pack's art: the other rows still get built-ins.
+        val key = "$settings:drawable/sec_ic_settings_display"
+        val withCustom = compile(
+            baseSpec.copy(simplePackId = "colours-only", customIcons = mapOf(key to "mine-00000001.png")),
+            InMemoryPackResolver(listOf(noIcons)),
+        ).target(settings)!!
+        assertTrue(withCustom.drawables.filter { it.resourceName == key }.all { it.custom != null && it.badge == null })
+        assertTrue(withCustom.drawables.any { it.badge != null }, withCustom.drawables.toString())
+    }
+
+    @Test
     fun `a missing pack for my files does not block settings packs and vice versa`() {
         // Advanced mode: Settings has a pack, My Files has none, so only My Files gets built-ins.
         val spec = baseSpec.copy(mode = ThemeMode.ADVANCED, simplePackId = null, elementPacks = mapOf("settings_icons" to "icons-1"))

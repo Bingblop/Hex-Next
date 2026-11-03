@@ -316,6 +316,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     /** The primary seed a drag is showing; null when nothing is dragged (the seed lives outside the spec). */
     private val draftSeed = MutableStateFlow<Int?>(null)
+    private val _edits = MutableStateFlow(0)
+
+    /** Counts committed user edits (spec changes and the seed); the preview peek opens in full on a new one. */
+    val edits: StateFlow<Int> = _edits.asStateFlow()
 
     /** The group the Studio is editing; the phone preview outlines its elements. */
     private val highlight = MutableStateFlow<ColorGroup?>(null)
@@ -765,6 +769,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         prefs.edit().putInt(PREF_SEED, seed).apply()
         _ui.update { it.copy(seed = seed) }
         draftSeed.value = null
+        _edits.update { it + 1 }
         refreshPreview()
     }
 
@@ -1033,6 +1038,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val before = _ui.value.spec
         _ui.update { it.copy(spec = block(it.spec)) }
         val after = _ui.value.spec
+        _edits.update { it + 1 }
         savePending.set(true)
         saveRequests.tryEmit(Unit)
         // The icon render only sees Settings and My Files: an edit that cannot change them (Quick
@@ -1192,8 +1198,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     )
 
     /**
-     * Whether Apply draws built-in badges for icon element [elementId]: built-in icons on, the
-     * element enabled and no pack chosen for it, as in the engine's built-in icon jobs.
+     * Whether the preview may draw built-in badges for icon element [elementId] on its own:
+     * built-in icons on, the element enabled and no pack chosen for it. With a pack, the compile
+     * preview already carries the built-ins the engine plans when the pack draws none of the
+     * icons, so a preview without a scan or render never guesses colourful icons for a pack.
      */
     private fun drawsBuiltInIcons(spec: EngineThemeSpec, elementId: String): Boolean =
         spec.builtInIcons && spec.isElementEnabled(elementId) && spec.packFor(elementId) == null

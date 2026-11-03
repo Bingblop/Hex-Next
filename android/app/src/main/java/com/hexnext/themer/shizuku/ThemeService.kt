@@ -558,9 +558,16 @@ class ThemeService() : IThemeService.Stub() {
             val id = "$owner:$name"
             val log = StringBuilder()
             log.appendLine("[UID ${Process.myUid()}] $id -> $target: ${n.size} values")
+            // FabricatedOverlay.setResourceValue only takes integer types (0x10..0x1f) and throws
+            // "dataType is out of range of [16, 31]" for dimensions and floats (seen on One UI 9).
+            // Those are registered as plain integers first and given their real type by a root
+            // rewrite of the .frro before the overlay is ever enabled, so System UI never reads a
+            // size typed as an integer. An earlier registration is dropped just before registering
+            // for the same reason: replacing an enabled overlay would make the placeholders live.
             val overlay = newOverlay(name, target, owner)
             var committed = 0
             var first: String? = null
+            val retype = ArrayList<RetypedValue>()
             n.forEachIndexed { i, res ->
                 val config = configs?.getOrNull(i)?.takeIf { it.isNotBlank() }
                 when {
@@ -570,7 +577,9 @@ class ThemeService() : IThemeService.Stub() {
                     types[i] !in ValueTypes.ALLOWED -> skip(skipped, res, "data type 0x%02x is not a size, number or switch".format(types[i]))
                     else -> try {
                         val qualifiedName = qualified(res, target)
-                        overlay.setResourceValue(qualifiedName, types[i], values[i], config)
+                        val direct = types[i] in FIRST_INT_TYPE..LAST_INT_TYPE
+                        overlay.setResourceValue(qualifiedName, if (direct) types[i] else TypedValue.TYPE_INT_DEC, values[i], config)
+                        if (!direct) retype.add(RetypedValue(qualifiedName, types[i], values[i], config.orEmpty()))
                         committed++
                         if (config == null && first == null) first = qualifiedName
                     } catch (t: Throwable) {
@@ -578,11 +587,32 @@ class ThemeService() : IThemeService.Stub() {
                     }
                 }
             }
-            if (committed == 0) return finish(result(4, log.append("No value could be set.").toString()), 0, "")
+            if (committed == 0) return finish(result(4, log.append("No value could be set; the previous sizes were left as they were.").toString()), 0, "")
+            if (retype.isNotEmpty()) {
+                val dropped = removeOverlay(name)
+                log.appendLine("Dropped the previous registration first (code ${dropped.getInt(KEY_CODE)}).")
+                if (overlayEnabled(id) != false) {
+                    return finish(
+                        result(4, log.append("$id could not be confirmed disabled, so no size was registered: ${dropped.getString(KEY_OUTPUT)}").toString()),
+                        0, "",
+                    )
+                }
+            }
             val register = OverlayManagerTransaction.newInstance()
             register.registerFabricatedOverlay(overlay)
             commit(register)
             log.appendLine("Committed $committed values through OverlayManager.")
+            if (retype.isNotEmpty()) {
+                try {
+                    retypeByRewrite(id, name, target, owner, retype, log)
+                } catch (t: Throwable) {
+                    // Never enable placeholders: an integer where System UI expects a size crashes it.
+                    val dropped = removeOverlay(name)
+                    log.appendLine("Unregistered the placeholders (code ${dropped.getInt(KEY_CODE)}; enabled now: ${overlayEnabled(id)}).")
+                    retype.forEach { skip(skipped, it.resource, "size rewrite failed: ${describe(t)}") }
+                    return finish(result(4, log.append("Size rewrite failed (${describe(t)}); nothing was enabled.").toString()), 0, "")
+                }
+            }
             val top = enableOnTop(id, name, target, owner)
             if (top.code == 0) {
                 log.appendLine(top.log)
@@ -594,6 +624,52 @@ class ThemeService() : IThemeService.Stub() {
         } catch (t: Throwable) {
             finish(result(-1, describe(t)), 0, "")
         }
+    }
+
+    /** Whether [id] is enabled now: null when `cmd overlay list` cannot tell; false when absent or disabled. */
+    private fun overlayEnabled(id: String): Boolean? {
+        val list = shell("cmd overlay list --user current")
+        if (list.getInt(KEY_CODE) != 0) return null
+        val lines = parseOverlayList(list.getString(KEY_OUTPUT).orEmpty())
+        if (lines.isEmpty()) return null
+        return lines.any { it.overlayId == id && it.enabled }
+    }
+
+    /** A value registered as an integer placeholder that the root rewrite gives its real [dataType]. */
+    private data class RetypedValue(val resource: String, val dataType: Int, val data: Int, val config: String)
+
+    /**
+     * Rewrites the just-registered (still disabled) value overlay's `.frro` as root so each
+     * [values] entry carries its real data type, then checks the file reads back with those
+     * types. Throws on any failure; the caller then unregisters the overlay.
+     */
+    private fun retypeByRewrite(id: String, name: String, target: String, owner: String, values: List<RetypedValue>, log: StringBuilder) {
+        val path = findFrroPath(id, owner, name, log) ?: error("no registered .frro found for $id under $RESOURCE_CACHE")
+        val meta = try {
+            fileMeta(path).let { if (it.label == null) it.copy(label = RESOURCE_CACHE_LABEL) else it }
+        } catch (t: Throwable) {
+            log.appendLine("stat $path failed (${describe(t)}); using the One UI 9 defaults.")
+            DEFAULT_FRRO_META
+        }
+        val original = File(path).readBytes()
+        val current = FrroReader.read(original)
+        check(current.packageName == owner && current.name == name && current.targetPackage == target) {
+            "$path belongs to ${current.packageName}:${current.name} -> ${current.targetPackage}, not $id -> $target"
+        }
+        val writer = FrroWriter.from(current, original)
+        values.forEach { writer.setResourceValue(it.resource, it.dataType, it.data, it.config) }
+        val bytes = writer.toByteArray(path)
+        val built = FrroReader.read(bytes)
+        val wrong = values.filter { v ->
+            built.entries.none { e ->
+                e.resourceName == v.resource && e.configuration.orEmpty() == v.config && e.dataType == v.dataType && e.data == v.data
+            }
+        }
+        check(built.crcMatchesProto && wrong.isEmpty() && built.entries.size == current.entries.size) {
+            "rewrite read-back failed (${wrong.size} values with the wrong type, ${built.entries.size}/${current.entries.size} entries)"
+        }
+        replaceFile(path, bytes, meta, log)
+        log.appendLine("Gave ${values.size} sizes their real type in $path (crc 0x%08x).".format(built.crc))
     }
 
     private fun applyOverlayInternal(
@@ -1797,6 +1873,9 @@ class ThemeService() : IThemeService.Stub() {
         /** Where idmap2d keeps fabricated overlays and their idmaps. */
         private const val RESOURCE_CACHE = "/data/resource-cache"
         private const val RESOURCE_CACHE_LABEL = "u:object_r:resourcecache_data_file:s0"
+        /** FabricatedOverlay.setResourceValue accepts only these (TypedValue.TYPE_FIRST_INT..TYPE_LAST_INT). */
+        private const val FIRST_INT_TYPE = 0x10
+        private const val LAST_INT_TYPE = 0x1f
         private const val TMP_SUFFIX = ".hexnext.tmp"
 
         /**

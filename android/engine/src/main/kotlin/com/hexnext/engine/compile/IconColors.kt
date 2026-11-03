@@ -244,8 +244,9 @@ public object IconColors {
      * Colours follow [ThemeSpec.iconStyle]; PACK_ORIGINAL draws as MULTICOLOR.
      *
      * Built-in icons stand in for a missing pack: nothing is returned for an element that is
-     * switched off (the user keeps Samsung's icons) or that has a pack chosen (the pack's own art
-     * and, for Settings, icon synthesis cover it), so pack and built-in art never mix.
+     * switched off (the user keeps Samsung's icons) or whose chosen pack draws any of these icons
+     * (the pack's own art and, for Settings, icon synthesis cover it), so pack and built-in art
+     * never mix. A pack with no art for this One UI version's icons gets the built-in set.
      */
     public fun builtInJobs(
         spec: ThemeSpec,
@@ -263,7 +264,18 @@ public object IconColors {
             MYFILES_PKG -> MY_FILES_ICONS to myFilesIcons(table)
             else -> return emptyList()
         }
-        if (!spec.isElementEnabled(elementId) || spec.packFor(elementId) != null) return emptyList()
+        if (!spec.isElementEnabled(elementId)) return emptyList()
+        // A chosen pack wins only when it really draws some of these icons (its art, plus icon
+        // synthesis for the Settings rows it left out). Many packs carry no artwork for One UI 9's
+        // icon names; they used to leave Samsung's stock icons, so the built-in set fills in.
+        // Custom icons are in [planned] too; they are not the pack's art and must not count.
+        val packDraws = icons.any { icon ->
+            val resourceName = "$pkg:drawable/${icon.name}"
+            resourceName !in overridden && planned.any { it.first == resourceName }
+        }
+        if (spec.packFor(elementId) != null && packDraws) {
+            return emptyList()
+        }
         val out = ArrayList<PlannedDrawableJob>()
         val badges = HashMap<Boolean, HashMap<String, IconBadge>>()
         for (icon in icons) {
