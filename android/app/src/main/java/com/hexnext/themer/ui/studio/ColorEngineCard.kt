@@ -29,7 +29,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.ThemeSpec
+import com.hexnext.engine.compile.groupColor
 import com.hexnext.engine.palette.PaletteStyle
 import com.hexnext.engine.palette.PitchBlack
 import com.hexnext.engine.palette.ThemeAdjustments
@@ -79,12 +81,14 @@ private fun contrastLabel(value: Float): String = when {
 private sealed interface EnginePick {
     data class Seed(val slot: Int) : EnginePick
     data class Shade(val key: String) : EnginePick
+    data class Group(val group: ColorGroup) : EnginePick
 }
 
 private fun pickOf(saved: String?): EnginePick? = when {
     saved == null -> null
     saved.startsWith("seed:") -> saved.removePrefix("seed:").toIntOrNull()?.let { EnginePick.Seed(it) }
     saved.startsWith("shade:") -> EnginePick.Shade(saved.removePrefix("shade:"))
+    saved.startsWith("group:") -> ColorGroup.byId(saved.removePrefix("group:"))?.let { EnginePick.Group(it) }
     else -> null
 }
 
@@ -102,6 +106,8 @@ internal fun ColorEngineCard(
     spec: ThemeSpec,
     seed: Int,
     preview: StudioPreviewState,
+    /** Opens the full shade grid (Colours > Shades); the ribbon here is then drawn compact. */
+    onOpenShades: (() -> Unit)? = null,
 ) {
     var night by rememberSaveable { mutableStateOf(true) }
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
@@ -137,6 +143,19 @@ internal fun ColorEngineCard(
                 onClick = { picking = "seed:2" },
                 modifier = Modifier.weight(1f),
             )
+        }
+
+        // The two surfaces of the console reference: Settings screens and cards, per mode.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(ColorGroup.BACKGROUND to "Settings surface", ColorGroup.SURFACE to "Card surface").forEach { (group, label) ->
+                SeedTile(
+                    label = "$label · ${if (night) "dark" else "light"}",
+                    argb = scheme.color(group),
+                    auto = spec.groupColor(group, night) == null,
+                    onClick = { picking = "group:${group.id}" },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         // Scheme variant.
@@ -228,6 +247,8 @@ internal fun ColorEngineCard(
             pinned = pinned,
             onShade = { key -> picking = "shade:$key" },
             onUnpin = { key -> viewModel.setShadeOverride(night, key, null) },
+            cellHeight = if (onOpenShades != null) 20.dp else 28.dp,
+            showScale = onOpenShades == null,
         )
         Text(
             "Tap a shade to pin it to your own colour. Pinning bends the neighbouring shades so the scale stays smooth. " +
@@ -239,6 +260,13 @@ internal fun ColorEngineCard(
             TextButton(onClick = { viewModel.setAdjustments(night) { it.copy(shadeOverrides = emptyMap()) } }) {
                 Text("Unpin all ${if (night) "dark" else "light"} shades")
             }
+        }
+        if (onOpenShades != null) {
+            StudioNavRow(
+                title = "All 65 shades",
+                summary = "The full grid with pins, and the system colour roles",
+                onClick = onOpenShades,
+            )
         }
     }
 
@@ -268,6 +296,7 @@ internal fun ColorEngineCard(
                 },
             )
         }
+        is EnginePick.Group -> GroupColorSheet(viewModel, spec, preview, pick.group, night, onClose = { picking = null })
         null -> Unit
     }
 }

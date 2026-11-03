@@ -14,8 +14,8 @@ class PackAccessTest {
 
     @Test
     fun bundledDebugPacksCountAsUnlocked() {
-        assertTrue(PackAccess.isUnlocked(nothingOwned, "aurora", bundled = setOf("aurora"), official = noOfficial))
-        assertFalse(PackAccess.isUnlocked(nothingOwned, "aurora", bundled = emptySet(), official = noOfficial))
+        assertTrue(PackAccess.isUnlocked(nothingOwned, "variscite", bundled = setOf("variscite"), official = noOfficial))
+        assertFalse(PackAccess.isUnlocked(nothingOwned, "variscite", bundled = emptySet(), official = noOfficial))
     }
 
     @Test
@@ -39,24 +39,24 @@ class PackAccessTest {
 
     @Test
     fun shippedPaidPacksStayPaidWithoutACatalogue() {
-        assertTrue(PackAccess.isPaid("ballroom", noOfficial))
+        assertTrue(PackAccess.isPaid("carnelian", noOfficial))
     }
 
     @Test
     fun cachedHintNeverUnlocksAnApply() {
-        val starting = EntitlementState(cachedProductIds = setOf("pack_ballroom"))
-        assertTrue(PackAccess.looksUnlocked(starting, "ballroom", emptySet(), noOfficial))
-        assertFalse(PackAccess.isUnlocked(starting, "ballroom", emptySet(), noOfficial))
+        val starting = EntitlementState(cachedProductIds = setOf("pack_carnelian"))
+        assertTrue(PackAccess.looksUnlocked(starting, "carnelian", emptySet(), noOfficial))
+        assertFalse(PackAccess.isUnlocked(starting, "carnelian", emptySet(), noOfficial))
     }
 
     @Test
     fun simpleModeUsesOnlyTheDefaultPack() {
         val spec = ThemeSpec.default().copy(
             mode = ThemeMode.SIMPLE,
-            simplePackId = "ballroom",
-            elementPacks = mapOf(STATUS_BAR to "bubblegum-bandit"),
+            simplePackId = "carnelian",
+            elementPacks = mapOf(STATUS_BAR to "ametrine"),
         )
-        assertEquals(setOf("ballroom"), PackAccess.packsUsedBy(spec))
+        assertEquals(setOf("carnelian"), PackAccess.packsUsedBy(spec))
     }
 
     @Test
@@ -64,36 +64,36 @@ class PackAccessTest {
         val spec = ThemeSpec.default().copy(
             mode = ThemeMode.ADVANCED,
             simplePackId = null,
-            elementPacks = mapOf(STATUS_BAR to "bubblegum-bandit", SETTINGS_ICONS to "fly"),
+            elementPacks = mapOf(STATUS_BAR to "ametrine", SETTINGS_ICONS to "fly"),
             elementEnabled = mapOf(SETTINGS_ICONS to false),
         )
-        assertEquals(setOf("bubblegum-bandit"), PackAccess.packsUsedBy(spec))
+        assertEquals(setOf("ametrine"), PackAccess.packsUsedBy(spec))
     }
 
     @Test
     fun theDefaultPackCountsOnlyWhileAnEnabledPartFallsBackToIt() {
-        val everyPartOverridden = Elements.ALL.associate { it.id to "bubblegum-bandit" }
+        val everyPartOverridden = Elements.ALL.associate { it.id to "ametrine" }
         val spec = ThemeSpec.default().copy(
             mode = ThemeMode.ADVANCED,
-            simplePackId = "ballroom",
+            simplePackId = "carnelian",
             elementPacks = everyPartOverridden,
         )
-        assertEquals(setOf("bubblegum-bandit"), PackAccess.packsUsedBy(spec))
+        assertEquals(setOf("ametrine"), PackAccess.packsUsedBy(spec))
 
         // One part falls back to the default pack again: it is used.
         val oneFallsBack = spec.copy(elementPacks = everyPartOverridden - STATUS_BAR)
-        assertEquals(setOf("bubblegum-bandit", "ballroom"), PackAccess.packsUsedBy(oneFallsBack))
+        assertEquals(setOf("ametrine", "carnelian"), PackAccess.packsUsedBy(oneFallsBack))
 
         // That part is switched off: the default pack is unused again.
         val fallbackDisabled = oneFallsBack.copy(elementEnabled = mapOf(STATUS_BAR to false))
-        assertEquals(setOf("bubblegum-bandit"), PackAccess.packsUsedBy(fallbackDisabled))
+        assertEquals(setOf("ametrine"), PackAccess.packsUsedBy(fallbackDisabled))
     }
 
     @Test
     fun everyPartSwitchedOffUsesNoPack() {
         val spec = ThemeSpec.default().copy(
             mode = ThemeMode.SIMPLE,
-            simplePackId = "ballroom",
+            simplePackId = "carnelian",
             elementEnabled = Elements.ALL.associate { it.id to false },
         )
         assertEquals(emptySet<String>(), PackAccess.packsUsedBy(spec))
@@ -104,7 +104,7 @@ class PackAccessTest {
         val spec = ThemeSpec.default().copy(
             mode = ThemeMode.ADVANCED,
             simplePackId = null,
-            elementPacks = mapOf("not_an_element" to "bubblegum-bandit"),
+            elementPacks = mapOf("not_an_element" to "ametrine"),
         )
         assertEquals(emptySet<String>(), PackAccess.packsUsedBy(spec))
     }
@@ -113,13 +113,44 @@ class PackAccessTest {
     fun lockedPacksAreReported() {
         val spec = ThemeSpec.default().copy(
             mode = ThemeMode.ADVANCED,
-            simplePackId = "ballroom",
-            elementPacks = mapOf(STATUS_BAR to "bubblegum-bandit"),
+            simplePackId = "carnelian",
+            elementPacks = mapOf(STATUS_BAR to "ametrine"),
         )
-        val state = EntitlementState(ready = true, ownedProductIds = setOf("pack_ballroom"))
-        assertEquals(setOf("bubblegum-bandit"), PackAccess.lockedPacksIn(spec) { PackAccess.isUnlocked(state, it, emptySet(), noOfficial) })
+        val state = EntitlementState(ready = true, ownedProductIds = setOf("pack_carnelian"))
+        assertEquals(setOf("ametrine"), PackAccess.lockedPacksIn(spec) { PackAccess.isUnlocked(state, it, emptySet(), noOfficial) })
         assertEquals(emptySet<String>(), PackAccess.lockedPacksIn(spec) { true })
         assertEquals(emptySet<String>(), PackAccess.lockedPacksIn(ThemeSpec.default()) { false })
+    }
+
+    @Test
+    fun thePreviewNeverRendersALockedPack() {
+        val owned = EntitlementState(ready = true, ownedProductIds = setOf("pack_carnelian"))
+        val unlocked: (String) -> Boolean = { PackAccess.isUnlocked(owned, it, emptySet(), noOfficial) }
+
+        val simple = ThemeSpec.default().copy(simplePackId = "ametrine")
+        assertEquals(null, PackAccess.withoutLockedPacks(simple, unlocked).simplePackId)
+        val bought = ThemeSpec.default().copy(simplePackId = "carnelian")
+        assertTrue(PackAccess.withoutLockedPacks(bought, unlocked) === bought)
+
+        val advanced = ThemeSpec.default().copy(
+            mode = ThemeMode.ADVANCED,
+            simplePackId = "carnelian",
+            elementPacks = mapOf(STATUS_BAR to "ametrine"),
+        )
+        val shown = PackAccess.withoutLockedPacks(advanced, unlocked)
+        assertEquals("carnelian", shown.simplePackId)
+        assertEquals(emptyMap<String, String>(), shown.elementPacks)
+        assertFalse(shown.isElementEnabled(STATUS_BAR))
+        assertTrue(shown.isElementEnabled(SETTINGS_ICONS))
+        assertEquals(emptySet<String>(), PackAccess.lockedPacksIn(shown, unlocked))
+
+        // A locked default pack switches off every part that falls back to it.
+        val lockedDefault = advanced.copy(simplePackId = "ametrine", elementPacks = mapOf(STATUS_BAR to "carnelian"))
+        val shownDefault = PackAccess.withoutLockedPacks(lockedDefault, unlocked)
+        assertEquals(null, shownDefault.simplePackId)
+        assertTrue(shownDefault.isElementEnabled(STATUS_BAR))
+        assertFalse(shownDefault.isElementEnabled(SETTINGS_ICONS))
+        assertEquals(setOf("carnelian"), PackAccess.packsUsedBy(shownDefault))
     }
 
     private companion object {

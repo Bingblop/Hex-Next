@@ -20,6 +20,7 @@ import com.hexnext.themer.ui.HexNextTheme
 import com.hexnext.themer.ui.MainScreen
 import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.studio.StudioTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -52,7 +53,7 @@ class MainActivity : ComponentActivity() {
             HexNextTheme(settings) {
                 when (val gate = compat) {
                     Compatibility.Supported -> MainScreen(viewModel)
-                    else -> BlockedScreen(gate)
+                    else -> StudioTheme { BlockedScreen(gate) }
                 }
             }
         }

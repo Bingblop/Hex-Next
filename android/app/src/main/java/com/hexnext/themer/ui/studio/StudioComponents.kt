@@ -66,19 +66,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hexnext.themer.theme.toHex
 import com.hexnext.themer.ui.LocalAppSettings
+import com.hexnext.themer.ui.LocalStatusPalette
 
 /** Opaque alpha for colours the Studio writes. */
 internal const val OPAQUE_ARGB: Int = 0xFF000000.toInt()
 
-/** Text style of resource names, hex values and console captions. */
+/**
+ * Text style of hex values, resource and package names and log lines: the only places monospace
+ * is allowed (§ 3.4). Never smaller than 13 sp.
+ */
 @Composable
-internal fun monoStyle(base: TextStyle = MaterialTheme.typography.bodySmall): TextStyle =
-    base.copy(fontFamily = FontFamily.Monospace, letterSpacing = 0.sp)
+internal fun monoStyle(base: TextStyle = MaterialTheme.typography.bodySmall): TextStyle {
+    val size = if (base.fontSize.isSp && base.fontSize.value >= 13f) base.fontSize else 13.sp
+    val line = if (base.lineHeight.isSp && base.lineHeight.value >= 18f) base.lineHeight else 18.sp
+    return base.copy(fontFamily = FontFamily.Monospace, fontSize = size, lineHeight = line, letterSpacing = 0.sp)
+}
 
 /**
- * The console card of the Studio: a 1 dp outline around the container colour, an optional
- * monospace [eyebrow] in the primary colour with a status dot ("● COLOUR ENGINE"), the [title],
- * an optional [subtitle] and a [trailing] control at the title's right.
+ * The console card: 16 dp corners, a 1 dp outline around the card colour, no elevation; an
+ * optional [eyebrow] in the primary colour with a status dot ("● COLOUR ENGINE"), the [title],
+ * an optional one-line [subtitle] and a [trailing] control at the title's right.
  */
 @Composable
 internal fun StudioCard(
@@ -92,14 +99,14 @@ internal fun StudioCard(
     val reduceMotion = LocalAppSettings.current.reduceMotion
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             Modifier
                 .then(if (reduceMotion) Modifier else Modifier.animateContentSize())
-                .padding(horizontal = 18.dp, vertical = 18.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (eyebrow != null) Eyebrow(eyebrow)
@@ -117,14 +124,14 @@ internal fun StudioCard(
     }
 }
 
-/** "● COLOUR ENGINE": a dot and a monospace caption in the primary colour. */
+/** "● COLOUR ENGINE": a dot and a short 12 sp caption in the system font, in the primary colour. */
 @Composable
 internal fun Eyebrow(text: String, color: Color = MaterialTheme.colorScheme.primary) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(7.dp).clip(CircleShape).background(color))
         Text(
             text.uppercase(),
-            style = monoStyle(MaterialTheme.typography.labelSmall).copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
             color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -156,14 +163,51 @@ internal fun StudioPill(
 ) {
     Text(
         text,
-        style = if (mono) monoStyle(MaterialTheme.typography.labelSmall) else MaterialTheme.typography.labelSmall,
+        style = if (mono) monoStyle(MaterialTheme.typography.labelMedium) else MaterialTheme.typography.labelMedium,
         color = content,
         maxLines = 1,
         modifier = Modifier
             .clip(CircleShape)
             .background(container)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
     )
+}
+
+/** What a [StatusChip] says: each tone has its colour and is always shown with a word. */
+internal enum class StatusTone { OK, WARN, BAD, INFO, NEUTRAL }
+
+/** The colour of [tone] in the current console palette. */
+@Composable
+internal fun statusColor(tone: StatusTone): Color {
+    val palette = LocalStatusPalette.current
+    return when (tone) {
+        StatusTone.OK -> palette.ok
+        StatusTone.WARN -> palette.warn
+        StatusTone.BAD -> palette.bad
+        StatusTone.INFO -> palette.info
+        StatusTone.NEUTRAL -> palette.muted
+    }
+}
+
+/**
+ * A status chip (§ 3.1): a dot and a [text] word in the [tone] colour on a 14 % fill of it
+ * (neutral chips sit on the raised surface). Never colour-only: [text] always names the state.
+ */
+@Composable
+internal fun StatusChip(text: String, tone: StatusTone, modifier: Modifier = Modifier) {
+    val color = statusColor(tone)
+    val fill = if (tone == StatusTone.NEUTRAL) MaterialTheme.colorScheme.surfaceContainerHigh else color.copy(alpha = 0.14f)
+    Row(
+        modifier
+            .clip(CircleShape)
+            .background(fill)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
+    }
 }
 
 /** Black or white, whichever reads better on [argb]. */
@@ -386,8 +430,9 @@ internal fun StudioNavRow(title: String, summary: String, onClick: () -> Unit, e
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .heightIn(min = 56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .selectable(selected = false, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

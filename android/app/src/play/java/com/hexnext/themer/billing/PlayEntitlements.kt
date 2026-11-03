@@ -37,7 +37,8 @@ import java.net.URL
 
 /**
  * Play Billing (library 8.x) for the one-time pack unlocks: one INAPP product per pack
- * ([ProductIds.forPack]) and [ProductIds.ALL_PACKS], which also covers packs added later.
+ * ([ProductIds.forPack]) and [ProductIds.ALL_PACKS], which also covers packs added later. A
+ * product of a pack's former catalogue id ([ProductIds.allForPack]) still unlocks that pack.
  *
  * Entitlements are recomputed from `queryPurchasesAsync` on every start, refresh and resume, so
  * a refunded purchase disappears. Only purchases in the PURCHASED state that pass verification
@@ -239,7 +240,9 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     // ---- Products and prices ----
 
     private fun queryProducts() {
-        val ids = synchronized(lock) { catalogueIds.mapTo(LinkedHashSet()) { ProductIds.forPack(it) } }
+        // Each pack's current product and the products of its former catalogue ids
+        // (ProductIds.allForPack), so a pack bought before it was renamed still shows its price.
+        val ids = synchronized(lock) { catalogueIds.flatMapTo(LinkedHashSet()) { ProductIds.allForPack(it) } }
         ids.add(ProductIds.ALL_PACKS)
         ids.chunked(PRODUCTS_PER_QUERY).forEach { chunk ->
             val params = QueryProductDetailsParams.newBuilder()
@@ -639,7 +642,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 checking = if (checkingDone) false else it.checking,
                 unlockAll = unlockAll,
                 ownedProductIds = ownedNow,
-                ownedPackIds = packIds.filterTo(HashSet()) { id -> unlockAll || ProductIds.forPack(id) in ownedNow },
+                ownedPackIds = packIds.filterTo(HashSet()) { id -> unlockAll || ProductIds.allForPack(id).any { it in ownedNow } },
                 pendingProductIds = pendingNow,
                 prices = prices,
                 error = error ?: if (clearError) baseError() else it.error,

@@ -19,6 +19,8 @@ import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.LiveOption
 import com.hexnext.engine.compile.CustomFont
 import com.hexnext.engine.compile.OneUiRules
+import com.hexnext.engine.compile.ThemeExport
+import com.hexnext.engine.compile.ThemeFormatException
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import com.hexnext.engine.compile.withCustomBackground
@@ -34,6 +36,7 @@ import com.hexnext.engine.pack.Pack
 import com.hexnext.engine.palette.PaletteStyle
 import com.hexnext.engine.palette.ThemeAdjustments
 import com.hexnext.engine.palette.ThemeResolver
+import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.EntitlementsProvider
@@ -360,7 +363,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * Skipped while an apply or remove runs ([UiState.serviceBusy]), which sets the report itself
      * when it ends; a pack download or import does not touch the report, so it does not skip this.
      */
-    private fun refreshLastApply() {
+    internal fun refreshLastApply() {
         if (_ui.value.serviceBusy) return
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { ThemeApplier.lastReport(getApplication<Application>()) }
@@ -456,7 +459,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
             if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
             seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
-            if (debuggable) {
+            if (debuggable && BuildConfig.DEBUG) {
                 val bundled = runCatching { packStore.bundledIds() }.getOrDefault(emptySet())
                 _ui.update { it.copy(bundledPackIds = bundled) }
             }
@@ -491,13 +494,23 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
         viewModelScope.launch {
             officialPacks.ids.collect { ids ->
+                val changed = _ui.value.officialPackIds != ids
                 _ui.update { if (it.officialPackIds == ids) it else it.copy(officialPackIds = ids) }
+                // A pack that became paid must leave the preview at once (specToPreview).
+                if (changed) refreshPreview()
             }
         }
         viewModelScope.launch {
             var previous: EntitlementState? = null
             entitlements.state.collect { state ->
+                val old = _ui.value.entitlement
                 _ui.update { if (it.entitlement == state) it else it.copy(entitlement = state) }
+                // A purchase, refund or store answer changes which packs the preview may render.
+                if (old.ready != state.ready || old.unlockAll != state.unlockAll ||
+                    old.ownedProductIds != state.ownedProductIds || old.cachedProductIds != state.cachedProductIds
+                ) {
+                    refreshPreview()
+                }
                 val before = previous
                 previous = state
                 onEntitlementsChanged(before, state)
@@ -724,6 +737,131 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         navigate(Screen.DIAGNOSTICS)
     }
 
+    // ---- System > Targets and the resource editor ----
+
+    /** The app [Screen.RESOURCES] opens on next; null keeps the editor's own choice. */
+    private val _resourcesTarget = MutableStateFlow<String?>(null)
+    val resourcesTarget: StateFlow<String?> = _resourcesTarget.asStateFlow()
+
+    /** Opens the per-app resource editor, on [packageName] when given (a Targets row). */
+    fun openResources(packageName: String? = null) {
+        _resourcesTarget.value = packageName
+        navigate(Screen.RESOURCES)
+    }
+
+    /** The resource editor opened [resourcesTarget]. */
+    fun consumeResourcesTarget() {
+        _resourcesTarget.value = null
+    }
+
+    /**
+     * One UI apps the last saved scan found installed (not removed), for System > Targets before
+     * the first apply; null until read, empty without a scan.
+     */
+    private val _scannedTargets = MutableStateFlow<List<String>?>(null)
+    val scannedTargets: StateFlow<List<String>?> = _scannedTargets.asStateFlow()
+
+    /** Re-reads [scannedTargets] from the latest saved scan report, off the main thread. */
+    fun loadScannedTargets() {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val targets = withContext(Dispatchers.IO) {
+                runCatching { SnapshotBuilder(app).latestReport() }.getOrNull()
+                    ?.packages
+                    ?.filter { it.installed && !it.debloated && !it.deprecated }
+                    ?.map { it.pkg }
+                    ?.distinct()
+                    .orEmpty()
+            }
+            _scannedTargets.value = targets
+        }
+    }
+
+    // ---- System > Tools: the theme file ----
+
+    /** The theme as `theme.json` text, with the seed preference applied (what Apply would use). */
+    fun themeJson(): String = specToApply().toJson()
+
+    /**
+     * Writes the theme to [uri] as a `.hexnext` file ([ThemeExport.export]: a zip holding
+     * `theme.json` and the pack ids it uses), on IO. The outcome goes to the snackbar.
+     */
+    fun exportTheme(uri: Uri) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = ThemeExport.export(spec)
+                    val out = app.contentResolver.openOutputStream(uri, "wt") ?: error("The file could not be opened.")
+                    out.use { it.write(bytes) }
+                }
+            }
+            result.fold(
+                onSuccess = { postNotice(Notice("Theme file saved", isSuccess = true)) },
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Saving the theme file failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice("Couldn't save the theme file", isError = true))
+                },
+            )
+        }
+    }
+
+    /**
+     * Reads a `.hexnext` file from [uri] on IO ([ThemeExport.read]) and hands its theme to
+     * [onRead] on the main thread; nothing changes until [importTheme]. A file that is not a
+     * theme posts a notice instead.
+     */
+    fun readThemeFile(uri: Uri, onRead: (EngineThemeSpec) -> Unit) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val input = app.contentResolver.openInputStream(uri) ?: error("The file could not be opened.")
+                    val bytes = input.use { stream ->
+                        // A theme file is a few kilobytes; refuse anything far larger before reading it whole.
+                        val buffer = java.io.ByteArrayOutputStream()
+                        val chunk = ByteArray(8192)
+                        while (true) {
+                            val n = stream.read(chunk)
+                            if (n < 0) break
+                            buffer.write(chunk, 0, n)
+                            if (buffer.size() > MAX_THEME_FILE_BYTES) throw ThemeFormatException("The file is too large to be a theme.")
+                        }
+                        buffer.toByteArray()
+                    }
+                    ThemeExport.read(bytes).spec
+                }
+            }
+            result.fold(
+                onSuccess = onRead,
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Reading the theme file failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice("That file is not a Hex Next theme", isError = true))
+                },
+            )
+        }
+    }
+
+    /**
+     * Replaces the stored theme with an imported one. The seed lives outside the spec, so it moves
+     * too, as "Describe your theme" does. Locked packs it names stay locked: Apply refuses them.
+     */
+    fun importTheme(spec: EngineThemeSpec) {
+        setSeed(spec.source.seedArgb)
+        replaceSpec(spec)
+        val locked = PackAccess.lockedPacksIn(spec) { _ui.value.isPackUnlocked(it) }
+        if (locked.isEmpty()) {
+            postNotice(Notice("Theme imported. Apply it to see it on your phone", isSuccess = true))
+        } else {
+            log(LogLine(LogLevel.WARN, "Imported theme uses locked pack ${locked.joinToString()}; the preview shows colours only for it"))
+            postNotice(Notice("Theme imported. Unlock ${packName(locked.first())} to preview and apply it"))
+        }
+    }
+
+    /** System > Tools could not hand the build log to a share sheet. */
+    fun noteBuildLogShareFailed() = postNotice(Notice("Couldn't share the build log", isError = true))
+
     /** Diagnostics took the scan request. */
     fun consumeScanRequest() = _ui.update { if (it.scanRequested) it.copy(scanRequested = false) else it }
 
@@ -735,6 +873,16 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     /** Replaces the whole stored theme (the "Describe your theme" card hands back a mapped spec). */
     fun replaceSpec(spec: EngineThemeSpec) = updateSpec { spec }
+
+    /**
+     * [specToApply] without the packs this install has not unlocked ([PackAccess.withoutLockedPacks]):
+     * the preview never renders a locked pack's artwork, even when an imported theme file, a
+     * refund or "Describe your theme" left one in the theme. Apply still refuses such a theme.
+     */
+    private fun specToPreview(): EngineThemeSpec {
+        val state = _ui.value
+        return PackAccess.withoutLockedPacks(specToApply()) { state.packLooksUnlocked(it) }
+    }
 
     /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
     private fun specToApply(): EngineThemeSpec {
@@ -819,7 +967,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 return@launch
             }
             _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
-            val spec = specToApply()
+            val spec = specToPreview()
             val rendered = withContext(Dispatchers.Default) { previewer.render(spec) }
             _ui.update {
                 it.copy(
@@ -858,6 +1006,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         refreshPreview()
         // A new scan changes the element colour counts too; recount once they were shown.
         if (groupCountsWanted) loadGroupCounts()
+        // System > Targets lists the scanned apps before the first apply; a new scan changes them.
+        if (_scannedTargets.value != null) loadScannedTargets()
     }
 
     // ---- Colour Studio ----
@@ -1508,6 +1658,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
         private const val MAX_LOG_LINES = 400
         private const val MAX_LOG_CHARS = 2000
+        private const val MAX_THEME_FILE_BYTES = 4 shl 20
         private const val PREVIEW_DEBOUNCE_MS = 400L
 
         /** Size and count of the built-in badges the Studio preview draws without pack icons. */

@@ -31,18 +31,18 @@ class DirectoryPackResolverTest {
     @Test
     fun `finds packs by file name, by declared id and through index json`() {
         val dir = tmp.newFolder("packs")
-        val byName = zip(dir, "deluxe.zip", "deluxe")
-        val renamed = zip(dir, "download-123.hexnext", "glass")
-        val indexed = zip(dir, "aosp-r.bin", "aosp-r")
-        File(dir, "index.json").writeText("""{"format":1,"packs":[{"id":"aosp-r","name":"AOSP R","file":"aosp-r.bin"}]}""")
+        val byName = zip(dir, "iolite.zip", "iolite")
+        val renamed = zip(dir, "download-123.hexnext", "willemite")
+        val indexed = zip(dir, "kyanite.bin", "kyanite")
+        File(dir, "index.json").writeText("""{"format":1,"packs":[{"id":"kyanite","name":"Kyanite","file":"kyanite.bin"}]}""")
 
         val resolver = DirectoryPackResolver(dir)
-        assertEquals("deluxe", resolver.pack("deluxe")?.id)
-        assertEquals(byName, resolver.zipFile("deluxe"))
-        assertEquals(renamed, resolver.zipFile("glass"))
-        assertEquals(indexed, resolver.zipFile("aosp-r"))
-        assertEquals(setOf("pack.json", "layers/once/base/xx1/qs/ic_a.png"), resolver.entryNames("deluxe"))
-        assertEquals(listOf("aosp-r", "deluxe", "glass"), resolver.availableIds())
+        assertEquals("iolite", resolver.pack("iolite")?.id)
+        assertEquals(byName, resolver.zipFile("iolite"))
+        assertEquals(renamed, resolver.zipFile("willemite"))
+        assertEquals(indexed, resolver.zipFile("kyanite"))
+        assertEquals(setOf("pack.json", "layers/once/base/xx1/qs/ic_a.png"), resolver.entryNames("iolite"))
+        assertEquals(listOf("iolite", "kyanite", "willemite"), resolver.availableIds())
     }
 
     @Test
@@ -59,9 +59,9 @@ class DirectoryPackResolverTest {
     @Test
     fun `a zip whose pack json declares another id is not used`() {
         val dir = tmp.newFolder("packs")
-        zip(dir, "deluxe.zip", "something-else")
+        zip(dir, "iolite.zip", "something-else")
         val resolver = DirectoryPackResolver(dir)
-        assertNull(resolver.pack("deluxe"))
+        assertNull(resolver.pack("iolite"))
         assertNotNull(resolver.pack("something-else"))
     }
 

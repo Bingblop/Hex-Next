@@ -168,7 +168,9 @@ every pack downloaded from one), so a pack added to the catalogue after the APK 
 too; only an imported pack whose id is in neither is free. An imported paid pack is unlocked only
 when its id is. A theme uses a pack only through an enabled part that resolves to it
 (`ThemeSpec.packFor`), so an unused default pack does not block an apply. Test packs bundled under `assets/packs/` count as unlocked
-in debuggable builds only. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
+in debuggable builds only. The live preview renders the theme with every locked pack taken out
+(`PackAccess.withoutLockedPacks`: colours only for those parts), so a locked pack's artwork is
+never shown, even when an imported theme file or a refund left it in the theme. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
 packs" sits in the Theme pack card and the "Get packs" dialog.
 
 ## Overlay delivery

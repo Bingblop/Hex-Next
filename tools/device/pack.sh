@@ -2,8 +2,8 @@
 # Hex Next: put a theme pack zip into the app's pack folder (root required).
 # The app can also import a pack with "Import pack file"; this is the Termux shortcut.
 #
-# Usage (Termux):  sh pack.sh /sdcard/Download/deluxe-3-8.zip
-#                  sh pack.sh https://example.com/packs/deluxe-3-8.zip
+# Usage (Termux):  sh pack.sh /sdcard/Download/iolite.zip
+#                  sh pack.sh https://example.com/packs/iolite.zip
 set -u
 SRC="${1:-}"
 PKG=com.hexnext.themer
@@ -21,7 +21,7 @@ esac
 [ -f "$FILE" ] || { echo "not a file: $FILE"; exit 1; }
 # A pack is a zip holding pack.json at its root. It is stored as <id>.zip whatever the source file
 # is called, as the app's own import does: the app deletes and replaces a pack by that name only,
-# so a pack stored as velvet-rope-1.zip could never be deleted and would be listed twice.
+# so a pack stored as iolite-1.zip could never be deleted and would be listed twice.
 command -v unzip >/dev/null 2>&1 || { echo "unzip is needed to read the pack id (Termux: pkg install unzip)"; exit 1; }
 unzip -l "$FILE" 2>/dev/null | grep -q ' pack.json$' || { echo "$FILE has no pack.json; not a Hex Next pack"; exit 2; }
 ID=$(unzip -p "$FILE" pack.json 2>/dev/null | tr ',{}' '\n\n\n' \

@@ -1,344 +1,698 @@
 {
-  "_comment": "Hex Next catalogue names. Keys are the ids hex_pack_builder.py derives from the source plugin (slug of plugin name + version); the values are the id, name and (derived) package com.hexnext.pack.<id> the pack ships under, plus the source plugin's package for the converter. Nothing from the source plugin (name or package) is ever shown in the app or written into a pack. sourceNames lists the source plugin's own name as it can appear in option text; the converters replace it there with the catalogue name.",
+  "_comment": "Hex Next catalogue table. Keys are the ids hex_pack_builder.py derives from a source plugin (slug of plugin name + version). id, name and version are what the pack ships under (package com.hexnext.pack.<id>); they are neutral mineral names with no link to the source plugin. formerIds are earlier catalogue ids of the same pack, kept only so installs, saved themes and purchases made under them keep working (migration data, never displayed; android/engine/.../pack/PackIdAliases.kt is generated from them). sourcePackage, sourceNames and sourceAuthors are converter input only: the converters scrub every source name, author, former name and legacy brand string from the text a pack shows. Nothing from the source plugin is ever shown in the app or written into a pack.",
   "aosp-r-78": {
-    "id": "riverstone",
-    "name": "Riverstone",
-    "sourcePackage": "project.vivid.ui.plugin.aospq.daynight"
+    "id": "kyanite",
+    "name": "Kyanite",
+    "version": "1.0",
+    "formerIds": [
+      "riverstone"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.aospq.daynight",
+    "sourceNames": [
+      "AOSP R"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
+    ]
   },
   "aosp-r-8": {
-    "id": "riverstone-classic",
-    "name": "Riverstone Classic",
-    "sourcePackage": "project.vivid.ui.plugin.aospq"
+    "id": "euclase",
+    "name": "Euclase",
+    "version": "1.0",
+    "formerIds": [
+      "riverstone-classic"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.aospq",
+    "sourceNames": [
+      "AOSP R"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
+    ]
   },
   "aosp-ui-release-fnal": {
-    "id": "clearwater",
-    "name": "Clearwater",
-    "sourcePackage": "project.vivid.ui.plugin.aosps"
+    "id": "morganite",
+    "name": "Morganite",
+    "version": "1.0",
+    "formerIds": [
+      "clearwater"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.aosps",
+    "sourceNames": [
+      "AOSP UI"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
+    ]
   },
   "asylum-seclusion": {
-    "id": "moonlit-hollow",
-    "name": "Moonlit Hollow",
+    "id": "citrine",
+    "name": "Citrine",
+    "version": "1.0",
+    "formerIds": [
+      "moonlit-hollow"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.asylum",
     "sourceNames": [
       "Asylum"
+    ],
+    "sourceAuthors": [
+      "Timmah"
     ]
   },
-  "blend-day-night-5-0": {
-    "id": "dusk-and-dawn",
-    "name": "Dusk & Dawn",
-    "sourcePackage": "project.vivid.ui.plugin.blenddn",
+  "ayos-6": {
+    "id": "variscite",
+    "name": "Variscite",
+    "version": "1.0",
+    "formerIds": [
+      "aurora"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.ayoslight",
     "sourceNames": [
-      "Blend"
+      "ayOS"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
+    ]
+  },
+  "ayos-retina-16": {
+    "id": "topaz",
+    "name": "Topaz",
+    "version": "1.0",
+    "formerIds": [
+      "aurora-borealis"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.ayosdark.retina",
+    "sourceNames": [
+      "ayOS",
+      "ayOS Retina"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
     ]
   },
   "blend-3-0": {
-    "id": "watercolor",
-    "name": "Watercolor",
+    "id": "fuchsite",
+    "name": "Fuchsite",
+    "version": "1.0",
+    "formerIds": [
+      "watercolor"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.blend",
     "sourceNames": [
       "Blend"
+    ],
+    "sourceAuthors": [
+      "Timmah"
+    ]
+  },
+  "blend-day-night-5-0": {
+    "id": "olivine",
+    "name": "Olivine",
+    "version": "1.0",
+    "formerIds": [
+      "dusk-and-dawn"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.blenddn",
+    "sourceNames": [
+      "Blend",
+      "Blend Day/Night"
+    ],
+    "sourceAuthors": [
+      "Timmah"
     ]
   },
   "broly-super-broly-2-5": {
-    "id": "supernova",
-    "name": "Supernova",
+    "id": "lazulite",
+    "name": "Lazulite",
+    "version": "1.0",
+    "formerIds": [
+      "supernova"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.broly",
     "sourceNames": [
-      "Broly"
-    ]
-  },
-  "dsp-1-9": {
-    "id": "pixel-pop",
-    "name": "Pixel Pop",
-    "sourcePackage": "project.vivid.ui.plugin.spiderverse",
-    "sourceNames": [
-      "DSP",
-      "Spiderverse"
-    ]
-  },
-  "dsp-2-5": {
-    "id": "pixel-pop-remix",
-    "name": "Pixel Pop Remix",
-    "sourcePackage": "project.vivid.ui.plugin.spider",
-    "sourceNames": [
-      "DSP"
+      "Broly",
+      "Super Broly"
+    ],
+    "sourceAuthors": [
+      "Deepanshu77"
     ]
   },
   "darpoint-3-5": {
-    "id": "compass-rose",
-    "name": "Compass Rose",
+    "id": "zoisite",
+    "name": "Zoisite",
+    "version": "1.0",
+    "formerIds": [
+      "compass-rose"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.darpoint",
     "sourceNames": [
       "Darpoint"
-    ]
-  },
-  "delirium-d-2-0": {
-    "id": "fever-dream",
-    "name": "Fever Dream",
-    "sourcePackage": "project.vivid.ui.plugin.delirium",
-    "sourceNames": [
-      "Delirium"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "deliun-4-6": {
-    "id": "lagoon",
-    "name": "Lagoon",
+    "id": "epidote",
+    "name": "Epidote",
+    "version": "1.0",
+    "formerIds": [
+      "lagoon"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.deliun",
     "sourceNames": [
       "Deliun"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
+    ]
+  },
+  "delirium-d-2-0": {
+    "id": "peridot",
+    "name": "Peridot",
+    "version": "1.0",
+    "formerIds": [
+      "fever-dream"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.delirium",
+    "sourceNames": [
+      "Delirium"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "deluxe-3-8": {
-    "id": "velvet-rope",
-    "name": "Velvet Rope",
+    "id": "iolite",
+    "name": "Iolite",
+    "version": "1.0",
+    "formerIds": [
+      "velvet-rope"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.deluxedn",
     "sourceNames": [
       "Deluxe"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "deluxe-4-2": {
-    "id": "velvet-rope-encore",
-    "name": "Velvet Rope Encore",
+    "id": "charoite",
+    "name": "Charoite",
+    "version": "1.0",
+    "formerIds": [
+      "velvet-rope-encore"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.deluxe",
     "sourceNames": [
       "Deluxe"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "dna-bungee-gum-hisoka-6": {
-    "id": "bubblegum-bandit",
-    "name": "Bubblegum Bandit",
+    "id": "ametrine",
+    "name": "Ametrine",
+    "version": "1.0",
+    "formerIds": [
+      "bubblegum-bandit"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.dna.bungeegum",
     "sourceNames": [
       "Hisoka",
-      "Bungee Gum"
+      "Bungee Gum",
+      "Dna Bungee Gum"
+    ],
+    "sourceAuthors": [
+      "Deepanshu77"
     ]
   },
   "dolian-3-0": {
-    "id": "dandelion",
-    "name": "Dandelion",
+    "id": "wavellite",
+    "name": "Wavellite",
+    "version": "1.0",
+    "formerIds": [
+      "dandelion"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.dolian",
     "sourceNames": [
       "Dolian"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "dounbler-2-9": {
-    "id": "double-scoop",
-    "name": "Double Scoop",
+    "id": "kornerupine",
+    "name": "Kornerupine",
+    "version": "1.0",
+    "formerIds": [
+      "double-scoop"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.dante",
     "sourceNames": [
       "Dounbler"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "drastik-3-5": {
-    "id": "thunderclap",
-    "name": "Thunderclap",
+    "id": "sodalite",
+    "name": "Sodalite",
+    "version": "1.0",
+    "formerIds": [
+      "thunderclap"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.drasticko",
     "sourceNames": [
       "Drastik",
       "Drasticko"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
+    ]
+  },
+  "dsp-1-9": {
+    "id": "calcite",
+    "name": "Calcite",
+    "version": "1.0",
+    "formerIds": [
+      "pixel-pop"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.spiderverse",
+    "sourceNames": [
+      "DSP",
+      "Spiderverse"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
+    ]
+  },
+  "dsp-2-5": {
+    "id": "agate",
+    "name": "Agate",
+    "version": "1.0",
+    "formerIds": [
+      "pixel-pop-remix"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.spider",
+    "sourceNames": [
+      "DSP"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "genisys-dn-6-oneui6-1": {
-    "id": "first-light",
-    "name": "First Light",
+    "id": "idocrase",
+    "name": "Idocrase",
+    "version": "1.0",
+    "formerIds": [
+      "first-light"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.genisys_byals",
     "sourceNames": [
-      "Genisys"
+      "Genisys",
+      "Genisys DN"
+    ],
+    "sourceAuthors": [
+      "byAlS"
     ]
   },
   "haumea-5-0": {
-    "id": "stardust",
-    "name": "Stardust",
+    "id": "bixbite",
+    "name": "Bixbite",
+    "version": "1.0",
+    "formerIds": [
+      "stardust"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.haumea",
     "sourceNames": [
       "Haumea"
+    ],
+    "sourceAuthors": [
+      "Timmah"
     ]
   },
   "helling-4-2": {
-    "id": "ember-glow",
-    "name": "Ember Glow",
+    "id": "kunzite",
+    "name": "Kunzite",
+    "version": "1.0",
+    "formerIds": [
+      "ember-glow"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.helling",
     "sourceNames": [
       "Helling"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "hilly-1-8": {
-    "id": "highland-mist",
-    "name": "Highland Mist",
+    "id": "cerussite",
+    "name": "Cerussite",
+    "version": "1.0",
+    "formerIds": [
+      "highland-mist"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.hilly",
     "sourceNames": [
       "Hilly"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "homly-3-0": {
-    "id": "hearthside",
-    "name": "Hearthside",
+    "id": "larimar",
+    "name": "Larimar",
+    "version": "1.0",
+    "formerIds": [
+      "hearthside"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.homely",
     "sourceNames": [
       "Homly"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "hopper-4-9": {
-    "id": "leapfrog",
-    "name": "Leapfrog",
+    "id": "chrysocolla",
+    "name": "Chrysocolla",
+    "version": "1.0",
+    "formerIds": [
+      "leapfrog"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.hopper",
     "sourceNames": [
       "Hopper"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
     ]
   },
   "houndly-2-2": {
-    "id": "night-patrol",
-    "name": "Night Patrol",
+    "id": "apatite",
+    "name": "Apatite",
+    "version": "1.0",
+    "formerIds": [
+      "night-patrol"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.dondo",
     "sourceNames": [
       "Houndly"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
+    ]
+  },
+  "hounter-2-8": {
+    "id": "xenotime",
+    "name": "Xenotime",
+    "version": "1.0",
+    "formerIds": [
+      "fox-hunt"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.hamster",
+    "sourceNames": [
+      "Hounter"
+    ],
+    "sourceAuthors": [
+      "Charlie_Dii_"
+    ]
+  },
+  "hysteria-pro27": {
+    "id": "diopside",
+    "name": "Diopside",
+    "version": "1.0",
+    "formerIds": [
+      "carnival"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.hysteria",
+    "sourceNames": [
+      "Hysteria",
+      "Hys"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
+    ]
+  },
+  "jajanken-gon8": {
+    "id": "lepidolite",
+    "name": "Lepidolite",
+    "version": "1.0",
+    "formerIds": [
+      "jackpot"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.rockpaperscissor",
+    "sourceNames": [
+      "Jajanken"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
     ]
   },
   "line-ui-1-7": {
-    "id": "thin-ice",
-    "name": "Thin Ice",
+    "id": "garnet",
+    "name": "Garnet",
+    "version": "1.0",
+    "formerIds": [
+      "thin-ice"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.lineui.anuprode",
     "sourceNames": [
       "Line UI",
       "LineUI"
+    ],
+    "sourceAuthors": [
+      "Anup Rode"
     ]
   },
   "luminosa-illuminated": {
-    "id": "lantern-light",
-    "name": "Lantern Light",
+    "id": "axinite",
+    "name": "Axinite",
+    "version": "1.0",
+    "formerIds": [
+      "lantern-light"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.glow",
     "sourceNames": [
       "Luminosa"
+    ],
+    "sourceAuthors": [
+      "Timmah"
     ]
   },
   "madara-rinnegan": {
-    "id": "crimson-eye",
-    "name": "Crimson Eye",
+    "id": "scolecite",
+    "name": "Scolecite",
+    "version": "1.0",
+    "formerIds": [
+      "crimson-eye"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.madara",
     "sourceNames": [
-      "Madara"
+      "Madara",
+      "Rinnegan"
+    ],
+    "sourceAuthors": [
+      "Deepanshu77"
     ]
   },
   "miui-11-1-3": {
-    "id": "lotus-garden",
-    "name": "Lotus Garden",
-    "sourcePackage": "project.vivid.ui.plugin.miui"
+    "id": "pectolite",
+    "name": "Pectolite",
+    "version": "1.0",
+    "formerIds": [
+      "lotus-garden"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.miui",
+    "sourceNames": [
+      "MIUI",
+      "MIUI 11"
+    ],
+    "sourceAuthors": [
+      "Rohit_S_Shetty",
+      "Rohit Shetty"
+    ]
   },
   "nitro-1-6": {
-    "id": "rocket-fuel",
-    "name": "Rocket Fuel",
+    "id": "cordierite",
+    "name": "Cordierite",
+    "version": "1.0",
+    "formerIds": [
+      "rocket-fuel"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.free",
     "sourceNames": [
       "Nitro"
+    ],
+    "sourceAuthors": [
+      "Muhammad Jahanzeb",
+      "Muhammad Jahnzeb"
     ]
   },
   "oriton-dn-1": {
-    "id": "north-star",
-    "name": "North Star",
+    "id": "covellite",
+    "name": "Covellite",
+    "version": "1.0",
+    "formerIds": [
+      "north-star"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.oriton",
     "sourceNames": [
-      "Oriton"
+      "Oriton",
+      "Oriton DN"
+    ],
+    "sourceAuthors": [
+      "byAlS"
     ]
   },
   "paragus-paragus-pro-v1": {
-    "id": "solar-flare",
-    "name": "Solar Flare",
+    "id": "erythrite",
+    "name": "Erythrite",
+    "version": "1.0",
+    "formerIds": [
+      "solar-flare"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.paragus",
     "sourceNames": [
-      "Paragus"
+      "Paragus",
+      "Paragus Pro"
+    ],
+    "sourceAuthors": [
+      "Rohit_S_Shetty",
+      "Rohit Shetty"
     ]
   },
   "primeos-prime-2-5": {
-    "id": "midnight-express",
-    "name": "Midnight Express",
+    "id": "fayalite",
+    "name": "Fayalite",
+    "version": "1.0",
+    "formerIds": [
+      "midnight-express"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.prime",
     "sourceNames": [
       "PrimeOS"
+    ],
+    "sourceAuthors": [
+      "Muhammad Jahanzeb",
+      "Muhammad Jahnzeb"
     ]
   },
   "quantum-atomic-xiii": {
-    "id": "particle-zoo",
-    "name": "Particle Zoo",
+    "id": "willemite",
+    "name": "Willemite",
+    "version": "1.0",
+    "formerIds": [
+      "particle-zoo"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.quantumbravo",
     "sourceNames": [
-      "Quantum Atomic"
+      "Quantum Atomic",
+      "Quantum",
+      "Atomic XIII"
+    ],
+    "sourceAuthors": [
+      "BravoInc"
     ]
   },
   "roughly-1-1": {
-    "id": "sandpaper",
-    "name": "Sandpaper",
-    "sourcePackage": "project.vivid.ui.plugin.roughly"
+    "id": "okenite",
+    "name": "Okenite",
+    "version": "1.0",
+    "formerIds": [
+      "sandpaper"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.roughly",
+    "sourceNames": [
+      "Roughly"
+    ],
+    "sourceAuthors": [
+      "Hunte Tech"
+    ]
   },
   "spark-4-9-delta": {
-    "id": "firefly",
-    "name": "Firefly",
+    "id": "ekanite",
+    "name": "Ekanite",
+    "version": "1.0",
+    "formerIds": [
+      "firefly"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.spark",
     "sourceNames": [
       "Spark"
-    ]
-  },
-  "titanium-titan-pro": {
-    "id": "iron-lotus",
-    "name": "Iron Lotus",
-    "sourcePackage": "project.vivid.ui.plugin.titanium",
-    "sourceNames": [
-      "Titan Pro"
-    ]
-  },
-  "ayos-6": {
-    "id": "aurora",
-    "name": "Aurora",
-    "sourcePackage": "project.vivid.ui.plugin.ayoslight",
-    "sourceNames": [
-      "ayOS"
-    ]
-  },
-  "ayos-retina-16": {
-    "id": "aurora-borealis",
-    "name": "Aurora Borealis",
-    "sourcePackage": "project.vivid.ui.plugin.ayosdark.retina",
-    "sourceNames": [
-      "ayOS"
-    ]
-  },
-  "hounter-2-8": {
-    "id": "fox-hunt",
-    "name": "Fox Hunt",
-    "sourcePackage": "project.vivid.ui.plugin.hamster",
-    "sourceNames": [
-      "Hounter"
-    ]
-  },
-  "hysteria-pro27": {
-    "id": "carnival",
-    "name": "Carnival",
-    "sourcePackage": "project.vivid.ui.plugin.hysteria",
-    "sourceNames": [
-      "Hysteria"
-    ]
-  },
-  "jajanken-gon8": {
-    "id": "jackpot",
-    "name": "Jackpot",
-    "sourcePackage": "project.vivid.ui.plugin.rockpaperscissor",
-    "sourceNames": [
-      "Jajanken"
+    ],
+    "sourceAuthors": [
+      "BravoInc"
     ]
   },
   "terpsichora-blythe-16": {
-    "id": "ballroom",
-    "name": "Ballroom",
+    "id": "carnelian",
+    "name": "Carnelian",
+    "version": "1.0",
+    "formerIds": [
+      "ballroom"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.niferpitou",
     "sourceNames": [
-      "Terpsichora"
+      "Terpsichora",
+      "Blythe",
+      "Terp",
+      "Pitou",
+      "Niferpitou"
+    ],
+    "sourceAuthors": [
+      "envy_",
+      "SatySatsZB"
+    ]
+  },
+  "titanium-titan-pro": {
+    "id": "indicolite",
+    "name": "Indicolite",
+    "version": "1.0",
+    "formerIds": [
+      "iron-lotus"
+    ],
+    "sourcePackage": "project.vivid.ui.plugin.titanium",
+    "sourceNames": [
+      "Titan Pro",
+      "Titanium"
+    ],
+    "sourceAuthors": [
+      "Rohit_S_Shetty",
+      "Rohit Shetty"
     ]
   },
   "uhu-dn-3-2": {
-    "id": "owl-hours",
-    "name": "Owl Hours",
+    "id": "zircon",
+    "name": "Zircon",
+    "version": "1.0",
+    "formerIds": [
+      "owl-hours"
+    ],
     "sourcePackage": "project.vivid.ui.plugin.uhu",
     "sourceNames": [
-      "Uhu"
+      "Uhu",
+      "Uhu DN"
+    ],
+    "sourceAuthors": [
+      "byAlS"
     ]
   }
 }

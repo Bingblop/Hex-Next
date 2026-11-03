@@ -130,6 +130,19 @@ fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
     BackHandler { viewModel.navigateBack() }
     DisposableEffect(model) { onDispose { model.release() } }
     LaunchedEffect(ui.spec) { model.setSpec(ui.spec) }
+    // A Targets row opens the editor on its app: select it once the scanned app list is in.
+    val preselect by viewModel.resourcesTarget.collectAsState()
+    LaunchedEffect(preselect, state.targets, state.hasScan) {
+        val pkg = preselect ?: return@LaunchedEffect
+        when {
+            state.targets.any { it.packageName == pkg } -> {
+                model.select(pkg)
+                viewModel.consumeResourcesTarget()
+            }
+            // Not part of the last scan (or no scan at all): keep the editor's own choice.
+            !state.hasScan || state.targets.isNotEmpty() -> viewModel.consumeResourcesTarget()
+        }
+    }
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(ResourceFilter.ALL) }
@@ -300,7 +313,7 @@ private fun ResourceHeader(
             val pinned = entries.count { it.pin != null }
             Text(
                 "${entries.size} colours · $grouped in a group · $pinned pinned",
-                style = monoStyle(MaterialTheme.typography.labelSmall),
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -344,7 +357,7 @@ private fun ResourceRow(entry: ResourceEntry, onPin: () -> Unit, onUnpin: () -> 
                     entry.keptFixed -> "Kept as Samsung ships it"
                     else -> "Follows its group"
                 },
-                style = monoStyle(MaterialTheme.typography.labelSmall),
+                style = MaterialTheme.typography.labelMedium,
                 color = if (pin != null) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
@@ -365,7 +378,7 @@ private fun ConfigLine(label: String, row: ResourceColor?) {
             modifier = Modifier.widthIn(min = 40.dp),
         )
         if (row == null) {
-            Text("not defined", style = monoStyle(MaterialTheme.typography.labelSmall), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("not defined", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Row
         }
         Swatch(row.observed, "$label, ships ${hexOf(row.observed)}")
@@ -373,7 +386,7 @@ private fun ConfigLine(label: String, row: ResourceColor?) {
         Text("→", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val planned = row.planned
         if (planned == null) {
-            Text("kept", style = monoStyle(MaterialTheme.typography.labelSmall), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("kept", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Swatch(planned, "$label, theme writes ${hexOf(planned)}")
             Text(hexOf(planned), style = monoStyle(MaterialTheme.typography.labelSmall))

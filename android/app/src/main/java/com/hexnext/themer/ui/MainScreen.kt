@@ -10,8 +10,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
@@ -48,6 +51,7 @@ import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -89,6 +93,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -227,9 +232,36 @@ fun MainScreen(viewModel: MainViewModel) {
 
 @Composable
 private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState, settingsStore: AppSettingsStore) {
+    // The setup guide keeps the app theme and layout it always had; every other screen gets the
+    // console look (Studio v2 phase 2 § 3).
+    if (target == Screen.ONBOARDING) {
+        OnboardingScreen(
+            shizuku = shizuku,
+            versionLine = ui.versionLine,
+            rootToolLinks = ui.rootToolLinks,
+            packs = ui.packs,
+            selectedPackId = ui.spec.simplePackId,
+            onSelectPack = viewModel::selectPack,
+            onImportPack = viewModel::importPack,
+            isPackLocked = { id -> !ui.packLooksUnlocked(id) },
+            onRequestPermission = viewModel::requestPermission,
+            onFinish = viewModel::finishOnboarding,
+        )
+        return
+    }
+    StudioTheme {
+        // An opaque page behind each screen, so a crossfade never shows one screen through another.
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            ConsoleScreenContent(target, viewModel, ui, shizuku, settingsStore)
+        }
+    }
+}
+
+@Composable
+private fun ConsoleScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState, settingsStore: AppSettingsStore) {
     when (target) {
-        Screen.MAIN -> StudioTheme { StudioScreen(viewModel, ui, shizuku) }
-        Screen.RESOURCES -> StudioTheme { ResourceEditorScreen(viewModel, ui) }
+        Screen.MAIN -> StudioScreen(viewModel, ui, shizuku)
+        Screen.RESOURCES -> ResourceEditorScreen(viewModel, ui)
         Screen.SETTINGS -> AppSettingsScreen(
             store = settingsStore,
             onBack = viewModel::navigateBack,
@@ -267,18 +299,8 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
             },
         )
         Screen.AI_PROVIDERS -> AiProvidersScreen(onBack = viewModel::navigateBack)
-        Screen.ONBOARDING -> OnboardingScreen(
-            shizuku = shizuku,
-            versionLine = ui.versionLine,
-            rootToolLinks = ui.rootToolLinks,
-            packs = ui.packs,
-            selectedPackId = ui.spec.simplePackId,
-            onSelectPack = viewModel::selectPack,
-            onImportPack = viewModel::importPack,
-            isPackLocked = { id -> !ui.packLooksUnlocked(id) },
-            onRequestPermission = viewModel::requestPermission,
-            onFinish = viewModel::finishOnboarding,
-        )
+        // Handled by ScreenContent; never reached.
+        Screen.ONBOARDING -> Unit
     }
 }
 
@@ -308,7 +330,7 @@ internal fun statusPillText(versionLine: String, state: ShizukuState): String {
 internal fun StatusPill(text: String, ok: Boolean) {
     Text(
         text,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelMedium,
         color = if (ok) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -428,7 +450,10 @@ internal fun openShizuku(context: Context, uriHandler: UriHandler) {
 internal const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
 internal const val SHIZUKU_DOWNLOAD_URL = "https://shizuku.rikka.app/download/"
 
-/** The shared card: title (with an optional [trailing] control at its right) over [content]. */
+/**
+ * The shared card: title (with an optional [trailing] control at its right) over [content]. A
+ * 1 dp outline on the card colour, no elevation (§ 3.2); 16 dp corners under the console shapes.
+ */
 @Composable
 internal fun SectionCard(
     title: String,
@@ -440,11 +465,12 @@ internal fun SectionCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             Modifier
                 .then(if (reduceMotion) Modifier else Modifier.animateContentSize())
-                .padding(20.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (trailing == null) {
@@ -557,7 +583,7 @@ internal fun TierPill(capability: Capability) {
     val ok = capability != Capability.NONE
     Text(
         capability.label,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelMedium,
         color = if (ok) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
         maxLines = 1,
         modifier = Modifier
@@ -572,7 +598,7 @@ internal fun TierPill(capability: Capability) {
 internal fun NeedsRootBadge() {
     Text(
         "Needs root",
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onTertiaryContainer,
         maxLines = 1,
         modifier = Modifier
@@ -731,10 +757,16 @@ internal fun PackCard(
 ) {
     var showCatalogue by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
     val advanced = spec.mode == ThemeMode.ADVANCED
+    // Client-side name search; the selected pack always stays listed so its options stay reachable.
+    val needle = query.trim()
+    val shownPacks = remember(packs, needle, spec.simplePackId) {
+        if (needle.isEmpty()) packs else packs.filter { it.name.contains(needle, ignoreCase = true) || it.id == spec.simplePackId }
+    }
     SectionCard(
         title = "Theme pack",
         trailing = {
@@ -773,22 +805,51 @@ internal fun PackCard(
         if (advanced) {
             Text("Default pack", style = MaterialTheme.typography.labelLarge)
         }
-        PackRow(selected = spec.simplePackId == null, enabled = !busy, onClick = { onSelect(null) }) {
-            Text("Colours only", style = MaterialTheme.typography.titleSmall)
+        if (packs.size > 1) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                placeholder = { Text("Search packs") },
+                label = { Text("Search packs") },
+            )
         }
-        packs.forEach { pack ->
+        PackRow(selected = spec.simplePackId == null, enabled = !busy, onClick = { onSelect(null) }) {
+            Column(Modifier.weight(1f)) {
+                Text("Colours only", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Your colours with Samsung's own icons and images",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (packs.isNotEmpty() && shownPacks.isEmpty()) {
+            Text(
+                "No pack name matches \"$needle\".",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        shownPacks.forEach { pack ->
             val selected = spec.simplePackId == pack.id
             val locked = locks.locked(pack.id)
             PackRow(selected = selected, enabled = !busy && !locked, onClick = { onSelect(pack.id) }) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(pack.name, style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        packSummary(pack),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PaletteDots(pack)
+                        Text(
+                            pack.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
+                    PackBadges(pack, locked = locked, pending = locks.pending(pack.id))
                     if (locked) {
-                        LockedLabel(pending = locks.pending(pack.id))
                         if (locks.canPurchase) {
                             UnlockButton(
                                 name = pack.name,
@@ -901,13 +962,64 @@ internal fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, c
     }
 }
 
-/** Subtitle of a pack row: author · version · drawables · Settings icons. */
+/**
+ * Subtitle of a pack row: drawables · Settings icons · day and night. Only what the pack holds:
+ * never an author, version or source name, which can tie a pack to where its artwork came from.
+ */
 private fun packSummary(pack: InstalledPack): String = listOfNotNull(
-    pack.author.takeIf { it.isNotBlank() },
-    pack.version.takeIf { it.isNotBlank() },
     "${pack.drawableCount} drawables",
     if (pack.hasSettingsIcons) "Settings icons" else null,
+    if (pack.dayNight) "Day and night" else null,
 ).joinToString(" · ")
+
+/** The first three colours of the pack's own palette, as 14 dp dots; nothing when it has none. */
+@Composable
+private fun PaletteDots(pack: InstalledPack) {
+    val colors = remember(pack.pack) { pack.pack.paletteArgb.values.take(3).map { it or 0xFF000000.toInt() } }
+    if (colors.isEmpty()) return
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.semantics { contentDescription = "Pack colours ${colors.joinToString { it.toHex() }}" },
+    ) {
+        colors.forEach { argb ->
+            Box(
+                Modifier
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(Color(argb))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+            )
+        }
+    }
+}
+
+/** Badges of a pack row: lock state, day and night, drawables, Settings icons. Each one a word. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PackBadges(pack: InstalledPack, locked: Boolean, pending: Boolean) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (locked) {
+            LockedLabel(pending = pending)
+        }
+        if (pack.dayNight) PackBadge("Day and night")
+        PackBadge("${pack.drawableCount} drawables")
+        if (pack.hasSettingsIcons) PackBadge("Settings icons")
+    }
+}
+
+@Composable
+private fun PackBadge(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}
 
 /** A switch row written like [PackRow]: label left, [Switch] right, the whole row one toggleable node. */
 @Composable
@@ -1799,9 +1911,8 @@ private fun CatalogueRow(
         Column(Modifier.weight(1f)) {
             Text(entry.name, style = MaterialTheme.typography.titleSmall)
             Text(
+                // Size and contents only: never an author or version (see packSummary).
                 listOfNotNull(
-                    entry.author.takeIf { it.isNotBlank() },
-                    entry.version.takeIf { it.isNotBlank() },
                     "%.1f MB".format(entry.bytes / 1_000_000.0),
                     if (entry.hasSettingsIcons) "Settings icons" else null,
                 ).joinToString(" · "),
@@ -1830,12 +1941,31 @@ private fun CatalogueRow(
 }
 
 /**
- * Applies the compiled theme to every scanned target, or removes it. Says why the buttons are
- * off while disconnected, shows progress while busy, formats the last apply in plain words and
- * carries the "It works" confirmation while restart protection is armed.
+ * What restart protection does right now, in the words of the old Apply card: shown on the
+ * Targets restart-protection card. [expired] is true once its 10 minutes ended unconfirmed.
+ */
+internal fun restartProtectionText(unconfirmed: Boolean, expired: Boolean): String = when {
+    !unconfirmed -> "Nothing is waiting for confirmation. After the next apply, check your phone and tap \"It works\"."
+    expired -> "Applied and not confirmed. Restart protection ended 10 minutes after the apply, so restarts " +
+        "no longer turn the theme off. Tap \"It works\" to clear this."
+    // Phone restarts are only caught when root is still there after the restart. The temporary
+    // DFRoot root that RootGuide recommends is gone by then, so promise only what the in-session
+    // watchdog (120 s, System UI or system server restarts) does.
+    else -> "Applied and not confirmed yet. For the next 2 minutes, the theme is turned off if System UI " +
+        "or the system restarts twice. Phone restarts are only caught if your root stays after a " +
+        "restart: a temporary root such as DFRoot does not, so after a restart nothing can turn the " +
+        "theme off. Check your phone before you restart it, then confirm."
+}
+
+/**
+ * The persistent Apply bar above the bottom navigation (§ 1.3): the logic of the old Apply card
+ * in a compact bar. Apply and Remove are on only while [connected] and not [busy]; while
+ * [applying] a progress bar and the last log line (a polite live region) show; while
+ * [unconfirmed] an "It works" row sits on top. Tapping the summary opens the target list
+ * ([onDetails]); while disconnected it opens the connection sheet ([onConnection]).
  */
 @Composable
-internal fun CompiledThemeCard(
+internal fun ApplyBar(
     connected: Boolean,
     busy: Boolean,
     applying: Boolean,
@@ -1848,66 +1978,18 @@ internal fun CompiledThemeCard(
     onConfirmWorks: () -> Unit,
     onDetails: () -> Unit,
     onConnection: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
-    SectionCard("Apply") {
-        Text(
-            "Builds one Hex Next overlay for each scanned One UI app and keeps it in place after wallpaper changes. " +
-                "Quick Settings keeps Samsung's layout and only takes your colours. Apps you've removed are skipped.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (report != null) {
-            val failed = report.failedCount > 0 || !report.finished
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    lastApplyLine(report),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onDetails) { Text("Details") }
-            }
-        }
-        if (unconfirmed) {
-            Text(
-                if (protectionExpired) {
-                    "Applied and not confirmed. Restart protection ended 10 minutes after the apply, so restarts " +
-                        "no longer turn the theme off. Tap \"It works\" to clear this."
-                } else {
-                    // Phone restarts are only caught when root is still there after the restart. The
-                    // temporary DFRoot root that RootGuide recommends is gone by then, so promise only
-                    // what the in-session watchdog (120 s, System UI or system server restarts) does.
-                    "Applied and not confirmed yet. For the next 2 minutes, the theme is turned off if System UI " +
-                        "or the system restarts twice. Phone restarts are only caught if your root stays after a " +
-                        "restart: a temporary root such as DFRoot does not, so after a restart nothing can turn the " +
-                        "theme off. Check your phone before you restart it, then confirm."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.tertiary,
-            )
-            // Off while an apply runs: it has armed the guard for overlays nobody has checked yet.
-            FilledTonalButton(onClick = onConfirmWorks, enabled = !applying) { Text("It works") }
-        }
-        if (!connected) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Connect first: start Shizuku with root. Over ADB only the system palette changes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onConnection) { Text("Connection") }
-            }
-        }
-        Actions(
-            enabled = connected && !busy,
-            busy = applying,
-            applyLabel = "Apply theme",
-            onApply = onApply,
-            onRemove = { confirmRemove = true },
-            removeLabel = "Remove theme",
-        )
+    val status = LocalStatusPalette.current
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .drawTopHairline(MaterialTheme.colorScheme.outlineVariant)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         if (applying) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             if (progressLine != null) {
@@ -1919,6 +2001,76 @@ internal fun CompiledThemeCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
+            }
+        }
+        if (unconfirmed) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (protectionExpired) "Not confirmed. Restart protection has ended." else "Check your phone, then confirm it works.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = status.warn,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                // Off while an apply runs: it has armed the guard for overlays nobody has checked yet.
+                FilledTonalButton(onClick = onConfirmWorks, enabled = !applying) { Text("It works") }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val summary = when {
+                !connected -> "Connect first: start Shizuku with root"
+                report == null -> "Not applied yet"
+                else -> lastApplyLine(report)
+            }
+            val failed = report != null && (report.failedCount > 0 || !report.finished)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable(
+                        onClickLabel = if (connected) "Show targets" else "Show connection",
+                        onClick = if (connected) onDetails else onConnection,
+                    )
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = when {
+                        !connected -> MaterialTheme.colorScheme.onSurfaceVariant
+                        failed -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            OutlinedButton(
+                onClick = { confirmRemove = true },
+                enabled = connected && !busy,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text("Remove") }
+            Button(
+                onClick = onApply,
+                enabled = connected && !busy,
+                shape = MaterialTheme.shapes.small,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .then(if (applying) Modifier.semantics { contentDescription = "Applying theme" } else Modifier),
+            ) {
+                if (applying) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                } else {
+                    Text("Apply theme")
+                }
             }
         }
     }
@@ -1936,6 +2088,11 @@ internal fun CompiledThemeCard(
     }
 }
 
+/** A 1 dp line along the top edge, the border between the Apply bar and the content above it. */
+private fun Modifier.drawTopHairline(color: Color): Modifier = drawBehind {
+    drawRect(color = color, size = androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx()))
+}
+
 /** The activity hosting [this] context, unwrapping [ContextWrapper]s; null when there is none. */
 internal tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
@@ -1944,7 +2101,7 @@ internal tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 /** "Applied to 12 apps · 1 failed · 2 removed apps skipped", or the interruption, in plain words. */
-private fun lastApplyLine(report: ApplyReport): String {
+internal fun lastApplyLine(report: ApplyReport): String {
     if (!report.finished) return "Last apply was interrupted. Apply again."
     val parts = ArrayList<String>(3)
     parts += "Applied to ${report.okCount} ${if (report.okCount == 1) "app" else "apps"}"
@@ -1953,61 +2110,54 @@ private fun lastApplyLine(report: ApplyReport): String {
     return parts.joinToString(" · ")
 }
 
+/** The build log of the editor and the live log of Diagnostics: monospace lines in an outlined card. */
 @Composable
-private fun Actions(
-    enabled: Boolean,
-    busy: Boolean,
-    applyLabel: String,
-    onApply: () -> Unit,
-    onRemove: () -> Unit,
-    removeLabel: String = "Remove",
+internal fun LogCard(
+    lines: List<LogLine>,
+    onClear: () -> Unit,
+    title: String = "Log",
+    /** Extra controls under the title (the level filter of System > Tools). */
+    header: (@Composable () -> Unit)? = null,
+    /** Text shown instead of the lines when [lines] is empty. */
+    emptyText: String? = null,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(
-            onClick = onApply,
-            enabled = enabled,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 52.dp)
-                .then(if (busy) Modifier.semantics { contentDescription = "Applying theme" } else Modifier),
-        ) {
-            if (busy) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Text(applyLabel)
-            }
-        }
-        OutlinedButton(onClick = onRemove, enabled = enabled, modifier = Modifier.heightIn(min = 52.dp)) {
-            Text(removeLabel)
-        }
-    }
-}
-
-/** The build log of the editor and the live log of Diagnostics: monospace lines in a tinted card. */
-@Composable
-internal fun LogCard(lines: List<LogLine>, onClear: () -> Unit, title: String = "Log") {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 20.dp)) {
+        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     title,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f).semantics { heading() },
                 )
-                TextButton(onClick = onClear) { Text("Clear") }
+                TextButton(onClick = onClear, enabled = lines.isNotEmpty()) { Text("Clear") }
             }
+            header?.invoke()
+            if (lines.isEmpty() && emptyText != null) {
+                Text(
+                    emptyText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp, top = 4.dp),
+                )
+            }
+            val status = LocalStatusPalette.current
             lines.forEach { line ->
                 Text(
                     line.text,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = androidx.compose.ui.unit.TextUnit(13f, androidx.compose.ui.unit.TextUnitType.Sp),
+                        lineHeight = androidx.compose.ui.unit.TextUnit(18f, androidx.compose.ui.unit.TextUnitType.Sp),
+                    ),
                     color = when (line.level) {
-                        LogLevel.OK -> MaterialTheme.colorScheme.primary
-                        LogLevel.WARN -> MaterialTheme.colorScheme.tertiary
-                        LogLevel.ERROR -> MaterialTheme.colorScheme.error
+                        LogLevel.OK -> status.ok
+                        LogLevel.WARN -> status.warn
+                        LogLevel.ERROR -> status.bad
                         LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
                     modifier = Modifier.padding(end = 12.dp, bottom = 4.dp),

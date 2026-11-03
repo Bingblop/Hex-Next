@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.ColorGroupSection
@@ -156,38 +157,7 @@ internal fun ElementColorsCard(
     }
     if (pick != null) {
         val (group, night) = pick
-        val customHere = spec.groupColor(group, night) != null
-        val customOther = spec.groupColor(group, !night) != null
-        ColorPickerSheet(
-            title = group.label,
-            subtitle = buildString {
-                append(if (night) "Dark mode" else "Light mode")
-                append(" · ")
-                append(group.description)
-                if (group.quickSettings) append(" · Quick Settings is colour-only")
-            },
-            initial = preview.scheme(night).color(group),
-            shades = preview.scheme(night).shades,
-            bothToggle = true,
-            initialBoth = startsBoth(spec, group),
-            autoLabel = if (customHere || customOther) "Back to Auto" else null,
-            onPreview = { argb, both ->
-                val draft = if (both) spec.withGroupColor(group, false, argb).withGroupColor(group, true, argb) else spec.withGroupColor(group, night, argb)
-                viewModel.previewDraft(draft)
-            },
-            onPick = { argb, both ->
-                if (both) viewModel.setGroupColorBoth(group, argb) else viewModel.setGroupColor(group, night, argb)
-                picking = null
-            },
-            onAuto = { both ->
-                if (both) viewModel.setGroupColorBoth(group, null) else viewModel.setGroupColor(group, night, null)
-                picking = null
-            },
-            onDismiss = {
-                viewModel.previewDraft(null)
-                picking = null
-            },
-        )
+        GroupColorSheet(viewModel, spec, preview, group, night, onClose = { picking = null })
     }
     if (confirmReset) {
         ConfirmDialog(
@@ -201,6 +171,55 @@ internal fun ElementColorsCard(
             onDismiss = { confirmReset = false },
         )
     }
+}
+
+/**
+ * The colour sheet of element [group] in one mode ([night]): drags preview through
+ * [MainViewModel.previewDraft], a pick saves the mode (or both with "Same for light and dark"),
+ * "Back to Auto" clears it. Shared by the element rows, the Colour engine's surface tiles and the
+ * Studio's tap-to-edit on the phone preview.
+ */
+@Composable
+internal fun GroupColorSheet(
+    viewModel: MainViewModel,
+    spec: ThemeSpec,
+    preview: StudioPreviewState,
+    group: ColorGroup,
+    night: Boolean,
+    onClose: () -> Unit,
+) {
+    val customHere = spec.groupColor(group, night) != null
+    val customOther = spec.groupColor(group, !night) != null
+    ColorPickerSheet(
+        title = group.label,
+        subtitle = buildString {
+            append(if (night) "Dark mode" else "Light mode")
+            append(" · ")
+            append(group.description)
+            if (group.quickSettings) append(" · Quick Settings is colour-only")
+        },
+        initial = preview.scheme(night).color(group),
+        shades = preview.scheme(night).shades,
+        bothToggle = true,
+        initialBoth = startsBoth(spec, group),
+        autoLabel = if (customHere || customOther) "Back to Auto" else null,
+        onPreview = { argb, both ->
+            val draft = if (both) spec.withGroupColor(group, false, argb).withGroupColor(group, true, argb) else spec.withGroupColor(group, night, argb)
+            viewModel.previewDraft(draft)
+        },
+        onPick = { argb, both ->
+            if (both) viewModel.setGroupColorBoth(group, argb) else viewModel.setGroupColor(group, night, argb)
+            onClose()
+        },
+        onAuto = { both ->
+            if (both) viewModel.setGroupColorBoth(group, null) else viewModel.setGroupColor(group, night, null)
+            onClose()
+        },
+        onDismiss = {
+            viewModel.previewDraft(null)
+            onClose()
+        },
+    )
 }
 
 /** One element group: label, badges, description, status, and its day and night swatches. */
@@ -263,30 +282,38 @@ private fun ElementRow(
                     )
                 }
             }
-            Text(group.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                group.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 listOfNotNull(status, countLine(count)).joinToString(" · "),
-                style = monoStyle(MaterialTheme.typography.labelSmall),
+                style = MaterialTheme.typography.labelMedium,
                 color = if (lightCustom || darkCustom) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             ColorTile(
                 argb = light,
-                description = "${group.label}, light, ${if (lightCustom) "custom" else "Auto"} ${hexOf(light)}. Change",
+                description = "${group.label} light, ${hexOf(light)}, ${if (lightCustom) "custom" else "Auto"}, edit colour",
                 onClick = { onSwatch(false) },
                 auto = !lightCustom,
             )
             Text("Light", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(hexOf(light), style = monoStyle(MaterialTheme.typography.labelSmall), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             ColorTile(
                 argb = dark,
-                description = "${group.label}, dark, ${if (darkCustom) "custom" else "Auto"} ${hexOf(dark)}. Change",
+                description = "${group.label} dark, ${hexOf(dark)}, ${if (darkCustom) "custom" else "Auto"}, edit colour",
                 onClick = { onSwatch(true) },
                 auto = !darkCustom,
             )
             Text("Dark", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(hexOf(dark), style = monoStyle(MaterialTheme.typography.labelSmall), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
         }
     }
 }

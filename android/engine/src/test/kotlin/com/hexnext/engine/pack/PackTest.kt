@@ -17,8 +17,8 @@ class PackTest {
 
     private val packJson = """
         {
-         "format": 1, "id": "deluxe-4-2", "name": "Deluxe", "author": "Charlie_Dii_", "version": "4.2",
-         "package": "com.hexnext.pack.velvet_rope", "dayNight": true, "features": ["navbar", "qs"],
+         "format": 1, "id": "iolite", "name": "Iolite", "author": "Pack Maker", "version": "1.0",
+         "package": "com.hexnext.pack.iolite", "dayNight": true, "features": ["navbar", "qs"],
          "palette": {"lxx1": "#FFEEEEEE", "xx1": "#FF111111", "xy2": "#FF0000FF", "bogus": "nope"},
          "settings": {"radius": 12, "style": "round"},
          "options": [
@@ -46,7 +46,7 @@ class PackTest {
     """.trimIndent()
 
     private fun buildZip(): File {
-        val file = tmp.newFile("deluxe-4-2.zip")
+        val file = tmp.newFile("iolite.zip")
         ZipOutputStream(file.outputStream()).use { z ->
             fun put(name: String, bytes: ByteArray) { z.putNextEntry(ZipEntry(name)); z.write(bytes); z.closeEntry() }
             put("pack.json", packJson.toByteArray())
@@ -64,8 +64,8 @@ class PackTest {
     fun `reads pack json from zip`() {
         val zip = buildZip()
         val pack = PackReader.read(zip)
-        assertEquals("deluxe-4-2", pack.id)
-        assertEquals("Charlie_Dii_", pack.author)
+        assertEquals("iolite", pack.id)
+        assertEquals("Pack Maker", pack.author)
         assertTrue(pack.dayNight)
         assertEquals(6, pack.layers.size)
         assertEquals(Tint("fixed", argb = "#80FF0000"), pack.layers[1].tint)
@@ -138,10 +138,10 @@ class PackTest {
     @Test
     fun `parses index json and rejects garbage`() {
         val index = PackIndex.parse(
-            """{"format": 1, "packs": [{"id": "deluxe-4-2", "name": "Deluxe", "author": "C", "version": "4.2",
-               "file": "deluxe-4-2.zip", "bytes": 123456, "categories": ["navbar"], "dayNight": true, "previewCount": 2}]}""",
+            """{"format": 1, "packs": [{"id": "iolite", "name": "Iolite", "author": "", "version": "1.0",
+               "file": "iolite.zip", "bytes": 123456, "categories": ["navbar"], "dayNight": true, "previewCount": 2}]}""",
         )
-        assertEquals("deluxe-4-2.zip", index.packs.single().file)
+        assertEquals("iolite.zip", index.packs.single().file)
         assertEquals(123456L, index.packs.single().bytes)
         assertFailsWith<PackFormatException> { PackIndex.parse("{") }
         assertFailsWith<PackFormatException> { PackReader.parse("""{"id": 1}""") }

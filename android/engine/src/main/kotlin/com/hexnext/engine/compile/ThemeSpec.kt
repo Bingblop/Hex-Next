@@ -1,5 +1,6 @@
 package com.hexnext.engine.compile
 
+import com.hexnext.engine.pack.PackIdAliases
 import com.hexnext.engine.palette.PaletteRole
 import com.hexnext.engine.palette.ShadeScale
 import com.hexnext.engine.palette.ThemeAdjustments
@@ -174,11 +175,22 @@ public data class ThemeSpec(
         public fun default(): ThemeSpec =
             ThemeSpec(id = "default", name = "Hex Next", source = ThemeSource(DEFAULT_SEED), builtInIcons = true)
 
-        /** Parses JSON written by [toJson]; unknown keys are ignored. */
+        /**
+         * Parses JSON written by [toJson]; unknown keys are ignored. Pack ids saved under a former
+         * catalogue id ([PackIdAliases]) are read as the id that pack ships under now.
+         */
         public fun fromJson(json: String): ThemeSpec = try {
-            SpecJson.decodeFromString(serializer(), json)
+            SpecJson.decodeFromString(serializer(), json).withCurrentPackIds()
         } catch (e: SerializationException) {
             throw IllegalArgumentException("invalid theme: ${e.message}", e)
+        }
+
+        private fun ThemeSpec.withCurrentPackIds(): ThemeSpec {
+            val simple = simplePackId?.let(PackIdAliases::current)
+            val perElement = if (elementPacks.values.none(PackIdAliases::isFormer)) elementPacks
+            else elementPacks.mapValues { (_, id) -> PackIdAliases.current(id) }
+            return if (simple == simplePackId && perElement === elementPacks) this
+            else copy(simplePackId = simple, elementPacks = perElement)
         }
     }
 }

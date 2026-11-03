@@ -30,13 +30,14 @@ class UnmappedPluginTest(unittest.TestCase):
                 builder.build_pack(Path("plugin.apk"), Path(out))
             self.assertEqual(list(Path(out).iterdir()), [])
 
-    def test_missing_author_is_written_as_empty_string(self):
-        # The app decodes author as a non-null String: a JSON null breaks the whole catalogue.
+    def test_author_is_blank_and_version_comes_from_the_catalogue(self):
+        # The app hides a blank author; the source plugin's author and version are never written
+        # (a JSON null author would also break the whole catalogue).
         import io
         import json
         import zipfile
         source_id = next(k for k, v in builder_names().items() if isinstance(v, dict))
-        meta = {"name": source_id, "label": "", "version": "", "author": None,
+        meta = {"name": source_id, "label": "", "version": "", "author": "Some Author",
                 "day_night": False, "features": []}
         empty = io.BytesIO()
         zipfile.ZipFile(empty, "w").close()
@@ -48,9 +49,14 @@ class UnmappedPluginTest(unittest.TestCase):
                 pack = json.loads(z.read("pack.json"))
         self.assertEqual(pack["author"], "")
         self.assertEqual(entry["author"], "")
+        self.assertEqual(pack["version"], "1.0")
+        self.assertEqual(entry["version"], "1.0")
+        self.assertEqual(pack["package"], "com.hexnext.pack." + pack["id"])
+        self.assertNotIn("Some Author", json.dumps(pack))
 
     def test_option_text_never_names_a_source_plugin(self):
-        # Fever Dream's options named another plugin ("Deliun App Icons"); the app shows them.
+        # Peridot's options named another source plugin ("Deliun App Icons") and its own; the app
+        # shows them. Authors and the legacy brand go too.
         import io
         import json
         import zipfile
@@ -60,17 +66,24 @@ class UnmappedPluginTest(unittest.TestCase):
         with zipfile.ZipFile(raw, "w") as z:
             z.writestr("assets/extra.preferences",
                        "$selectdialogpreference,natone,datone,alticon=Homescreen: Change AppIcon,"
-                       " Tint, Deliun App Icons, Delirium Style\n")
+                       " Tint, Deliun App Icons, Delirium Style, Icons by Charlie_Dii_\n"
+                       "$selectdialogpreference,a,b=Logo (put logo.png in /hex folder), One\n")
         with tempfile.TemporaryDirectory() as out, \
                 patch.object(builder, "catalog_one", return_value=meta), \
                 patch.object(builder, "base_apk_bytes", return_value=raw.getvalue()):
             entry = builder.build_pack(Path("plugin.apk"), Path(out))
             with zipfile.ZipFile(Path(out, entry["file"])) as z:
                 pack = json.loads(z.read("pack.json"))
-        self.assertEqual(pack["id"], "fever-dream")
+        self.assertEqual(pack["id"], "peridot")
+        self.assertEqual(pack["name"], "Peridot")
+        self.assertEqual(pack["version"], "1.0")
         self.assertEqual(pack["options"][0]["choices"],
-                         [" Tint", " Lagoon App Icons", " Fever Dream Style"])
-        self.assertNotIn("deliun", json.dumps(pack["options"]).lower())
+                         [" Tint", " Epidote App Icons", " Peridot Style", " Icons"])
+        self.assertEqual(pack["options"][1]["label"], "Logo")
+        self.assertEqual(pack["options"][1]["choices"], [" One", "Option 2"])
+        text = json.dumps(pack["options"]).lower()
+        for legacy in ("deliun", "delirium", "charlie", "hex"):
+            self.assertNotIn(legacy, text)
 
     def test_failed_rebuild_keeps_the_existing_pack(self):
         # A bad CRC in one entry raises after the output is opened; the published pack stays.
@@ -102,11 +115,11 @@ class UnmappedPluginTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as out:
             Path(src, "a.apk").write_bytes(b"")
             Path(src, "b.apk").write_bytes(b"")
-            Path(out, "riverstone.zip").write_bytes(b"published pack")
-            old = {"id": "riverstone", "name": "Riverstone", "file": "riverstone.zip", "bytes": 14}
+            Path(out, "kyanite.zip").write_bytes(b"published pack")
+            old = {"id": "kyanite", "name": "Kyanite", "file": "kyanite.zip", "bytes": 14}
             gone = {"id": "gone", "name": "Gone", "file": "gone.zip", "bytes": 1}
             Path(out, "index.json").write_text(json.dumps({"format": 1, "packs": [old, gone]}))
-            fresh = {"id": "lagoon", "name": "Lagoon", "file": "lagoon.zip", "bytes": 1}
+            fresh = {"id": "epidote", "name": "Epidote", "file": "epidote.zip", "bytes": 1}
 
             def fake_build(path, out_dir):
                 if path.name == "a.apk":
@@ -124,10 +137,10 @@ class UnmappedPluginTest(unittest.TestCase):
         import json
         with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as out:
             Path(src, "b.apk").write_bytes(b"")
-            Path(out, "riverstone.zip").write_bytes(b"old")
-            old = {"id": "riverstone", "file": "riverstone.zip"}
+            Path(out, "kyanite.zip").write_bytes(b"old")
+            old = {"id": "kyanite", "file": "kyanite.zip"}
             Path(out, "index.json").write_text(json.dumps({"format": 1, "packs": [old]}))
-            fresh = {"id": "lagoon", "file": "lagoon.zip", "bytes": 1}
+            fresh = {"id": "epidote", "file": "epidote.zip", "bytes": 1}
             with patch.object(builder, "build_pack", return_value=fresh), \
                     patch.object(sys, "argv", ["hex_pack_builder.py", src, out]):
                 self.assertEqual(builder.main(), 0)

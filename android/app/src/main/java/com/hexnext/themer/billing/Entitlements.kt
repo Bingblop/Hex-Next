@@ -1,6 +1,7 @@
 package com.hexnext.themer.billing
 
 import android.app.Activity
+import com.hexnext.engine.pack.PackIdAliases
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -58,17 +59,23 @@ data class EntitlementState(
     /** True while purchases are being read from the store. */
     val checking: Boolean = false,
 ) {
-    /** True when pack [packId] is unlocked by a verified purchase (or by this build). */
-    fun unlocks(packId: String): Boolean = unlockAll || ProductIds.forPack(packId) in ownedProductIds
+    /**
+     * True when pack [packId] is unlocked by a verified purchase (or by this build). A purchase
+     * made under a former id of the pack ([ProductIds.allForPack]) still unlocks it.
+     */
+    fun unlocks(packId: String): Boolean = unlockAll || ProductIds.allForPack(packId).any { it in ownedProductIds }
 
     /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
     fun looksUnlocked(packId: String): Boolean = unlocks(packId) ||
-        (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.forPack(packId) in cachedProductIds))
+        (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.allForPack(packId).any { it in cachedProductIds }))
 
-    fun isPending(packId: String): Boolean = ProductIds.forPack(packId) in pendingProductIds
+    fun isPending(packId: String): Boolean = ProductIds.allForPack(packId).any { it in pendingProductIds }
 
-    /** The store's formatted price of pack [packId], or null while it is unknown. */
-    fun priceOf(packId: String): String? = prices[ProductIds.forPack(packId)]
+    /**
+     * The store's formatted price of pack [packId], or null while it is unknown: the current
+     * product's price, else the price of a product under a former id of the pack.
+     */
+    fun priceOf(packId: String): String? = ProductIds.allForPack(packId).firstNotNullOfOrNull { prices[it] }
 }
 
 object ProductIds {
@@ -79,4 +86,12 @@ object ProductIds {
 
     /** "pack_" + the pack id lowercased, with every character outside [a-z0-9._] replaced by '_'. */
     fun forPack(packId: String): String = "pack_" + packId.lowercase().replace(disallowed, "_")
+
+    /**
+     * Every product that unlocks pack [packId]: [forPack] of its current id first (what a new
+     * purchase buys), then [forPack] of each former catalogue id ([PackIdAliases]), so a purchase
+     * made before the pack was renamed keeps it unlocked.
+     */
+    fun allForPack(packId: String): List<String> =
+        (listOf(forPack(packId)) + PackIdAliases.allIdsOf(packId).map(::forPack)).distinct()
 }

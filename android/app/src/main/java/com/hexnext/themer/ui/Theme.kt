@@ -181,49 +181,51 @@ fun seededColorScheme(seed: Int, dark: Boolean, contrast: ContrastLevel): ColorS
 }
 
 /**
- * The console scheme of the theme editor ([PaletteSource.CONSOLE]): navy surfaces with cyan
- * (primary), coral (secondary) and amber (tertiary) accents when [dark]; a cool paper-white
- * variant otherwise. [pureBlack] blackens the dark backgrounds like the other schemes.
+ * The console scheme of the app ([PaletteSource.CONSOLE], the default; Studio v2 phase 2 § 3.1):
+ * navy #07090E background, #121A2B cards with a #1E293B outline, cyan #67E8F9 / #00E5FF
+ * (primary / primaryContainer), coral #FF2A54 (secondary and error) and amber (tertiary) when
+ * [dark]; a cool paper-white variant otherwise. [pureBlack] turns the background true black while
+ * cards keep their navy, so they stay visible.
  */
 fun consoleColorScheme(dark: Boolean, pureBlack: Boolean = false): ColorScheme {
     val scheme = if (dark) {
         darkColorScheme(
-            primary = Color(0xFF22D3EE),
-            onPrimary = Color(0xFF032A33),
-            primaryContainer = Color(0xFF0E3A47),
-            onPrimaryContainer = Color(0xFFA5F3FC),
+            primary = Color(0xFF67E8F9),
+            onPrimary = Color(0xFF04131A),
+            primaryContainer = Color(0xFF00E5FF),
+            onPrimaryContainer = Color(0xFF04131A),
             inversePrimary = Color(0xFF0891B2),
-            secondary = Color(0xFFFF5A6E),
-            onSecondary = Color(0xFF3A0710),
-            secondaryContainer = Color(0xFF4A1622),
+            secondary = Color(0xFFFF2A54),
+            onSecondary = Color(0xFFFFFFFF),
+            secondaryContainer = Color(0xFF3A1220),
             onSecondaryContainer = Color(0xFFFFD1D8),
             tertiary = Color(0xFFFBBF24),
             onTertiary = Color(0xFF2E2000),
             tertiaryContainer = Color(0xFF3D2E07),
             onTertiaryContainer = Color(0xFFFDE68A),
-            background = Color(0xFF0B1220),
-            onBackground = Color(0xFFE6EDF7),
-            surface = Color(0xFF0B1220),
-            onSurface = Color(0xFFE6EDF7),
-            surfaceVariant = Color(0xFF162238),
-            onSurfaceVariant = Color(0xFF8A9BB4),
-            surfaceTint = Color(0xFF22D3EE),
-            inverseSurface = Color(0xFFE6EDF7),
-            inverseOnSurface = Color(0xFF111A2B),
-            error = Color(0xFFF87171),
-            onError = Color(0xFF450A0A),
-            errorContainer = Color(0xFF5B1A1A),
-            onErrorContainer = Color(0xFFFECACA),
-            outline = Color(0xFF3A4A66),
-            outlineVariant = Color(0xFF24324A),
+            background = Color(0xFF07090E),
+            onBackground = Color(0xFFF1F5F9),
+            surface = Color(0xFF07090E),
+            onSurface = Color(0xFFF1F5F9),
+            surfaceVariant = Color(0xFF182235),
+            onSurfaceVariant = Color(0xFF94A3B8),
+            surfaceTint = Color(0xFF67E8F9),
+            inverseSurface = Color(0xFFF1F5F9),
+            inverseOnSurface = Color(0xFF121A2B),
+            error = Color(0xFFFF2A54),
+            onError = Color(0xFFFFFFFF),
+            errorContainer = Color(0xFF3A1220),
+            onErrorContainer = Color(0xFFFFD1D8),
+            outline = Color(0xFF334155),
+            outlineVariant = Color(0xFF1E293B),
             scrim = Color(0xFF000000),
-            surfaceBright = Color(0xFF1F2C44),
-            surfaceDim = Color(0xFF0B1220),
-            surfaceContainer = Color(0xFF111A2B),
-            surfaceContainerHigh = Color(0xFF162238),
-            surfaceContainerHighest = Color(0xFF1C2A42),
-            surfaceContainerLow = Color(0xFF0E1626),
-            surfaceContainerLowest = Color(0xFF080E1A),
+            surfaceBright = Color(0xFF1E293B),
+            surfaceDim = Color(0xFF07090E),
+            surfaceContainer = Color(0xFF121A2B),
+            surfaceContainerHigh = Color(0xFF182235),
+            surfaceContainerHighest = Color(0xFF182235),
+            surfaceContainerLow = Color(0xFF121A2B),
+            surfaceContainerLowest = Color(0xFF07090E),
         )
     } else {
         lightColorScheme(
@@ -231,7 +233,7 @@ fun consoleColorScheme(dark: Boolean, pureBlack: Boolean = false): ColorScheme {
             onPrimary = Color(0xFFFFFFFF),
             primaryContainer = Color(0xFFCFF5FC),
             onPrimaryContainer = Color(0xFF083344),
-            inversePrimary = Color(0xFF22D3EE),
+            inversePrimary = Color(0xFF67E8F9),
             secondary = Color(0xFFE11D48),
             onSecondary = Color(0xFFFFFFFF),
             secondaryContainer = Color(0xFFFFE0E6),
@@ -241,32 +243,85 @@ fun consoleColorScheme(dark: Boolean, pureBlack: Boolean = false): ColorScheme {
             tertiaryContainer = Color(0xFFFEF3C7),
             onTertiaryContainer = Color(0xFF451A03),
             background = Color(0xFFF4F7FB),
-            onBackground = Color(0xFF0B1220),
+            onBackground = Color(0xFF0F172A),
             surface = Color(0xFFF4F7FB),
-            onSurface = Color(0xFF0B1220),
-            surfaceVariant = Color(0xFFE5EBF3),
-            onSurfaceVariant = Color(0xFF51627D),
+            onSurface = Color(0xFF0F172A),
+            surfaceVariant = Color(0xFFEEF2F8),
+            onSurfaceVariant = Color(0xFF475569),
             surfaceTint = Color(0xFF0891B2),
-            inverseSurface = Color(0xFF162238),
-            inverseOnSurface = Color(0xFFE6EDF7),
-            error = Color(0xFFDC2626),
+            inverseSurface = Color(0xFF121A2B),
+            inverseOnSurface = Color(0xFFF1F5F9),
+            error = Color(0xFFE11D48),
             onError = Color(0xFFFFFFFF),
-            errorContainer = Color(0xFFFEE2E2),
-            onErrorContainer = Color(0xFF7F1D1D),
-            outline = Color(0xFF9AA8BE),
-            outlineVariant = Color(0xFFD5DDE8),
+            errorContainer = Color(0xFFFFE0E6),
+            onErrorContainer = Color(0xFF4C0519),
+            outline = Color(0xFFCBD5E1),
+            outlineVariant = Color(0xFFE2E8F0),
             scrim = Color(0xFF000000),
             surfaceBright = Color(0xFFFFFFFF),
             surfaceDim = Color(0xFFDCE3ED),
             surfaceContainer = Color(0xFFFFFFFF),
             surfaceContainerHigh = Color(0xFFEEF2F8),
             surfaceContainerHighest = Color(0xFFE5EBF3),
-            surfaceContainerLow = Color(0xFFF8FAFD),
+            surfaceContainerLow = Color(0xFFFFFFFF),
             surfaceContainerLowest = Color(0xFFFFFFFF),
         )
     }
-    return if (dark && pureBlack) scheme.pureBlack() else scheme
+    return if (dark && pureBlack) {
+        // Only the page goes black: cards keep #121A2B so their outline and content still read.
+        scheme.copy(
+            background = Color.Black,
+            surface = Color.Black,
+            surfaceDim = Color.Black,
+            surfaceContainerLowest = Color.Black,
+        )
+    } else {
+        scheme
+    }
 }
+
+/**
+ * The status colours of chips and badges (§ 3.1): green for OK, amber for partial or warning,
+ * coral for failed, cyan for info and selection, and muted text for skipped, off or not applied.
+ * Never used alone: every chip also carries a word.
+ */
+@androidx.compose.runtime.Immutable
+data class StatusPalette(
+    val ok: Color,
+    val warn: Color,
+    val bad: Color,
+    val info: Color,
+    val muted: Color,
+) {
+    companion object {
+        val Dark = StatusPalette(
+            ok = Color(0xFF22C55E),
+            warn = Color(0xFFFBBF24),
+            bad = Color(0xFFFF2A54),
+            info = Color(0xFF67E8F9),
+            muted = Color(0xFF94A3B8),
+        )
+        val Light = StatusPalette(
+            ok = Color(0xFF15803D),
+            warn = Color(0xFFB45309),
+            bad = Color(0xFFE11D48),
+            info = Color(0xFF0891B2),
+            muted = Color(0xFF475569),
+        )
+    }
+}
+
+/** The [StatusPalette] of the console screens; dark values unless a light console theme is shown. */
+val LocalStatusPalette: ProvidableCompositionLocal<StatusPalette> = staticCompositionLocalOf { StatusPalette.Dark }
+
+/** Console shapes (§ 3.2): 12 dp rows and fields, 16 dp cards, 24 dp sheets. */
+val ConsoleShapes: Shapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(24.dp),
+)
 
 /** Pure black backgrounds for AMOLED screens; the same roles the compiled theme blackens. */
 private fun ColorScheme.pureBlack(): ColorScheme = copy(
@@ -293,5 +348,23 @@ val HexNextTypography: Typography = Typography().let { base ->
         titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Medium),
         titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
         titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+    )
+}
+
+/**
+ * The console type scale (§ 3.4): the system font throughout, body text 14 sp or more, labels
+ * 12 sp or more. The setup guide keeps [HexNextTypography]; every other screen uses this.
+ */
+val ConsoleTypography: Typography = HexNextTypography.let { base ->
+    base.copy(
+        titleLarge = base.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+        titleMedium = base.titleMedium.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+        titleSmall = base.titleSmall.copy(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp),
+        bodyLarge = base.bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Normal),
+        bodyMedium = base.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal),
+        bodySmall = base.bodySmall.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal),
+        labelLarge = base.labelLarge.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+        labelMedium = base.labelMedium.copy(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+        labelSmall = base.labelSmall.copy(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp),
     )
 }

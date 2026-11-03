@@ -1,7 +1,9 @@
 package com.hexnext.themer.ui.studio
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -9,31 +11,35 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.Face
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarDuration
@@ -41,87 +47,93 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.engine.compile.TargetResult
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.Capability
-import com.hexnext.themer.ui.BackgroundsCard
-import com.hexnext.themer.ui.CompiledThemeCard
-import com.hexnext.themer.ui.CustomIconsCard
-import com.hexnext.themer.ui.EmptyState
-import com.hexnext.themer.ui.FontCard
+import com.hexnext.themer.ui.ApplyBar
 import com.hexnext.themer.ui.LocalAppSettings
-import com.hexnext.themer.ui.LogCard
 import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.NoticeAction
-import com.hexnext.themer.ui.PackCard
-import com.hexnext.themer.ui.PackLocks
 import com.hexnext.themer.ui.SafeModeBanner
 import com.hexnext.themer.ui.Screen
 import com.hexnext.themer.ui.StatusCard
 import com.hexnext.themer.ui.StatusPill
 import com.hexnext.themer.ui.UiState
-import com.hexnext.themer.ui.ai.DescribeThemeCard
 import com.hexnext.themer.ui.findActivity
-import com.hexnext.themer.ui.preview.PhonePreview
 import com.hexnext.themer.ui.statusPillText
-import kotlinx.coroutines.launch
 
-/** The Studio's steps, in tab order. Persisted by name (rememberSaveable). */
-internal enum class StudioStep(val label: String) {
-    SKINS("Skins"),
-    COLOURS("Colours"),
-    QUICK_PANEL("Quick panel"),
-    ICONS("Icons"),
-    FONTS("Fonts & backgrounds"),
+/** The bottom-navigation destinations of the shell (§ 1.2), in order. Saved by name. */
+internal enum class Destination(val label: String, val icon: ImageVector) {
+    STUDIO("Studio", Icons.Outlined.Home),
+    SKINS("Skins", Icons.Outlined.Star),
+    COLOURS("Colours", Icons.Outlined.Create),
+    ICONS("Icons", Icons.Outlined.Face),
+    SYSTEM("System", Icons.Outlined.Build),
 }
 
-/** Width from which the Studio shows the preview and the steps side by side. */
-private val TWO_PANE_WIDTH = 840.dp
+/** The sub-tabs of Colours. */
+internal enum class ColoursTab(val label: String) {
+    ENGINE("Engine"),
+    ELEMENTS("Elements"),
+    QUICK_PANEL("Quick panel"),
+    SHADES("Shades"),
+}
+
+/** The sub-tabs of Icons. */
+internal enum class IconsTab(val label: String) {
+    STYLE("Style"),
+    CUSTOM("Custom icons"),
+    FONTS("Fonts"),
+    BACKGROUNDS("Backgrounds"),
+}
+
+/** The sub-tabs of System. */
+internal enum class SystemTab(val label: String) {
+    TARGETS("Targets"),
+    TOOLS("Tools"),
+}
+
+/** Width from which the shell shows a navigation rail and two panes. */
+internal val WIDE_WIDTH = 840.dp
 
 /**
- * The theme editor (the Studio): top bar with the status pill, the safe-mode banner and the
- * connection strip, the step tabs, the live phone preview (a collapsible card on phones, a sticky
- * pane from 840 dp), the cards of the selected step, then the Apply card and the log on every step.
+ * The shell after the setup guide (Studio v2 phase 2 § 1): the top bar with the status pill and
+ * App settings, the safe-mode banner, the status strip, one destination, the persistent Apply bar
+ * and the bottom navigation (a navigation rail from 840 dp).
  *
  * Everything the old editor did is still here: snackbar notices with their actions and haptics,
- * Apply / Remove / "It works", the pack, icon, background and font cards, and App settings.
+ * Apply / Remove / "It works", the pack, colour, icon, background and font cards, and App settings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val preview by viewModel.studioPreview.collectAsStateWithLifecycle()
-    val counts by viewModel.groupCounts.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
     val ready = shizuku as? ShizukuState.Ready
     val appSettings = LocalAppSettings.current
     val haptic = LocalHapticFeedback.current
@@ -129,12 +141,22 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
 
-    var step by rememberSaveable { mutableStateOf(StudioStep.COLOURS) }
+    var destination by rememberSaveable { mutableStateOf(Destination.STUDIO) }
+    var coloursTab by rememberSaveable { mutableStateOf(ColoursTab.ENGINE) }
+    var iconsTab by rememberSaveable { mutableStateOf(IconsTab.STYLE) }
+    var systemTab by rememberSaveable { mutableStateOf(SystemTab.TARGETS) }
     var previewTab by rememberSaveable { mutableStateOf(PreviewTab.SETTINGS) }
     var previewDark by rememberSaveable { mutableStateOf(true) }
-    var previewExpanded by rememberSaveable { mutableStateOf(false) }
-    var connectionExpanded by rememberSaveable { mutableStateOf(false) }
-    var scrollTick by remember { mutableIntStateOf(0) }
+    var peekCollapsed by rememberSaveable { mutableStateOf(false) }
+    var showPrivilege by rememberSaveable { mutableStateOf(false) }
+    // The Studio's tap-to-edit sheet: "<group id>:<night>".
+    var studioPick by rememberSaveable { mutableStateOf<String?>(null) }
+    var elementsTick by remember { mutableIntStateOf(0) }
+    // Each destination and sub-tab keeps its own scroll position while another is on display.
+    val pages = rememberSaveableStateHolder()
+
+    // On Skins, Colours, Icons and System, Back returns to Studio; on Studio it leaves as before.
+    BackHandler(enabled = destination != Destination.STUDIO) { destination = Destination.STUDIO }
 
     // One snackbar per notice: haptic on arrival, the action when tapped. The notice is consumed
     // only once the snackbar is gone (shown, dismissed, or the editor left while it showed, so it
@@ -168,192 +190,48 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         }
     }
 
-    // The Quick panel step shows the Quick panel on the phone.
-    LaunchedEffect(step) {
-        if (step == StudioStep.QUICK_PANEL) previewTab = PreviewTab.QUICK_PANEL
+    // The Quick panel sub-tab shows the Quick panel on the phone.
+    LaunchedEffect(destination, coloursTab) {
+        if (destination == Destination.COLOURS && coloursTab == ColoursTab.QUICK_PANEL) previewTab = PreviewTab.QUICK_PANEL
     }
 
+    val openTargets: () -> Unit = {
+        destination = Destination.SYSTEM
+        systemTab = SystemTab.TARGETS
+    }
+    val previewModel = PreviewModel(
+        state = preview,
+        tab = previewTab,
+        onTab = { previewTab = it },
+        dark = previewDark,
+        onDark = { previewDark = it },
+        onScan = viewModel::openScan,
+    )
+    // Studio edits in place; Colours and Icons jump to the element's row (§ 1.3).
     val onElementTap: (ColorGroup) -> Unit = { group ->
-        step = when {
-            step == StudioStep.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> StudioStep.QUICK_PANEL
-            group.quickSettings -> StudioStep.QUICK_PANEL
-            else -> StudioStep.COLOURS
-        }
         viewModel.setHighlightedGroup(group)
-        scrollTick++
+        if (destination == Destination.STUDIO) {
+            studioPick = "${group.id}:$previewDark"
+        } else {
+            destination = Destination.COLOURS
+            coloursTab = when {
+                coloursTab == ColoursTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
+                group.quickSettings -> ColoursTab.QUICK_PANEL
+                else -> ColoursTab.ELEMENTS
+            }
+            elementsTick++
+        }
     }
+    val connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE
+    // With the keyboard up the bars step aside, so the field being typed in stays in view.
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        // The keyboard counts as an inset, so the hex and description fields scroll clear of it.
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.semantics(mergeDescendants = true) {},
-                    ) {
-                        Text("Hex Next", fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "App settings")
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        BoxWithConstraints(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            val wide = maxWidth >= TWO_PANE_WIDTH
-            val paneWidth = (maxWidth * 0.42f).coerceIn(360.dp, 480.dp)
-            val previewPanel: @Composable (Boolean) -> Unit = { collapsible ->
-                PreviewPanel(
-                    preview = preview,
-                    tab = previewTab,
-                    onTab = { previewTab = it },
-                    dark = previewDark,
-                    onDark = { previewDark = it },
-                    onElementTap = onElementTap,
-                    onScan = viewModel::openScan,
-                    collapsible = collapsible,
-                    expanded = previewExpanded,
-                    onExpand = { previewExpanded = it },
-                )
-            }
-            val stepList: @Composable (Modifier, Boolean) -> Unit = { modifier, withPreview ->
-                StepList(
-                    viewModel = viewModel,
-                    ui = ui,
-                    shizuku = shizuku,
-                    preview = preview,
-                    counts = counts,
-                    step = step,
-                    onStep = { step = it },
-                    listState = listState,
-                    scrollTick = scrollTick,
-                    connectionExpanded = connectionExpanded,
-                    onConnectionExpanded = { connectionExpanded = it },
-                    previewCard = if (withPreview) ({ previewPanel(true) }) else null,
-                    onConnection = {
-                        connectionExpanded = true
-                        scope.launch { listState.animateScrollToItem(if (ui.safeModeBanner != null) 1 else 0) }
-                    },
-                    modifier = modifier,
-                )
-            }
-            if (wide) {
-                Row(Modifier.fillMaxSize()) {
-                    Column(
-                        Modifier
-                            .width(paneWidth)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState())
-                            .padding(start = 16.dp, top = 4.dp, bottom = 24.dp),
-                    ) {
-                        previewPanel(false)
-                    }
-                    stepList(Modifier.weight(1f), false)
-                }
-            } else {
-                stepList(Modifier.fillMaxSize(), true)
-            }
-        }
-    }
-}
-
-/**
- * The scrolling column of the Studio: banner, connection, step tabs, the preview card (phones
- * only, [previewCard]), the cards of [step], Apply and the log.
- */
-@Composable
-private fun StepList(
-    viewModel: MainViewModel,
-    ui: UiState,
-    shizuku: ShizukuState,
-    preview: StudioPreviewState,
-    counts: Map<ColorGroup, com.hexnext.engine.compile.GroupCount>,
-    step: StudioStep,
-    onStep: (StudioStep) -> Unit,
-    listState: LazyListState,
-    scrollTick: Int,
-    connectionExpanded: Boolean,
-    onConnectionExpanded: (Boolean) -> Unit,
-    previewCard: (@Composable () -> Unit)?,
-    onConnection: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val ready = shizuku as? ShizukuState.Ready
-    val locks = PackLocks.of(ui)
-    val activity = LocalContext.current.findActivity()
-    val onUnlock: (String) -> Unit = { productId -> activity?.let { viewModel.unlock(it, productId) } }
-    // "Describe your theme" may only pick packs this install can apply.
-    val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
-    val paletteHint = remember(ui.packs, ui.spec.simplePackId) {
-        ui.packs.firstOrNull { it.id == ui.spec.simplePackId }
-            ?.pack?.paletteArgb?.values?.map { it or OPAQUE_ARGB }?.take(6).orEmpty()
-    }
-    // The first card of the step: banner, connection, tabs, then the preview card on phones.
-    val contentStart = (if (ui.safeModeBanner != null) 1 else 0) + 2 + (if (previewCard != null) 1 else 0)
-    // A tap on the preview lands on the element rows, the second card of Colours and Quick panel.
-    LaunchedEffect(scrollTick) {
-        if (scrollTick > 0) listState.animateScrollToItem(contentStart + 1)
-    }
-    val customGroups = ui.spec.colorGroups.count { !it.value.isAuto }
-    val tabs = StudioStep.entries.map { s ->
-        StepTab(
-            key = s.name,
-            label = s.label,
-            badge = if (s == StudioStep.COLOURS && customGroups > 0) "$customGroups" else null,
-        )
-    }
-
-    LazyColumn(
-        state = listState,
-        modifier = modifier,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        ui.safeModeBanner?.let { banner ->
-            item(key = "safeMode") {
-                SafeModeBanner(banner, failed = ui.safeModeFailed, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode)
-            }
-        }
-        item(key = "connection") {
-            ConnectionStrip(
-                shizuku = shizuku,
-                ui = ui,
-                expanded = connectionExpanded,
-                onExpanded = onConnectionExpanded,
-                onRequestPermission = viewModel::requestPermission,
-            )
-        }
-        item(key = "steps") {
-            StepTabs(tabs = tabs, selectedKey = step.name, onSelect = { key -> StudioStep.entries.firstOrNull { it.name == key }?.let(onStep) })
-        }
-        if (previewCard != null) {
-            item(key = "preview") { previewCard() }
-        }
-        when (step) {
-            StudioStep.SKINS -> skinsItems(viewModel, ui, unlockedPacks, locks, onUnlock)
-            StudioStep.COLOURS -> coloursItems(viewModel, ui, preview, counts)
-            StudioStep.QUICK_PANEL -> quickPanelItems(viewModel, ui, preview, counts)
-            StudioStep.ICONS -> iconsItems(viewModel, ui, preview, paletteHint)
-            StudioStep.FONTS -> fontsItems(viewModel, ui)
-        }
-        item(key = "apply") {
-            CompiledThemeCard(
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= WIDE_WIDTH
+        val applyBar: @Composable () -> Unit = {
+            ApplyBar(
                 // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
-                connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE,
+                connected = connected,
                 busy = ui.busy,
                 // Only Apply theme or Remove theme shows as running; a pack download or import only disables the buttons.
                 applying = ui.serviceBusy,
@@ -364,295 +242,261 @@ private fun StepList(
                 onApply = viewModel::applyTheme,
                 onRemove = viewModel::removeTheme,
                 onConfirmWorks = viewModel::confirmWorks,
-                onDetails = { viewModel.navigate(Screen.DIAGNOSTICS) },
-                onConnection = onConnection,
+                onDetails = openTargets,
+                onConnection = { showPrivilege = true },
             )
         }
-        if (ui.log.isNotEmpty()) {
-            item(key = "log") { LogCard(ui.log, onClear = viewModel::clearLog) }
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            // The keyboard counts as an inset, so the hex, search and name fields scroll clear of it.
+            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
+            snackbarHost = { SnackbarHost(snackbar) },
+            topBar = {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.semantics(mergeDescendants = true) {},
+                        ) {
+                            Text("Hex Next", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
+                            Icon(Icons.Outlined.Settings, contentDescription = "App settings")
+                        }
+                    },
+                )
+            },
+            bottomBar = {
+                if (!imeVisible) {
+                    Column {
+                        applyBar()
+                        if (!wide) {
+                            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                                Destination.entries.forEach { entry ->
+                                    NavigationBarItem(
+                                        selected = destination == entry,
+                                        onClick = { destination = entry },
+                                        icon = { Icon(entry.icon, contentDescription = null) },
+                                        label = { Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        ) { padding ->
+            Row(Modifier.fillMaxSize().padding(padding)) {
+                if (wide) {
+                    NavigationRail(containerColor = MaterialTheme.colorScheme.background) {
+                        Destination.entries.forEach { entry ->
+                            NavigationRailItem(
+                                selected = destination == entry,
+                                onClick = { destination = entry },
+                                icon = { Icon(entry.icon, contentDescription = null) },
+                                label = { Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        }
+                    }
+                }
+                Column(Modifier.weight(1f).fillMaxSize()) {
+                    ui.safeModeBanner?.let { banner ->
+                        Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)) {
+                            SafeModeBanner(banner, failed = ui.safeModeFailed, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode)
+                        }
+                    }
+                    StatusStrip(
+                        ui = ui,
+                        onPrivilege = { showPrivilege = true },
+                        onTargets = openTargets,
+                        onConfirmWorks = viewModel::confirmWorks,
+                    )
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        pages.SaveableStateProvider(
+                            when (destination) {
+                                Destination.COLOURS -> "COLOURS:${coloursTab.name}"
+                                Destination.ICONS -> "ICONS:${iconsTab.name}"
+                                Destination.SYSTEM -> "SYSTEM:${systemTab.name}"
+                                else -> destination.name
+                            },
+                        ) {
+                            when (destination) {
+                                Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide)
+                                Destination.SKINS -> SkinsPage(viewModel, ui)
+                                Destination.COLOURS -> ColoursPage(
+                                    viewModel = viewModel,
+                                    ui = ui,
+                                    preview = previewModel,
+                                    tab = coloursTab,
+                                    onTab = { coloursTab = it },
+                                    onElementTap = onElementTap,
+                                    elementsTick = elementsTick,
+                                    peekCollapsed = peekCollapsed,
+                                    onPeekCollapsed = { peekCollapsed = it },
+                                    wide = wide,
+                                )
+                                Destination.ICONS -> IconsPage(
+                                    viewModel = viewModel,
+                                    ui = ui,
+                                    preview = previewModel,
+                                    tab = iconsTab,
+                                    onTab = { iconsTab = it },
+                                    onElementTap = onElementTap,
+                                    peekCollapsed = peekCollapsed,
+                                    onPeekCollapsed = { peekCollapsed = it },
+                                    wide = wide,
+                                )
+                                Destination.SYSTEM -> SystemPage(
+                                    viewModel = viewModel,
+                                    ui = ui,
+                                    shizuku = shizuku,
+                                    tab = systemTab,
+                                    onTab = { systemTab = it },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
-}
 
-private fun LazyListScope.skinsItems(
-    viewModel: MainViewModel,
-    ui: UiState,
-    unlockedPacks: List<com.hexnext.themer.theme.InstalledPack>,
-    locks: PackLocks,
-    onUnlock: (String) -> Unit,
-) {
-    item(key = "describe") {
-        DescribeThemeCard(
-            packs = unlockedPacks,
-            spec = ui.spec,
-            busy = ui.busy,
-            onApply = { _, newSpec ->
-                // The apply path reads the seed from the preference, so both must move.
-                viewModel.setSeed(newSpec.source.seedArgb)
-                viewModel.replaceSpec(newSpec)
-            },
-            onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-        )
+    // The Studio's in-place colour sheet for the element tapped on the phone.
+    val pick = studioPick?.let { saved ->
+        ColorGroup.byId(saved.substringBefore(':'))?.let { it to (saved.substringAfter(':') == "true") }
     }
-    item(key = "packs") {
-        PackCard(
-            packs = ui.packs,
-            errors = ui.packErrors,
-            spec = ui.spec,
-            busy = ui.busy,
-            catalogue = ui.catalogue,
-            locks = locks,
-            onUnlock = onUnlock,
-            onSelect = viewModel::selectPack,
-            onMode = viewModel::setMode,
-            onOption = viewModel::setOption,
-            onElementPack = viewModel::setElementPack,
-            onElementEnabled = viewModel::setElementEnabled,
-            onImport = viewModel::importPack,
-            onDelete = viewModel::deletePack,
-            onCatalogueUrl = viewModel::setCatalogueUrl,
-            onLoadCatalogue = viewModel::loadCatalogue,
-            onDownload = viewModel::downloadPack,
-        )
+    if (pick != null) {
+        GroupColorSheet(viewModel, ui.spec, preview, pick.first, pick.second, onClose = { studioPick = null })
     }
-}
 
-private fun LazyListScope.coloursItems(
-    viewModel: MainViewModel,
-    ui: UiState,
-    preview: StudioPreviewState,
-    counts: Map<ColorGroup, com.hexnext.engine.compile.GroupCount>,
-) {
-    item(key = "engine") { ColorEngineCard(viewModel, ui.spec, ui.seed, preview) }
-    item(key = "elements") {
-        ElementColorsCard(
-            viewModel = viewModel,
-            spec = ui.spec,
-            preview = preview,
-            counts = counts,
-            onOpenResources = { viewModel.navigate(Screen.RESOURCES) },
-        )
-    }
-}
-
-private fun LazyListScope.quickPanelItems(
-    viewModel: MainViewModel,
-    ui: UiState,
-    preview: StudioPreviewState,
-    counts: Map<ColorGroup, com.hexnext.engine.compile.GroupCount>,
-) {
-    item(key = "quickPanel") { QuickPanelCard(viewModel, ui.spec, preview) }
-    item(key = "quickPanelGroups") {
-        ElementColorsCard(
-            viewModel = viewModel,
-            spec = ui.spec,
-            preview = preview,
-            counts = counts,
-            groups = QUICK_PANEL_GROUPS,
-            title = "Quick panel colours",
-            subtitle = "The panel backdrop, tiles, sliders and notification cards, for light and dark.",
-            eyebrow = "SystemUI · ${QUICK_PANEL_GROUPS.size} groups",
-        )
-    }
-}
-
-private fun LazyListScope.iconsItems(
-    viewModel: MainViewModel,
-    ui: UiState,
-    preview: StudioPreviewState,
-    paletteHint: List<Int>,
-) {
-    item(key = "iconStyle") { IconStyleCard(viewModel, ui.spec, preview, ui.busy, ui.capability) }
-    item(key = "customIcons") {
-        CustomIconsCard(
-            assets = ui.customIcons,
-            slots = ui.iconSlots,
-            slotsError = ui.slotsError,
-            spec = ui.spec,
-            busy = ui.busy,
-            needsRoot = ui.capability == Capability.SHELL,
-            paletteHint = paletteHint,
-            fileOf = viewModel::assetFile,
-            onImport = viewModel::importCustomIcon,
-            onGenerated = viewModel::noteGeneratedIcon,
-            onAssign = viewModel::assignIcon,
-            onDelete = viewModel::deleteAsset,
-            onSynthesize = viewModel::setSynthesizeMissingIcons,
-            onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-            onScan = viewModel::openScan,
-            showSynthesize = false,
-        )
-    }
-}
-
-private fun LazyListScope.fontsItems(viewModel: MainViewModel, ui: UiState) {
-    item(key = "fonts") {
-        FontCard(
-            fonts = ui.customFonts,
-            spec = ui.spec,
-            busy = ui.busy,
-            needsRoot = ui.capability == Capability.SHELL,
-            fileOf = viewModel::assetFile,
-            onImport = viewModel::importFont,
-            onFont = viewModel::setFont,
-            onBold = viewModel::setFontBold,
-            onDelete = viewModel::deleteAsset,
-        )
-    }
-    item(key = "backgrounds") {
-        BackgroundsCard(
-            assets = ui.customBackgrounds,
-            slots = ui.backgroundSlots,
-            slotsError = ui.slotsError,
-            spec = ui.spec,
-            busy = ui.busy,
-            needsRoot = ui.capability == Capability.SHELL,
-            fileOf = viewModel::assetFile,
-            onImport = viewModel::importCustomBackground,
-            onAssign = viewModel::assignBackground,
-            onDelete = viewModel::deleteAsset,
-            onScan = viewModel::openScan,
-        )
+    if (showPrivilege) {
+        ModalBottomSheet(
+            onDismissRequest = { showPrivilege = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            ) {
+                StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission)
+            }
+        }
     }
 }
 
 /**
- * The connection, compact while everything works (root and Shizuku): a status dot, the tier and
- * the version, with Details for the full Connection card. Otherwise, or when expanded, the full
- * card with its actions and the root guide.
+ * The status strip (§ 1.3): the privilege tier, "Targets n/m" after an apply and "Protection on"
+ * while restart protection is armed. One horizontally scrolling row; each chip is 32 dp high in a
+ * 48 dp touch area and always carries a word.
  */
 @Composable
-private fun ConnectionStrip(
-    shizuku: ShizukuState,
+private fun StatusStrip(
     ui: UiState,
-    expanded: Boolean,
-    onExpanded: (Boolean) -> Unit,
-    onRequestPermission: () -> Unit,
+    onPrivilege: () -> Unit,
+    onTargets: () -> Unit,
+    onConfirmWorks: () -> Unit,
 ) {
-    val ready = shizuku as? ShizukuState.Ready
-    val healthy = ready != null && !ready.viaSu && ui.capability == Capability.ROOT
-    if (!healthy || expanded) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, onRequestPermission)
-            if (healthy) {
-                TextButton(onClick = { onExpanded(false) }) { Text("Hide connection details") }
-            }
-        }
-        return
-    }
-    val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
-        Column(Modifier.weight(1f)) {
-            Text(
-                "PRIVILEGE · ${ui.capability.label}",
-                style = monoStyle(MaterialTheme.typography.labelSmall),
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                ui.versionLine,
-                style = monoStyle(MaterialTheme.typography.labelSmall),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        StripChip(
+            text = "Privilege · ${ui.capability.label}",
+            tone = when (ui.capability) {
+                Capability.ROOT -> StatusTone.OK
+                Capability.NONE -> StatusTone.BAD
+                else -> StatusTone.WARN
+            },
+            onClickLabel = "Show connection",
+            onClick = onPrivilege,
+        )
+        ui.lastApply?.let { report ->
+            val failed = report.outcomes.count { it.result == TargetResult.FAILED }
+            StripChip(
+                text = "Targets ${report.okCount}/${report.outcomes.size}",
+                tone = when {
+                    !report.finished || failed > 0 -> StatusTone.BAD
+                    report.partialCount > 0 -> StatusTone.WARN
+                    else -> StatusTone.OK
+                },
+                onClickLabel = "Show targets",
+                onClick = onTargets,
             )
         }
-        TextButton(onClick = { onExpanded(true) }) { Text("Details") }
+        if (ui.applyUnconfirmed && !ui.applyProtectionExpired) {
+            StripChip(
+                text = "Protection on · It works?",
+                tone = StatusTone.WARN,
+                onClickLabel = "Confirm it works",
+                onClick = onConfirmWorks,
+            )
+        }
     }
 }
 
-/**
- * The live phone preview in a console card. On phones ([collapsible]) it shows the top 300 dp of
- * the phone until expanded; on wide screens it is shown whole. Under it: why icons may be missing,
- * and the scan action before the first scan.
- */
+/** One chip of [StatusStrip]: a dot and a word in the tone colour, 32 dp inside a 48 dp target. */
 @Composable
-private fun PreviewPanel(
-    preview: StudioPreviewState,
-    tab: PreviewTab,
-    onTab: (PreviewTab) -> Unit,
-    dark: Boolean,
-    onDark: (Boolean) -> Unit,
-    onElementTap: (ColorGroup) -> Unit,
-    onScan: () -> Unit,
-    collapsible: Boolean,
-    expanded: Boolean,
-    onExpand: (Boolean) -> Unit,
-) {
-    val collapsed = collapsible && !expanded
-    StudioCard(
-        title = "Live preview",
-        eyebrow = "Real-time One UI preview",
-        subtitle = "Tap any part of the phone to edit its colour.",
-        trailing = if (collapsible) ({ TextButton(onClick = { onExpand(!expanded) }) { Text(if (expanded) "Collapse" else "Expand") } }) else null,
+private fun StripChip(text: String, tone: StatusTone, onClickLabel: String, onClick: () -> Unit) {
+    val color = statusColor(tone)
+    Box(
+        Modifier
+            .heightIn(min = 48.dp)
+            .clip(CircleShape)
+            .clickableChip(onClickLabel, onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        if (collapsed) {
-            val fade = MaterialTheme.colorScheme.surfaceContainer
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .clipToBounds(),
-            ) {
-                PhonePreview(
-                    state = preview,
-                    tab = tab,
-                    onTabChange = onTab,
-                    dark = dark,
-                    onDarkChange = onDark,
-                    onElementTap = onElementTap,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight(align = Alignment.Top, unbounded = true),
-                )
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, fade))),
-                )
-            }
-            TextButton(onClick = { onExpand(true) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text("Show the whole phone")
-            }
-        } else {
-            PhonePreview(
-                state = preview,
-                tab = tab,
-                onTabChange = onTab,
-                dark = dark,
-                onDarkChange = onDark,
-                onElementTap = onElementTap,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        if (!preview.hasScan) {
-            EmptyState(
-                icon = Icons.Outlined.Search,
-                text = "Colours are live already. Scan your phone once to preview your pack's icons too.",
-                actionLabel = "Scan phone",
-                onAction = onScan,
-            )
-        } else {
-            preview.note?.let { note ->
-                Text(
-                    note.replace("device scan", "phone scan"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (note.startsWith("Could not")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        Row(
+            Modifier
+                .heightIn(min = 32.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.14f))
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+            Text(text, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
         }
     }
 }
+
+private fun Modifier.clickableChip(label: String, onClick: () -> Unit): Modifier =
+    this.then(Modifier.clickable(onClickLabel = label, role = Role.Button, onClick = onClick))
+
+/** The preview state the destinations share: one phone tab and one light/dark choice for all. */
+internal class PreviewModel(
+    val state: StudioPreviewState,
+    val tab: PreviewTab,
+    val onTab: (PreviewTab) -> Unit,
+    val dark: Boolean,
+    val onDark: (Boolean) -> Unit,
+    val onScan: () -> Unit,
+)
+
+/** Content padding of every destination list: the 16 dp gutter and room under the last card. */
+internal val PAGE_PADDING = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
