@@ -26,7 +26,7 @@ interface ProductPurchase {
 }
 
 interface CachedToken {
-  key: string;
+  account: ServiceAccount;
   accessToken: string;
   expiresAt: number;
 }
@@ -41,6 +41,9 @@ export function resetTokenCache(): void {
 
 export const googlePlayProvider: PurchaseProvider = {
   name: "google_play",
+  async prepareBatch(env: Env): Promise<void> {
+    await getAccessToken(parseServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON));
+  },
   async verify(request: VerifyRequest, env: Env): Promise<VerifyResult> {
     const account = parseServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const accessToken = await getAccessToken(account);
@@ -60,14 +63,21 @@ export const googlePlayProvider: PurchaseProvider = {
     if (response.status === 400 || response.status === 404 || response.status === 410) {
       return { valid: false, reason: "purchase_not_found" };
     }
-    if (response.status === 401) {
+    if (response.status === 401 && cachedToken?.accessToken === accessToken) {
       cachedToken = null;
     }
     if (!response.ok) {
       throw new ProviderUnavailableError(`Google Play API returned ${response.status}`);
     }
 
-    const purchase = (await response.json()) as ProductPurchase;
+    let purchase: ProductPurchase;
+    try {
+      const body: unknown = await response.json();
+      if (typeof body !== "object" || body === null || Array.isArray(body)) throw new Error();
+      purchase = body as ProductPurchase;
+    } catch {
+      throw new ProviderUnavailableError("Google Play API returned invalid JSON");
+    }
     return interpretPurchase(purchase, request.productId);
   },
 };
@@ -93,13 +103,13 @@ function parseServiceAccount(json: string | undefined): ServiceAccount {
   if (!json) {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON is not set");
   }
-  let parsed: Partial<ServiceAccount>;
+  let parsed: Partial<ServiceAccount> | null;
   try {
     parsed = JSON.parse(json) as Partial<ServiceAccount>;
   } catch {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON");
   }
-  if (typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
+  if (typeof parsed !== "object" || parsed === null || typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key");
   }
   return {
@@ -111,7 +121,9 @@ function parseServiceAccount(json: string | undefined): ServiceAccount {
 
 async function getAccessToken(account: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  if (cachedToken && cachedToken.key === account.client_email && cachedToken.expiresAt > now) {
+  if (cachedToken && cachedToken.account.client_email === account.client_email &&
+      cachedToken.account.private_key === account.private_key && cachedToken.account.token_uri === account.token_uri &&
+      cachedToken.expiresAt > now) {
     return cachedToken.accessToken;
   }
 
@@ -135,13 +147,18 @@ async function getAccessToken(account: ServiceAccount): Promise<string> {
     throw new ProviderUnavailableError(`Google OAuth returned ${response.status}`);
   }
 
-  const body = (await response.json()) as { access_token?: string; expires_in?: number };
-  if (typeof body.access_token !== "string") {
+  let body: { access_token?: string; expires_in?: number } | null;
+  try {
+    body = await response.json() as typeof body;
+  } catch {
+    throw new ProviderUnavailableError("Google OAuth returned invalid JSON");
+  }
+  if (!body || typeof body.access_token !== "string" || !body.access_token) {
     throw new ProviderUnavailableError("Google OAuth response lacks access_token");
   }
   const lifetime = typeof body.expires_in === "number" ? body.expires_in : 3600;
   cachedToken = {
-    key: account.client_email,
+    account,
     accessToken: body.access_token,
     expiresAt: now + Math.max(0, lifetime - EXPIRY_MARGIN_SECONDS),
   };

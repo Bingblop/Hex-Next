@@ -25,6 +25,8 @@ export type VerifyResult =
  */
 export interface PurchaseProvider {
   readonly name: string;
+  /** Prepare shared credentials within this request before starting concurrent batch lookups. */
+  prepareBatch?(_env: Env): Promise<void>;
   verify(request: VerifyRequest, env: Env): Promise<VerifyResult>;
 }
 
