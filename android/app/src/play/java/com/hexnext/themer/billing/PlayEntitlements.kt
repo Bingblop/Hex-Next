@@ -347,7 +347,11 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                     return
                 }
                 appliedGeneration = full.generation
-                val kept = listenerGrants.applySnapshot(full.since, granted)
+                // Every product Play listed, pending or unverified included: a listener grant the
+                // snapshot lists is not missing from it, so it is not rechecked and dropped when
+                // the server is briefly unavailable. Refunded purchases leave the list entirely.
+                val listed = purchases.flatMapTo(HashSet()) { it.products }
+                val kept = listenerGrants.applySnapshot(full.since, listed)
                 owned.clear()
                 owned += granted
                 owned += kept.kept

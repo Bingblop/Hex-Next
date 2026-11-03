@@ -63,19 +63,96 @@ object LicenseServer {
      * values are treated as unknown rather than guessed.
      */
     fun bodyVerdict(body: String, requestedProductId: String): Boolean? {
-        val text = body.trim()
-        if (text.length < 2 || text.first() != '{' || text.last() != '}') return null
-        if ('{' in text.substring(1) || '[' in text || ']' in text) return null
-        val valid = VALID.find(text)?.groupValues?.get(1) ?: return null
-        val productId = stringField(text, "productId")
-        val reason = stringField(text, "reason")
-        return itemVerdict(valid == "true", productId, reason, requestedProductId)
+        val fields = parseFlatObject(body) ?: return null
+        val valid = fields["valid"] as? Boolean ?: return null
+        return itemVerdict(valid, fields["productId"] as? String, fields["reason"] as? String, requestedProductId)
     }
 
-    private val VALID = Regex(""""valid"\s*:\s*(true|false)\b""")
-
-    private fun stringField(json: String, name: String): String? {
-        val match = Regex(""""$name"\s*:\s*"((?:\\.|[^"\\])*)"""").find(json) ?: return null
-        return match.groupValues[1].replace("\\\"", "\"").replace("\\\\", "\\")
+    /**
+     * Strictly parses one flat JSON object whose values are strings, booleans, numbers or null.
+     * Returns null for anything else: nesting, trailing garbage, a duplicate key, a bad escape.
+     * Numbers are kept as their text; only `valid`, `productId` and `reason` are read.
+     */
+    internal fun parseFlatObject(body: String): Map<String, Any?>? {
+        val p = FlatParser(body)
+        return try { p.parse() } catch (_: IllegalArgumentException) { null }
     }
+
+    private class FlatParser(private val s: String) {
+        private var i = 0
+
+        fun parse(): Map<String, Any?> {
+            val out = LinkedHashMap<String, Any?>()
+            skipWs(); expect('{'); skipWs()
+            if (peek() == '}') { i++ } else {
+                while (true) {
+                    skipWs()
+                    val key = string()
+                    require(key !in out)
+                    skipWs(); expect(':'); skipWs()
+                    out[key] = value()
+                    skipWs()
+                    when (next()) {
+                        ',' -> continue
+                        '}' -> break
+                        else -> throw IllegalArgumentException()
+                    }
+                }
+            }
+            skipWs()
+            require(i == s.length)
+            return out
+        }
+
+        private fun value(): Any? = when (peek()) {
+            '"' -> string()
+            't' -> literal("true", true)
+            'f' -> literal("false", false)
+            'n' -> literal("null", null)
+            else -> number()
+        }
+
+        private fun literal(word: String, v: Any?): Any? {
+            require(s.startsWith(word, i)); i += word.length; return v
+        }
+
+        private fun number(): String {
+            val m = NUMBER.find(s, i)?.takeIf { it.range.first == i } ?: throw IllegalArgumentException()
+            i += m.value.length
+            return m.value
+        }
+
+        private fun string(): String {
+            expect('"')
+            val sb = StringBuilder()
+            while (true) {
+                val c = next()
+                when {
+                    c == '"' -> return sb.toString()
+                    c == '\\' -> when (val e = next()) {
+                        '"', '\\', '/' -> sb.append(e)
+                        'b' -> sb.append('\b')
+                        'f' -> sb.append('\u000C')
+                        'n' -> sb.append('\n')
+                        'r' -> sb.append('\r')
+                        't' -> sb.append('\t')
+                        'u' -> {
+                            require(i + 4 <= s.length)
+                            sb.append(s.substring(i, i + 4).toInt(16).toChar()); i += 4
+                        }
+                        else -> throw IllegalArgumentException()
+                    }
+                    c < ' ' -> throw IllegalArgumentException()
+                    else -> sb.append(c)
+                }
+            }
+        }
+
+        private fun skipWs() { while (i < s.length && s[i] in " \t\r\n") i++ }
+        private fun peek(): Char { require(i < s.length); return s[i] }
+        private fun next(): Char { require(i < s.length); return s[i++] }
+        private fun expect(c: Char) { require(next() == c) }
+    }
+
+    private val NUMBER = Regex("""-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?""")
 }

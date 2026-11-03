@@ -66,4 +66,27 @@ class LicenseServerTest {
         assertEquals(false, LicenseServer.bodyVerdict("""{"valid":false,"reason":"purchase_not_found","productId":"pack_neon"}""", "pack_neon"))
         assertEquals(false, LicenseServer.bodyVerdict("""{"valid":false,"reason":"purchase_cancelled","productId":"pack_neon"}""", "pack_neon"))
     }
+
+    @Test
+    fun garbledBodiesAreUnknownEvenWithRecognizableFields() {
+        val bad = listOf(
+            """{"valid":true,"productId":"pack_neon", garbage}""",
+            """{"valid":true,"productId":"pack_neon"} trailing""",
+            """{"valid":true,"productId":"pack_neon",}""",
+            """{"valid":true "productId":"pack_neon"}""",
+            """{"valid":"true","productId":"pack_neon"}""",
+            """{"valid":true,"valid":false,"productId":"pack_neon"}""",
+            """{"valid":true,"productId":"pack_neon","x":{"y":1}}""",
+            """{"valid":true,"productId":"pack_neon","x":[1]}""",
+            """{"valid":true,"productId":"pack_\qneon"}""",
+            """{"valid":truex,"productId":"pack_neon"}""",
+            """{"note":"\"valid\":true","productId":"pack_neon"}""",
+        )
+        for (body in bad) assertNull(body, LicenseServer.bodyVerdict(body, "pack_neon"))
+    }
+
+    @Test
+    fun wellFormedBodiesWithEscapesAndNumbersParse() {
+        assertEquals(true, LicenseServer.bodyVerdict(" { \"valid\" : true , \"productId\" : \"pack_\\u006eeon\", \"n\": -1.5e3, \"z\": null } ", "pack_neon"))
+    }
 }
