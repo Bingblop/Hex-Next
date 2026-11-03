@@ -221,3 +221,10 @@ Kyle tested build 41669190846 (commit 04cefca) with the Willemite pack. His scre
 After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle for screenshots + `collect.sh`.
 
 **Uncommitted work:** none. A diagnosis workflow was stopped before it changed any files.
+
+## 11. Changes after the handoff (2026-11-03 ~22:50 UTC) — read before editing these areas
+
+- **Saved overlay requests keep their sizes.** `OverlayBuilder.apply` now carries the previously saved `values` into the saved request when the new request has none (commit 25ec299). Colour requests never carry sizes, and saving them as-is used to erase the `HexNextValues_` payload that `repair` restores. Rule: only `OverlayBuilder.saveValues` may replace or clear saved values; never save a colour `BuildRequest` that drops them.
+- **Device-lab scripts come from one trusted ref.** `tools/device/autotest.sh` downloads `collect.sh` and its own updates only from `TRUSTED_REF` (commit 39ffdb6). A job's `ref` is only logged. Never run code fetched from a job-supplied ref as root. Change `TRUSTED_REF` to `main` once this branch merges.
+- **Licence replies are parsed strictly** (PR #45, commit 21f492b). `LicenseServer.bodyVerdict` accepts only one well-formed flat JSON object; anything else is "unknown" and falls back to the Play signature check. The full purchase query passes every product Play listed (pending included) to `InFlightGrants.applySnapshot`, not just verified ones.
+- **Main's CI pack list is stale.** `.github/workflows/android.yml` on main still names legacy packs; build-android on PRs against main fails until this branch merges.
