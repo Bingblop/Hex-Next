@@ -56,6 +56,15 @@ run "System UI SemWT dump" "cat $APP/scan/semwt/com.android.systemui.txt 2>/dev/
 run "System UI SemWT mapping" "cat $APP/scan/semwt/com.android.systemui.json 2>/dev/null || echo '(none)'"
 root "cat $APP/scan/com.android.systemui/names-color.txt 2>/dev/null" >"$OUT_DIR/hexnext-systemui-colors.txt"
 run "System UI colour names (count; full list in hexnext-systemui-colors.txt)" "wc -l $APP/scan/com.android.systemui/names-color.txt 2>/dev/null || echo '(none)'"
+# Sizes, numbers and switches of System UI and the framework (scan from build 0a56d8f on), one
+# file for all: "<pkg> <type> name<TAB>config<TAB>value" lines.
+: >"$OUT_DIR/hexnext-values.txt"
+for pkg in com.android.systemui android; do
+  for type in dimen integer bool; do
+    root "cat $APP/scan/$pkg/names-$type.txt 2>/dev/null" | sed "s|^|$pkg $type |" >>"$OUT_DIR/hexnext-values.txt"
+  done
+done
+run "System UI and framework values (count; full list in hexnext-values.txt)" "wc -l $OUT_DIR/hexnext-values.txt"
 run "System UI request" "cat $APP/requests/com.android.systemui.json 2>/dev/null || echo '(none)'"
 run "Quick Settings build-log lines (newest log)" "f=\$(ls -t $APP/logs/*.jsonl 2>/dev/null | head -1); [ -n \"\$f\" ] && grep -E 'Quick Settings: |\"target\":\"com.android.systemui\"' \"\$f\" | tail -40"
 for name in qs_tile_round_background_on qs_tile_round_background_dim qs_tile_container_bg; do
