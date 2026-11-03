@@ -75,11 +75,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -95,6 +98,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.WeakHashMap
 
 /** The full-screen destinations of the app; [MainViewModel.screen] holds the current one. */
@@ -133,7 +137,6 @@ data class UiState(
     /** The pending snackbar message; null once shown (see [MainViewModel.consumeNotice]). */
     val notice: Notice? = null,
     val oneUiVersion: String? = null,
-    val log: List<LogLine> = emptyList(),
     /** Non-null while the "Hex Next overlays were turned off after repeated restarts" banner shows. */
     val safeModeBanner: String? = null,
     /** True when safe mode could not turn the overlays off: the banner then points to Diagnostics instead. */
@@ -280,6 +283,25 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     val shizuku: StateFlow<ShizukuState> = ShizukuManager.state
 
+    /**
+     * The editor's on-screen build log, kept out of [UiState]: an apply logs many lines, and each
+     * one would otherwise recompose every screen that reads [ui] (and the phone preview with it).
+     */
+    private val _log = MutableStateFlow<List<LogLine>>(emptyList())
+    val log: StateFlow<List<LogLine>> = _log.asStateFlow()
+
+    /** The newest log line's text, for the Apply bar's progress line; null with an empty log. */
+    val lastLogLine: StateFlow<String?> = _log.map { it.lastOrNull()?.text }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Spec saves, conflated: each committed edit asks for one, and the writer saves the latest
+     * spec once the edits pause ([SAVE_DEBOUNCE_MS]), so quick taps do not queue fsync'd writes.
+     */
+    private val saveRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val savePending = AtomicBoolean(false)
+
     private val _ui = MutableStateFlow(initialState())
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
@@ -315,7 +337,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * badges in the current icon style when it has none. Keyed on the committed spec (never the
      * draft), so a slider drag never re-renders icons.
      */
-    private val iconPart: StateFlow<StudioIcons> = _ui.map {
+    private val iconPart: StateFlow<StudioIcons> = _ui
+        // Only the fields icons depend on, so unrelated UiState changes (busy, notices) stop here.
+        .map { IconSource(it.preview, it.spec, it.seed) }
+        .distinctUntilChanged()
+        .map {
             IconInputs(
                 it.preview, it.spec.iconStyle, it.spec.source.copy(seedArgb = it.seed), it.spec.darkAdjustments, it.spec.lightAdjustments,
                 settingsBuiltIn = drawsBuiltInIcons(it.spec, SETTINGS_ICONS_ELEMENT),
@@ -356,6 +382,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             hasScan = icons.hasScan,
             note = icons.note,
             iconsNight = icons.night,
+            dragging = draftSpec != null || seedDraft != null,
         )
     }
         .conflate()
@@ -503,6 +530,27 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            saveRequests.collectLatest {
+                delay(SAVE_DEBOUNCE_MS)
+                flushSpecSave()
+            }
+        }
+        viewModelScope.launch {
+            // Read off the main thread rather than while the view model is built (cold start).
+            val (report, unconfirmed, expired) = withContext(Dispatchers.IO) {
+                Triple(
+                    ThemeApplier.lastReport(getApplication<Application>()).let { staleAfterSafeMode(it, guard.safeModeAt) },
+                    !guard.confirmed,
+                    guard.protectionExpired(),
+                )
+            }
+            // An apply or remove that already ran sets these itself.
+            _ui.update {
+                if (it.serviceBusy || it.lastApply != null) it
+                else it.copy(lastApply = report, applyUnconfirmed = unconfirmed, applyProtectionExpired = expired)
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val stored = themeStore.load()
             _ui.update { it.copy(spec = stored) }
@@ -695,9 +743,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         canPurchase = entitlements.canPurchase,
         seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
         oneUiVersion = CompatibilityCheck.oneUiName(),
-        lastApply = ThemeApplier.lastReport(getApplication<Application>()),
-        applyUnconfirmed = !guard.confirmed,
-        applyProtectionExpired = guard.protectionExpired(),
+        // The last apply report and the restart guard are read on IO in init.
         capability = Capability.of(ShizukuManager.state.value),
     )
 
@@ -711,7 +757,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     fun requestPermission() = ShizukuManager.requestPermission()
 
-    fun clearLog() = _ui.update { it.copy(log = emptyList()) }
+    fun clearLog() {
+        _log.value = emptyList()
+    }
 
     /**
      * Compiles and applies the full theme (the stored [EngineThemeSpec] with the chosen accent
@@ -730,6 +778,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     private fun applyUnlockedTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
+        // The theme being applied is on disk too before anything changes on the phone.
+        flushSpecSave()
         val spec = specToApply()
         val stillLocked = PackAccess.lockedPacksIn(spec) { _ui.value.isPackUnlocked(it) }
         if (stillLocked.isNotEmpty()) {
@@ -967,13 +1017,40 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * the preview.
      */
     private fun updateSpec(block: (EngineThemeSpec) -> EngineThemeSpec) {
+        val before = _ui.value.spec
         _ui.update { it.copy(spec = block(it.spec)) }
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                themeStore.update { _ui.value.spec }
-            }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
-        }
-        refreshPreview()
+        val after = _ui.value.spec
+        savePending.set(true)
+        saveRequests.tryEmit(Unit)
+        // The icon render only sees Settings and My Files: an edit that cannot change them (Quick
+        // panel opacity or Quick panel-only colours, another app's switch or pins) skips it. An
+        // unchanged spec still renders, as a re-imported custom file may need it.
+        if (after == before || iconSignatureOf(after) != iconSignatureOf(before)) refreshPreview()
+    }
+
+    /**
+     * [spec] without the fields the preview render cannot see, so two specs with the same
+     * signature render the same Settings and My Files icons.
+     */
+    private fun iconSignatureOf(spec: EngineThemeSpec): EngineThemeSpec = spec.copy(
+        name = "",
+        qsPanelAlpha = 255,
+        targetEnabled = spec.targetEnabled.filterKeys { it in PREVIEW_PACKAGES },
+        colorPins = spec.colorPins.filterKeys { it.substringBefore(':', "") in PREVIEW_PACKAGES },
+        colorGroups = spec.colorGroups.filterKeys { id -> ColorGroup.byId(id)?.quickSettings != true },
+    )
+
+    /** Writes the current spec to `theme.json` when an edit is waiting to be saved. Blocking. */
+    private fun flushSpecSave() {
+        if (!savePending.getAndSet(false)) return
+        runCatching {
+            themeStore.update { _ui.value.spec }
+        }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
+    }
+
+    override fun onCleared() {
+        // The writer's scope is gone: save a last pending edit now.
+        flushSpecSave()
     }
 
     /**
@@ -1034,7 +1111,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
             val spec = specToPreview()
             val night = previewNight.value
-            val rendered = withContext(Dispatchers.Default) { previewer.render(spec, night) }
+            val rendered = withContext(Dispatchers.Default) {
+                // A newer edit cancels this job; the render then stops at its next check.
+                val job = coroutineContext[Job]
+                previewer.render(spec, night) { job?.isActive == false }
+            }
             _ui.update {
                 it.copy(
                     preview = PreviewState(
@@ -1081,6 +1162,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     /** The colour inputs of [studioPreview] that come from [UiState]. */
     private data class ColourInputs(val spec: EngineThemeSpec, val seed: Int)
+
+    /** The [UiState] fields the icon half of [studioPreview] is built from. */
+    private data class IconSource(val preview: PreviewState, val spec: EngineThemeSpec, val seed: Int)
 
     /** What the icon half of [studioPreview] depends on. */
     private data class IconInputs(
@@ -1751,7 +1835,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             return
         }
-        _ui.update { it.copy(busy = true, serviceBusy = true, log = emptyList()) }
+        _log.value = emptyList()
+        _ui.update { it.copy(busy = true, serviceBusy = true) }
         viewModelScope.launch {
             try {
                 val service = ShizukuManager.service()
@@ -1777,7 +1862,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun log(line: LogLine) {
         val text = if (line.text.length > MAX_LOG_CHARS) line.text.take(MAX_LOG_CHARS) + " …" else line.text
         val bounded = if (text === line.text) line else line.copy(text = text)
-        _ui.update { it.copy(log = (it.log + bounded).takeLast(MAX_LOG_LINES)) }
+        _log.update { (it + bounded).takeLast(MAX_LOG_LINES) }
     }
 
     private suspend fun loadDeviceInfo() {
@@ -1808,6 +1893,12 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         private const val MAX_LOG_CHARS = 2000
         private const val MAX_THEME_FILE_BYTES = 4 shl 20
         private const val PREVIEW_DEBOUNCE_MS = 400L
+
+        /** How long the spec writer waits for edits to pause before it saves. */
+        private const val SAVE_DEBOUNCE_MS = 300L
+
+        /** The packages the preview render compiles ([ThemePreviewer]). */
+        private val PREVIEW_PACKAGES = setOf("com.android.settings", "com.sec.android.app.myfiles")
 
         /** A locked pack kept for the preview only is deleted after this long unless the theme uses it. */
         private const val PREVIEW_PACK_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000

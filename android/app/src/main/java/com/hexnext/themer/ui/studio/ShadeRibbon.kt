@@ -109,13 +109,15 @@ internal fun ShadeRibbon(
                         else -> RoundedCornerShape(2.dp)
                     }
                     val unpin = onUnpin
+                    // A cell is drawn about 20 x 28 dp, so its touch area must reach past it. The
+                    // click sits before the clip on purpose: outside a clipping layer, Compose grows
+                    // the touch area of any target smaller than the 48 dp minimum touch target to
+                    // 48 dp and gives a tap between cells to the nearest one, while the drawn cell
+                    // and the ribbon's layout keep their size.
                     Box(
                         Modifier
                             .weight(1f)
                             .height(cellHeight)
-                            .clip(shape)
-                            .background(Color(argb))
-                            .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
                             .combinedClickable(
                                 role = Role.Button,
                                 onClick = { onShade(key) },
@@ -124,7 +126,10 @@ internal fun ShadeRibbon(
                             )
                             .semantics {
                                 contentDescription = "${ROLE_NAMES[role]} $shade, ${hexOf(argb)}" + if (isPinned) ", pinned" else ""
-                            },
+                            }
+                            .clip(shape)
+                            .background(Color(argb))
+                            .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (isPinned) {

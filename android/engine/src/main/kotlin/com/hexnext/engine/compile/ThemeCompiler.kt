@@ -104,6 +104,8 @@ public data class PlannedDrawableJob(
  * @property semwtMatches resource names of default-configuration [colors] whose value equals the
  *   one Samsung's SemWT overlay sets (colours kept fixed, or recoloured to the same value), so a
  *   lookup of them cannot tell whether Hex Next or SemWT wins.
+ * @property semwtConfigMatches the same check for every configuration, as `"<resource>|<config>"`
+ *   (config empty for the default), so a night-mode probe can also skip colours SemWT sets alike.
  */
 public data class CompiledTarget(
     val packageName: String,
@@ -115,6 +117,7 @@ public data class CompiledTarget(
     val contentHash: String,
     val versionCode: Long? = null,
     val semwtMatches: Set<String> = emptySet(),
+    val semwtConfigMatches: Set<String> = emptySet(),
 ) {
     /** True when there is nothing to fabricate. */
     public val isEmpty: Boolean get() = colors.isEmpty() && drawables.isEmpty()
@@ -654,6 +657,7 @@ public object ThemeCompiler {
                 contentHash = contentHash(colors, drawables),
                 versionCode = snapshot.versionCode,
                 semwtMatches = semwtMatches(colors),
+                semwtConfigMatches = semwtConfigMatches(colors),
             )
         }
 
@@ -669,6 +673,23 @@ public object ThemeCompiler {
             if (semwtValues.isEmpty()) return emptySet()
             return colors.filter { it.configuration.isEmpty() && semwtValues[it.resourceName]?.contains(it.argb) == true }
                 .mapTo(LinkedHashSet()) { it.resourceName }
+        }
+
+        /** Every-configuration colours whose planned value equals SemWT's value in that configuration. */
+        private fun semwtConfigMatches(colors: List<PlannedColor>): Set<String> {
+            val semwtValues = HashMap<String, MutableSet<Int>>()
+            for (e in semwt?.entries.orEmpty()) {
+                if (e.dataType !in COLOR_TYPES) continue
+                val key = "$pkg:${rules.rename(e.typeAndName)}|${e.configuration.orEmpty()}"
+                val values = semwtValues.getOrPut(key) { HashSet() }
+                values += e.data
+                if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) values += e.data or OPAQUE
+            }
+            if (semwtValues.isEmpty()) return emptySet()
+            return colors.mapNotNull { c ->
+                val key = "${c.resourceName}|${c.configuration}"
+                key.takeIf { semwtValues[it]?.contains(c.argb) == true }
+            }.toCollection(LinkedHashSet())
         }
 
         private fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"

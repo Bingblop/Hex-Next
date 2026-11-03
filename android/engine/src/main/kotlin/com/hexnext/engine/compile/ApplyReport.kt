@@ -92,7 +92,9 @@ public object OverlayLookup {
      *
      * With [night] known (the device's current mode), a [PREFERRED] resource of the target is
      * tried first in that mode's configuration, even when it has both variants: System UI's
-     * colours all have day and night values, so without this its apply was never verified.
+     * colours all have day and night values, so without this its apply was never verified. A
+     * candidate whose value equals SemWT's in that configuration is skipped, since its lookup
+     * would match even while SemWT still outranks Hex Next.
      */
     public fun probe(target: CompiledTarget, night: Boolean? = null): PlannedColor? {
         if (night != null) {
@@ -100,6 +102,7 @@ public object OverlayLookup {
             for (name in PREFERRED[target.packageName].orEmpty()) {
                 val full = "${target.packageName}:$name"
                 if (!night && full in target.semwtMatches) continue
+                if ("$full|$config" in target.semwtConfigMatches) continue
                 target.colors.firstOrNull { it.resourceName == full && it.configuration == config }?.let { return it }
             }
         }

@@ -18,6 +18,7 @@ import com.hexnext.engine.pack.DirectoryPackResolver
 import com.hexnext.themer.overlay.SettingsTestOverlay
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.CancellationException
 import java.lang.ref.SoftReference
 
 /**
@@ -38,9 +39,10 @@ import java.lang.ref.SoftReference
  * next call: the two-target and the full snapshot (soft references, keyed by
  * [SnapshotBuilder.scanStamp]), one [DirectoryPackResolver] per pack directory listing (the
  * resolver opens every pack zip once), and the rendered icons by job plus pack listing
- * ([ICON_CACHE_BYTES] of bitmaps). Rendering is serialised on one lock: a superseded render
- * that is still running finishes first, so bitmaps, zip handles and the compile never run on two
- * threads at once.
+ * ([ICON_CACHE_BYTES] of bitmaps), plus the one custom background, decoded at mockup width and
+ * kept apart so it never evicts the icons. Rendering is serialised on one lock, so bitmaps, zip
+ * handles and the compile never run on two threads at once; a superseded render stops at its next
+ * cancellation check (after the snapshot, after the compile, before each image) and frees the lock.
  *
  * Nothing here touches the device or Shizuku. Both calls block on file I/O and bitmap work, so
  * call them on `Dispatchers.Default` or `Dispatchers.IO`, never on the main thread. They never
@@ -69,6 +71,9 @@ class ThemePreviewer(context: Context) {
     private val iconCache = object : LruCache<IconKey, Bitmap>(ICON_CACHE_BYTES) {
         override fun sizeOf(key: IconKey, value: Bitmap): Int = value.byteCount.coerceAtLeast(1)
     }
+
+    /** The last preview background and the job it was rendered from (see [backgroundBitmap]). */
+    private var backgroundCache: Pair<IconKey, Bitmap>? = null
 
     /**
      * @property name resource name without type, e.g. `sec_ic_settings_connections`.
@@ -126,9 +131,11 @@ class ThemePreviewer(context: Context) {
      * resource has no job in the wanted one (as the device falls back to the default
      * configuration). Safe to call repeatedly and from any background thread.
      */
-    fun render(spec: ThemeSpec, night: Boolean = false): Preview = synchronized(lock) {
+    fun render(spec: ThemeSpec, night: Boolean = false, cancelled: () -> Boolean = { false }): Preview = synchronized(lock) {
         try {
-            renderOrThrow(spec, night)
+            renderOrThrow(spec, night, cancelled)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Preview(emptyList(), null, "Could not render the preview: ${e.javaClass.simpleName}: ${e.message}", fontFile = fontFile(spec), fontName = spec.customFont?.displayName)
         }
@@ -143,15 +150,21 @@ class ThemePreviewer(context: Context) {
         }
     }
 
-    private fun renderOrThrow(spec: ThemeSpec, night: Boolean): Preview {
+    private fun renderOrThrow(spec: ThemeSpec, night: Boolean, cancelled: () -> Boolean): Preview {
+        fun checkCancelled() {
+            if (cancelled()) throw CancellationException("Preview render superseded")
+        }
+        checkCancelled()
         val fontFile = fontFile(spec)
         val fontName = spec.customFont?.displayName
         val built = snapshot(full = false)
             ?: return Preview(emptyList(), null, NOTE_NO_SCAN, fontFile = fontFile, fontName = fontName)
+        checkCancelled()
         // Built for the two preview targets only; equal to the full snapshot filtered to them.
         val restricted = built.snapshot
         val packs = packResolver()
         val compiled = ThemeCompiler.compile(spec, restricted, packs)
+        checkCancelled()
         val settings = compiled.target(TARGET)
         val myFilesTarget = compiled.target(MY_FILES)
         if (settings == null && myFilesTarget == null) {
@@ -173,6 +186,7 @@ class ThemePreviewer(context: Context) {
         val customRoot = CustomAssetStore.rootDir(appContext)
         DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
             fun bitmapOf(job: PlannedDrawableJob): Bitmap? {
+                checkCancelled()
                 val bitmap = cachedBitmap(renderer, job, customRoot)
                 if (bitmap == null) failed++
                 return bitmap
@@ -194,7 +208,11 @@ class ThemePreviewer(context: Context) {
                 if (job.badge != null) builtIn += name
                 myFiles += PreviewIcon(name, label, bitmapOf(job))
             }
-            if (backgroundJob != null) background = bitmapOf(backgroundJob)
+            if (backgroundJob != null) {
+                checkCancelled()
+                background = backgroundBitmap(renderer, backgroundJob, customRoot)
+                if (background == null) failed++
+            }
         }
         val note = when {
             failed == 1 -> "1 image could not be rendered."
@@ -250,7 +268,7 @@ class ThemePreviewer(context: Context) {
                 val name = key.substringAfter('/')
                 val element = Elements.byId(job.elementId)
                 val group = element?.label ?: job.elementId
-                val label = if (element == null || element.anyTarget) "${BackgroundSlots.humanise(name)} · ${target.packageName}" else BackgroundSlots.humanise(name)
+                val label = if (element == null || element.anyTarget) "${BackgroundSlots.humanise(name)} · ${appLabel(target.packageName)}" else BackgroundSlots.humanise(name)
                 byElement.getOrPut(group) { ArrayList() } += IconSlot(key, label, group)
             }
         }
@@ -261,6 +279,20 @@ class ThemePreviewer(context: Context) {
             if (Elements.ALL.none { it.label == group }) icons += list.sortedBy { it.label }
         }
         return SlotCatalogue(icons, backgrounds)
+    }
+
+    /**
+     * The installed app's name for [pkg] (users do not know package names), else its last
+     * package segment, capitalised.
+     */
+    private fun appLabel(pkg: String): String = when (pkg) {
+        "android" -> "Android framework"
+        "com.android.systemui" -> "System UI"
+        else -> runCatching {
+            val pm = appContext.packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() && it != pkg }
+            ?: pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
     }
 
     // ---- caches -----------------------------------------------------------------------------
@@ -303,6 +335,7 @@ class ThemePreviewer(context: Context) {
         packResolver?.takeIf { stamp == packsStamp }?.let { return it }
         packsStamp = stamp
         iconCache.evictAll()
+        backgroundCache = null
         return LayeredPackResolver.over(dirs).also { packResolver = it }
     }
 
@@ -323,6 +356,25 @@ class ThemePreviewer(context: Context) {
             return null
         }
         iconCache.put(key, bitmap)
+        return bitmap
+    }
+
+    /**
+     * The custom background of [job], decoded down to about the mockup's width ([BACKGROUND_PX])
+     * and kept in its own one-entry cache: a full-resolution background is 15 to 20 MB and would
+     * push nearly every icon out of [iconCache].
+     */
+    private fun backgroundBitmap(renderer: DrawableRenderer, job: PlannedDrawableJob, customRoot: File): Bitmap? {
+        val key = IconKey(job, customStamp(job, customRoot))
+        backgroundCache?.takeIf { it.first == key }?.let { return it.second }
+        val bitmap = try {
+            decodeScaled(renderer.render(job).png, BACKGROUND_PX)
+        } catch (e: Exception) {
+            return null
+        } catch (e: OutOfMemoryError) {
+            return null
+        }
+        backgroundCache = key to bitmap
         return bitmap
     }
 
@@ -414,6 +466,20 @@ class ThemePreviewer(context: Context) {
         return chosen?.argb
     }
 
+    /** Decodes [png] with a power-of-two sample size so its width stays at or above [targetWidth]. */
+    private fun decodeScaled(png: ByteArray, targetWidth: Int): Bitmap {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(png, 0, png.size, bounds)
+        var sample = 1
+        while (bounds.outWidth > 0 && bounds.outWidth / (sample * 2) >= targetWidth) sample *= 2
+        val options = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+            inScaled = false
+            inSampleSize = sample
+        }
+        return BitmapFactory.decodeByteArray(png, 0, png.size, options) ?: throw IOException("cannot decode PNG")
+    }
+
     private fun decode(png: ByteArray): Bitmap {
         val options = BitmapFactory.Options().apply {
             inPreferredConfig = Bitmap.Config.ARGB_8888
@@ -469,6 +535,9 @@ class ThemePreviewer(context: Context) {
 
         /** Rendered preview bitmaps kept between renders: ~300 Settings icons, or a few backgrounds. */
         private const val ICON_CACHE_BYTES = 24 * 1024 * 1024
+
+        /** Width the preview background is decoded to: the mockup draws it about 300 dp wide. */
+        private const val BACKGROUND_PX = 540
 
         const val GROUP_SETTINGS: String = "Settings"
         const val GROUP_MY_FILES: String = "My Files"

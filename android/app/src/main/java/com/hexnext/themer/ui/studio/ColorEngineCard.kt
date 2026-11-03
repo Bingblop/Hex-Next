@@ -53,7 +53,7 @@ internal fun styleLabel(style: PaletteStyle): String = when (style) {
     PaletteStyle.MONOCHROME -> "Monochrome"
     PaletteStyle.FIDELITY -> "Fidelity"
     PaletteStyle.CONTENT -> "Content"
-    PaletteStyle.CMF -> "Colour material finish"
+    PaletteStyle.CMF -> "Multi-seed"
 }
 
 private fun styleSummary(style: PaletteStyle): String = when (style) {
@@ -66,7 +66,7 @@ private fun styleSummary(style: PaletteStyle): String = when (style) {
     PaletteStyle.MONOCHROME -> "Pure greyscale"
     PaletteStyle.FIDELITY -> "Accent matches your seed exactly"
     PaletteStyle.CONTENT -> "Seed-exact, with a related tertiary"
-    PaletteStyle.CMF -> "2026 scheme from all three seeds"
+    PaletteStyle.CMF -> "Builds the palette from your primary, secondary and tertiary seeds"
 }
 
 private fun contrastLabel(value: Float): String = when {
@@ -117,7 +117,7 @@ internal fun ColorEngineCard(
 
     StudioCard(
         title = "Colour engine",
-        eyebrow = "Monet · 65 shades",
+        eyebrow = "5 palettes · 65 shades",
         subtitle = "Seeds and scheme behind every One UI colour. Changes show in the preview instantly.",
     ) {
         // Seeds.
@@ -230,7 +230,7 @@ internal fun ColorEngineCard(
         // Monet ribbon.
         val pinned = remember(adjustments.shadeOverrides) { adjustments.shadeOverrides.keys.mapTo(HashSet()) { it.removePrefix("system_") } }
         SectionLabel(
-            "Monet shades · ${if (night) "dark" else "light"}",
+            "Palette shades · ${if (night) "dark" else "light"}",
             trailing = {
                 if (pinned.isNotEmpty()) {
                     StudioPill(

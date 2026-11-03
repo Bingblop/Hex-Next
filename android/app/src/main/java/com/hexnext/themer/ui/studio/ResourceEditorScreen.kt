@@ -43,7 +43,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -128,8 +128,8 @@ private fun shadePinOf(key: String): ColorPin.Shade? {
 @Composable
 fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
     val model: ResourceEditorModel = viewModel()
-    val state by model.state.collectAsState()
-    val preview by viewModel.studioPreview.collectAsState()
+    val state by model.state.collectAsStateWithLifecycle()
+    val preview by viewModel.studioPreview.collectAsStateWithLifecycle()
     BackHandler { viewModel.navigateBack() }
     DisposableEffect(model) { onDispose { model.release() } }
     // The editor resolves colours from the spec, so it must carry the seed the rest of the app uses.
@@ -142,7 +142,7 @@ fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
         diagnostics.state.map { it.latestReportJson to it.scanFinishedId }.distinctUntilChanged().collect { model.refresh() }
     }
     // A Targets row opens the editor on its app: select it once the scanned app list is in.
-    val preselect by viewModel.resourcesTarget.collectAsState()
+    val preselect by viewModel.resourcesTarget.collectAsStateWithLifecycle()
     LaunchedEffect(preselect, state.targets, state.hasScan) {
         val pkg = preselect ?: return@LaunchedEffect
         when {

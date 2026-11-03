@@ -70,7 +70,7 @@ internal fun IconStyleCard(
     StudioCard(
         title = "Icon style",
         eyebrow = "Settings and My Files icons",
-        subtitle = "Colourful PNG icons for Settings rows and My Files categories, from your pack or built in.",
+        subtitle = "Colourful icons for Settings rows and My Files categories, from your pack or built in.",
         trailing = if (needsRoot) ({ NeedsRootBadge() }) else null,
     ) {
         IconStrip(preview)

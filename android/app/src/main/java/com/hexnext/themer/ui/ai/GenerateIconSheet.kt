@@ -216,7 +216,7 @@ fun GenerateIconSheet(
                 }
                 if (paletteHint.isEmpty()) {
                     Text(
-                        "Match pack needs a selected theme pack.",
+                        "Match pack needs a pack with its own colours, chosen in Skins.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -265,7 +265,7 @@ fun GenerateIconSheet(
                     TextButton(onClick = openProviders, enabled = !state.busy) {
                         Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Manage keys")
+                        Text("Manage AI keys")
                     }
                 }
 

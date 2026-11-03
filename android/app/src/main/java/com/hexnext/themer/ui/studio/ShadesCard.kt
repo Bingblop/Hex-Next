@@ -51,7 +51,7 @@ internal fun ShadesCard(viewModel: MainViewModel, spec: ThemeSpec, preview: Stud
     val mode = if (night) "dark" else "light"
 
     StudioCard(
-        title = "Monet shades",
+        title = "Palette shades",
         eyebrow = "65 shades · $mode",
         subtitle = "Five palettes of 13 shades each. Every One UI colour is taken from these.",
         trailing = {

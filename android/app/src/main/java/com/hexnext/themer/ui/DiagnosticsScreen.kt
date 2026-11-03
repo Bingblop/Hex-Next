@@ -266,7 +266,7 @@ fun DiagnosticsScreen(
     if (confirmTurnOff) {
         ConfirmDialog(
             title = "Turn off every Hex Next overlay?",
-            text = "Your phone goes back to Samsung's look. Use Apply theme on the main screen to put the theme back.",
+            text = "Your phone goes back to Samsung's look. Tap Apply theme at the bottom of Studio to put it back.",
             confirmLabel = "Turn off",
             onConfirm = {
                 confirmTurnOff = false

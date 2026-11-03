@@ -321,7 +321,7 @@ internal fun StudioPage(viewModel: MainViewModel, ui: UiState, preview: PreviewM
     val phoneCard: @Composable () -> Unit = {
         StudioCard(
             title = "Live preview",
-            eyebrow = "Real-time One UI preview",
+            eyebrow = "Sample screens in your colours",
             subtitle = "Tap any part of the phone to change its colour.",
         ) {
             FullPhone(preview, onElementTap)
@@ -484,7 +484,7 @@ internal fun ColoursPage(
 ) {
     val counts by viewModel.groupCounts.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    val state = preview.state
+    // Each card below reads preview.state itself, so a drag recomposes the cards, not the page.
     // A tap on the phone lands on the element rows: the card after the peek and the tabs. Only a
     // tap newer than the last one handled scrolls, so a sub-tab switch or a later visit (which
     // recreates this page) keeps its own scroll and the preview peek stays in view. A second tap
@@ -510,13 +510,13 @@ internal fun ColoursPage(
     ) {
         when (tab) {
             ColoursTab.ENGINE -> item(key = "engine") {
-                ColorEngineCard(viewModel, ui.spec, ui.seed, state, onOpenShades = { onTab(ColoursTab.SHADES) })
+                ColorEngineCard(viewModel, ui.spec, ui.seed, preview.state, onOpenShades = { onTab(ColoursTab.SHADES) })
             }
             ColoursTab.ELEMENTS -> item(key = "elements") {
                 ElementColorsCard(
                     viewModel = viewModel,
                     spec = ui.spec,
-                    preview = state,
+                    preview = preview.state,
                     counts = counts,
                     bringHighlightIntoView = jumpToElements,
                     onOpenResources = { viewModel.openResources() },
@@ -528,7 +528,7 @@ internal fun ColoursPage(
                     ElementColorsCard(
                         viewModel = viewModel,
                         spec = ui.spec,
-                        preview = state,
+                        preview = preview.state,
                         counts = counts,
                         groups = QUICK_PANEL_GROUPS,
                         bringHighlightIntoView = jumpToElements,
@@ -538,7 +538,7 @@ internal fun ColoursPage(
                     )
                 }
             }
-            ColoursTab.SHADES -> item(key = "shades") { ShadesCard(viewModel, ui.spec, state) }
+            ColoursTab.SHADES -> item(key = "shades") { ShadesCard(viewModel, ui.spec, preview.state) }
         }
     }
 }

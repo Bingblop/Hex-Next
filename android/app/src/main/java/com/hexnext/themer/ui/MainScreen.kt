@@ -1003,7 +1003,7 @@ internal fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, c
  * never an author, version or source name, which can tie a pack to where its artwork came from.
  */
 private fun packSummary(pack: InstalledPack): String = listOfNotNull(
-    "${pack.drawableCount} drawables",
+    "${pack.drawableCount} images",
     if (pack.hasSettingsIcons) "Settings icons" else null,
     if (pack.dayNight) "Day and night" else null,
 ).joinToString(" · ")
@@ -1039,7 +1039,7 @@ private fun PackBadges(pack: InstalledPack, locked: Boolean, pending: Boolean, p
         }
         if (pack.dayNight) PackBadge("Day and night")
         coverageLabels(pack.pack.layers.map { it.category }).forEach { PackBadge(it) }
-        PackBadge("${pack.drawableCount} drawables")
+        PackBadge("${pack.drawableCount} images")
         if (pack.hasSettingsIcons) PackBadge("Settings icons")
     }
 }
@@ -1233,7 +1233,7 @@ private fun ElementPackDialog(
                         Text("Colours only", style = MaterialTheme.typography.titleSmall)
                     }
                 }
-                items(covering) { pack ->
+                items(covering, key = { it.id }) { pack ->
                     val locked = locks.locked(pack.id)
                     // A locked pack can be chosen for the preview; Apply asks for the unlock.
                     PackRow(selected = enabled && setId == pack.id, enabled = !busy, onClick = { onElementPack(element.id, pack.id) }) {
@@ -1433,8 +1433,8 @@ internal fun CustomIconsCard(
     val badge: (@Composable RowScope.() -> Unit)? = if (needsRoot) ({ NeedsRootBadge() }) else null
     SectionCard(title = "Custom icons", trailing = badge) {
         Text(
-            "Replace any icon One UI can theme with your own PNG or ICO, or describe one and let AI draw it. " +
-                "Files are converted for overlays automatically.",
+            "Use your own PNG or ICO for Settings rows, My Files categories and any icon your packs change, " +
+                "or describe one and let AI draw it.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1643,8 +1643,11 @@ internal fun BackgroundsCard(
 
 /** A row of [SlotDialog]: a group header or one slot. */
 private sealed interface SlotLine {
-    data class Header(val group: String) : SlotLine
-    data class Entry(val slot: ThemePreviewer.IconSlot) : SlotLine
+    /** A stable, unique LazyColumn key, so rows keep their state when the filter changes. */
+    val key: String
+
+    data class Header(val group: String, override val key: String) : SlotLine
+    data class Entry(val slot: ThemePreviewer.IconSlot, override val key: String) : SlotLine
 }
 
 /**
@@ -1672,12 +1675,20 @@ private fun SlotDialog(
         }
         buildList<SlotLine> {
             var last: String? = null
+            val used = HashSet<String>()
+            // A group can come back after another one, and keys must never repeat.
+            fun unique(base: String): String {
+                var key = base
+                var n = 1
+                while (!used.add(key)) key = "$base#${n++}"
+                return key
+            }
             for (slot in matching) {
                 if (slot.group != last) {
-                    add(SlotLine.Header(slot.group))
+                    add(SlotLine.Header(slot.group, unique("h:${slot.group}")))
                     last = slot.group
                 }
-                add(SlotLine.Entry(slot))
+                add(SlotLine.Entry(slot, unique("s:${slot.key}")))
             }
         }
     }
@@ -1706,7 +1717,7 @@ private fun SlotDialog(
                 if (slots.isNotEmpty() && lines.isEmpty()) {
                     item { Text("Nothing matches your filter.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-                items(lines) { line ->
+                items(lines, key = { it.key }) { line ->
                     when (line) {
                         is SlotLine.Header -> Text(line.group, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
                         is SlotLine.Entry -> {
@@ -1756,7 +1767,7 @@ internal fun FontCard(
     val chosenFamily = rememberFontFamily(chosen?.let { fileOf(it).path })
     val locked = busy || needsRoot
     val badge: (@Composable RowScope.() -> Unit)? = if (needsRoot) ({ NeedsRootBadge() }) else null
-    SectionCard(title = "Font", trailing = badge) {
+    SectionCard(title = "Fonts", trailing = badge) {
         Text(
             "Set the system font from a .ttf or .otf file. It applies with the theme; restart your phone to see it everywhere.",
             style = MaterialTheme.typography.bodySmall,
@@ -1839,7 +1850,7 @@ internal fun FontCard(
                             Text("Same as regular", style = MaterialTheme.typography.titleSmall)
                         }
                     }
-                    items(fonts.filter { it.fileName != font.regular }) { asset ->
+                    items(fonts.filter { it.fileName != font.regular }, key = { it.fileName }) { asset ->
                         val family = rememberFontFamily(fileOf(asset).path)
                         PackRow(selected = font.bold == asset.fileName, enabled = !busy, onClick = { onBold(asset) }) {
                             Text(
@@ -1926,7 +1937,7 @@ private fun CatalogueDialog(
                         )
                     }
                 }
-                items(state.entries) { entry ->
+                items(state.entries, key = { it.id }) { entry ->
                     CatalogueRow(entry, state.downloading[entry.id], busy, locks, onUnlock, onDownload)
                 }
             }
@@ -2045,10 +2056,8 @@ internal fun restartProtectionText(unconfirmed: Boolean, expired: Boolean): Stri
     // Phone restarts are only caught when root is still there after the restart. The temporary
     // DFRoot root that RootGuide recommends is gone by then, so promise only what the in-session
     // watchdog (120 s, System UI or system server restarts) does.
-    else -> "Applied and not confirmed yet. For the next 2 minutes, the theme is turned off if System UI " +
-        "or the system restarts twice. Phone restarts are only caught if your root stays after a " +
-        "restart: a temporary root such as DFRoot does not, so after a restart nothing can turn the " +
-        "theme off. Check your phone before you restart it, then confirm."
+    else -> "Not confirmed yet. For 2 minutes, the theme turns off if System UI keeps crashing. A temporary " +
+        "root such as DFRoot is gone after a restart, so check the phone before you restart, then tap \"It works\"."
 }
 
 /**

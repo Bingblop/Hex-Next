@@ -3,6 +3,7 @@ package com.hexnext.themer.ui.preview
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.themer.ui.LocalAppSettings
@@ -27,15 +28,19 @@ fun PhonePreview(
     modifier: Modifier = Modifier,
 ) {
     val reduceMotion = LocalAppSettings.current.reduceMotion
-    val palette = animatedPalette(state.scheme(dark))
+    val palette = animatedPalette(state.scheme(dark), instant = state.dragging)
     val font = rememberPreviewFontFamily(state.fontFile)
-    val scope = PreviewScope(
-        palette = palette,
-        highlighted = state.highlightedGroup,
-        onTap = onElementTap,
-        font = font,
-        reduceMotion = reduceMotion,
-    )
+    // Remembered, so the screens below can skip when only an animated colour moved.
+    val highlighted = state.highlightedGroup
+    val scope = remember(palette, highlighted, onElementTap, font, reduceMotion) {
+        PreviewScope(
+            palette = palette,
+            highlighted = highlighted,
+            onTap = onElementTap,
+            font = font,
+            reduceMotion = reduceMotion,
+        )
+    }
     PreviewFrame(
         state = state,
         tab = tab,

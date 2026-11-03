@@ -83,6 +83,8 @@ data class PreviewScheme(
  * @property hasScan false before the first device scan: icons are built-in or fallbacks only.
  * @property note a short line under the mockup (why icons are missing), null for none.
  * @property iconsNight true when the icons were rendered for dark mode (night jobs), false for light.
+ * @property dragging true while a slider or colour drag shows a draft: the mockup then jumps to the
+ *   new colours instead of animating, so it keeps up with the finger.
  */
 @Immutable
 data class StudioPreviewState(
@@ -101,6 +103,7 @@ data class StudioPreviewState(
     val hasScan: Boolean = false,
     val note: String? = null,
     val iconsNight: Boolean = true,
+    val dragging: Boolean = false,
 ) {
     /** The scheme for [dark] mode. */
     fun scheme(dark: Boolean): PreviewScheme = if (dark) this.dark else light

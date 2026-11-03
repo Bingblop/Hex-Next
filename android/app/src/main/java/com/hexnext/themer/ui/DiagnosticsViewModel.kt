@@ -189,7 +189,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         }
         _state.update { it.copy(lastResult = result ?: it.lastResult) }
         when {
-            result == null -> log(LogLevel.WARN, "Nothing to re-apply; run the Settings test first. To put your theme back, use Apply theme on the main screen.")
+            result == null -> log(LogLevel.WARN, "Nothing to re-apply; run the Settings test first. To put your theme back, tap Apply theme in Studio.")
             result.ok -> log(LogLevel.OK, "Repaired: ${result.resourceCount} resources re-applied.")
             else -> log(LogLevel.ERROR, "Repair code ${result.code}: ${result.output.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty()}")
         }

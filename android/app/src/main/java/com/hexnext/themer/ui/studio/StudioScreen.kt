@@ -60,6 +60,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -151,7 +153,9 @@ private val SHORT_TWO_PANE_WIDTH = 600.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
-    val preview by viewModel.studioPreview.collectAsStateWithLifecycle()
+    // Collected here but never read here: only the composables that draw it read the value (through
+    // PreviewModel.state), so a drag tick recomposes the phone and the cards, not the whole shell.
+    val previewState = viewModel.studioPreview.collectAsStateWithLifecycle()
     val ready = shizuku as? ShizukuState.Ready
     val appSettings = LocalAppSettings.current
     val haptic = LocalHapticFeedback.current
@@ -237,16 +241,19 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         destination = Destination.SYSTEM
         systemTab = SystemTab.TARGETS
     }
-    val previewModel = PreviewModel(
-        state = preview,
-        tab = previewTab,
-        onTab = { previewTab = it },
-        dark = previewDark,
-        onDark = { previewDark = it },
-        onScan = viewModel::openScan,
-    )
-    // Studio edits in place; Colours and Icons jump to the element's row (§ 1.3).
-    val onElementTap: (ColorGroup) -> Unit = { group ->
+    val previewModel = remember(previewState, previewTab, previewDark, viewModel) {
+        PreviewModel(
+            stateRef = previewState,
+            tab = previewTab,
+            onTab = { previewTab = it },
+            dark = previewDark,
+            onDark = { previewDark = it },
+            onScan = viewModel::openScan,
+        )
+    }
+    // Studio edits in place; Colours and Icons jump to the element's row (§ 1.3). Remembered: the
+    // lambda reads destination, tabs and mode from their state holders when it runs.
+    val onElementTap: (ColorGroup) -> Unit = remember(viewModel) { { group ->
         viewModel.setHighlightedGroup(group)
         if (destination == Destination.STUDIO) {
             studioPick = "${group.id}:$previewDark"
@@ -260,7 +267,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
             }
             elementsTick++
         }
-    }
+    } }
     val connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE
     // With the keyboard up the bars step aside, so the field being typed in stays in view.
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -278,6 +285,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         // The first pack of the theme that is not unlocked: the bar offers Unlock instead of Apply.
         val previewOnlyPack = remember(ui.spec, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.previewOnlyPacksInTheme().firstOrNull() }
         val applyBar: @Composable () -> Unit = {
+            // Read here, so a new log line recomposes only the Apply bar.
+            val progressLine by viewModel.lastLogLine.collectAsStateWithLifecycle()
             Box(Modifier.background(MaterialTheme.colorScheme.surfaceContainer).windowInsetsPadding(applyBarInsets)) {
                 ApplyBar(
                     // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
@@ -288,7 +297,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     report = ui.lastApply,
                     unconfirmed = ui.applyUnconfirmed,
                     protectionExpired = ui.applyProtectionExpired,
-                    progressLine = ui.log.lastOrNull()?.text,
+                    progressLine = progressLine,
                     onApply = viewModel::applyTheme,
                     onRemove = viewModel::removeTheme,
                     onConfirmWorks = viewModel::confirmWorks,
@@ -464,7 +473,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         ColorGroup.byId(saved.substringBefore(':'))?.let { it to (saved.substringAfter(':') == "true") }
     }
     if (pick != null) {
-        GroupColorSheet(viewModel, ui.spec, preview, pick.first, pick.second, onClose = { studioPick = null })
+        StudioPickSheet(viewModel, ui, previewModel, pick.first, pick.second, onClose = { studioPick = null })
     }
 
     if (showPrivilege) {
@@ -487,7 +496,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
 }
 
 /**
- * The status strip (§ 1.3): the privilege tier, "Targets n/m" after an apply and "Protection on"
+ * The status strip (§ 1.3): the connection tier, "Themed n/m" after an apply and "Protection on"
  * while restart protection is armed. One horizontally scrolling row; each chip is 32 dp high in a
  * 48 dp touch area and always carries a word.
  */
@@ -506,7 +515,7 @@ private fun StatusStrip(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         StripChip(
-            text = "Privilege · ${ui.capability.label}",
+            text = "Connection · ${ui.capability.label}",
             tone = when (ui.capability) {
                 Capability.ROOT -> StatusTone.OK
                 Capability.NONE -> StatusTone.BAD
@@ -518,7 +527,7 @@ private fun StatusStrip(
         ui.lastApply?.let { report ->
             val failed = report.outcomes.count { it.result == TargetResult.FAILED }
             StripChip(
-                text = "Targets ${report.okCount}/${report.outcomes.size}",
+                text = "Themed ${report.okCount}/${report.okCount + report.failedCount}",
                 tone = when {
                     !report.finished || failed > 0 -> StatusTone.BAD
                     report.partialCount > 0 -> StatusTone.WARN
@@ -570,15 +579,31 @@ private fun StripChip(text: String, tone: StatusTone, onClickLabel: String, onCl
 private fun Modifier.clickableChip(label: String, onClick: () -> Unit): Modifier =
     this.then(Modifier.clickable(onClickLabel = label, role = Role.Button, onClick = onClick))
 
-/** The preview state the destinations share: one phone tab and one light/dark choice for all. */
+/**
+ * The Studio's tap-to-edit colour sheet. Its own composable, so the preview it reads while a colour
+ * is dragged recomposes only the sheet.
+ */
+@Composable
+private fun StudioPickSheet(viewModel: MainViewModel, ui: UiState, preview: PreviewModel, group: ColorGroup, night: Boolean, onClose: () -> Unit) {
+    GroupColorSheet(viewModel, ui.spec, preview.state, group, night, onClose = onClose)
+}
+
+/**
+ * The preview state the destinations share: one phone tab and one light/dark choice for all.
+ * [state] reads [stateRef] when it is called, so only the composables that use it recompose when
+ * the preview changes.
+ */
+@Stable
 internal class PreviewModel(
-    val state: StudioPreviewState,
+    private val stateRef: State<StudioPreviewState>,
     val tab: PreviewTab,
     val onTab: (PreviewTab) -> Unit,
     val dark: Boolean,
     val onDark: (Boolean) -> Unit,
     val onScan: () -> Unit,
-)
+) {
+    val state: StudioPreviewState get() = stateRef.value
+}
 
 /** Content padding of every destination list: the 16 dp gutter and room under the last card. */
 internal val PAGE_PADDING = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)

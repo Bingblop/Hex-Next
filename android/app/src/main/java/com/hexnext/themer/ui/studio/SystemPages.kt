@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,7 +68,9 @@ import com.hexnext.themer.ui.UiState
 import com.hexnext.themer.ui.restartProtectionText
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * System (Studio v2 phase 2 § 2.7): Targets, what the last apply did per One UI app with a switch
@@ -161,7 +164,11 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
         reported.ifEmpty { scanned.orEmpty().distinct() }
     }
     val outcomes = remember(report) { report?.outcomes?.associateBy { it.target }.orEmpty() }
-    val labels = remember(packages) { packages.associateWith { targetLabel(context, it) } }
+    // PackageManager lookups are binder calls, one per package: load them off the main thread
+    // and show the package name until they arrive.
+    val labels by produceState(emptyMap<String, String>(), packages) {
+        value = withContext(Dispatchers.IO) { packages.associateWith { targetLabel(context, it) } }
+    }
     val shown = packages.filter { filter.matches(outcomes[it], ui.spec.isTargetEnabled(it)) }
 
     LazyColumn(
@@ -199,7 +206,7 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
             StudioCard(
                 title = "Targets",
                 eyebrow = if (report != null) "Last apply" else "Not applied yet",
-                subtitle = "Hex Next overlays sit above Samsung theme overlays.",
+                subtitle = "Apply turns off Samsung's theme overlay for each app below and puts the Hex Next one in its place.",
             ) {
                 if (report != null) {
                     TargetFacts(report)
@@ -331,8 +338,8 @@ private fun TargetRow(
         ) {
             StatusChip(word, tone)
             if (outcome != null && enabled) {
-                if (outcome.verified == true) StatusChip("Verified", StatusTone.OK)
-                if (outcome.verified == false) StatusChip("Mismatch", StatusTone.WARN)
+                if (outcome.verified == true) StatusChip("Checked", StatusTone.OK)
+                if (outcome.verified == false) StatusChip("Check failed", StatusTone.WARN)
                 if (outcome.semwtDisabled) StatusChip("Samsung overlay off", StatusTone.NEUTRAL)
             }
         }
@@ -401,10 +408,7 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
     val ready = shizuku as? ShizukuState.Ready
 
     var pendingImport by remember { mutableStateOf<EngineThemeSpec?>(null) }
-    var confirmTurnOff by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
-    // Set when this card starts "Turn off all"; its result lines are shown under Safe mode.
-    var showTurnOffResult by rememberSaveable { mutableStateOf(false) }
     var logFilter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
     val nameCommit = remember { NameCommit() }
 
@@ -464,16 +468,17 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
         }
 
         item(key = "log") {
-            val lines = remember(ui.log, logFilter) {
+            val log by viewModel.log.collectAsStateWithLifecycle()
+            val lines = remember(log, logFilter) {
                 // Filter the whole log first so older matching lines (e.g. an early ERROR) are not dropped.
-                val matching = if (logFilter.level == null) ui.log else ui.log.filter { it.level == logFilter.level }
+                val matching = if (logFilter.level == null) log else log.filter { it.level == logFilter.level }
                 matching.takeLast(200)
             }
             LogCard(
                 lines = lines,
                 onClear = viewModel::clearLog,
                 title = "Build log",
-                emptyText = if (ui.log.isEmpty()) "Nothing logged yet. Apply theme writes here." else "No lines at this level.",
+                emptyText = if (log.isEmpty()) "Nothing logged yet. Apply theme writes here." else "No lines at this level.",
                 header = {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -507,7 +512,7 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
         item(key = "safe") {
             StudioCard(
                 title = "Safe mode",
-                subtitle = "Undo everything Hex Next changed if the phone looks wrong.",
+                subtitle = "If the phone looks wrong, remove the theme: overlays, font and system colours go back to Samsung's.",
             ) {
                 if (dstate.busy && dstate.task != null) {
                     Text(
@@ -516,14 +521,11 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                         modifier = Modifier.semantics { contentDescription = "${dstate.task} in progress" },
                     )
                 }
-                OutlinedButton(
-                    onClick = { confirmTurnOff = true },
-                    enabled = canTurnOff,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                ) { Text("Turn off all Hex Next overlays") }
+                // One action: Remove theme turns every Hex Next overlay off, turns Samsung's
+                // overlays back on, restores the system palette and removes the font.
                 OutlinedButton(
                     onClick = { confirmRemove = true },
-                    enabled = canTurnOff && ui.lastApply != null,
+                    enabled = canTurnOff,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 ) { Text("Remove theme") }
                 if (!canControl) {
@@ -533,19 +535,6 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-        }
-
-        if (showTurnOffResult && dstate.log.isNotEmpty()) {
-            item(key = "turnOffResult") {
-                LogCard(
-                    lines = dstate.log,
-                    onClear = {
-                        diagnostics.clearLog()
-                        showTurnOffResult = false
-                    },
-                    title = "Turn off result",
-                )
             }
         }
 
@@ -583,23 +572,10 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
             onDismiss = { pendingImport = null },
         )
     }
-    if (confirmTurnOff) {
-        ConfirmDialog(
-            title = "Turn off every Hex Next overlay?",
-            text = "Your phone goes back to Samsung's look. Use Apply theme on the main screen to put the theme back.",
-            confirmLabel = "Turn off",
-            onConfirm = {
-                confirmTurnOff = false
-                showTurnOffResult = true
-                diagnostics.removeAll()
-            },
-            onDismiss = { confirmTurnOff = false },
-        )
-    }
     if (confirmRemove) {
         ConfirmDialog(
             title = "Remove theme?",
-            text = "The overlays of this theme are removed and your phone goes back to Samsung's look. Your edits stay.",
+            text = "Your phone goes back to Samsung's look. Your edits stay in Hex Next.",
             confirmLabel = "Remove",
             onConfirm = {
                 confirmRemove = false

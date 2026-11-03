@@ -11,6 +11,7 @@ import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.theme.SnapshotBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -139,16 +140,17 @@ internal class ResourceEditorModel(app: Application) : AndroidViewModel(app) {
         val pkg = _state.value.selected ?: return
         val spec = spec ?: return
         val report = report ?: return
+        // Read the cache on main; the IO block below never touches it.
+        val cached = loaded?.takeIf { it.first == pkg }?.second
         job?.cancel()
         job = viewModelScope.launch {
+            val self = coroutineContext[Job]
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    val cached = loaded?.takeIf { it.first == pkg }?.second
                     val built = cached ?: builder.build(report, only = setOf(pkg))
                         ?: error("The scan report could not be read.")
-                    loaded = pkg to built
                     val target = built.snapshot.targets[pkg] ?: error("$pkg was not part of the last scan.")
-                    ColorGroupMatcher.inventory(
+                    built to ColorGroupMatcher.inventory(
                         target,
                         built.snapshot.systemShades,
                         spec,
@@ -156,9 +158,14 @@ internal class ResourceEditorModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
-            if (_state.value.selected != pkg) return@launch
+            // Publish on main, and only while this is still the current load: a load cancelled by
+            // release(), refresh() or a newer reload must not put its snapshot back in the cache.
+            if (!isActive || job !== self || _state.value.selected != pkg) return@launch
             result.fold(
-                onSuccess = { items -> _state.update { it.copy(loading = false, items = items, error = null) } },
+                onSuccess = { (built, items) ->
+                    loaded = pkg to built
+                    _state.update { it.copy(loading = false, items = items, error = null) }
+                },
                 onFailure = { e -> _state.update { it.copy(loading = false, items = emptyList(), error = e.message ?: "Could not read $pkg.") } },
             )
         }

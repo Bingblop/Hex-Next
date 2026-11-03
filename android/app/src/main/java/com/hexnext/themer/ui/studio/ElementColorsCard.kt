@@ -131,7 +131,10 @@ internal fun ElementColorsCard(
                     ElementRow(
                         group = group,
                         spec = spec,
-                        preview = preview,
+                        // Only the two colours the row draws, so a drag recomposes just the rows
+                        // whose colour changes.
+                        light = preview.light.color(group),
+                        dark = preview.dark.color(group),
                         count = counts[group],
                         counted = counts.isNotEmpty(),
                         highlighted = preview.highlightedGroup == group,
@@ -235,7 +238,8 @@ internal fun GroupColorSheet(
 private fun ElementRow(
     group: ColorGroup,
     spec: ThemeSpec,
-    preview: StudioPreviewState,
+    light: Int,
+    dark: Int,
     count: GroupCount?,
     counted: Boolean,
     highlighted: Boolean,
@@ -261,8 +265,6 @@ private fun ElementRow(
     val shape = RoundedCornerShape(14.dp)
     val lightCustom = spec.groupColor(group, false) != null
     val darkCustom = spec.groupColor(group, true) != null
-    val light = preview.light.color(group)
-    val dark = preview.dark.color(group)
     val status = when {
         lightCustom && darkCustom -> "Custom · light and dark"
         lightCustom -> "Custom · light"

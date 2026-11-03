@@ -2,16 +2,19 @@ package com.hexnext.themer.ui.preview
 
 import android.graphics.Typeface as AndroidTypeface
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,12 +24,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -41,7 +47,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.inset
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
@@ -92,34 +98,38 @@ internal fun contentColorFor(background: Color): Color =
 internal fun readableOn(preferred: Color, background: Color, minRatio: Float = 3f): Color =
     if (contrastRatio(preferred, background) >= minRatio) preferred else contentColorFor(background)
 
-/** The colours of one mode, animated towards the scheme unless reduce motion is on. */
-@Immutable
+/**
+ * The colours of one mode, animated towards the scheme unless reduce motion is on. Each colour is
+ * a [State] read only when [get] is called, so an animation frame recomposes (or redraws) only
+ * the elements that use the colour, never the code that built the palette.
+ */
+@Stable
 internal class PreviewPalette(
     private val scheme: PreviewScheme,
-    private val colors: Map<ColorGroup, Color>,
+    private val colors: Map<ColorGroup, State<Color>>,
 ) {
     val dark: Boolean get() = scheme.dark
 
-    operator fun get(group: ColorGroup): Color = colors[group] ?: scheme.color(group).toColor()
+    operator fun get(group: ColorGroup): Color = colors[group]?.value ?: scheme.color(group).toColor()
 
     /** A Monet shade (`accent1_300`) for decorative art, [fallback] when the scheme lacks it. */
     fun shade(key: String, fallback: Color): Color = scheme.shade(key)?.toColor() ?: fallback
 }
 
-/** The colours of [scheme], animated on every change (instant with reduce motion). */
+/**
+ * The colours of [scheme], animated on every change. With reduce motion, or while [instant] (a
+ * slider or colour drag is live), they jump to the target, so the phone keeps up with the finger.
+ */
 @Composable
-internal fun animatedPalette(scheme: PreviewScheme): PreviewPalette {
+internal fun animatedPalette(scheme: PreviewScheme, instant: Boolean = false): PreviewPalette {
     val reduceMotion = LocalAppSettings.current.reduceMotion
-    val colors = LinkedHashMap<ColorGroup, Color>(ColorGroup.entries.size)
+    val spec: AnimationSpec<Color> = if (reduceMotion || instant) snap() else tween(durationMillis = 260)
+    val colors = LinkedHashMap<ColorGroup, State<Color>>(ColorGroup.entries.size)
     for (group in ColorGroup.entries) {
-        val target = scheme.color(group).toColor()
-        colors[group] = if (reduceMotion) {
-            target
-        } else {
-            animateColorAsState(target, animationSpec = tween(durationMillis = 260), label = "preview_${group.id}").value
-        }
+        // The returned State is the same object on every pass; only its value moves.
+        colors[group] = animateColorAsState(scheme.color(group).toColor(), animationSpec = spec, label = "preview_${group.id}")
     }
-    return PreviewPalette(scheme, colors)
+    return remember(scheme) { PreviewPalette(scheme, colors) }
 }
 
 /** What every preview screen needs: colours, the highlighted group, the tap callback and the font. */
@@ -155,20 +165,21 @@ internal fun Modifier.themed(
     shape: Shape = RectangleShape,
 ): Modifier {
     val outline = if (highlighted == group) {
-        Modifier.drawWithContent {
-            drawContent()
-            val stroke = 2.dp.toPx()
-            inset(stroke / 2f) {
-                val shapeOutline = shape.createOutline(size, layoutDirection, this)
-                drawOutline(shapeOutline, HighlightCyan.copy(alpha = 0.14f))
-                drawOutline(
-                    shapeOutline,
-                    HighlightCyan,
-                    style = Stroke(
-                        width = stroke,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())),
-                    ),
-                )
+        // The outline and dash effect are built once per size, not on every frame.
+        Modifier.drawWithCache {
+            val strokePx = 2.dp.toPx()
+            val inner = Size((size.width - strokePx).coerceAtLeast(0f), (size.height - strokePx).coerceAtLeast(0f))
+            val shapeOutline = shape.createOutline(inner, layoutDirection, this)
+            val stroke = Stroke(
+                width = strokePx,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx())),
+            )
+            onDrawWithContent {
+                drawContent()
+                translate(strokePx / 2f, strokePx / 2f) {
+                    drawOutline(shapeOutline, HighlightCyan.copy(alpha = 0.14f))
+                    drawOutline(shapeOutline, HighlightCyan, style = stroke)
+                }
             }
         }
     } else {
@@ -304,23 +315,24 @@ internal fun PreviewIconImage(
         )
         return
     }
-    val pulse = if (loading && !reduceMotion) {
+    // The pulse is read in the draw phase (graphicsLayer), so it redraws the icon each frame
+    // without recomposing it.
+    val pulse: State<Float>? = if (loading && !reduceMotion) {
         val transition = rememberInfiniteTransition(label = "iconShimmer")
-        val value by transition.animateFloat(
+        transition.animateFloat(
             initialValue = 0.45f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(tween(durationMillis = 850), RepeatMode.Reverse),
             label = "iconShimmerAlpha",
         )
-        value
     } else {
-        1f
+        null
     }
     val fill = icon.fallbackArgb.toColor().copy(alpha = 1f)
     Box(
         modifier = modifier
             .size(size)
-            .alpha(pulse)
+            .then(if (pulse != null) Modifier.graphicsLayer { alpha = pulse.value } else Modifier)
             .clip(CircleShape)
             .background(fill),
         contentAlignment = Alignment.Center,
@@ -351,10 +363,20 @@ internal fun GlyphIcon(
     modifier: Modifier = Modifier,
     cutout: Color = Color.Transparent,
 ) {
-    Canvas(modifier) {
+    // One Path per glyph, reused on every draw instead of allocated each frame of a colour change.
+    Spacer(
+        modifier.drawWithCache {
+            val path = Path()
+            onDrawBehind { drawGlyph(glyph, color, cutout, path) }
+        },
+    )
+}
+
+private fun DrawScope.drawGlyph(glyph: Glyph, color: Color, cutout: Color, path: Path) {
+    run {
         when (glyph) {
             Glyph.WIFI -> drawWifi(color)
-            Glyph.BLUETOOTH -> drawBluetooth(color)
+            Glyph.BLUETOOTH -> drawBluetooth(color, path)
             Glyph.SIGNAL -> drawSignal(color)
             Glyph.BATTERY -> drawBattery(color)
             Glyph.MOON -> {
@@ -375,7 +397,8 @@ internal fun GlyphIcon(
             Glyph.BOLT -> {
                 val w = size.width
                 val h = size.height
-                val path = Path().apply {
+                path.reset()
+                path.apply {
                     moveTo(w * 0.58f, h * 0.08f)
                     lineTo(w * 0.24f, h * 0.56f)
                     lineTo(w * 0.48f, h * 0.56f)
@@ -387,7 +410,7 @@ internal fun GlyphIcon(
                 drawPath(path, color)
             }
             Glyph.SUN -> drawSun(color)
-            Glyph.VOLUME -> drawVolume(color)
+            Glyph.VOLUME -> drawVolume(color, path)
             Glyph.POWER -> {
                 val s = size.minDimension
                 val stroke = Stroke(width = s * 0.11f, cap = StrokeCap.Round)
@@ -407,19 +430,20 @@ internal fun GlyphIcon(
             Glyph.SPEAKER -> drawSpeaker(color)
             Glyph.DATA -> drawData(color)
             Glyph.DOLBY -> drawDolby(color)
-            Glyph.PLANE -> drawPlane(color)
-            Glyph.EYE -> drawEye(color)
+            Glyph.PLANE -> drawPlane(color, path)
+            Glyph.EYE -> drawEye(color, path)
             Glyph.CAST -> drawCast(color)
             Glyph.RECORD -> {
                 val s = size.minDimension
                 drawCircle(color, s * 0.36f, center, style = Stroke(width = s * 0.09f))
                 drawCircle(color, s * 0.18f, center)
             }
-            Glyph.NFC -> drawNfc(color)
+            Glyph.NFC -> drawNfc(color, path)
             Glyph.TORCH -> {
                 val w = size.width
                 val h = size.height
-                val head = Path().apply {
+                val head = path.apply {
+                    reset()
                     moveTo(w * 0.26f, h * 0.14f)
                     lineTo(w * 0.74f, h * 0.14f)
                     lineTo(w * 0.64f, h * 0.40f)
@@ -500,7 +524,7 @@ private fun DrawScope.drawDolby(color: Color) {
     drawArc(color, -90f, 180f, true, Offset(w * 0.53f - r, h * 0.5f - r), Size(r * 2, r * 2))
 }
 
-private fun DrawScope.drawPlane(color: Color) {
+private fun DrawScope.drawPlane(color: Color, path: Path) {
     val w = size.width
     val h = size.height
     val pts = floatArrayOf(
@@ -508,7 +532,8 @@ private fun DrawScope.drawPlane(color: Color) {
         0.56f, 0.78f, 0.66f, 0.86f, 0.66f, 0.92f, 0.50f, 0.87f, 0.34f, 0.92f, 0.34f, 0.86f,
         0.44f, 0.78f, 0.44f, 0.57f, 0.10f, 0.68f, 0.10f, 0.60f, 0.44f, 0.40f, 0.44f, 0.14f,
     )
-    val path = Path().apply {
+    val path = path.apply {
+        reset()
         moveTo(w * pts[0], h * pts[1])
         var i = 2
         while (i < pts.size) {
@@ -521,11 +546,12 @@ private fun DrawScope.drawPlane(color: Color) {
 }
 
 /** Eye comfort: an eye outline with a pupil. */
-private fun DrawScope.drawEye(color: Color) {
+private fun DrawScope.drawEye(color: Color, path: Path) {
     val s = size.minDimension
     val w = size.width
     val h = size.height
-    val path = Path().apply {
+    val path = path.apply {
+        reset()
         moveTo(w * 0.08f, h * 0.5f)
         cubicTo(w * 0.30f, h * 0.16f, w * 0.70f, h * 0.16f, w * 0.92f, h * 0.5f)
         cubicTo(w * 0.70f, h * 0.84f, w * 0.30f, h * 0.84f, w * 0.08f, h * 0.5f)
@@ -555,7 +581,7 @@ private fun DrawScope.drawCast(color: Color) {
 }
 
 /** NFC: an N in a rounded square. */
-private fun DrawScope.drawNfc(color: Color) {
+private fun DrawScope.drawNfc(color: Color, path: Path) {
     val s = size.minDimension
     val w = size.width
     val h = size.height
@@ -567,7 +593,8 @@ private fun DrawScope.drawNfc(color: Color) {
         cornerRadius = CornerRadius(s * 0.16f),
         style = stroke,
     )
-    val n = Path().apply {
+    val n = path.apply {
+        reset()
         moveTo(w * 0.37f, h * 0.66f)
         lineTo(w * 0.37f, h * 0.34f)
         lineTo(w * 0.63f, h * 0.66f)
@@ -596,10 +623,11 @@ private fun DrawScope.drawWifi(color: Color) {
     drawCircle(color, s * 0.08f, Offset(cx, cy - s * 0.02f))
 }
 
-private fun DrawScope.drawBluetooth(color: Color) {
+private fun DrawScope.drawBluetooth(color: Color, path: Path) {
     val w = size.width
     val h = size.height
-    val path = Path().apply {
+    val path = path.apply {
+        reset()
         moveTo(w * 0.28f, h * 0.30f)
         lineTo(w * 0.70f, h * 0.68f)
         lineTo(w * 0.50f, h * 0.88f)
@@ -670,10 +698,11 @@ private fun DrawScope.drawSun(color: Color) {
     }
 }
 
-private fun DrawScope.drawVolume(color: Color) {
+private fun DrawScope.drawVolume(color: Color, path: Path) {
     val w = size.width
     val h = size.height
-    val path = Path().apply {
+    val path = path.apply {
+        reset()
         moveTo(w * 0.12f, h * 0.38f)
         lineTo(w * 0.30f, h * 0.38f)
         lineTo(w * 0.52f, h * 0.16f)

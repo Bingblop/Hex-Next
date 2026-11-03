@@ -30,7 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -89,7 +89,9 @@ internal fun ColorPickerSheet(
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            var current by remember { mutableIntStateOf(initial or OPAQUE_ARGB) }
+            // Saved, so a rotation keeps the colour being edited (the draft preview survives it too)
+            // and Done commits the edit rather than the original colour.
+            var current by rememberSaveable { mutableIntStateOf(initial or OPAQUE_ARGB) }
             ColorPickerContent(
                 color = current,
                 shades = shades,
@@ -121,6 +123,12 @@ internal fun ColorPickerSheet(
     }
 }
 
+/** Saves the picker's hue, saturation and brightness as a float array. */
+private val HsvSaver: Saver<List<Float>, FloatArray> = Saver(
+    save = { it.toFloatArray() },
+    restore = { it.toList() },
+)
+
 /**
  * The body of a colour picker without its sheet: swatch with hex, the hex field, HSV sliders with
  * gradient tracks, presets and theme shades. Reused by the resource pin editor.
@@ -129,7 +137,8 @@ internal fun ColorPickerSheet(
 @Composable
 internal fun ColorPickerContent(color: Int, shades: Map<String, Int>, onColor: (Int) -> Unit) {
     // HSV is kept apart from the colour so the hue does not jump while saturation or brightness is 0.
-    var hsv by remember { mutableStateOf(hsvOf(color)) }
+    // Saved with the colour, so the sliders come back where they were after a rotation.
+    var hsv by rememberSaveable(stateSaver = HsvSaver) { mutableStateOf(hsvOf(color)) }
     val setColor: (Int) -> Unit = { argb ->
         hsv = hsvOf(argb)
         onColor(argb or OPAQUE_ARGB)
