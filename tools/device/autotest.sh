@@ -268,6 +268,8 @@ repair_lab() {
     git rebase --abort >/dev/null 2>&1; git merge --abort >/dev/null 2>&1
     git add -A results >/dev/null 2>&1
     git commit -qm "Results kept by the runner" >/dev/null 2>&1
+    # Anything else changed in the checkout (never ours to keep) is set aside so the pull can run.
+    git stash push -u -q -m "set aside by the runner" >/dev/null 2>&1
     if git pull -q --rebase 2>>"$HOME/.hexnext-lab-pull.err"; then git push -q >/dev/null 2>&1; exit 0; fi
     git rebase --abort >/dev/null 2>&1
     local backup="$HOME/hexnext-lab-backup-$(date +%Y%m%d-%H%M%S)"
