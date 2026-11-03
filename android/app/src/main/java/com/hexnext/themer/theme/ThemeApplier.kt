@@ -463,6 +463,9 @@ class ThemeApplier(context: Context) {
             }
             if (index >= 0) outcomes[index] = outcome else outcomes += outcome
         }
+        // A target whose sizes were dropped or failed loses its live value overlay below, so its
+        // saved request must lose them too, or repair would put them back.
+        compiled.targets.filter { it.valueOverlayName !in keep }.forEach { builder.saveValues(it.packageName, emptyList()) }
         removeStale()
     }
 
