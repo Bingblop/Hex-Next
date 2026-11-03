@@ -258,8 +258,30 @@ pending_jobs() {
   done
 }
 
+# A pull that fails (an interrupted rebase, results left uncommitted after a failed push, a
+# diverged branch): finish any half-done git operation, commit the waiting results, retry, and
+# as a last resort back the results up and reset to the lab repo, then push the results again.
+repair_lab() {
+  log "lab pull failed: $(tr '\n' ' ' <"$HOME/.hexnext-lab-pull.err" | cut -c1-200); repairing"
+  (
+    cd "$LAB" || exit 1
+    git rebase --abort >/dev/null 2>&1; git merge --abort >/dev/null 2>&1
+    git add -A results >/dev/null 2>&1
+    git commit -qm "Results kept by the runner" >/dev/null 2>&1
+    if git pull -q --rebase 2>>"$HOME/.hexnext-lab-pull.err"; then git push -q >/dev/null 2>&1; exit 0; fi
+    git rebase --abort >/dev/null 2>&1
+    local backup="$HOME/hexnext-lab-backup-$(date +%Y%m%d-%H%M%S)"
+    cp -r results "$backup" && git fetch -q origin && git reset -q --hard origin/HEAD 2>/dev/null || git reset -q --hard origin/main
+    cp -rn "$backup"/. results/ 2>/dev/null
+    git add -A results && git commit -qm "Results restored by the runner" >/dev/null 2>&1
+    git push -q >/dev/null 2>&1
+    echo "reset to the lab repo; results backed up in $backup"
+  ) && log "lab repaired" || log "lab repair failed; see $HOME/.hexnext-lab-pull.err"
+}
+
 sync_lab() {
-  if [ -d "$LAB/.git" ]; then (cd "$LAB" && git pull -q --rebase) || log "lab pull failed"
+  if [ -d "$LAB/.git" ]; then
+    (cd "$LAB" && git pull -q --rebase 2>"$HOME/.hexnext-lab-pull.err") || repair_lab
   else gh repo clone "$LAB_REPO" "$LAB" -- -q || { log "cannot clone $LAB_REPO"; exit 1; }; fi
   # Commits need an identity; use the signed-in account's no-reply address when git has none.
   if ! (cd "$LAB" && git var GIT_AUTHOR_IDENT >/dev/null 2>&1); then
