@@ -1,6 +1,3 @@
-# Hex Next theme packs (development hosting)
+# Hex Next packs (development hosting)
 
-Pack zips the Hex Next app downloads during development, served from
-`https://raw.githubusercontent.com/Bingblop/Hex-Next/packs/<file>`; `index.json` is the catalogue.
-This branch is history-free and unrelated to `main`. It is a testing convenience only:
-the release build fetches packs from an entitlement-checked server instead, and this branch goes away then.
+Theme packs for Hex Next. `index.json` is the catalogue; each `<id>.zip` holds `pack.json` and its drawables. This branch is temporary development hosting and moves to an entitlement-gated server before v1.0.
