@@ -39,7 +39,7 @@ class ValuePlannerTest {
         assertEquals(setOf(ShapeControls.TILE_CORNER), plan.controls)
         // The other candidates of the control are absent on this phone: skipped, never written.
         val absent = plan.skipped.filter { it.reason == ValuePlanner.REASON_NOT_IN_TARGET }.map { it.name }
-        assertTrue("$sysui:dimen/sec_qs_tile_corner_radius" in absent)
+        assertTrue("$sysui:dimen/common_tile_default_active_tile_corner_radius" in absent)
         assertTrue(plan.values.none { it.resourceName in absent })
     }
 
@@ -140,8 +140,8 @@ class ValuePlannerTest {
         assertEquals(listOf(tileCorner), tile.presentNames)
         assertEquals(28.0, tile.stock!!, 1e-6)
         assertFalse(controls.getValue(ShapeControls.PANEL_CORNER).available)
-        // notification_corner_radius also has a framework candidate; android was not scanned.
-        assertFalse(controls.getValue(ShapeControls.NOTIFICATION_CORNER).scanned)
+        // notification_corner_radius is a System UI name (confirmed on One UI 9), so it was scanned.
+        assertTrue(controls.getValue(ShapeControls.NOTIFICATION_CORNER).scanned)
         val none = ValuePlanner.availableControls(device(emptyMap()), rules)
         assertTrue(none.values.none { it.available || it.scanned })
     }

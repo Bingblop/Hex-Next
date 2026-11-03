@@ -168,6 +168,18 @@ class QuickPanelPartsOneUi9Test {
     }
 
     @Test
+    fun `panel text stays light at night on a light see-through panel colour`() {
+        // One UI 9 shows the panel colour over the dimmed shade, so a pale panel colour at night
+        // still reads as dark and the clock, date and big-tile labels must be light.
+        val pale = 0xFFB2EBF2.toInt()
+        val spec = ThemeSpec.default().withGroupColor(ColorGroup.QS_PANEL_BG, true, pale)
+        assertEquals(resolved.dark.shade(PaletteRole.NEUTRAL1, 10), spec.effectiveGroupColor(ColorGroup.QS_TEXT, resolved, true))
+        // Tile icons sit on opaque tiles and still follow the tile colour itself.
+        val tiles = ThemeSpec.default().withGroupColor(ColorGroup.QS_TILE_ACTIVE, true, pale)
+        assertEquals(resolved.dark.shade(PaletteRole.NEUTRAL1, 900), tiles.effectiveGroupColor(ColorGroup.QS_TILE_ICON_ON, resolved, true))
+    }
+
+    @Test
     fun `tile icons follow a custom tile colour unless the icons have their own`() {
         val pale = 0xFFFFF59D.toInt()
         val deep = 0xFF1A237E.toInt()

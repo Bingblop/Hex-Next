@@ -82,8 +82,19 @@ public enum class ColorGroup(
      */
     public fun auto(theme: ResolvedTheme, night: Boolean): Int {
         val base = contrastOn ?: return theme.scheme(night).shade(autoRole, if (night) autoDarkShade else autoLightShade)
-        return inkOn(theme, night, base.auto(theme, night))
+        return inkOn(theme, night, inkBackground(base.auto(theme, night), night))
     }
+
+    /**
+     * The colour this group's ink actually sits on when its base is [baseColor]. One UI 9 draws the
+     * Quick panel background see-through over the blurred, dimmed shade, and the header clock, date,
+     * buttons and big-tile labels sit right on that shade, so [QS_TEXT] is judged against the panel
+     * colour blended over the shade's dim, not against the opaque panel colour (which picked dark
+     * text on a dark shade for a light panel colour). Only at night: the day shade's frosting
+     * depends on the wallpaper, and the opaque colour is the better guess there.
+     */
+    internal fun inkBackground(baseColor: Int, night: Boolean): Int =
+        if (night && contrastOn == QS_PANEL_BG) blend(baseColor, NIGHT_SHADE_DIM, PANEL_OPACITY) else baseColor
 
     public companion object {
         /**
@@ -118,7 +129,7 @@ public fun ThemeSpec.groupColor(group: ColorGroup, night: Boolean): Int? = color
 public fun ThemeSpec.effectiveGroupColor(group: ColorGroup, theme: ResolvedTheme, night: Boolean): Int {
     groupColor(group, night)?.let { return it }
     val base = group.contrastOn ?: return group.auto(theme, night)
-    return ColorGroup.inkOn(theme, night, effectiveGroupColor(base, theme, night))
+    return ColorGroup.inkOn(theme, night, group.inkBackground(effectiveGroupColor(base, theme, night), night))
 }
 
 /** Every group's effective colour for night or day (for previews). */
@@ -142,6 +153,20 @@ public fun ThemeSpec.withAllGroupsAuto(): ThemeSpec = copy(colorGroups = emptyMa
 private const val OPAQUE_ALPHA: Int = 0xFF000000.toInt()
 private const val DARK_INK_SHADE: Int = 900
 private const val LIGHT_INK_SHADE: Int = 10
+
+/** How much of the Quick panel background colour shows over the shade (One UI 9 blur panel). */
+private const val PANEL_OPACITY: Double = 0.35
+private const val NIGHT_SHADE_DIM: Int = 0xFF000000.toInt()
+
+/** [top] at [opacity] over opaque [under]; the result is opaque. */
+private fun blend(top: Int, under: Int, opacity: Double): Int {
+    fun ch(shift: Int): Int {
+        val t = (top shr shift) and 0xFF
+        val u = (under shr shift) and 0xFF
+        return Math.round(t * opacity + u * (1 - opacity)).toInt().coerceIn(0, 255)
+    }
+    return OPAQUE_ALPHA or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+}
 
 /** WCAG contrast ratio of two colours, alpha ignored. */
 private fun contrast(a: Int, b: Int): Double {

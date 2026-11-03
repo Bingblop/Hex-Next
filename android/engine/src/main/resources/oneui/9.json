@@ -40,15 +40,16 @@
       "sesl_list_subheader_text_color_dark"
     ],
     "drawablesAllowed": false,
-    "_valuesNote": "Candidate names (AOSP and Samsung naming); the planner writes only names the phone's scan lists, so a wrong candidate is skipped, never written. Confirm with tools/device/collect.sh (hexnext-values.txt).",
+    "_valuesNote": "Names confirmed on One UI 9.0 (SM-S948U1 scan, hexnext-values.txt 2026-11-03). The planner still writes only names the phone's scan lists, so a name missing on another build is skipped.",
     "values": {
       "tileCorner": {
         "type": "dimen",
         "names": [
-          "com.android.systemui:dimen/qs_corner_radius",
-          "com.android.systemui:dimen/qs_tile_corner_radius",
-          "com.android.systemui:dimen/sec_qs_tile_corner_radius",
-          "com.android.systemui:dimen/sec_qs_tile_round_corner_radius"
+          "com.android.systemui:dimen/common_tile_default_active_tile_corner_radius",
+          "com.android.systemui:dimen/common_tile_default_inactive_tile_corner_radius",
+          "com.android.systemui:dimen/common_tile_default_active_icon_corner_radius",
+          "com.android.systemui:dimen/common_tile_default_inactive_icon_corner_radius",
+          "com.android.systemui:dimen/qs_corner_radius"
         ],
         "min": 0,
         "max": 40,
@@ -57,10 +58,10 @@
       "panelCorner": {
         "type": "dimen",
         "names": [
-          "com.android.systemui:dimen/notification_scrim_corner_radius",
-          "com.android.systemui:dimen/qs_panel_corner_radius",
-          "com.android.systemui:dimen/sec_qs_panel_corner_radius",
-          "com.android.systemui:dimen/sec_panel_corner_radius"
+          "com.android.systemui:dimen/panel_bar_corner_radius",
+          "com.android.systemui:dimen/panel_radius",
+          "com.android.systemui:dimen/overlay_shade_panel_shape_radius",
+          "com.android.systemui:dimen/notification_scrim_corner_radius"
         ],
         "min": 0,
         "max": 48,
@@ -71,8 +72,9 @@
         "names": [
           "com.android.systemui:dimen/rounded_slider_height",
           "com.android.systemui:dimen/brightness_slider_height",
-          "com.android.systemui:dimen/sec_brightness_slider_height",
-          "com.android.systemui:dimen/sec_qs_brightness_slider_height"
+          "com.android.systemui:dimen/brightness_slider_expanded_height",
+          "com.android.systemui:dimen/brightness_tile_layout_height",
+          "com.android.systemui:dimen/brightness_volume_area_height"
         ],
         "min": 24,
         "max": 64,
@@ -81,9 +83,7 @@
       "notificationCorner": {
         "type": "dimen",
         "names": [
-          "com.android.systemui:dimen/notification_corner_radius",
-          "com.android.systemui:dimen/sec_notification_corner_radius",
-          "android:dimen/notification_corner_radius"
+          "com.android.systemui:dimen/notification_corner_radius"
         ],
         "min": 0,
         "max": 40,
