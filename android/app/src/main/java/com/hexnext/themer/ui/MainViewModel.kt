@@ -238,6 +238,8 @@ data class PreviewState(
     val builtIn: Set<String> = emptySet(),
     /** The mode [icons] and [myFiles] were rendered for: true for the night jobs, false for the day jobs. */
     val night: Boolean = true,
+    /** The colours the compile plans for the mockup's targets ([ThemePreviewer.Preview.deviceColors]). */
+    val deviceColors: com.hexnext.themer.ui.studio.DeviceColors = com.hexnext.themer.ui.studio.DeviceColors(),
 )
 
 /** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
@@ -392,6 +394,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             iconsNight = icons.night,
             dragging = draftSpec != null || seedDraft != null,
             qsShapes = QsShapes.of(spec),
+            deviceColors = icons.deviceColors,
         )
     }
         .conflate()
@@ -1149,6 +1152,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         synthesised = rendered.synthesised,
                         builtIn = rendered.builtIn,
                         night = night,
+                        deviceColors = rendered.deviceColors,
                     ),
                 )
             }
@@ -1217,6 +1221,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val hasScan: Boolean = false,
         val note: String? = null,
         val night: Boolean = true,
+        val deviceColors: com.hexnext.themer.ui.studio.DeviceColors = com.hexnext.themer.ui.studio.DeviceColors(),
     )
 
     private fun imageOf(bitmap: Bitmap): ImageBitmap = synchronized(imageCache) {
@@ -1263,6 +1268,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             hasScan = SnapshotBuilder.scanStamp(getApplication<Application>()) != null,
             note = preview.note,
             night = inputs.night,
+            deviceColors = preview.deviceColors,
         )
     }
 

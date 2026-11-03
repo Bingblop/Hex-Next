@@ -140,8 +140,21 @@ internal class PreviewScope(
     val onTap: (ColorGroup) -> Unit,
     val font: FontFamily?,
     val reduceMotion: Boolean,
+    val device: com.hexnext.themer.ui.studio.DeviceColors = com.hexnext.themer.ui.studio.DeviceColors(),
 ) {
     val dark: Boolean get() = palette.dark
+
+    /**
+     * The colour System UI really gets for [name] from this theme (the compile preview), else
+     * [fallback]: the mockup's stand-in for One UI's own value or the group colour before a scan.
+     */
+    fun ui(name: String, fallback: Color): Color = device.systemUi.get(name, dark)?.let { Color(it) } ?: fallback
+
+    /** As [ui], for Settings resources. */
+    fun settings(name: String, fallback: Color): Color = device.settings.get(name, dark)?.let { Color(it) } ?: fallback
+
+    /** As [ui], for My Files resources. */
+    fun myFiles(name: String, fallback: Color): Color = device.myFiles.get(name, dark)?.let { Color(it) } ?: fallback
 
     operator fun get(group: ColorGroup): Color = palette[group]
 

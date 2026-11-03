@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -80,177 +82,164 @@ private fun categoryKey(key: String): String? {
     }
 }
 
-private class RecentFile(val name: String, val detail: String, val shade: String, val letter: String)
-
-private val RecentFiles = listOf(
-    RecentFile("IMG_20261102_0941.jpg", "4.2 MB · Today", "accent3_400", "J"),
-    RecentFile("Boarding pass.pdf", "312 KB · Yesterday", "accent1_400", "P"),
-    RecentFile("Voice memo 014.m4a", "1.8 MB · 31 Oct", "accent2_400", "A"),
+/** The six tiles of the One UI 9 category card, in its order (two columns). */
+private val GridCategories = listOf(
+    DefaultCategory("downloads", "Downloads", 0xFF2E8F86),
+    DefaultCategory("documents", "Docs", 0xFFD49A2A),
+    DefaultCategory("images", "Images", 0xFFE0577A),
+    DefaultCategory("audio", "Audio", 0xFF6E7BE0),
+    DefaultCategory("videos", "Videos", 0xFF9B5DE5),
+    DefaultCategory("apk", "Install files", 0xFF7DB33A),
 )
 
-/** My Files: header, recent thumbnails, a category grid, a storage card and a recent list. */
+/** The category card's six tiles: the theme's icon for a category when it has one, else One UI's. */
+internal fun gridCategories(icons: List<PreviewIcon>): List<Pair<String, PreviewIcon?>> {
+    val byKey = icons.associateBy { categoryKey(it.key) }
+    return GridCategories.map { it.label to byKey[it.key] }
+}
+
+private fun gridTint(label: String): Color =
+    Color(GridCategories.first { it.label == label }.argb)
+
+/**
+ * One UI 9 My Files, block by block as the phone shows it: the title, the rounded category card
+ * (two columns of six, round tinted icons; the theme's icons when it has them), the Recent files
+ * card with thumbnails, the Storage list (internal storage with its bar, Google Drive, OneDrive,
+ * Network storage), the start of Utilities and the floating search pill.
+ */
 @Composable
 internal fun PreviewMyFiles(state: StudioPreviewState, scope: PreviewScope, modifier: Modifier = Modifier) {
     val background = scope[ColorGroup.BACKGROUND]
     val surface = scope[ColorGroup.SURFACE]
-    val cardShape = RoundedCornerShape(20.dp)
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .fill(ColorGroup.BACKGROUND, scope)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Spacer(Modifier.height(14.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GroupText(
-                "My Files",
-                ColorGroup.TEXT_PRIMARY,
-                background,
-                scope,
-                modifier = Modifier.padding(start = 6.dp),
-                size = 22.sp,
-                weight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.weight(1f))
-            for (icon in listOf(Icons.Filled.Search, Icons.Filled.MoreVert)) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = scope.text(background, ColorGroup.ICON_TINT),
-                    modifier = Modifier
-                        .size(26.dp)
-                        .themed(ColorGroup.ICON_TINT, scope, CircleShape)
-                        .padding(3.dp),
-                )
-            }
-        }
-        RecentStrip(scope)
+    val accent = scope[ColorGroup.ACCENT]
+    val cardShape = RoundedCornerShape(22.dp)
+    Box(modifier.fillMaxSize().fill(ColorGroup.BACKGROUND, scope)) {
         Column(
             Modifier
-                .fillMaxWidth()
-                .fill(ColorGroup.SURFACE, scope, cardShape)
-                .padding(vertical = 12.dp, horizontal = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            for (row in categories(state.myFilesIcons).chunked(4)) {
-                Row(Modifier.fillMaxWidth()) {
-                    for (icon in row) {
-                        key(icon.key) {
-                            CategoryCell(icon, surface, state.iconsLoading, scope, Modifier.weight(1f))
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                GroupText("My Files", ColorGroup.ACCENT, background, scope, size = 19.sp, weight = FontWeight.SemiBold)
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Filled.MoreVert, contentDescription = null, tint = scope.text(background, ColorGroup.ICON_TINT), modifier = Modifier.size(18.dp).themed(ColorGroup.ICON_TINT, scope, CircleShape))
+            }
+            Column(
+                Modifier.fillMaxWidth().fill(ColorGroup.SURFACE, scope, cardShape).padding(horizontal = 10.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (row in gridCategories(state.myFilesIcons).chunked(2)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        for ((label, icon) in row) {
+                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                CategoryIcon(label, icon, surface, state.iconsLoading, scope)
+                                Spacer(Modifier.width(9.dp))
+                                GroupText(label, ColorGroup.TEXT_PRIMARY, surface, scope, size = 11.sp, weight = FontWeight.Medium)
+                            }
                         }
                     }
-                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+            RecentCard(surface, cardShape, scope)
+            SectionLabel("Storage", background, scope)
+            Column(Modifier.fillMaxWidth().fill(ColorGroup.SURFACE, scope, cardShape).padding(vertical = 4.dp)) {
+                StorageRow("Internal storage", "21% used", accent, 0.21f, surface, scope)
+                StorageRow("Google Drive", "32.15 TB free", accent, null, surface, scope)
+                StorageRow("OneDrive", "Not signed in", null, null, surface, scope)
+                StorageRow("Network storage", null, null, null, surface, scope, divider = false)
+            }
+            SectionLabel("Utilities", background, scope)
+            Box(Modifier.fillMaxWidth().height(40.dp).fill(ColorGroup.SURFACE, scope, cardShape))
+        }
+        SearchPill(surface, scope, Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp))
+    }
+}
+
+/** A category's round icon: the theme's bitmap, else One UI's tinted circle with a glyph-like dot. */
+@Composable
+private fun CategoryIcon(label: String, icon: PreviewIcon?, surface: Color, loading: Boolean, scope: PreviewScope) {
+    val bitmap = icon?.bitmap
+    if (icon != null && bitmap != null) {
+        PreviewIconImage(icon, loading, scope.reduceMotion, size = 28.dp)
+        return
+    }
+    val tint = gridTint(label)
+    Box(
+        Modifier.size(28.dp).clip(CircleShape).background(tint.copy(alpha = if (scope.dark) 0.22f else 0.16f).compositeOver(surface)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(11.dp).clip(RoundedCornerShape(3.dp)).background(tint))
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String, background: Color, scope: PreviewScope) {
+    GroupText(text, ColorGroup.TEXT_SECONDARY, background, scope, modifier = Modifier.padding(start = 12.dp, top = 2.dp), size = 11.sp, weight = FontWeight.Medium)
+}
+
+/** The Recent files card: header with chevron and four thumbnails. */
+@Composable
+private fun RecentCard(surface: Color, shape: RoundedCornerShape, scope: PreviewScope) {
+    Column(Modifier.fillMaxWidth().fill(ColorGroup.SURFACE, scope, shape).padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GroupText("Recent files", ColorGroup.TEXT_PRIMARY, surface, scope, modifier = Modifier.weight(1f), size = 12.sp, weight = FontWeight.SemiBold)
+            PText("›", scope.text(surface, ColorGroup.TEXT_SECONDARY), scope, size = 14.sp)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val photo = Brush.verticalGradient(listOf(Color(0xFFB9C7C9), Color(0xFF8C9A6B)))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(8.dp)).background(photo))
+            repeat(3) { i ->
+                Box(
+                    Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFF2F2F2)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PText(if (i < 2) "TXT" else "MD", Color(0xFF9A9A9A), scope, size = 10.sp, weight = FontWeight.SemiBold)
                 }
             }
         }
-        StorageCard(scope, cardShape)
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .fill(ColorGroup.SURFACE, scope, cardShape)
-                .padding(vertical = 4.dp),
-        ) {
-            for (file in RecentFiles) {
-                RecentRow(file, surface, scope)
+    }
+}
+
+@Composable
+private fun StorageRow(title: String, detail: String?, detailColor: Color?, used: Float?, surface: Color, scope: PreviewScope, divider: Boolean = true) {
+    val secondary = scope.text(surface, ColorGroup.TEXT_SECONDARY)
+    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 7.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(scope.text(surface, ColorGroup.ICON_TINT).copy(alpha = 0.8f)))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                GroupText(title, ColorGroup.TEXT_PRIMARY, surface, scope, size = 12.sp, weight = FontWeight.Medium)
+                if (detail != null) {
+                    if (detailColor != null) {
+                        GroupText(detail, ColorGroup.ACCENT, surface, scope, size = 10.sp)
+                    } else {
+                        PText(detail, secondary, scope, size = 10.sp)
+                    }
+                }
+            }
+            if (used != null) {
+                Box(Modifier.width(54.dp).height(5.dp).clip(CircleShape).background(secondary.copy(alpha = 0.3f))) {
+                    Box(Modifier.fillMaxWidth(used).fillMaxHeight().fill(ColorGroup.ACCENT, scope, CircleShape))
+                }
             }
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(7.dp))
+        if (divider) Box(Modifier.padding(start = 24.dp).fillMaxWidth().height(0.5.dp).background(secondary.copy(alpha = 0.25f)))
     }
 }
 
+/** The floating search pill One UI 9 keeps at the bottom of My Files and Settings. */
 @Composable
-private fun RecentStrip(scope: PreviewScope) {
-    val background = scope[ColorGroup.BACKGROUND]
-    val accent = scope[ColorGroup.ACCENT]
-    val p = scope.palette
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GroupText("Recent files", ColorGroup.TEXT_PRIMARY, background, scope, Modifier.padding(start = 6.dp), size = 12.sp, weight = FontWeight.SemiBold)
-            Spacer(Modifier.weight(1f))
-            GroupText("See all", ColorGroup.ACCENT, background, scope, Modifier.padding(end = 6.dp), size = 11.sp, weight = FontWeight.Medium)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val thumbs = listOf(
-                listOf(p.shade("accent1_200", accent), p.shade("accent1_500", accent)),
-                listOf(p.shade("accent3_200", accent), p.shade("accent3_500", accent)),
-                listOf(p.shade("accent2_200", accent), p.shade("accent2_500", accent)),
-            )
-            for (colors in thumbs) {
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .height(58.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Brush.linearGradient(colors))
-                        .themed(ColorGroup.SURFACE, scope, RoundedCornerShape(14.dp)),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryCell(icon: PreviewIcon, surface: Color, loading: Boolean, scope: PreviewScope, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        PreviewIconImage(icon, loading, scope.reduceMotion, size = 34.dp)
-        Spacer(Modifier.height(5.dp))
-        GroupText(icon.label, ColorGroup.TEXT_PRIMARY, surface, scope, size = 9.5.sp, align = TextAlign.Center)
-    }
-}
-
-@Composable
-private fun StorageCard(scope: PreviewScope, shape: RoundedCornerShape) {
-    val surface = scope[ColorGroup.SURFACE]
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .fill(ColorGroup.SURFACE, scope, shape)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GroupText("Internal storage", ColorGroup.TEXT_PRIMARY, surface, scope, Modifier.weight(1f), size = 13.sp, weight = FontWeight.Medium)
-            GroupText("84.2 GB / 256 GB", ColorGroup.TEXT_SECONDARY, surface, scope, size = 10.5.sp)
-        }
-        ProgressBar(
-            fraction = 0.33f,
-            group = ColorGroup.ACCENT,
-            track = scope.text(surface, ColorGroup.TEXT_SECONDARY).copy(alpha = 0.2f),
-            scope = scope,
-            modifier = Modifier.fillMaxWidth(),
-            height = 7.dp,
-        )
-        Row {
-            GroupText("Analyse storage", ColorGroup.ACCENT, surface, scope, Modifier.weight(1f), size = 11.sp, weight = FontWeight.Medium)
-            GroupText("Samsung Cloud", ColorGroup.ACCENT, surface, scope, size = 11.sp, weight = FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun RecentRow(file: RecentFile, surface: Color, scope: PreviewScope) {
-    val tile = scope.palette.shade(file.shade, scope[ColorGroup.ACCENT])
+internal fun SearchPill(surface: Color, scope: PreviewScope, modifier: Modifier = Modifier) {
+    val pill = scope.text(surface, ColorGroup.TEXT_PRIMARY).copy(alpha = 0.10f).compositeOver(surface)
     Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.width(150.dp).height(32.dp).clip(CircleShape).background(pill).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(tile),
-            contentAlignment = Alignment.Center,
-        ) {
-            PText(file.letter, contentColorFor(tile), scope, size = 12.sp, weight = FontWeight.SemiBold)
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            GroupText(file.name, ColorGroup.TEXT_PRIMARY, surface, scope, size = 12.sp, weight = FontWeight.Medium)
-            GroupText(file.detail, ColorGroup.TEXT_SECONDARY, surface, scope, size = 10.sp)
-        }
+        Icon(Icons.Filled.Search, contentDescription = null, tint = scope.text(pill, ColorGroup.TEXT_PRIMARY), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(6.dp))
+        PText("Search", scope.text(pill, ColorGroup.TEXT_PRIMARY), scope, Modifier.weight(1f), size = 12.sp)
     }
 }

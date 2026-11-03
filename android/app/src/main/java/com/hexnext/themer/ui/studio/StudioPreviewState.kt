@@ -111,6 +111,7 @@ data class StudioPreviewState(
     val iconsNight: Boolean = true,
     val dragging: Boolean = false,
     val qsShapes: QsShapes = QsShapes(),
+    val deviceColors: DeviceColors = DeviceColors(),
 ) {
     /** The scheme for [dark] mode. */
     fun scheme(dark: Boolean): PreviewScheme = if (dark) this.dark else light
@@ -177,3 +178,26 @@ data class QsShapes(
         }
     }
 }
+
+/**
+ * Colours one target's overlay really writes, by resource name (`qs_tile_round_background_on`),
+ * for the default configuration ([day]) and `night`. Read the way the phone resolves them: in
+ * dark mode the night value, else the default one.
+ */
+@Immutable
+data class ResourceColors(val day: Map<String, Int> = emptyMap(), val night: Map<String, Int> = emptyMap()) {
+    fun get(name: String, dark: Boolean): Int? = if (dark) night[name] ?: day[name] else day[name]
+    val isEmpty: Boolean get() = day.isEmpty() && night.isEmpty()
+}
+
+/**
+ * What the last compile preview plans for the targets the phone mockup draws, so each mockup
+ * element can show the exact colour of the resource that paints it on the phone. Empty before
+ * the first scan; the mockup then falls back to the colour groups.
+ */
+@Immutable
+data class DeviceColors(
+    val systemUi: ResourceColors = ResourceColors(),
+    val settings: ResourceColors = ResourceColors(),
+    val myFiles: ResourceColors = ResourceColors(),
+)

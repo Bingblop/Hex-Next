@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -29,7 +30,7 @@ import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.ui.DiagnosticsViewModel
 import com.hexnext.themer.ui.HexNextTheme
 import com.hexnext.themer.ui.MainViewModel
-import com.hexnext.themer.ui.preview.PhonePreview
+import com.hexnext.themer.ui.preview.BarePreviewScreen
 import com.hexnext.themer.ui.settings.AppSettingsStore
 import com.hexnext.themer.ui.studio.PreviewTab
 import com.hexnext.themer.ui.studio.StudioTheme
@@ -86,27 +87,18 @@ class AutotestActivity : ComponentActivity() {
     private fun showPreview() {
         val tab = runCatching { PreviewTab.valueOf(intent.getStringExtra("tab").orEmpty()) }.getOrDefault(PreviewTab.SETTINGS)
         val dark = intent.getBooleanExtra("dark", true)
+        // Icons and the compiled colours of the requested mode, as the Studio's dark switch does.
+        main.setPreviewDark(dark)
         main.refreshPreview()
+        enableEdgeToEdge()
         val settingsStore = AppSettingsStore.get(this)
         setContent {
             val settings by settingsStore.settings.collectAsStateWithLifecycle()
             val state by main.studioPreview.collectAsStateWithLifecycle()
             HexNextTheme(settings) {
                 StudioTheme {
-                    Box(
-                        Modifier.fillMaxSize().background(Color.Black).systemBarsPadding().padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.TopCenter,
-                    ) {
-                        PhonePreview(
-                            state = state,
-                            tab = tab,
-                            onTabChange = {},
-                            dark = dark,
-                            onDarkChange = {},
-                            onElementTap = {},
-                            modifier = Modifier.fillMaxWidth().wrapContentHeight(align = Alignment.Top, unbounded = true),
-                        )
-                    }
+                    // Bare: the screen alone at the real screen's size, for a 1:1 comparison.
+                    BarePreviewScreen(state, tab, dark, Modifier.fillMaxSize().background(Color.Black))
                 }
             }
             // Icons come from the compile preview: wait until they have loaded, then give the
@@ -120,6 +112,16 @@ class AutotestActivity : ComponentActivity() {
     }
 
     private fun runServiceCommand(cmd: String) {
+        // A plain status screen, so the phone does not look frozen during a long scan or apply.
+        setContent {
+            Box(Modifier.fillMaxSize().background(Color(0xFF0B1220)), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.Text(
+                    "Hex Next device lab\nRunning: $cmd\nLeave the phone alone until it finishes.",
+                    color = Color(0xFF7DE3F4),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
         lifecycleScope.launch {
             // Shizuku hands over its binder shortly after start; the startup safety check runs too.
             val ready = withTimeoutOrNull(60_000) { ShizukuManager.state.first { it is ShizukuState.Ready } }

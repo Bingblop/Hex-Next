@@ -12,6 +12,8 @@ import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.OneUiRules
 import com.hexnext.engine.compile.PlannedDrawableJob
 import com.hexnext.engine.compile.ThemeCompiler
+import com.hexnext.themer.ui.studio.DeviceColors
+import com.hexnext.themer.ui.studio.ResourceColors
 import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.map.PlannedColor
 import com.hexnext.engine.pack.DirectoryPackResolver
@@ -107,6 +109,7 @@ class ThemePreviewer(context: Context) {
         val synthesised: Set<String> = emptySet(),
         val builtIn: Set<String> = emptySet(),
         val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
+        val deviceColors: DeviceColors = DeviceColors(),
     )
 
     /**
@@ -221,7 +224,12 @@ class ThemePreviewer(context: Context) {
             icons.isEmpty() -> skippedNote(compiled.skippedTargets.firstOrNull { it.name == TARGET }?.reason)
             else -> null
         }
-        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle)
+        val deviceColors = DeviceColors(
+            systemUi = colorsOf(compiled.target(SYSTEM_UI)),
+            settings = colorsOf(settings),
+            myFiles = colorsOf(myFilesTarget),
+        )
+        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle, deviceColors)
     }
 
     private fun slotsOrThrow(spec: ThemeSpec): SlotCatalogue {
@@ -458,6 +466,25 @@ class ThemePreviewer(context: Context) {
         return bestOf(custom.filter { it.resourceName == first }, night)
     }
 
+    /**
+     * The colours [target] will really write, by resource name: the default configuration and
+     * the night one. Other qualifiers (land, sw600dp …) are left out; the phone preview is a
+     * portrait phone.
+     */
+    private fun colorsOf(target: CompiledTarget?): ResourceColors {
+        if (target == null) return ResourceColors()
+        val day = HashMap<String, Int>()
+        val night = HashMap<String, Int>()
+        for (c in target.colors) {
+            val name = c.resourceName.substringAfter('/')
+            when {
+                c.configuration.isEmpty() -> day[name] = c.argb
+                c.configuration == "night" || c.configuration.startsWith("night-v") -> night[name] = c.argb
+            }
+        }
+        return ResourceColors(day, night)
+    }
+
     private fun accentOf(target: CompiledTarget, night: Boolean): Int? {
         val accent = target.colors.filter { it.resourceName.substringAfter('/') == ACCENT_COLOR }
         val chosen: PlannedColor? = accent.firstOrNull { isNight(it.configuration) == night }
@@ -524,7 +551,8 @@ class ThemePreviewer(context: Context) {
         }
         private const val TARGET = "com.android.settings"
         private const val MY_FILES = "com.sec.android.app.myfiles"
-        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES)
+        private const val SYSTEM_UI = "com.android.systemui"
+        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI)
         private const val ACCENT_COLOR = "sec_widget_round_and_bgcolor"
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"

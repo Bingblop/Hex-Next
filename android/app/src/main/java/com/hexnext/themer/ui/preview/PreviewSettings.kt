@@ -34,248 +34,148 @@ import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.themer.ui.studio.PreviewIcon
 import com.hexnext.themer.ui.studio.StudioPreviewState
 
-/** A default Settings row: shown when no icons are rendered yet, or to fill a short list. */
-private class SettingsRow(val title: String, val summary: String, val argb: Long)
+/** A One UI 9 Settings dashboard row; [argb] tints One UI's own icon when the theme has none. */
+private class SettingsRow(val title: String, val argb: Long)
 
-private val DefaultSettingsRows = listOf(
-    SettingsRow("Connections", "Wi-Fi, Bluetooth, SIM manager", 0xFF3E91FF),
-    SettingsRow("Connected devices", "Quick Share, Android Auto", 0xFF22B8A6),
-    SettingsRow("Modes and Routines", "Modes, Routines", 0xFF38B26B),
-    SettingsRow("Sounds and vibration", "Sound mode, Ringtone", 0xFF7A5CFF),
-    SettingsRow("Notifications", "Status bar, Do not disturb", 0xFFFF7043),
-    SettingsRow("Display", "Brightness, Eye comfort shield", 0xFFF6B92B),
-    SettingsRow("Battery", "Power saving, Charging", 0xFF34C759),
-    SettingsRow("Wallpaper and style", "Wallpapers, Colour palette", 0xFFFF4F8B),
-    SettingsRow("Themes", "Themes, Wallpapers, Icons", 0xFFB14DFF),
-    SettingsRow("Home screen", "Layout, App icon badges", 0xFF4F7BFF),
-    SettingsRow("Lock screen and AOD", "Screen lock type, Always On Display", 0xFF5C6BC0),
-    SettingsRow("Security and privacy", "Biometrics, Permission manager", 0xFF3DA5F4),
+/** The One UI 9 dashboard, group by group, in the phone's order (lab-002 screenshots). */
+private val DashboardGroups: List<List<SettingsRow>> = listOf(
+    listOf(SettingsRow("Accounts and backup", 0xFF3E91FF), SettingsRow("Google services", 0xFF4F7BFF)),
+    listOf(SettingsRow("Connections", 0xFF3E91FF), SettingsRow("Device care", 0xFF38B26B), SettingsRow("Apps", 0xFF3DA5F4)),
+    listOf(
+        SettingsRow("Display", 0xFFF6B92B), SettingsRow("Advanced features", 0xFFFF7043),
+        SettingsRow("Wallpaper and style", 0xFFFF4F8B), SettingsRow("General management", 0xFF3DA5F4),
+    ),
+    listOf(
+        SettingsRow("Galaxy AI", 0xFF7A5CFF), SettingsRow("Sounds and vibration", 0xFF22B8A6),
+        SettingsRow("Notifications", 0xFFFF7043), SettingsRow("Themes", 0xFFB14DFF),
+    ),
+    listOf(
+        SettingsRow("Security and privacy", 0xFF5C6BC0), SettingsRow("Lock screen and AOD", 0xFFFF7043),
+        SettingsRow("Accessibility", 0xFF38B26B), SettingsRow("Location", 0xFF22B8A6),
+    ),
+    listOf(SettingsRow("About phone", 0xFF3DA5F4), SettingsRow("Developer options", 0xFFFF4F8B)),
 )
 
-private const val MIN_ROWS = 10
-private const val MAX_ROWS = 12
-private const val ROWS_PER_CARD = 3
+/** The significant words of a label, for matching a rendered icon to its dashboard row. */
+private fun words(label: String): Set<String> =
+    label.lowercase().split(' ', '_', '-').filter { it.length > 3 && it != "settings" }.toSet()
 
-/** The summary line for a row titled [label], empty when the label is not a known row. */
-private fun summaryFor(label: String): String {
-    DefaultSettingsRows.firstOrNull { it.title.equals(label, ignoreCase = true) }?.let { return it.summary }
-    val word = label.substringBefore(' ').lowercase()
-    if (word.length < 4) return ""
-    return DefaultSettingsRows.firstOrNull { it.title.lowercase().startsWith(word) }?.summary.orEmpty()
+/**
+ * Each dashboard row with the theme's rendered icon for it (matched by label), else a default
+ * badge in One UI's colour for that row.
+ */
+private fun dashboard(icons: List<PreviewIcon>): List<List<PreviewIcon>> {
+    val pool = icons.distinctBy { it.key }.toMutableList()
+    return DashboardGroups.map { group ->
+        group.map { row ->
+            val want = words(row.title)
+            val match = pool.firstOrNull { it.label.equals(row.title, ignoreCase = true) }
+                ?: pool.firstOrNull { want.isNotEmpty() && words(it.label).any { w -> w in want } }
+            if (match != null) {
+                pool.remove(match)
+                match.copy(label = row.title)
+            } else {
+                PreviewIcon(key = "default:${row.title}", label = row.title, bitmap = null, fallbackArgb = row.argb.toInt())
+            }
+        }
+    }
 }
 
-/** The rendered icons first (unique by key), then default rows up to [MIN_ROWS]. */
-private fun settingsRows(icons: List<PreviewIcon>): List<PreviewIcon> {
-    val rendered = icons.distinctBy { it.key }.take(MAX_ROWS)
-    if (rendered.size >= MIN_ROWS) return rendered
-    val taken = rendered.mapTo(HashSet()) { it.label.lowercase() }
-    val fill = DefaultSettingsRows
-        .filter { it.title.lowercase() !in taken }
-        .take(MIN_ROWS - rendered.size)
-        .map { PreviewIcon(key = "default:${it.title}", label = it.title, bitmap = null, fallbackArgb = it.argb.toInt()) }
-    return rendered + fill
-}
-
-/** One UI Settings: title, search pill, account card, a suggestion card and grouped rows. */
+/**
+ * One UI 9 Settings as the phone shows it: the large centred title (the accent colour), the
+ * Samsung account row with its avatar, the dashboard in rounded groups (icon and title only,
+ * inset dividers) and the floating search pill.
+ */
 @Composable
 internal fun PreviewSettings(state: StudioPreviewState, scope: PreviewScope, modifier: Modifier = Modifier) {
     val background = scope[ColorGroup.BACKGROUND]
     val surface = scope[ColorGroup.SURFACE]
     val cardShape = RoundedCornerShape(20.dp)
-    val rows = settingsRows(state.settingsIcons)
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .fill(ColorGroup.BACKGROUND, scope)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Spacer(Modifier.height(30.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    val groups = dashboard(state.settingsIcons)
+    Box(modifier.fillMaxSize().fill(ColorGroup.BACKGROUND, scope)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Spacer(Modifier.height(64.dp))
             GroupText(
                 "Settings",
-                ColorGroup.TEXT_PRIMARY,
+                ColorGroup.ACCENT,
                 background,
                 scope,
-                modifier = Modifier.padding(start = 6.dp),
+                modifier = Modifier.align(Alignment.CenterHorizontally),
                 size = 26.sp,
                 weight = FontWeight.SemiBold,
             )
-            Spacer(Modifier.weight(1f))
-            Icon(
-                Icons.Filled.MoreVert,
-                contentDescription = null,
-                tint = scope.text(background, ColorGroup.ICON_TINT),
-                modifier = Modifier
-                    .size(26.dp)
-                    .themed(ColorGroup.ICON_TINT, scope, CircleShape)
-                    .padding(3.dp),
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        SearchPill(scope)
-        AccountCard(scope, cardShape)
-        SuggestionCard(scope, cardShape)
-        for (chunk in rows.chunked(ROWS_PER_CARD)) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .fill(ColorGroup.SURFACE, scope, cardShape)
-                    .padding(vertical = 4.dp),
-            ) {
-                for (icon in chunk) {
-                    key(icon.key) {
-                        SettingsRowItem(icon, surface, state.iconsLoading, scope)
+            Spacer(Modifier.height(54.dp))
+            AccountRow(scope, background)
+            for (group in groups) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .fill(ColorGroup.SURFACE, scope, cardShape)
+                        .padding(vertical = 2.dp),
+                ) {
+                    group.forEachIndexed { i, icon ->
+                        key(icon.key) {
+                            SettingsRowItem(icon, surface, state.iconsLoading, scope, divider = i < group.lastIndex)
+                        }
                     }
                 }
             }
+            Spacer(Modifier.height(56.dp))
         }
-        Footer(scope)
-        Spacer(Modifier.height(12.dp))
+        SearchPill(surface, scope, Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp))
     }
 }
 
 @Composable
-private fun SearchPill(scope: PreviewScope) {
-    val surface = scope[ColorGroup.SURFACE]
+private fun AccountRow(scope: PreviewScope, background: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
-            .fill(ColorGroup.SURFACE, scope, CircleShape)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Filled.Search,
-            contentDescription = null,
-            tint = scope.text(surface, ColorGroup.ICON_TINT),
-            modifier = Modifier
-                .size(18.dp)
-                .themed(ColorGroup.ICON_TINT, scope, CircleShape),
-        )
-        Spacer(Modifier.width(8.dp))
-        GroupText("Search settings", ColorGroup.TEXT_SECONDARY, surface, scope, size = 12.sp)
-    }
-}
-
-@Composable
-private fun AccountCard(scope: PreviewScope, shape: RoundedCornerShape) {
-    val surface = scope[ColorGroup.SURFACE]
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fill(ColorGroup.SURFACE, scope, shape)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+        Column(Modifier.weight(1f)) {
+            GroupText("Galaxy user", ColorGroup.TEXT_PRIMARY, background, scope, size = 14.sp, weight = FontWeight.SemiBold)
+            GroupText("Samsung account", ColorGroup.TEXT_SECONDARY, background, scope, size = 10.5.sp)
+        }
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(36.dp)
                 .fill(ColorGroup.ACCENT, scope, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Person, contentDescription = null, tint = scope.on(ColorGroup.ACCENT), modifier = Modifier.size(22.dp))
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            GroupText("Galaxy user", ColorGroup.TEXT_PRIMARY, surface, scope, size = 14.sp, weight = FontWeight.SemiBold)
-            GroupText("Samsung account · Profile, apps", ColorGroup.TEXT_SECONDARY, surface, scope, size = 11.sp)
+            Icon(Icons.Filled.Person, contentDescription = null, tint = scope.on(ColorGroup.ACCENT), modifier = Modifier.size(20.dp))
         }
     }
 }
 
-/** A row with a switch, a filled button and an accent link, so all controls are visible. */
 @Composable
-private fun SuggestionCard(scope: PreviewScope, shape: RoundedCornerShape) {
-    val surface = scope[ColorGroup.SURFACE]
-    val offTrack = scope.palette.shade(if (scope.dark) "neutral2_600" else "neutral2_200", Color.Gray)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .fill(ColorGroup.SURFACE, scope, shape)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                GroupText("Dark mode", ColorGroup.TEXT_PRIMARY, surface, scope, size = 13.sp, weight = FontWeight.Medium)
-                GroupText("Easier on the eyes at night", ColorGroup.TEXT_SECONDARY, surface, scope, size = 11.sp)
-            }
-            PreviewSwitch(checked = true, offTrack = offTrack, scope = scope)
+private fun SettingsRowItem(icon: PreviewIcon, surface: Color, loading: Boolean, scope: PreviewScope, divider: Boolean) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PreviewIconImage(icon, loading, scope.reduceMotion, size = 20.dp)
+            Spacer(Modifier.width(14.dp))
+            GroupText(icon.label, ColorGroup.TEXT_PRIMARY, surface, scope, modifier = Modifier.weight(1f), size = 13.sp, weight = FontWeight.Medium)
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                GroupText("Eye comfort shield", ColorGroup.TEXT_PRIMARY, surface, scope, size = 13.sp, weight = FontWeight.Medium)
-                GroupText("Off", ColorGroup.TEXT_SECONDARY, surface, scope, size = 11.sp)
-            }
-            PreviewSwitch(checked = false, offTrack = offTrack, scope = scope)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                GroupText("Software update", ColorGroup.TEXT_PRIMARY, surface, scope, size = 13.sp, weight = FontWeight.Medium)
-                GroupText(
-                    "What's new",
-                    ColorGroup.ACCENT,
-                    surface,
-                    scope,
-                    size = 11.sp,
-                    weight = FontWeight.Medium,
-                )
-            }
+        if (divider) {
             Box(
                 Modifier
-                    .fill(ColorGroup.BUTTON, scope, CircleShape)
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
-            ) {
-                PText("Download", scope.on(ColorGroup.BUTTON), scope, size = 11.sp, weight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsRowItem(icon: PreviewIcon, surface: Color, loading: Boolean, scope: PreviewScope) {
-    val summary = summaryFor(icon.label)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PreviewIconImage(icon, loading, scope.reduceMotion, size = 28.dp)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            GroupText(icon.label, ColorGroup.TEXT_PRIMARY, surface, scope, size = 13.sp, weight = FontWeight.Medium)
-            if (summary.isNotEmpty()) {
-                GroupText(summary, ColorGroup.TEXT_SECONDARY, surface, scope, size = 10.5.sp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Footer(scope: PreviewScope) {
-    val background = scope[ColorGroup.BACKGROUND]
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        GroupText("Looking for something else?", ColorGroup.TEXT_PRIMARY, background, scope, size = 12.sp, weight = FontWeight.Medium)
-        for (link in listOf("Reset", "Samsung Cloud", "Link to Windows")) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(4.dp)
-                        .clip(CircleShape)
-                        .background(scope[ColorGroup.ACCENT]),
-                )
-                Spacer(Modifier.width(8.dp))
-                GroupText(link, ColorGroup.ACCENT, background, scope, size = 12.sp, weight = FontWeight.Medium)
-            }
+                    .padding(start = 46.dp, end = 12.dp)
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(scope.text(surface, ColorGroup.TEXT_SECONDARY).copy(alpha = 0.25f)),
+            )
         }
     }
 }

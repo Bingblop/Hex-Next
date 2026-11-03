@@ -43,24 +43,20 @@ import com.hexnext.themer.ui.studio.QsShapes
 import com.hexnext.themer.ui.studio.StudioPreviewState
 
 /**
- * The colours behind the Quick panel: a soft gradient of the palette, standing in for whatever the
- * phone shows under the pulled-down panel (the app cannot know the real wallpaper).
+ * A stand-in for the blurred wallpaper One UI 9 shows behind the pulled-down panel (the app
+ * cannot read the real wallpaper): muted, so the panel colours on top read as they do on the
+ * phone. Day and night share it, as the phone's blur does.
  */
-internal fun wallpaperColors(scope: PreviewScope): List<Color> {
-    val p = scope.palette
-    val accent = scope[ColorGroup.ACCENT]
-    return if (scope.dark) {
-        listOf(p.shade("accent1_700", accent), p.shade("accent3_600", accent), p.shade("accent2_800", accent))
-    } else {
-        listOf(p.shade("accent1_300", accent), p.shade("accent3_200", accent), p.shade("accent2_400", accent))
-    }
-}
+internal val BlurredWallpaper: List<Color> = listOf(Color(0xFF69717C), Color(0xFF4C535D), Color(0xFF786A60))
+
+/** The colours behind the Quick panel ([BlurredWallpaper]); kept for the other System UI screens. */
+internal fun wallpaperColors(@Suppress("UNUSED_PARAMETER") scope: PreviewScope): List<Color> = BlurredWallpaper
 
 /**
- * The Quick panel backdrop: a sample wallpaper gradient under [ColorGroup.QS_PANEL_BG] at the
- * panel opacity. Custom Settings backgrounds never show here: they do not reach System UI.
- * Returns, through [content], the approximate colour the panel shows, so text can pick a readable
- * colour.
+ * The Quick panel backdrop: the blurred wallpaper under `sec_panel_background_color`, the colour
+ * the theme really writes (Samsung's see-through alpha kept), else [ColorGroup.QS_PANEL_BG] at the
+ * panel opacity before a scan. Returns, through [content], the approximate colour the panel shows,
+ * so text can pick a readable colour.
  */
 @Composable
 internal fun QsBackdrop(
@@ -69,10 +65,10 @@ internal fun QsBackdrop(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.(panel: Color) -> Unit,
 ) {
-    val gradient = wallpaperColors(scope)
+    val gradient = BlurredWallpaper
     val alpha = state.qsPanelAlpha.coerceIn(0f, 1f)
-    val panelColor = scope[ColorGroup.QS_PANEL_BG]
-    val effective = panelColor.copy(alpha = alpha).compositeOver(gradient[1])
+    val panelColor = scope.ui("sec_panel_background_color", scope[ColorGroup.QS_PANEL_BG].copy(alpha = alpha * 0.4f))
+    val effective = panelColor.compositeOver(gradient[1])
     Box(modifier.fillMaxSize()) {
         Box(
             Modifier
@@ -82,7 +78,7 @@ internal fun QsBackdrop(
         Box(
             Modifier
                 .fillMaxSize()
-                .background(panelColor.copy(alpha = alpha))
+                .background(panelColor)
                 .themed(ColorGroup.QS_PANEL_BG, scope),
         )
         content(effective)
@@ -121,8 +117,8 @@ private val QsTiles: List<QsTile> = listOf(
  * The light veil only keeps the card visible against the panel drawn in the same group colour;
  * on the phone the panel behind it is System UI's blur.
  */
-private fun containerColor(panel: Color, dark: Boolean): Color =
-    Color.White.copy(alpha = if (dark) 0.09f else 0.42f).compositeOver(panel)
+private fun containerColor(panel: Color, scope: PreviewScope): Color =
+    scope.ui("qs_tile_container_bg", Color.White.copy(alpha = if (scope.dark) 0.09f else 0.42f)).compositeOver(panel)
 
 /**
  * One UI 9 Quick panel in its default block order: status row, clock header, media pill, volume
@@ -132,12 +128,10 @@ private fun containerColor(panel: Color, dark: Boolean): Color =
 @Composable
 internal fun PreviewQuickPanel(state: StudioPreviewState, scope: PreviewScope, modifier: Modifier = Modifier) {
     QsBackdrop(state, scope, modifier) { panel ->
-        val ink = scope.text(panel, ColorGroup.QS_TEXT)
-        val container = containerColor(panel, scope.dark)
-        val shapes = state.qsShapes
-        // The theme's slider thickness replaces the slider's share of the height.
-        val sliderHeight = QsShapes.previewDp(shapes.sliderThickness, DEFAULT_SLIDER_DP, LocalDensity.current)
-        fun Modifier.slider(): Modifier = if (sliderHeight != null) this.height(sliderHeight.dp) else this
+        val ink = scope.ui("shade_header_clock_color", scope.text(panel, ColorGroup.QS_TEXT))
+        val container = containerColor(panel, scope)
+        // One UI 9 keeps its own tile, card and slider shapes in this panel (device lab, lab-002):
+        // the theme's shape sizes reach the notification shade only, so they are not drawn here.
         Column(
             Modifier
                 .fillMaxSize()
@@ -147,17 +141,17 @@ internal fun PreviewQuickPanel(state: StudioPreviewState, scope: PreviewScope, m
             QsStatusRow(ink, scope)
             QsHeader(ink, scope)
             MediaPill(panel, scope, Modifier.weight(1f))
-            QsSlider(Glyph.NOTE, 0.30f, "21", scope, if (sliderHeight != null) Modifier.slider() else Modifier.weight(1f))
-            TileCard(container, scope, shapes, Modifier.weight(5.2f))
-            QsSlider(Glyph.SUN, 0.05f, "5", scope, if (sliderHeight != null) Modifier.slider() else Modifier.weight(1f))
+            QsSlider(Glyph.NOTE, 0.30f, "21", scope, Modifier.weight(1f))
+            TileCard(container, scope, Modifier.weight(5.2f))
+            QsSlider(Glyph.SUN, 0.33f, "33", scope, Modifier.weight(1f))
             Row(
                 Modifier
                     .fillMaxWidth()
                     .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ConnectionPill("Bluetooth", null, Glyph.BLUETOOTH, container, scope, Modifier.weight(1f))
-                ConnectionPill("Wi-Fi", "TheParkAveFi", Glyph.WIFI, container, scope, Modifier.weight(1f))
+                ConnectionPill("Bluetooth", null, Glyph.BLUETOOTH, true, container, scope, Modifier.weight(1f))
+                ConnectionPill("Wi-Fi", null, Glyph.WIFI, false, container, scope, Modifier.weight(1f))
             }
         }
     }
@@ -205,8 +199,8 @@ private fun QsHeader(ink: Color, scope: PreviewScope) {
  */
 @Composable
 private fun MediaPill(panel: Color, scope: PreviewScope, modifier: Modifier = Modifier) {
-    val card = scope[ColorGroup.NOTIFICATION_BG].copy(alpha = 0.88f).compositeOver(panel)
-    val ink = contentColorFor(card)
+    val card = scope.ui("sec_qs_media_player_background_color", scope[ColorGroup.NOTIFICATION_BG].copy(alpha = 0.88f)).compositeOver(panel)
+    val ink = readableOn(scope.ui("media_primary_text", contentColorFor(card)), card)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -216,34 +210,34 @@ private fun MediaPill(panel: Color, scope: PreviewScope, modifier: Modifier = Mo
     ) {
         GlyphIcon(Glyph.NOTE, ink.copy(alpha = 0.85f), Modifier.size(14.dp))
         Spacer(Modifier.width(8.dp))
-        GroupText("Play music", ColorGroup.TEXT_PRIMARY, card, scope, size = 12.sp, weight = FontWeight.Medium)
+        PText("Play music", ink, scope, size = 12.sp, weight = FontWeight.Medium)
         Spacer(Modifier.weight(1f))
         GlyphIcon(Glyph.SPEAKER, ink.copy(alpha = 0.85f), Modifier.size(18.dp))
     }
 }
 
 /**
- * A thick One UI 9 slider pill. One UI 9 draws the panel's brightness and volume sliders in the
- * tile colours (Samsung's own Theme Park sets no other slider colours there): a
- * [ColorGroup.QS_TILE_INACTIVE] track, a rounded [ColorGroup.QS_TILE_ACTIVE] block at the start
- * holding [glyph] in [ColorGroup.QS_TILE_ICON_ON] (`animated_brightness_sun_icon_color`), and the
- * level number at the end of the track. Track and fill are each tappable as their own group.
+ * A thick One UI 9 slider pill: a light see-through track (One UI's own; the theme sets no track
+ * colour here), the filled part in `soundcraft_volume_progress_color_control` (the colour the
+ * phone fills both panel sliders with), the glyph in `animated_brightness_sun_icon_color` and the
+ * level at the end. Track and fill stay tappable as the tile groups they follow in the Studio.
  */
 @Composable
 private fun QsSlider(glyph: Glyph, fraction: Float, level: String, scope: PreviewScope, modifier: Modifier = Modifier) {
-    val track = scope[ColorGroup.QS_TILE_INACTIVE]
-    val fill = scope[ColorGroup.QS_TILE_ACTIVE]
+    val track = Color.White.copy(alpha = 0.72f).compositeOver(BlurredWallpaper[1])
+    val fill = scope.ui("soundcraft_volume_progress_color_control", scope[ColorGroup.QS_TILE_ACTIVE])
+    val glyphColor = readableOn(scope.ui("animated_brightness_sun_icon_color", scope[ColorGroup.QS_TILE_ICON_ON]), fill)
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .fill(ColorGroup.QS_TILE_INACTIVE, scope, CircleShape),
+            .fill(ColorGroup.QS_TILE_INACTIVE, scope, CircleShape, color = track),
         contentAlignment = Alignment.CenterStart,
     ) {
         val knob = maxHeight
         val filled = maxOf(maxWidth * fraction.coerceIn(0f, 1f), knob)
         PText(
             level,
-            readableOn(scope[ColorGroup.QS_TILE_ICON_OFF], track),
+            contentColorFor(track),
             scope,
             Modifier
                 .align(Alignment.CenterEnd)
@@ -255,11 +249,11 @@ private fun QsSlider(glyph: Glyph, fraction: Float, level: String, scope: Previe
             Modifier
                 .width(filled)
                 .fillMaxHeight()
-                .fill(ColorGroup.QS_TILE_ACTIVE, scope, CircleShape),
+                .fill(ColorGroup.QS_TILE_ACTIVE, scope, CircleShape, color = fill),
             contentAlignment = Alignment.CenterStart,
         ) {
             Box(Modifier.size(knob), contentAlignment = Alignment.Center) {
-                GlyphIcon(glyph, readableOn(scope[ColorGroup.QS_TILE_ICON_ON], fill), Modifier.size(16.dp).themed(ColorGroup.QS_TILE_ICON_ON, scope, CircleShape))
+                GlyphIcon(glyph, glyphColor, Modifier.size(16.dp).themed(ColorGroup.QS_TILE_ICON_ON, scope, CircleShape))
             }
         }
     }
@@ -270,8 +264,8 @@ private fun QsSlider(glyph: Glyph, fraction: Float, level: String, scope: Previe
  * the theme's panel corner, the tiles' the theme's tile corner ([QsShapes]).
  */
 @Composable
-private fun TileCard(container: Color, scope: PreviewScope, shapes: QsShapes, modifier: Modifier = Modifier) {
-    val corner = QsShapes.previewDp(shapes.panelCorner, DEFAULT_PANEL_CORNER_DP, LocalDensity.current) ?: DEFAULT_PANEL_CORNER_DP
+private fun TileCard(container: Color, scope: PreviewScope, modifier: Modifier = Modifier) {
+    val corner = DEFAULT_PANEL_CORNER_DP
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -286,7 +280,7 @@ private fun TileCard(container: Color, scope: PreviewScope, shapes: QsShapes, mo
                     .weight(1f),
             ) {
                 for (tile in row) {
-                    RoundTile(tile, scope, shapes.tileCorner, Modifier.weight(1f).fillMaxHeight())
+                    RoundTile(tile, scope, Modifier.weight(1f).fillMaxHeight())
                 }
             }
         }
@@ -301,24 +295,22 @@ private fun TileCard(container: Color, scope: PreviewScope, shapes: QsShapes, mo
 }
 
 /**
- * A label-less round tile: [ColorGroup.QS_TILE_ACTIVE] with a [ColorGroup.QS_TILE_ICON_ON] icon
- * when on, [ColorGroup.QS_TILE_INACTIVE] with a [ColorGroup.QS_TILE_ICON_OFF] icon when off.
+ * A label-less round tile, as the phone draws it: on, a `qs_tile_round_background_on` circle with
+ * a `qs_tile_icon_on_dim_tint_color` glyph; off, the faint `qs_tile_round_background_off` circle
+ * with a `qs_tile_icon_off_tint_color` glyph. Always round: One UI 9 ignores tile corner sizes.
  */
 @Composable
-private fun RoundTile(tile: QsTile, scope: PreviewScope, corner: ValueSetting?, modifier: Modifier = Modifier) {
+private fun RoundTile(tile: QsTile, scope: PreviewScope, modifier: Modifier = Modifier) {
     val group = if (tile.active) ColorGroup.QS_TILE_ACTIVE else ColorGroup.QS_TILE_INACTIVE
     val iconGroup = if (tile.active) ColorGroup.QS_TILE_ICON_ON else ColorGroup.QS_TILE_ICON_OFF
-    val fill = scope[group]
-    val glyphColor = scope[iconGroup]
+    val fill = qsTileFill(tile.active, scope)
+    val glyphColor = qsTileGlyph(tile.active, scope)
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val diameter = minOf(maxWidth, maxHeight) * 0.84f
-        // One UI draws the tiles round; a theme tile corner squares them off (capped at a circle).
-        val radius = QsShapes.previewDp(corner, diameter.value / 2f, LocalDensity.current)?.coerceAtMost(diameter.value / 2f)
-        val shape = if (radius == null) CircleShape else RoundedCornerShape(radius.dp)
         Box(
             Modifier
                 .size(diameter)
-                .fill(group, scope, shape),
+                .fill(group, scope, CircleShape, color = fill),
             contentAlignment = Alignment.Center,
         ) {
             val iconSize = diameter * 0.42f
@@ -334,22 +326,32 @@ private fun RoundTile(tile: QsTile, scope: PreviewScope, corner: ValueSetting?, 
     }
 }
 
+/** The fill of a round Quick panel tile, on or off, as System UI paints it. */
+internal fun qsTileFill(active: Boolean, scope: PreviewScope): Color =
+    if (active) scope.ui("qs_tile_round_background_on", scope[ColorGroup.QS_TILE_ACTIVE])
+    else scope.ui("qs_tile_round_background_off", scope[ColorGroup.QS_TILE_INACTIVE].copy(alpha = 0.25f))
+
+/** The glyph colour of a round Quick panel tile, on or off. */
+internal fun qsTileGlyph(active: Boolean, scope: PreviewScope): Color =
+    if (active) scope.ui("qs_tile_icon_on_dim_tint_color", scope[ColorGroup.QS_TILE_ICON_ON])
+    else scope.ui("qs_tile_icon_off_tint_color", scope[ColorGroup.QS_TILE_ICON_OFF])
+
 /**
- * A wide connection pill (Bluetooth, Wi-Fi): the translucent container with a large
- * [ColorGroup.QS_TILE_ACTIVE] circle at the start holding the glyph in
- * [ColorGroup.QS_TILE_ICON_ON], and the [ColorGroup.QS_TEXT] label beside it.
+ * A wide connection pill (Bluetooth, Wi-Fi) on the `qs_tile_container_bg` card: a large round
+ * tile at the start (on or off, as [RoundTile]) and the `qs_tile_label` text beside it.
  */
 @Composable
 private fun ConnectionPill(
     title: String,
     subtitle: String?,
     glyph: Glyph,
+    active: Boolean,
     container: Color,
     scope: PreviewScope,
     modifier: Modifier = Modifier,
 ) {
-    val active = scope[ColorGroup.QS_TILE_ACTIVE]
-    val ink = scope.text(container, ColorGroup.QS_TEXT)
+    val fill = qsTileFill(active, scope)
+    val ink = readableOn(scope.ui("qs_tile_label", scope[ColorGroup.QS_TEXT]), container)
     Row(
         modifier = modifier
             .fillMaxHeight()
@@ -362,13 +364,13 @@ private fun ConnectionPill(
             Box(
                 Modifier
                     .size(circle)
-                    .fill(ColorGroup.QS_TILE_ACTIVE, scope, CircleShape),
+                    .fill(if (active) ColorGroup.QS_TILE_ACTIVE else ColorGroup.QS_TILE_INACTIVE, scope, CircleShape, color = fill),
                 contentAlignment = Alignment.Center,
             ) {
                 GlyphIcon(
                     glyph,
-                    readableOn(scope[ColorGroup.QS_TILE_ICON_ON], active),
-                    Modifier.size(circle * 0.44f).themed(ColorGroup.QS_TILE_ICON_ON, scope, CircleShape),
+                    qsTileGlyph(active, scope),
+                    Modifier.size(circle * 0.44f).themed(if (active) ColorGroup.QS_TILE_ICON_ON else ColorGroup.QS_TILE_ICON_OFF, scope, CircleShape),
                 )
             }
         }
@@ -384,4 +386,3 @@ private fun ConnectionPill(
 
 /** The mockup's One UI 9 sizes in preview dp, for [QsShapes.previewDp]. */
 private const val DEFAULT_PANEL_CORNER_DP = 26f
-private const val DEFAULT_SLIDER_DP = 34f

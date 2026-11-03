@@ -62,8 +62,12 @@ shot() {
 
 # tap_desc <regex>: taps the centre of the first node whose content-desc matches.
 tap_desc() {
-  local xml bounds
-  xml=$(root "uiautomator dump /data/local/tmp/hexnext-ui.xml >/dev/null 2>&1; cat /data/local/tmp/hexnext-ui.xml")
+  local xml bounds try
+  for try in 1 2 3; do
+    xml=$(root "uiautomator dump /data/local/tmp/hexnext-ui.xml >/dev/null 2>&1 && cat /data/local/tmp/hexnext-ui.xml" 2>/dev/null)
+    [ -n "$xml" ] && break
+    sleep 1
+  done
   bounds=$(printf '%s' "$xml" | tr '>' '\n' | grep -iE "content-desc=\"($1)\"" | head -1 | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p')
   [ -n "$bounds" ] || return 1
   set -- $bounds
@@ -176,14 +180,22 @@ capture_real() {
 }
 
 capture_preview() {
-  local tab
+  local tab try
   case "$1" in
     settings) tab=SETTINGS ;; qs) tab=QUICK_PANEL ;; shade) tab=NOTIFICATIONS ;;
     power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; *) return 0 ;;
   esac
   local dark=true; [ "$MODE" = light ] && dark=false
-  hook preview --es tab "$tab" --ez dark "$dark" >>"$RES/hook.jsonl"
-  shot "$MODE-preview-$1"
+  # The hook's activity can lose the race with a closing panel: retry once, and only screenshot
+  # when the hook is really the screen on top.
+  for try in 1 2; do
+    if hook preview --es tab "$tab" --ez dark "$dark" >>"$RES/hook.jsonl" &&
+      root "dumpsys activity activities | grep -E 'topResumedActivity|mResumedActivity'" | grep -q AutotestActivity; then
+      shot "$MODE-preview-$1"; break
+    fi
+    log "preview $1: the hook was not on screen (try $try)"
+    home; root "am force-stop $PKG"; sleep 2
+  done
   root "am force-stop $PKG"
 }
 
