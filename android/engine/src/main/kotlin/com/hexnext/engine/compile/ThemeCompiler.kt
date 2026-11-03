@@ -465,10 +465,15 @@ public object ThemeCompiler {
         // Element groups beat role inference (and the verbatim copy of fixed colours).
         val groups = HashMap<Pair<String, String>, ColorGroup>()
         val reached = LinkedHashSet<Pair<String, String>>()
-        val qsAlpha = spec.qsPanelAlpha
+        val qsAlpha = spec.qsPanelAlpha.coerceAtLeast(ThemeSpec.MIN_QS_PANEL_ALPHA)
         for (entry in values.entries) {
             val key = entry.key
-            val group = ColorGroupMatcher.classify(pkg, key.first, inferred[key], rules) ?: continue
+            // A colour whose meaning is its hue (error, Sunday red) that no reliable shade explains
+            // would match by name alone; it keeps its role-inferred or verbatim value.
+            val match = inferred[key]
+            val reliable = match != null && match.deltaE <= RoleInference.DEFAULT_MAX_DELTA_E && match.alpha != 0
+            if (!reliable && ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(key.first.substringAfter('/'))) continue
+            val group = ColorGroupMatcher.classify(pkg, key.first, match, rules) ?: continue
             groups[key] = group
             var value = entry.value
             var changed = false
@@ -503,14 +508,25 @@ public object ThemeCompiler {
                     name.endsWith("_light") -> false
                     else -> null
                 }
+                // Configs the user left on Auto; each still needs its APK literal once the other is
+                // written, or the written default-config value would also match in that mode.
+                val untouched = mutableListOf<Pair<Pair<String, String>, Int>>()
+                var wrote = false
                 for (config in DAY_NIGHT) {
                     val literal = c.literals[config] ?: c.literals.getValue(c.literals.keys.first())
                     val key = c.typeName to config
                     val match = reference.infer(literal)
                     inferred[key] = match
-                    val m = ColorGroupMatcher.match(pkg, c.typeName, match, rules) ?: continue
-                    if (m.byFallback || m.group !in ColorGroupMatcher.TABLE_GROUPS) continue
-                    val user = spec.groupColor(m.group, forced ?: isNight(config)) ?: continue
+                    val m = ColorGroupMatcher.match(pkg, c.typeName, match, rules)
+                    val user = if (m == null || m.byFallback || m.group !in ColorGroupMatcher.TABLE_GROUPS) {
+                        null
+                    } else {
+                        spec.groupColor(m.group, forced ?: isNight(config))
+                    }
+                    if (m == null || user == null) {
+                        untouched += key to literal
+                        continue
+                    }
                     var value = ColorGroupMatcher.groupValue(m.group, user, literal, match)
                     if (m.group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) value = ColorMath.withAlpha(value, qsAlpha)
                     values[key] = value
@@ -518,7 +534,9 @@ public object ThemeCompiler {
                     tableObserved[key] = literal
                     reached += key
                     tableAdded++
+                    wrote = true
                 }
+                if (wrote) for ((key, literal) in untouched) values[key] = literal
             }
         }
 

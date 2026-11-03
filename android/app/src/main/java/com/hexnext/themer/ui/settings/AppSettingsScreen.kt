@@ -131,7 +131,7 @@ fun AppSettingsScreen(
                 SectionCard("AI providers") {
                     NavRow(
                         title = "API keys",
-                        summary = "Add your own keys to generate icons from a short description.",
+                        summary = "Add your own key to create a theme from a description and to draw icons with AI.",
                         onClick = onOpenAiProviders,
                     )
                 }

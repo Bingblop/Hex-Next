@@ -118,7 +118,7 @@ private fun IconStrip(preview: StudioPreviewState) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(preview.dark.color(com.hexnext.engine.compile.ColorGroup.BACKGROUND)))
+            .background(Color(preview.scheme(preview.iconsNight).color(com.hexnext.engine.compile.ColorGroup.BACKGROUND)))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
             .semantics(mergeDescendants = true) { contentDescription = "Icon preview, ${icons.size} icons" }
             .padding(12.dp),
@@ -129,7 +129,7 @@ private fun IconStrip(preview: StudioPreviewState) {
                 Text(
                     if (preview.iconsLoading) "Rendering icons…" else "No icons to show yet.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(preview.dark.color(com.hexnext.engine.compile.ColorGroup.TEXT_SECONDARY)),
+                    color = Color(preview.scheme(preview.iconsNight).color(com.hexnext.engine.compile.ColorGroup.TEXT_SECONDARY)),
                 )
             }
         } else {

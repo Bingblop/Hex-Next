@@ -121,7 +121,7 @@ fun DescribeThemeCard(
                 Column(Modifier.weight(1f)) {
                     Text("Turn a sentence into a palette", style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Add an AI key in App settings to get started.",
+                        "Tap here to add your AI API key, then describe the theme you want.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

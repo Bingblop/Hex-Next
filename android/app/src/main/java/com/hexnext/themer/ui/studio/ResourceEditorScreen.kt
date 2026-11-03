@@ -64,9 +64,12 @@ import com.hexnext.engine.compile.ColorPin
 import com.hexnext.engine.compile.ResourceColor
 import com.hexnext.engine.palette.PaletteRole
 import com.hexnext.engine.palette.ShadeScale
+import com.hexnext.themer.ui.DiagnosticsViewModel
 import com.hexnext.themer.ui.EmptyState
 import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.UiState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /** The list filters of the resource editor. */
 private enum class ResourceFilter(val label: String) {
@@ -130,6 +133,13 @@ fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
     BackHandler { viewModel.navigateBack() }
     DisposableEffect(model) { onDispose { model.release() } }
     LaunchedEffect(ui.spec) { model.setSpec(ui.spec) }
+    // The scan report is read on every visit and again when a scan finishes (the activity-scoped
+    // Diagnostics model keeps scanning after Back), so "Scan phone" never leaves a stale list.
+    val diagnostics: DiagnosticsViewModel = viewModel()
+    LaunchedEffect(diagnostics, model) {
+        // The finish id also catches a rescan that reuses the report's file name.
+        diagnostics.state.map { it.latestReportJson to it.scanFinishedId }.distinctUntilChanged().collect { model.refresh() }
+    }
     // A Targets row opens the editor on its app: select it once the scanned app list is in.
     val preselect by viewModel.resourcesTarget.collectAsState()
     LaunchedEffect(preselect, state.targets, state.hasScan) {
@@ -425,9 +435,12 @@ private fun PinSheet(entry: ResourceEntry, shades: Map<String, Int>, onPin: (Col
         else -> null
     }
     var mode by rememberSaveable { mutableStateOf(if (existing is ColorPin.Shade) PinMode.SHADE else PinMode.FIXED) }
-    var color by rememberSaveable {
-        mutableIntStateOf((existing as? ColorPin.Fixed)?.argb ?: (entry.day ?: entry.night)?.observed ?: 0)
-    }
+    val startArgb = (existing as? ColorPin.Fixed)?.argb ?: (entry.day ?: entry.night)?.observed
+    // The picker has no alpha control and always returns opaque colours, so a fixed pin keeps the
+    // alpha of the colour it starts from: a translucent scrim, dim or ripple stays translucent.
+    // A fully transparent or unknown start falls back to opaque so the pin is visible.
+    val pinAlpha = startArgb?.let { it and OPAQUE_ARGB }?.takeIf { it != 0 } ?: OPAQUE_ARGB
+    var color by rememberSaveable { mutableIntStateOf(startArgb ?: 0) }
     var shadeKey by rememberSaveable { mutableStateOf(startShade) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -474,7 +487,7 @@ private fun PinSheet(entry: ResourceEntry, shades: Map<String, Int>, onPin: (Col
                 }
             }
             val pin: ColorPin? = when (mode) {
-                PinMode.FIXED -> ColorPin.Fixed(color or OPAQUE_ARGB)
+                PinMode.FIXED -> ColorPin.Fixed((color and 0x00FFFFFF) or pinAlpha)
                 PinMode.SHADE -> shadeKey?.let(::shadePinOf)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -81,6 +81,7 @@ data class PreviewScheme(
  * @property iconsLoading true while the compile preview is rendering icons.
  * @property hasScan false before the first device scan: icons are built-in or fallbacks only.
  * @property note a short line under the mockup (why icons are missing), null for none.
+ * @property iconsNight true when the icons were rendered for dark mode (night jobs), false for light.
  */
 @Immutable
 data class StudioPreviewState(
@@ -98,6 +99,7 @@ data class StudioPreviewState(
     val iconsLoading: Boolean = false,
     val hasScan: Boolean = false,
     val note: String? = null,
+    val iconsNight: Boolean = true,
 ) {
     /** The scheme for [dark] mode. */
     fun scheme(dark: Boolean): PreviewScheme = if (dark) this.dark else light

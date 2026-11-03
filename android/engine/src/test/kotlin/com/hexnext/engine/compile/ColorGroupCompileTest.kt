@@ -43,9 +43,9 @@ class ColorGroupCompileTest {
             Triple("sesl_switch_thumb_on_color", ref("system_neutral1_10"), ""),
             Triple("sesl_switch_thumb_on_color", ref("system_neutral1_10"), "night"),
             Triple("sesl_round_and_bgcolor_light", ref("system_neutral1_50"), ""),
-            Triple("sesl_round_and_bgcolor_light", ref("system_neutral1_900"), "night"),
+            Triple("sesl_round_and_bgcolor_light", ref("system_neutral1_1000"), "night"),
             Triple("sesl_background_color_light", ref("system_neutral1_10"), ""),
-            Triple("sesl_background_color_light", ref("system_neutral1_800"), "night"),
+            Triple("sesl_background_color_light", ref("system_neutral2_900"), "night"),
             Triple("sesl_action_bar_text_color_title_light", ref("system_neutral1_900"), ""),
             Triple("sesl_action_bar_text_color_title_light", ref("system_neutral1_50"), "night"),
             Triple("sec_widget_relative_link_text_color", ref("system_accent1_600"), ""),
@@ -144,11 +144,11 @@ class ColorGroupCompileTest {
         val stock = compile(baseSpec).target(settings)!!
         val dayOnly = compile(baseSpec.group(ColorGroup.BACKGROUND, red, null)).target(settings)!!
         assertEquals(red, dayOnly.color("sesl_round_and_bgcolor_light")!!.argb)
-        assertEquals(resolved.dark.shade(PaletteRole.NEUTRAL1, 900), dayOnly.color("sesl_round_and_bgcolor_light", "night")!!.argb)
+        assertEquals(resolved.dark.shade(PaletteRole.NEUTRAL1, 1000), dayOnly.color("sesl_round_and_bgcolor_light", "night")!!.argb)
         val nightOnly = compile(baseSpec.group(ColorGroup.BACKGROUND, null, blue)).target(settings)!!
         assertEquals(resolved.light.shade(PaletteRole.NEUTRAL1, 50), nightOnly.color("sesl_round_and_bgcolor_light")!!.argb)
         assertEquals(blue, nightOnly.color("sesl_round_and_bgcolor_light", "night")!!.argb)
-        // sesl_background_color is the card colour (neutral 10 / 800): Surface, not Background.
+        // sesl_background_color is the card colour (neutral1 10 / neutral2 900): Surface, not Background.
         assertEquals(stock.color("sesl_background_color_light"), dayOnly.color("sesl_background_color_light"))
         val cards = compile(baseSpec.group(ColorGroup.SURFACE, green, blue)).target(settings)!!
         assertEquals(green, cards.color("sesl_background_color_light")!!.argb)
@@ -250,9 +250,14 @@ class ColorGroupCompileTest {
         assertEquals(withAlpha(resolved.dark.shade(PaletteRole.NEUTRAL1, 900), 0x66), auto.color("quick_panel_bg", "night")!!.argb)
         // Tiles are not the panel.
         assertEquals(resolved.light.shade(PaletteRole.ACCENT1, 500), auto.color("qs_tile_bg")!!.argb)
-        val custom = compile(baseSpec.copy(qsPanelAlpha = 0x40).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!
-        assertEquals(withAlpha(blue, 0x40), custom.color("quick_panel_bg")!!.argb)
-        assertEquals(withAlpha(red, 0x40), custom.color("quick_panel_bg", "night")!!.argb)
+        val custom = compile(baseSpec.copy(qsPanelAlpha = 0x70).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!
+        assertEquals(withAlpha(blue, 0x70), custom.color("quick_panel_bg")!!.argb)
+        assertEquals(withAlpha(red, 0x70), custom.color("quick_panel_bg", "night")!!.argb)
+        // Below the floor the panel keeps a readable alpha; 0 never makes it fully transparent.
+        val floor = ThemeSpec.MIN_QS_PANEL_ALPHA
+        val clear = compile(baseSpec.copy(qsPanelAlpha = 0).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!
+        assertEquals(withAlpha(blue, floor), clear.color("quick_panel_bg")!!.argb)
+        assertEquals(withAlpha(red, floor), clear.color("quick_panel_bg", "night")!!.argb)
         // 255 leaves Samsung's alpha.
         assertEquals(compile(baseSpec).target(sysui)!!.contentHash, compile(baseSpec.copy(qsPanelAlpha = 255)).target(sysui)!!.contentHash)
     }
@@ -267,6 +272,14 @@ class ColorGroupCompileTest {
         assertEquals(blue, t.color("sesl_switch_track_on_color_dark", "night")!!.argb)
         // Status colours keep their meaning.
         assertNull(t.color("sec_error_card_background_color"))
+    }
+
+    @Test
+    fun `a day-only group colour keeps the APK literal at night on APK-only names`() {
+        val t = compile(baseSpec.group(ColorGroup.SURFACE, green, null)).target(settings)!!
+        assertEquals(green, t.color("sec_suggestion_card_background_color")!!.argb)
+        // The single default literal would otherwise carry the day colour into dark mode.
+        assertEquals(0xFFFCFCFC.toInt(), t.color("sec_suggestion_card_background_color", "night")!!.argb)
     }
 
     @Test

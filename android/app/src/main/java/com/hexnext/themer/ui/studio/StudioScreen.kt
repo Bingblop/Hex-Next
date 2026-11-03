@@ -1,5 +1,8 @@
 package com.hexnext.themer.ui.studio
 
+import com.hexnext.themer.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,6 +14,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -123,6 +131,15 @@ internal enum class SystemTab(val label: String) {
 internal val WIDE_WIDTH = 840.dp
 
 /**
+ * Below this height (a phone in landscape) the stacked chrome would leave almost no room for the
+ * page, so the shell drops the top bar and the bottom navigation for a rail.
+ */
+internal val SHORT_HEIGHT = 480.dp
+
+/** Width from which a short window also splits into two panes. */
+private val SHORT_TWO_PANE_WIDTH = 600.dp
+
+/**
  * The shell after the setup guide (Studio v2 phase 2 § 1): the top bar with the status pill and
  * App settings, the safe-mode banner, the status strip, one destination, the persistent Apply bar
  * and the bottom navigation (a navigation rail from 840 dp).
@@ -147,11 +164,15 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     var systemTab by rememberSaveable { mutableStateOf(SystemTab.TARGETS) }
     var previewTab by rememberSaveable { mutableStateOf(PreviewTab.SETTINGS) }
     var previewDark by rememberSaveable { mutableStateOf(true) }
+    // Icons are rendered from the night or day jobs to match the mockup's mode.
+    LaunchedEffect(previewDark) { viewModel.setPreviewDark(previewDark) }
     var peekCollapsed by rememberSaveable { mutableStateOf(false) }
     var showPrivilege by rememberSaveable { mutableStateOf(false) }
     // The Studio's tap-to-edit sheet: "<group id>:<night>".
     var studioPick by rememberSaveable { mutableStateOf<String?>(null) }
     var elementsTick by remember { mutableIntStateOf(0) }
+    // The last phone tap the Colours page has scrolled for; only a newer tap scrolls again.
+    var elementsTickHandled by remember { mutableIntStateOf(0) }
     // Each destination and sub-tab keeps its own scroll position while another is on display.
     val pages = rememberSaveableStateHolder()
 
@@ -227,24 +248,34 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= WIDE_WIDTH
+        // A short window (landscape phone) trades the top bar and bottom navigation for a rail,
+        // and splits into two panes when it is wide enough, so the page keeps usable height.
+        val short = maxHeight < SHORT_HEIGHT
+        val rail = maxWidth >= WIDE_WIDTH || short
+        val wide = maxWidth >= WIDE_WIDTH || (short && maxWidth >= SHORT_TWO_PANE_WIDTH)
+        // The app is edge-to-edge: keep Apply and Remove clear of a side navigation bar or cutout
+        // (landscape), and of the bottom bar too when no NavigationBar sits below to absorb it.
+        val applyBarInsets = WindowInsets.navigationBars.union(WindowInsets.displayCutout)
+            .only(if (rail) WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom else WindowInsetsSides.Horizontal)
         val applyBar: @Composable () -> Unit = {
-            ApplyBar(
-                // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
-                connected = connected,
-                busy = ui.busy,
-                // Only Apply theme or Remove theme shows as running; a pack download or import only disables the buttons.
-                applying = ui.serviceBusy,
-                report = ui.lastApply,
-                unconfirmed = ui.applyUnconfirmed,
-                protectionExpired = ui.applyProtectionExpired,
-                progressLine = ui.log.lastOrNull()?.text,
-                onApply = viewModel::applyTheme,
-                onRemove = viewModel::removeTheme,
-                onConfirmWorks = viewModel::confirmWorks,
-                onDetails = openTargets,
-                onConnection = { showPrivilege = true },
-            )
+            Box(Modifier.background(MaterialTheme.colorScheme.surfaceContainer).windowInsetsPadding(applyBarInsets)) {
+                ApplyBar(
+                    // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
+                    connected = connected,
+                    busy = ui.busy,
+                    // Only Apply theme or Remove theme shows as running; a pack download or import only disables the buttons.
+                    applying = ui.serviceBusy,
+                    report = ui.lastApply,
+                    unconfirmed = ui.applyUnconfirmed,
+                    protectionExpired = ui.applyProtectionExpired,
+                    progressLine = ui.log.lastOrNull()?.text,
+                    onApply = viewModel::applyTheme,
+                    onRemove = viewModel::removeTheme,
+                    onConfirmWorks = viewModel::confirmWorks,
+                    onDetails = openTargets,
+                    onConnection = { showPrivilege = true },
+                )
+            }
         }
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -252,7 +283,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                TopAppBar(
+                // Short windows move App settings to the rail header; the strip still shows privilege.
+                if (!short) TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                     title = {
                         Row(
@@ -260,6 +292,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.semantics(mergeDescendants = true) {},
                         ) {
+                            AppLogo(Modifier.size(32.dp))
                             Text("Hex Next", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
                         }
@@ -275,7 +308,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                 if (!imeVisible) {
                     Column {
                         applyBar()
-                        if (!wide) {
+                        if (!rail) {
                             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                                 Destination.entries.forEach { entry ->
                                     NavigationBarItem(
@@ -299,8 +332,21 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
             },
         ) { padding ->
             Row(Modifier.fillMaxSize().padding(padding)) {
-                if (wide) {
-                    NavigationRail(containerColor = MaterialTheme.colorScheme.background) {
+                if (rail) {
+                    NavigationRail(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        header = if (short) {
+                            {
+                                // No top bar on short windows, so the logo leads the rail instead.
+                                AppLogo(Modifier.padding(top = 8.dp).size(32.dp))
+                                IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
+                                    Icon(Icons.Outlined.Settings, contentDescription = "App settings")
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                    ) {
                         Destination.entries.forEach { entry ->
                             NavigationRailItem(
                                 selected = destination == entry,
@@ -326,7 +372,6 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         ui = ui,
                         onPrivilege = { showPrivilege = true },
                         onTargets = openTargets,
-                        onConfirmWorks = viewModel::confirmWorks,
                     )
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         pages.SaveableStateProvider(
@@ -348,6 +393,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                     onTab = { coloursTab = it },
                                     onElementTap = onElementTap,
                                     elementsTick = elementsTick,
+                                    elementsTickHandled = elementsTickHandled,
+                                    onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
                                     peekCollapsed = peekCollapsed,
                                     onPeekCollapsed = { peekCollapsed = it },
                                     wide = wide,
@@ -415,7 +462,6 @@ private fun StatusStrip(
     ui: UiState,
     onPrivilege: () -> Unit,
     onTargets: () -> Unit,
-    onConfirmWorks: () -> Unit,
 ) {
     Row(
         Modifier
@@ -450,10 +496,12 @@ private fun StatusStrip(
         }
         if (ui.applyUnconfirmed && !ui.applyProtectionExpired) {
             StripChip(
-                text = "Protection on · It works?",
+                text = "Protection on",
                 tone = StatusTone.WARN,
-                onClickLabel = "Confirm it works",
-                onClick = onConfirmWorks,
+                onClickLabel = "Show restart protection",
+                // Opens System > Targets, whose Restart protection card holds the explicit
+                // "It works" button: a tap on a status chip never disarms the guard.
+                onClick = onTargets,
             )
         }
     }
@@ -500,3 +548,13 @@ internal class PreviewModel(
 
 /** Content padding of every destination list: the 16 dp gutter and room under the last card. */
 internal val PAGE_PADDING = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp)
+
+/** The Hex Next app icon (hexagon with the NEXT ribbon), shown at the leading edge of the top bar. */
+@Composable
+private fun AppLogo(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(R.drawable.hx_app_logo),
+        contentDescription = null,
+        modifier = modifier.clip(CircleShape),
+    )
+}

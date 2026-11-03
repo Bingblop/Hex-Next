@@ -429,6 +429,8 @@ internal fun ColoursPage(
     onTab: (ColoursTab) -> Unit,
     onElementTap: (ColorGroup) -> Unit,
     elementsTick: Int,
+    elementsTickHandled: Int,
+    onElementsTickHandled: (Int) -> Unit,
     peekCollapsed: Boolean,
     onPeekCollapsed: (Boolean) -> Unit,
     wide: Boolean,
@@ -436,9 +438,19 @@ internal fun ColoursPage(
     val counts by viewModel.groupCounts.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val state = preview.state
-    // A tap on the phone lands on the element rows: the card after the peek and the tabs.
+    // A tap on the phone lands on the element rows: the card after the peek and the tabs. Only a
+    // tap newer than the last one handled scrolls, so a sub-tab switch or a later visit (which
+    // recreates this page) keeps its own scroll and the preview peek stays in view. A second tap
+    // while the first is still scrolling is newer too, so it is not lost.
+    val jumpToElements = elementsTick > elementsTickHandled
     LaunchedEffect(elementsTick) {
-        if (elementsTick > 0) listState.animateScrollToItem(if (wide) 1 else 2)
+        if (elementsTick > elementsTickHandled) {
+            try {
+                listState.animateScrollToItem(if (wide) 1 else 2)
+            } finally {
+                onElementsTickHandled(elementsTick)
+            }
+        }
     }
     PreviewedPage(
         preview = preview,
@@ -459,6 +471,7 @@ internal fun ColoursPage(
                     spec = ui.spec,
                     preview = state,
                     counts = counts,
+                    bringHighlightIntoView = jumpToElements,
                     onOpenResources = { viewModel.openResources() },
                 )
             }
@@ -470,6 +483,7 @@ internal fun ColoursPage(
                         preview = state,
                         counts = counts,
                         groups = QUICK_PANEL_GROUPS,
+                        bringHighlightIntoView = jumpToElements,
                         title = "Quick panel colours",
                         subtitle = "The panel backdrop, tiles, sliders and notification cards, for light and dark.",
                         eyebrow = "System UI · ${QUICK_PANEL_GROUPS.size} groups",

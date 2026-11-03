@@ -28,7 +28,7 @@ import java.lang.ref.SoftReference
  * The last device scan is read with [SnapshotBuilder], restricted to `com.android.settings` and
  * `com.sec.android.app.myfiles` (only those two resource tables are read from disk) and compiled
  * with [ThemeCompiler] against the installed packs ([ThemeApplier.packsDir]); each icon's best
- * job (non-night, highest density) is rendered with [DrawableRenderer] and decoded into a
+ * job (in the requested day or night mode, highest density) is rendered with [DrawableRenderer] and decoded into a
  * [Bitmap]. At most [MAX_ICONS] + [MAX_MY_FILES] + 1 bitmaps are decoded per call.
  *
  * [slots] lists, from a full compile of the snapshot, every drawable a custom icon or background
@@ -120,10 +120,15 @@ class ThemePreviewer(context: Context) {
      */
     data class SlotCatalogue(val icons: List<IconSlot>, val backgrounds: List<BackgroundSlots.Slot>, val error: String? = null)
 
-    /** Previews [spec]; safe to call repeatedly and from any background thread. */
-    fun render(spec: ThemeSpec): Preview = synchronized(lock) {
+    /**
+     * Previews [spec] as the phone shows it in dark mode ([night] true) or light mode: night jobs
+     * are preferred for [night], day jobs otherwise, falling back to the other mode when a
+     * resource has no job in the wanted one (as the device falls back to the default
+     * configuration). Safe to call repeatedly and from any background thread.
+     */
+    fun render(spec: ThemeSpec, night: Boolean = false): Preview = synchronized(lock) {
         try {
-            renderOrThrow(spec)
+            renderOrThrow(spec, night)
         } catch (e: Exception) {
             Preview(emptyList(), null, "Could not render the preview: ${e.javaClass.simpleName}: ${e.message}", fontFile = fontFile(spec), fontName = spec.customFont?.displayName)
         }
@@ -138,7 +143,7 @@ class ThemePreviewer(context: Context) {
         }
     }
 
-    private fun renderOrThrow(spec: ThemeSpec): Preview {
+    private fun renderOrThrow(spec: ThemeSpec, night: Boolean): Preview {
         val fontFile = fontFile(spec)
         val fontName = spec.customFont?.displayName
         val built = snapshot(full = false)
@@ -154,10 +159,10 @@ class ThemePreviewer(context: Context) {
             return Preview(emptyList(), null, skippedNote(reason), fontFile = fontFile, fontName = fontName)
         }
 
-        val accent = settings?.let { accentOf(it) }
-        val rowJobs = settings?.let { bestJobs(it, SettingsTestOverlay.DASHBOARD_ROW_ICONS.toHashSet()) }.orEmpty()
-        val myFilesJobs = myFilesTarget?.let { myFilesJobs(it) }.orEmpty()
-        val backgroundJob = listOfNotNull(settings, myFilesTarget).firstNotNullOfOrNull { backgroundJob(spec, it) }
+        val accent = settings?.let { accentOf(it, night) }
+        val rowJobs = settings?.let { bestJobs(it, SettingsTestOverlay.DASHBOARD_ROW_ICONS.toHashSet(), night) }.orEmpty()
+        val myFilesJobs = myFilesTarget?.let { myFilesJobs(it, night) }.orEmpty()
+        val backgroundJob = listOfNotNull(settings, myFilesTarget).firstNotNullOfOrNull { backgroundJob(spec, it, night) }
 
         val icons = ArrayList<PreviewIcon>(MAX_ICONS)
         val myFiles = ArrayList<PreviewIcon>(MAX_MY_FILES)
@@ -183,8 +188,11 @@ class ThemePreviewer(context: Context) {
             for (job in myFilesJobs) {
                 if (myFiles.size >= MAX_MY_FILES) break
                 val name = job.resourceName.substringAfter('/')
+                val label = myFilesLabel(name)
+                // "home_category_image" and "home_category_images" are the same tile.
+                if (myFiles.any { it.label == label }) continue
                 if (job.badge != null) builtIn += name
-                myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmapOf(job))
+                myFiles += PreviewIcon(name, label, bitmapOf(job))
             }
             if (backgroundJob != null) background = bitmapOf(backgroundJob)
         }
@@ -343,63 +351,70 @@ class ThemePreviewer(context: Context) {
         return ordered.toList()
     }
 
-    /** Icon name → the job to render: non-night with the highest density, else any non-night, else any. */
-    private fun bestJobs(target: CompiledTarget, wanted: Set<String>): Map<String, PlannedDrawableJob> {
+    /** Icon name → the job to render: see [bestOf]. */
+    private fun bestJobs(target: CompiledTarget, wanted: Set<String>, night: Boolean): Map<String, PlannedDrawableJob> {
         val byName = target.drawables
             .filter { it.resourceName.substringAfter('/') in wanted }
             .groupBy { it.resourceName.substringAfter('/') }
         val best = LinkedHashMap<String, PlannedDrawableJob>()
         for ((name, candidates) in byName) {
-            best[name] = bestOf(candidates) ?: continue
+            best[name] = bestOf(candidates, night) ?: continue
         }
         return best
     }
 
-    private fun bestOf(candidates: List<PlannedDrawableJob>): PlannedDrawableJob? {
-        val day = candidates.filterNot { isNight(it.configuration) }
-        // A pack with only night variants still gets a preview, from its night job.
-        val pool = if (day.isNotEmpty()) day else candidates
+    /**
+     * The job of the wanted mode ([night] or day) with the highest density; when there is none in
+     * that mode, the best job of the other one (a day-only pack still shows in dark mode, as the
+     * phone falls back to it, and a night-only pack still gets a preview in light mode).
+     */
+    private fun bestOf(candidates: List<PlannedDrawableJob>, night: Boolean): PlannedDrawableJob? {
+        val wanted = candidates.filter { isNight(it.configuration) == night }
+        val pool = if (wanted.isNotEmpty()) wanted else candidates
         return pool.maxByOrNull { densityRank(it.configuration) }
     }
 
     /**
-     * The first [MAX_MY_FILES] My Files icon jobs (element `my_files_icons`, or custom icons of the
-     * target), best configuration each; custom icons first, since the compiler appends them after
-     * the pack's own jobs and a pack with 8 or more icons would otherwise hide them.
+     * The first [MAX_MY_FILES] My Files category tile jobs (`home_category_*` drawables of element
+     * `my_files_icons`, or custom icons of the target), best configuration each; custom icons
+     * first, since the compiler appends them after the pack's own jobs and a pack with 8 or more
+     * icons would otherwise hide them. Other My Files drawables (file types, menu glyphs) are not
+     * tiles of the category grid, so they are left out.
      */
-    private fun myFilesJobs(target: CompiledTarget): List<PlannedDrawableJob> {
+    private fun myFilesJobs(target: CompiledTarget, night: Boolean): List<PlannedDrawableJob> {
         val grouped = target.drawables
             .filter { (it.elementId == MY_FILES_ICONS_ELEMENT || it.custom != null) && it.source.category != CustomAssets.CATEGORY_BACKGROUND }
+            .filter { it.resourceName.substringAfter('/').startsWith(MY_FILES_CATEGORY_PREFIX) }
             .groupBy { it.resourceName }
             .entries
             .sortedByDescending { (_, candidates) -> candidates.any { it.custom != null } }
         val out = ArrayList<PlannedDrawableJob>()
         for ((_, candidates) in grouped) {
             if (out.size >= MAX_MY_FILES) break
-            out += bestOf(candidates) ?: continue
+            out += bestOf(candidates, night) ?: continue
         }
         return out
     }
 
     /**
      * The job of the first custom background of [target] in the spec that the compiler kept
-     * (non-night, best density), or null. A key the compiler skipped (not in the target any
+     * (wanted mode, best density), or null. A key the compiler skipped (not in the target any
      * more) does not hide a later one; a key the rules renamed is found by its category.
      */
-    private fun backgroundJob(spec: ThemeSpec, target: CompiledTarget): PlannedDrawableJob? {
+    private fun backgroundJob(spec: ThemeSpec, target: CompiledTarget, night: Boolean): PlannedDrawableJob? {
         val keys = spec.customBackgrounds.keys.filter { it.startsWith(target.packageName + ":") }
         if (keys.isEmpty()) return null
         val custom = target.drawables.filter { it.custom != null && it.source.category == CustomAssets.CATEGORY_BACKGROUND }
         for (key in keys) {
-            bestOf(custom.filter { it.resourceName == key })?.let { return it }
+            bestOf(custom.filter { it.resourceName == key }, night)?.let { return it }
         }
         val first = custom.firstOrNull()?.resourceName ?: return null
-        return bestOf(custom.filter { it.resourceName == first })
+        return bestOf(custom.filter { it.resourceName == first }, night)
     }
 
-    private fun accentOf(target: CompiledTarget): Int? {
+    private fun accentOf(target: CompiledTarget, night: Boolean): Int? {
         val accent = target.colors.filter { it.resourceName.substringAfter('/') == ACCENT_COLOR }
-        val chosen: PlannedColor? = accent.firstOrNull { !isNight(it.configuration) }
+        val chosen: PlannedColor? = accent.firstOrNull { isNight(it.configuration) == night }
             ?: accent.firstOrNull()
             ?: target.colors.firstOrNull()
         return chosen?.argb
@@ -505,6 +520,29 @@ class ThemePreviewer(context: Context) {
             }
             return 0
         }
+
+        private const val MY_FILES_CATEGORY_PREFIX = "home_category_"
+
+        /**
+         * One UI labels of the My Files categories, keyed by the name after `home_category_`. The
+         * same words as the default tiles of the preview grid, so a rendered tile replaces its
+         * default instead of appearing next to it.
+         */
+        private val MY_FILES_LABELS: Map<String, String> = mapOf(
+            "image" to "Images",
+            "images" to "Images",
+            "video" to "Videos",
+            "videos" to "Videos",
+            "audio" to "Audio files",
+            "documents" to "Documents",
+            "download" to "Downloads",
+            "apk" to "APK files",
+            "compressed" to "Compressed",
+        )
+
+        /** "home_category_image" → "Images"; unknown names are derived. */
+        internal fun myFilesLabel(name: String): String =
+            MY_FILES_LABELS[name.removePrefix(MY_FILES_CATEGORY_PREFIX)] ?: BackgroundSlots.humanise(name)
 
         /** "sec_ic_settings_cloud_and_account" → "Accounts and backup"; unknown names are derived. */
         internal fun labelFor(name: String): String {

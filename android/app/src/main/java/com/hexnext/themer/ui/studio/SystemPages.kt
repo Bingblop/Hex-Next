@@ -28,10 +28,13 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +55,7 @@ import com.hexnext.engine.compile.TargetResult
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.device.ReportSharer
 import com.hexnext.themer.shizuku.ShizukuState
+import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.ui.ConfirmDialog
 import com.hexnext.themer.ui.DiagnosticsViewModel
@@ -141,13 +145,20 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
     var filter by rememberSaveable { mutableStateOf(TargetFilter.ALL) }
     val confirmWorksBusy = ui.serviceBusy
 
-    LaunchedEffect(report == null) {
-        if (report == null) viewModel.loadScannedTargets()
+    // Packages shown: the last apply's targets with an outcome (skipped ones are recorded before
+    // any build starts, so an aborted apply still has some) plus its pending targets, so the app
+    // that stopped an apply keeps its row. With no report at all, the installed One UI apps of
+    // the last scan keep the per-app switches reachable.
+    val reported: List<String> = remember(report) {
+        val applied = report?.outcomes?.map { it.target }.orEmpty()
+        (applied + report?.pendingTargets.orEmpty()).distinct()
     }
-
-    // Packages shown: the last apply's targets, else the installed One UI apps of the last scan.
-    val packages: List<String> = remember(report, scanned) {
-        report?.outcomes?.map { it.target }?.distinct() ?: scanned.orEmpty()
+    val noReportedTargets = reported.isEmpty()
+    LaunchedEffect(noReportedTargets) {
+        if (noReportedTargets) viewModel.loadScannedTargets()
+    }
+    val packages: List<String> = remember(reported, scanned) {
+        reported.ifEmpty { scanned.orEmpty().distinct() }
     }
     val outcomes = remember(report) { report?.outcomes?.associateBy { it.target }.orEmpty() }
     val labels = remember(packages) { packages.associateWith { targetLabel(context, it) } }
@@ -205,7 +216,7 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
         if (packages.isEmpty()) {
             item(key = "empty") {
                 StudioCard(title = "No apps to show") {
-                    if (scanned == null && report == null) {
+                    if (scanned == null && noReportedTargets) {
                         Text("Reading the last scan…", style = MaterialTheme.typography.bodyMedium)
                     } else {
                         EmptyState(
@@ -264,12 +275,15 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
 private fun TargetFacts(report: ApplyReport) {
     val colours = report.outcomes.sumOf { it.colorCount }
     val seconds = ((report.finishedAt - report.startedAt).coerceAtLeast(0L) / 100L) / 10.0
+    // Only targets that were built count: OK, PARTIAL (both in okCount) and FAILED. Skipped,
+    // removed and EMPTY targets were never attempted, so they are not part of the denominator.
+    val attempted = report.okCount + report.failedCount
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         StatusChip(
-            "${report.okCount} of ${report.outcomes.size} themed",
+            "${report.okCount} of $attempted themed",
             if (report.failedCount > 0) StatusTone.WARN else StatusTone.OK,
         )
         if (report.failedCount > 0) StatusChip("${report.failedCount} failed", StatusTone.BAD)
@@ -389,7 +403,10 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
     var pendingImport by remember { mutableStateOf<EngineThemeSpec?>(null) }
     var confirmTurnOff by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
+    // Set when this card starts "Turn off all"; its result lines are shown under Safe mode.
+    var showTurnOffResult by rememberSaveable { mutableStateOf(false) }
     var logFilter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
+    val nameCommit = remember { NameCommit() }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) viewModel.exportTheme(uri)
@@ -398,12 +415,18 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
         if (uri != null) viewModel.readThemeFile(uri) { pendingImport = it }
     }
 
-    // Turning everything off in Diagnostics changes the last apply; read it again when that ends.
+    // Turning everything off in Diagnostics changes the last apply and confirms the restart
+    // guard; read both again when that ends so the apply bar and safe-mode banner are not stale.
     LaunchedEffect(dstate.busy) {
-        if (!dstate.busy) viewModel.refreshLastApply()
+        if (!dstate.busy) {
+            viewModel.refreshLastApply()
+            viewModel.refreshGuard()
+        }
     }
 
-    val canTurnOff = ready != null && !dstate.busy && !ui.serviceBusy && serviceTask == null
+    // SU mode (su found, Shizuku not running) is Ready but cannot turn overlays off.
+    val canControl = ready != null && !ready.viaSu && ui.capability != Capability.NONE
+    val canTurnOff = canControl && !dstate.busy && !ui.serviceBusy && serviceTask == null
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -415,10 +438,13 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                 title = "Theme file",
                 subtitle = "Save this theme as a file, or open one. A file holds colours and settings, never pack contents.",
             ) {
-                ThemeNameField(ui.spec.name) { name -> viewModel.editSpec { it.copy(name = name) } }
+                ThemeNameField(ui.spec.name, nameCommit) { name -> viewModel.editSpec { it.copy(name = name) } }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     FilledTonalButton(
-                        onClick = { exporter.launch("${fileNameOf(ui.spec.name)}.hexnext") },
+                        onClick = {
+                            val name = nameCommit.flush?.invoke() ?: ui.spec.name
+                            exporter.launch("${fileNameOf(name)}.hexnext")
+                        },
                         modifier = Modifier.heightIn(min = 48.dp),
                     ) { Text("Export") }
                     OutlinedButton(
@@ -427,7 +453,10 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                         modifier = Modifier.heightIn(min = 48.dp),
                     ) { Text("Import") }
                     TextButton(
-                        onClick = { clipboard.setText(AnnotatedString(viewModel.themeJson())) },
+                        onClick = {
+                            nameCommit.flush?.invoke()
+                            clipboard.setText(AnnotatedString(viewModel.themeJson()))
+                        },
                         modifier = Modifier.heightIn(min = 48.dp),
                     ) { Text("Copy JSON") }
                 }
@@ -436,8 +465,9 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
 
         item(key = "log") {
             val lines = remember(ui.log, logFilter) {
-                val recent = ui.log.takeLast(200)
-                if (logFilter.level == null) recent else recent.filter { it.level == logFilter.level }
+                // Filter the whole log first so older matching lines (e.g. an early ERROR) are not dropped.
+                val matching = if (logFilter.level == null) ui.log else ui.log.filter { it.level == logFilter.level }
+                matching.takeLast(200)
             }
             LogCard(
                 lines = lines,
@@ -496,13 +526,26 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                     enabled = canTurnOff && ui.lastApply != null,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 ) { Text("Remove theme") }
-                if (ready == null) {
+                if (!canControl) {
                     Text(
-                        "Connect Shizuku or root first.",
+                        if (ready?.viaSu == true) "Start Shizuku with root first. SU mode alone cannot turn overlays off." else "Connect Shizuku or root first.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+
+        if (showTurnOffResult && dstate.log.isNotEmpty()) {
+            item(key = "turnOffResult") {
+                LogCard(
+                    lines = dstate.log,
+                    onClear = {
+                        diagnostics.clearLog()
+                        showTurnOffResult = false
+                    },
+                    title = "Turn off result",
+                )
             }
         }
 
@@ -547,6 +590,7 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
             confirmLabel = "Turn off",
             onConfirm = {
                 confirmTurnOff = false
+                showTurnOffResult = true
                 diagnostics.removeAll()
             },
             onDismiss = { confirmTurnOff = false },
@@ -566,14 +610,34 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
     }
 }
 
-/** The theme's name, saved half a second after the last keystroke rather than on every key. */
+/**
+ * The theme's name, saved half a second after the last keystroke rather than on every key.
+ * A pending edit is also saved when the field leaves the screen (another tab, Back), and
+ * [commitRef] lets the caller save it at once before it reads the name (Export, Copy JSON).
+ */
 @Composable
-private fun ThemeNameField(name: String, onCommit: (String) -> Unit) {
+private fun ThemeNameField(name: String, commitRef: NameCommit, onCommit: (String) -> Unit) {
     var text by rememberSaveable(name) { mutableStateOf(name) }
+    val latestName by rememberUpdatedState(name)
+    val latestText by rememberUpdatedState(text)
+    val latestOnCommit by rememberUpdatedState(onCommit)
+    val flush: () -> String = remember {
+        {
+            if (latestText != latestName) latestOnCommit(latestText)
+            latestText
+        }
+    }
+    SideEffect { commitRef.flush = flush }
     LaunchedEffect(text) {
         if (text == name) return@LaunchedEffect
         delay(500)
         onCommit(text)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            flush()
+            commitRef.flush = null
+        }
     }
     OutlinedTextField(
         value = text,
@@ -582,6 +646,11 @@ private fun ThemeNameField(name: String, onCommit: (String) -> Unit) {
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** Saves a pending theme name edit now; returns the name to use. */
+private class NameCommit {
+    var flush: (() -> String)? = null
 }
 
 /** A file name from the theme name: letters, digits, spaces and dashes, never empty. */

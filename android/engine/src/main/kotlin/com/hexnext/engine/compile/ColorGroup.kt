@@ -38,8 +38,8 @@ public enum class ColorGroup(
     public val quickSettings: Boolean = false,
 ) {
     ACCENT("accent", "Accent", "Highlights, links, selected items and progress", ColorGroupSection.CORE, PaletteRole.ACCENT1, 600, 200),
-    BACKGROUND("background", "Background", "Screen backgrounds of Settings and Samsung apps", ColorGroupSection.CORE, PaletteRole.NEUTRAL1, 50, 900),
-    SURFACE("surface", "Surface and cards", "Rounded cards, list containers and app bars", ColorGroupSection.CORE, PaletteRole.NEUTRAL1, 10, 800),
+    BACKGROUND("background", "Background", "Screen backgrounds of Settings and Samsung apps", ColorGroupSection.CORE, PaletteRole.NEUTRAL1, 50, 1000),
+    SURFACE("surface", "Surface and cards", "Rounded cards, list containers and app bars", ColorGroupSection.CORE, PaletteRole.NEUTRAL1, 10, 900),
     TEXT_PRIMARY("text_primary", "Primary text", "Titles and main labels", ColorGroupSection.TEXT_AND_ICONS, PaletteRole.NEUTRAL1, 900, 50),
     TEXT_SECONDARY("text_secondary", "Secondary text", "Summaries, hints and captions", ColorGroupSection.TEXT_AND_ICONS, PaletteRole.NEUTRAL2, 700, 200),
     ICON_TINT("icon_tint", "Icon tint", "Tinted vector icons in toolbars and lists", ColorGroupSection.TEXT_AND_ICONS, PaletteRole.ACCENT2, 600, 200),

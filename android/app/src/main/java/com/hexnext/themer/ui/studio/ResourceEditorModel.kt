@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -63,19 +65,47 @@ internal class ResourceEditorModel(app: Application) : AndroidViewModel(app) {
     private var spec: ThemeSpec? = null
     private var job: Job? = null
 
-    init {
+    private val appContext = app
+    private val refreshLock = Mutex()
+    /** [SnapshotBuilder.scanStamp] of the scan [report] came from; null without a scan. */
+    private var reportKey: String? = null
+    private var reportRead = false
+
+    /**
+     * Re-reads the newest saved scan report and, when it is not the one already shown, rebuilds
+     * the app list and drops the snapshot built from the old one. The screen calls it each time
+     * it opens and whenever a scan finishes, so a scan run from the empty state (or a rescan)
+     * shows up without restarting the app. The selected app is kept while the new scan has it.
+     */
+    fun refresh() {
         viewModelScope.launch {
-            val latest = withContext(Dispatchers.IO) { runCatching { builder.latestReport() }.getOrNull() }
-            report = latest
-            if (latest == null) {
-                _state.value = ResourceEditorState(hasScan = false, loading = false)
-                return@launch
+            refreshLock.withLock {
+                val read = withContext(Dispatchers.IO) {
+                    val key = runCatching { SnapshotBuilder.scanStamp(appContext) }.getOrNull()
+                    if (reportRead && key == reportKey) return@withContext null
+                    key to key?.let { runCatching { builder.latestReport() }.getOrNull() }
+                } ?: return@withLock
+                val (key, latest) = read
+                reportRead = true
+                reportKey = key
+                report = latest
+                job?.cancel()
+                job = null
+                loaded = null
+                if (latest == null) {
+                    _state.value = ResourceEditorState(hasScan = false, loading = false)
+                    return@withLock
+                }
+                val targets = targetsOf(latest)
+                val current = _state.value.selected?.takeIf { pkg -> targets.any { it.packageName == pkg } }
+                val first = current
+                    ?: targets.firstOrNull { it.packageName == DEFAULT_TARGET }?.packageName
+                    ?: targets.firstOrNull()?.packageName
+                _state.update {
+                    it.copy(hasScan = true, targets = targets, selected = first, loading = first != null, items = emptyList(), error = null)
+                }
+                if (first != null) reload()
             }
-            val targets = targetsOf(latest)
-            val first = targets.firstOrNull { it.packageName == DEFAULT_TARGET }?.packageName
-                ?: targets.firstOrNull()?.packageName
-            _state.update { it.copy(hasScan = true, targets = targets, selected = first, loading = first != null) }
-            if (first != null) reload()
         }
     }
 

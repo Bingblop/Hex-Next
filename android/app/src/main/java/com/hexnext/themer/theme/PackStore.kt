@@ -171,8 +171,11 @@ class PackStore(context: Context) {
             ?: PackReader.read(zip).also { synchronized(parsed) { parsed[stamp] = it } }
     }
 
-    /** [migrateFormer] for every readable zip in the pack directory that carries a former id. */
-    private fun migrateFormerIds() {
+    /**
+     * [migrateFormer] for every readable zip in the pack directory that is a former catalogue pack
+     * ([isFormerCatalogue]). A user's own pack whose id merely equals a former id is left alone.
+     */
+    private fun migrateFormerIds() = synchronized(MIGRATE_LOCK) {
         val zips = dir.listFiles { f -> f.isFile && isPackFile(f.name) }.orEmpty()
         for (zip in zips.sortedBy { it.name }) {
             val pack = try {
@@ -180,7 +183,7 @@ class PackStore(context: Context) {
             } catch (e: PackFormatException) {
                 continue
             }
-            if (PackIdAliases.isFormer(pack.id)) migrateFormer(zip, pack)
+            if (isFormerCatalogue(pack)) migrateFormer(zip, pack)
         }
     }
 
@@ -188,26 +191,35 @@ class PackStore(context: Context) {
      * Rewrites [zip], whose `pack.json` carries the former catalogue id [pack].id, the way
      * `tools/rename_packs.py` does: current id, its name, package and catalogue version, a blank
      * author and former pack names in option and category text replaced by current ones. Every
-     * other entry is copied unchanged. The result is staged in `<id>.zip.part`, checked, and
-     * renamed to `<id>.zip`; then [zip] is removed. When `<id>.zip` already holds the pack,
-     * [zip] is only removed. Returns the current zip, or null (logged, [zip] untouched) on failure.
+     * other entry is copied unchanged. The result is staged in a uniquely named
+     * `<id>-*.zip.part`, checked, and renamed to `<id>.zip`; then [zip] is removed. When
+     * `<id>.zip` already holds the pack, [zip] is only removed. Returns the current zip, or null
+     * (logged, [zip] untouched) on failure.
+     *
+     * Listings, imports and downloads run on separate IO coroutines, so migrations are serialised
+     * by [MIGRATE_LOCK]; a caller that waited re-checks [zip], which another caller may already
+     * have migrated or removed.
      */
-    private fun migrateFormer(zip: File, pack: Pack): File? {
+    private fun migrateFormer(zip: File, pack: Pack): File? = synchronized(MIGRATE_LOCK) {
         val newId = PackIdAliases.current(pack.id)
         if (newId == pack.id) return null
         val target = zipFor(newId)
-        if (target.absoluteFile != zip.absoluteFile && target.isFile &&
-            runCatching { readCached(target).id == newId }.getOrDefault(false)
-        ) {
+        val targetHoldsPack = { target.isFile && runCatching { readCached(target).id == newId }.getOrDefault(false) }
+        if (!zip.isFile || runCatching { !PackIdAliases.isFormer(readCached(zip).id) }.getOrDefault(false)) {
+            // Already migrated (or removed) by another caller while this one waited.
+            return if (targetHoldsPack()) target else null
+        }
+        if (target.absoluteFile != zip.absoluteFile && targetHoldsPack()) {
             if (!zip.delete()) Log.w(TAG, "Could not remove ${zip.name}; $newId.zip already holds the pack")
             return target
         }
-        val staged = partFor(newId)
+        var staged: File? = null
         return try {
+            val part = File.createTempFile("$newId-", ".zip.part", dir).also { staged = it }
             ZipFile(zip).use { source ->
                 val packJson = source.getEntry(PACK_JSON) ?: throw IOException("pack.json missing")
                 val json = String(source.getInputStream(packJson).use { it.readBytes() }, Charsets.UTF_8)
-                ZipOutputStream(staged.outputStream().buffered()).use { out ->
+                ZipOutputStream(part.outputStream().buffered()).use { out ->
                     val seen = HashSet<String>()
                     for (entry in source.entries()) {
                         if (entry.name == PACK_JSON || !seen.add(entry.name)) continue
@@ -220,25 +232,31 @@ class PackStore(context: Context) {
                     out.closeEntry()
                 }
             }
-            val check = PackReader.read(staged)
+            val check = PackReader.read(part)
             if (check.id != newId) throw IOException("rewritten pack.json declares \"${check.id}\"")
             File(dir, "$newId.${DirectoryPackResolver.EXTENSION}").delete()
-            if (!staged.renameTo(target)) throw IOException("Could not install $newId.zip")
+            if (!part.renameTo(target)) throw IOException("Could not install $newId.zip")
             if (zip.absoluteFile != target.absoluteFile && !zip.delete()) {
                 Log.w(TAG, "Could not remove ${zip.name} after migrating it to $newId.zip")
             }
             target
         } catch (e: Exception) {
-            staged.delete()
+            staged?.delete()
             Log.w(TAG, "Pack ${zip.name} could not be moved to its current id $newId", e)
             null
         }
     }
 
-    /** [install] and, for a pack that carries a former catalogue id, [migrateFormer]. */
-    private fun installCurrent(source: File, pack: Pack): InstalledPack {
-        val target = install(source, pack.id)
-        if (!PackIdAliases.isFormer(pack.id)) return pack.toInstalled(target)
+    /**
+     * [install] and, for a pack that carries a former catalogue id, [migrateFormer]. With
+     * [replaceCurrent] false (an import) a former catalogue pack is first stored under its former
+     * file name, so an existing `<current>.zip` is never replaced by it: [migrateFormer] then only
+     * removes the former zip when `<current>.zip` already holds the pack.
+     */
+    private fun installCurrent(source: File, pack: Pack, replaceCurrent: Boolean = true): InstalledPack {
+        val former = PackIdAliases.isFormer(pack.id)
+        val target = install(source, pack.id, asIs = former && !replaceCurrent)
+        if (!former) return pack.toInstalled(target)
         val migrated = migrateFormer(target, pack) ?: return pack.toInstalled(target)
         return readCached(migrated).toInstalled(migrated)
     }
@@ -259,7 +277,13 @@ class PackStore(context: Context) {
                 throw IllegalArgumentException("Not a Hex Next pack: ${e.message}", e)
             }
             requireSafeId(pack.id)
-            return installCurrent(temp, pack)
+            // Former catalogue ids still name the renamed catalogue packs (files, saved themes and
+            // purchases). A user's own pack under one would replace or be rewritten into that pack,
+            // so only a former catalogue pack itself may be imported under such an id.
+            require(!PackIdAliases.isFormer(pack.id) || isFormerCatalogue(pack)) {
+                "The pack id \"${pack.id}\" is reserved. Change the id in pack.json and import the pack again."
+            }
+            return installCurrent(temp, pack, replaceCurrent = false)
         } catch (e: IOException) {
             throw IllegalArgumentException("Reading the selected file failed: ${e.message}", e)
         } finally {
@@ -350,9 +374,10 @@ class PackStore(context: Context) {
      * in `<id>.zip.part` inside the pack directory first, so the existing pack is only ever
      * replaced by one atomic rename and a failed copy never leaves a truncated `<id>.zip`.
      */
-    private fun install(source: File, id: String): File {
-        val target = zipFor(id)
-        val staged = partFor(id)
+    private fun install(source: File, id: String, asIs: Boolean = false): File {
+        // asIs: store under [id] itself, not its current id (see [installCurrent]).
+        val target = if (asIs) File(dir, "$id.zip") else zipFor(id)
+        val staged = if (asIs) File(dir, "$id.zip.part") else partFor(id)
         if (source.absoluteFile != staged.absoluteFile && !source.renameTo(staged)) {
             try {
                 source.inputStream().use { input -> staged.outputStream().use { input.copyTo(it) } }
@@ -485,6 +510,9 @@ class PackStore(context: Context) {
     companion object {
         private const val TAG = "PackStore"
         private const val PACK_JSON = "pack.json"
+
+        /** Serialises [migrateFormer] runs, which rewrite and rename zips in the pack directory. */
+        private val MIGRATE_LOCK = Any()
 
         /** The version every catalogue pack ships under (tools/pack_names.json `version`). */
         internal const val CATALOGUE_VERSION = "1.0"
@@ -623,6 +651,13 @@ class PackStore(context: Context) {
         fun normaliseBaseUrl(url: String): String = url.trim().trimEnd('/') + "/"
 
         private fun isPackFile(name: String) = name.endsWith(".zip") || name.endsWith(".${DirectoryPackResolver.EXTENSION}")
+
+        /**
+         * True when [pack] is a catalogue pack published under a former id: its id is a former id
+         * and its package is the one the catalogue gave that id (`com.hexnext.pack.<id>`).
+         */
+        private fun isFormerCatalogue(pack: Pack): Boolean =
+            PackIdAliases.isFormer(pack.id) && pack.packageName == "com.hexnext.pack." + pack.id.replace('-', '_')
 
         /** Rejects ids that are empty or could escape the pack directory as a file name. */
         private fun requireSafeId(id: String) {

@@ -5,6 +5,7 @@ import com.hexnext.engine.palette.PaletteRole
 import com.hexnext.engine.palette.ShadeScale
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -90,6 +91,14 @@ class ColorGroupMatcherTest {
         // Foreground parts of a tile never join the tile fill.
         assertNotEquals(ColorGroup.QS_TILE_ACTIVE, group("sec_qs_tile_icon_on_color", sysui))
         assertEquals(ColorGroup.TEXT_PRIMARY, group("qs_tile_label_on_color", sysui))
+        // Volume, power and lock screen backdrops are not the Quick panel.
+        for (n in listOf("volume_panel_bg", "power_shade_background", "keyguard_panel_background")) {
+            assertNotEquals(ColorGroup.QS_PANEL_BG, group(n, sysui), n)
+        }
+        // Quick Settings groups never reach a package other than System UI.
+        for (n in listOf("quick_panel_bg", "keyboard_panel_bg", "qs_background_dark", "qs_tile_bg_active")) {
+            assertFalse(group(n, settings)?.quickSettings == true, n)
+        }
     }
 
     @Test
@@ -139,12 +148,15 @@ class ColorGroupMatcherTest {
 
     @Test
     fun `backdrops are settled between screen and card by shade`() {
-        // One UI: the grey screen behind the cards is shade 50 by day and 900 by night ...
+        // One UI 9 Settings dump: the screen behind the cards is shade 50 by day and 1000 by night ...
         assertEquals(ColorGroup.BACKGROUND, group("sesl_round_and_bgcolor_light", inferred = shade(PaletteRole.NEUTRAL1, 50)))
-        assertEquals(ColorGroup.BACKGROUND, group("sesl_round_and_bgcolor_dark", inferred = shade(PaletteRole.NEUTRAL1, 900)))
-        // ... and the cards are 10 by day and 800 by night, whatever the name says.
+        assertEquals(ColorGroup.BACKGROUND, group("sesl_round_and_bgcolor_dark", inferred = shade(PaletteRole.NEUTRAL1, 1000)))
+        // ... and the cards are 0 or 10 by day and neutral2 900 by night, whatever the name says.
         assertEquals(ColorGroup.SURFACE, group("sesl_background_color_light", inferred = shade(PaletteRole.NEUTRAL1, 10)))
+        assertEquals(ColorGroup.SURFACE, group("sesl_background_color_light", inferred = shade(PaletteRole.NEUTRAL1, 0)))
+        assertEquals(ColorGroup.SURFACE, group("sesl_background_color_dark", inferred = shade(PaletteRole.NEUTRAL2, 900)))
         assertEquals(ColorGroup.SURFACE, group("sesl_background_color_dark", inferred = shade(PaletteRole.NEUTRAL1, 800)))
+        assertEquals(ColorGroup.SURFACE, group("sec_widget_switchbar_background_color", inferred = shade(PaletteRole.NEUTRAL2, 900)))
         assertEquals(ColorGroup.BACKGROUND, group("sesl_action_bar_background_color_light", inferred = shade(PaletteRole.NEUTRAL2, 50)))
         // A mid grey keeps the group its name gives.
         assertEquals(ColorGroup.SURFACE, group("sec_suggestion_card_background_color", inferred = shade(PaletteRole.NEUTRAL2, 400)))
@@ -155,7 +167,7 @@ class ColorGroupMatcherTest {
         assertEquals(ColorGroup.ACCENT, group("sec_dashboard_account_default_id_color", inferred = shade(PaletteRole.ACCENT1, 700)))
         assertEquals(ColorGroup.ACCENT, group("wifi_ap_connecting", inferred = shade(PaletteRole.ACCENT3, 400)))
         assertEquals(ColorGroup.BACKGROUND, group("picker_app_list_window", inferred = shade(PaletteRole.NEUTRAL1, 1000)))
-        assertEquals(ColorGroup.BACKGROUND, group("some_unknown_colour", inferred = shade(PaletteRole.NEUTRAL1, 900)))
+        assertEquals(ColorGroup.SURFACE, group("some_unknown_colour", inferred = shade(PaletteRole.NEUTRAL2, 900)))
         assertEquals(ColorGroup.SURFACE, group("some_unknown_colour", inferred = shade(PaletteRole.NEUTRAL2, 800)))
         assertEquals(ColorGroup.SURFACE, group("some_unknown_colour", inferred = shade(PaletteRole.NEUTRAL1, 10)))
         // Mid greys, foreground parts and unreliable matches stay out.

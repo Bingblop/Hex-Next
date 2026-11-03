@@ -56,8 +56,9 @@ public data class ResourceColor(
  * A name rule that lands in [ColorGroup.BACKGROUND] or [ColorGroup.SURFACE] is settled by shade
  * when the colour is neutral, because One UI names are ambiguous here: `sesl_background_color` is
  * the white card colour while `round_and_bgcolor` is the grey screen behind the cards. Shades 50,
- * 100, 900 and 1000 are the screen ([ColorGroup.BACKGROUND]); 0, 10, 200, 700 and 800 are cards
- * ([ColorGroup.SURFACE]); this matches both modes and the groups' Auto shades.
+ * 100 and 1000 are the screen ([ColorGroup.BACKGROUND]); 0, 10, 200, 700, 800 and 900 are cards
+ * ([ColorGroup.SURFACE]). This matches the One UI 9 Settings dump in both modes (day: cards 0,
+ * screen 50; night: cards neutral2 900, screen 1000) and the groups' Auto shades.
  */
 public object ColorGroupMatcher {
     /**
@@ -181,7 +182,7 @@ public object ColorGroupMatcher {
 
     /** APK colour names a group colour never reaches: status colours whose meaning is their hue. */
     internal val TABLE_EXCLUDED: Regex = Regex(
-        "error|warning|warn_|danger|alert|emergency|(^|_)sos(_|$)|critical|battery_low|(^|_)(red|green|orange|yellow|purple|pink|brown)(_|$)|favorite|rating",
+        "error|warning|warn_|danger|alert|emergency|(^|_)sos(_|$)|critical|battery_low|sunday|saturday|(^|_)(red|green|orange|yellow|purple|pink|brown)(_|$)|favorite|rating",
         RegexOption.IGNORE_CASE,
     )
 
@@ -195,19 +196,31 @@ public object ColorGroupMatcher {
         val compiled = compiled(rules)
         val tone = toneOf(inferred)
         val family = compiled.familyFor(pkg)
+        // Quick Settings groups only ever reach System UI.
+        val qsAllowed = pkg == SYSTEMUI
         if (family != null) {
             for (rule in family.rules) {
-                if (fits(rule.group, tone) && rule.regex.containsMatchIn(name)) return Match(settle(rule.group, inferred, tone), false)
+                if (!qsAllowed && rule.group.quickSettings) continue
+                if (fits(rule.group, tone) && rule.regex.containsMatchIn(name)) {
+                    val g = settle(rule.group, inferred, tone)
+                    if (!qsAllowed && g.quickSettings) continue
+                    return Match(g, false)
+                }
             }
         }
         for (rule in compiled.generic) {
+            if (!qsAllowed && rule.group.quickSettings) continue
             if (fits(rule.group, tone) && rule.regex.containsMatchIn(name)) {
-                val g = settle(rule.group, inferred, tone)
-                return Match(family?.remap?.get(g) ?: g, false)
+                val settled = settle(rule.group, inferred, tone)
+                val g = family?.remap?.get(settled) ?: settled
+                if (!qsAllowed && g.quickSettings) continue
+                return Match(g, false)
             }
         }
         val g = fallback(name, inferred, tone) ?: return null
-        return Match(family?.remap?.get(g) ?: g, true)
+        val out = family?.remap?.get(g) ?: g
+        if (!qsAllowed && out.quickSettings) return null
+        return Match(out, true)
     }
 
     /**
@@ -229,6 +242,7 @@ public object ColorGroupMatcher {
     }
 
     private const val COLOR_PREFIX = "color/"
+    private const val SYSTEMUI = "com.android.systemui"
     private const val OPAQUE = 0xFF000000.toInt()
     private const val COUNT_PROBE = 0xFF808080.toInt()
     private const val CONTAINER_LIGHT_TONE = 85.0
@@ -257,8 +271,8 @@ public object ColorGroupMatcher {
     )
 
     private val WHITE_AND_BLACK = setOf(0, 10, 1000)
-    private val BACKGROUND_SHADES = setOf(50, 100, 900, 1000)
-    private val SURFACE_SHADES = setOf(0, 10, 200, 700, 800)
+    private val BACKGROUND_SHADES = setOf(50, 100, 1000)
+    private val SURFACE_SHADES = setOf(0, 10, 200, 700, 800, 900)
 
     /** Names that are parts drawn on top of something, never a backdrop the fallback may claim. */
     private val FOREGROUND = Regex(

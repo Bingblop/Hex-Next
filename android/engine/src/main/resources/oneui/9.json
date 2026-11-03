@@ -79,7 +79,7 @@
     "qs_panel_bg": [
       "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(^|_)qs_.*(background|bg)",
       "^(?!.*(tile|icon|text|title|label|stroke|divider))quick_?(settings?|panel).*(background|bg)",
-      "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(panel_background|panel_bg|shade_background|shade_bg)"
+      "^(?!.*(tile|icon|text|title|label|stroke|divider|volume|power|keyguard|lock)).*(panel_background|panel_bg|shade_background|shade_bg)"
     ],
     "notification_bg": [
       "^(?!.*(icon|text|title|label|stroke|divider|button|btn)).*notifi(cation)?s?_.*(bg|background|card)",

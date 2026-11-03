@@ -72,8 +72,9 @@ private fun startsBoth(spec: ThemeSpec, group: ColorGroup): Boolean {
  * scan and a "Colour only" badge on Quick Settings groups. A swatch opens [ColorPickerSheet]
  * for that mode ("Same for light and dark" writes both).
  *
- * The row of [StudioPreviewState.highlightedGroup] is outlined and scrolled into view, so a tap
- * on the phone preview lands here.
+ * The row of [StudioPreviewState.highlightedGroup] is outlined. With [bringHighlightIntoView]
+ * (a tap on the phone preview that is still being handled) it is also scrolled into view, so the
+ * tap lands here; a later visit keeps its own scroll.
  */
 @Composable
 internal fun ElementColorsCard(
@@ -83,6 +84,7 @@ internal fun ElementColorsCard(
     counts: Map<ColorGroup, GroupCount>,
     modifier: Modifier = Modifier,
     groups: List<ColorGroup> = ColorGroup.ALL,
+    bringHighlightIntoView: Boolean = false,
     title: String = "One UI element colours",
     subtitle: String = "Colour every part of One UI on its own, for light and dark. Auto follows the colour engine.",
     eyebrow: String = "Elements · ${groups.size} groups",
@@ -129,6 +131,7 @@ internal fun ElementColorsCard(
                         preview = preview,
                         count = counts[group],
                         highlighted = preview.highlightedGroup == group,
+                        bringIntoView = bringHighlightIntoView,
                         onSelect = { viewModel.setHighlightedGroup(group) },
                         onSwatch = { night ->
                             viewModel.setHighlightedGroup(group)
@@ -231,13 +234,15 @@ private fun ElementRow(
     preview: StudioPreviewState,
     count: GroupCount?,
     highlighted: Boolean,
+    bringIntoView: Boolean,
     onSelect: () -> Unit,
     onSwatch: (night: Boolean) -> Unit,
 ) {
     val reduceMotion = LocalAppSettings.current.reduceMotion
     val requester = remember { BringIntoViewRequester() }
+    // Read when the effect starts: the jump request is consumed while the row is still scrolling.
     LaunchedEffect(highlighted) {
-        if (highlighted) {
+        if (highlighted && bringIntoView) {
             // Let a step switch and the list scroll settle before the row asks for the rest.
             delay(250)
             runCatching { requester.bringIntoView() }

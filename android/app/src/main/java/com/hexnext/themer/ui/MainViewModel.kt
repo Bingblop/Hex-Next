@@ -54,9 +54,11 @@ import com.hexnext.themer.theme.BackgroundSlots
 import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.theme.CatalogueEntry
 import com.hexnext.themer.theme.CustomAssetStore
+import com.hexnext.themer.theme.FontInstaller
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
+import com.hexnext.themer.theme.MonetSeed
 import com.hexnext.themer.theme.PackStore
 import com.hexnext.themer.theme.SemWtController
 import com.hexnext.themer.theme.SnapshotBuilder
@@ -90,6 +92,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -206,6 +209,8 @@ data class PreviewState(
     val synthesised: Set<String> = emptySet(),
     /** Names of the icons drawn from the app's built-in art (no pack covers them). */
     val builtIn: Set<String> = emptySet(),
+    /** The mode [icons] and [myFiles] were rendered for: true for the night jobs, false for the day jobs. */
+    val night: Boolean = true,
 )
 
 /** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
@@ -262,19 +267,37 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** The group the Studio is editing; the phone preview outlines its elements. */
     private val highlight = MutableStateFlow<ColorGroup?>(null)
 
+    /**
+     * Whether the Studio mockup shows dark mode (its default) or light mode; icons are rendered
+     * from the night or day jobs to match, since Apply colours them differently per mode.
+     */
+    private val previewNight = MutableStateFlow(true)
+
     /** Built-in badge icons for the preview when the compile preview has none (no scan, no pack icons). */
     private val styledIcons = StyledIconPreview(app)
 
-    /** Compose wrappers of the preview bitmaps, by bitmap identity, so an unchanged icon stays equal. */
-    private val imageCache: MutableMap<Bitmap, ImageBitmap> = Collections.synchronizedMap(WeakHashMap())
+    /**
+     * Compose wrappers of the preview bitmaps, by bitmap identity, so an unchanged icon stays equal.
+     * The values are weak too: a wrapper holds its bitmap strongly, so a strong value would keep its
+     * own weak key reachable and no entry would ever be dropped.
+     */
+    private val imageCache: MutableMap<Bitmap, WeakReference<ImageBitmap>> = Collections.synchronizedMap(WeakHashMap())
 
     /**
      * The icon half of [studioPreview]: rendered from the debounced compile preview, or built-in
      * badges in the current icon style when it has none. Keyed on the committed spec (never the
      * draft), so a slider drag never re-renders icons.
      */
-    private val iconPart: StateFlow<StudioIcons> = _ui
-        .map { IconInputs(it.preview, it.spec.iconStyle, it.spec.source.copy(seedArgb = it.seed), it.spec.darkAdjustments, it.spec.lightAdjustments, it.spec.builtInIcons) }
+    private val iconPart: StateFlow<StudioIcons> = _ui.map {
+            IconInputs(
+                it.preview, it.spec.iconStyle, it.spec.source.copy(seedArgb = it.seed), it.spec.darkAdjustments, it.spec.lightAdjustments,
+                settingsBuiltIn = drawsBuiltInIcons(it.spec, SETTINGS_ICONS_ELEMENT),
+                myFilesBuiltIn = drawsBuiltInIcons(it.spec, MY_FILES_ICONS_ELEMENT),
+                // The mode of the last render, not the toggle: until the new mode's render lands the
+                // bitmaps are the old mode's, and the label and built-in badges must match them.
+                night = it.preview.night,
+            )
+        }
         .distinctUntilChanged()
         .conflate()
         .map { studioIcons(it) }
@@ -301,10 +324,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             fontFile = icons.fontFile,
             fontName = icons.fontName,
             highlightedGroup = highlighted,
-            qsPanelAlpha = spec.qsPanelAlpha / 255f,
+            qsPanelAlpha = spec.qsPanelAlpha.coerceAtLeast(EngineThemeSpec.MIN_QS_PANEL_ALPHA) / 255f,
             iconsLoading = icons.loading,
             hasScan = icons.hasScan,
             note = icons.note,
+            iconsNight = icons.night,
         )
     }
         .conflate()
@@ -559,6 +583,22 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             val bundle = result.getOrNull()
             if (bundle != null && bundle.getInt(ThemeService.KEY_CODE, -1) == 0) {
+                // Overlays are only part of the theme. The font (kept as a module that is mounted
+                // again at every boot) and the shell-tier palette seed go too, before the mark below
+                // switches off the boot-time guards that would otherwise remove them.
+                withContext(Dispatchers.IO) {
+                    val service = runCatching { ShizukuManager.service() }.getOrNull()
+                    if (service != null) {
+                        runCatching { MonetSeed.restore(service) { line -> if (line.level != LogLevel.INFO) log(line) } }
+                            .onFailure { log(LogLine(LogLevel.WARN, "Safe mode could not restore the system palette: ${it.javaClass.simpleName}: ${it.message}")) }
+                        val fonts = FontInstaller(service)
+                        runCatching { fonts.remove { line -> if (line.level != LogLevel.INFO) log(line) } }
+                            .onFailure { log(LogLine(LogLevel.WARN, "Safe mode could not remove the Hex Next font: ${it.javaClass.simpleName}: ${it.message}")) }
+                        if (runCatching { fonts.hasState() }.getOrDefault(false)) {
+                            log(LogLine(LogLevel.WARN, "The Hex Next font is still installed; run Remove theme with Shizuku running as root."))
+                        }
+                    }
+                }
                 guard.markSafeModeEntered(by = "app start")
                 // Safe mode confirms the guard: the "not confirmed yet" line must go with the overlays.
                 refreshGuard()
@@ -968,7 +1008,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
             val spec = specToPreview()
-            val rendered = withContext(Dispatchers.Default) { previewer.render(spec) }
+            val night = previewNight.value
+            val rendered = withContext(Dispatchers.Default) { previewer.render(spec, night) }
             _ui.update {
                 it.copy(
                     preview = PreviewState(
@@ -982,6 +1023,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         fontName = rendered.fontName,
                         synthesised = rendered.synthesised,
                         builtIn = rendered.builtIn,
+                        night = night,
                     ),
                 )
             }
@@ -1022,8 +1064,17 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val source: com.hexnext.engine.palette.ThemeSource,
         val dark: ThemeAdjustments,
         val light: ThemeAdjustments,
-        val builtIn: Boolean,
+        val settingsBuiltIn: Boolean,
+        val myFilesBuiltIn: Boolean,
+        val night: Boolean,
     )
+
+    /**
+     * Whether Apply draws built-in badges for icon element [elementId]: built-in icons on, the
+     * element enabled and no pack chosen for it, as in the engine's built-in icon jobs.
+     */
+    private fun drawsBuiltInIcons(spec: EngineThemeSpec, elementId: String): Boolean =
+        spec.builtInIcons && spec.isElementEnabled(elementId) && spec.packFor(elementId) == null
 
     /** The icon half of [studioPreview]. */
     private data class StudioIcons(
@@ -1035,9 +1086,12 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val loading: Boolean = false,
         val hasScan: Boolean = false,
         val note: String? = null,
+        val night: Boolean = true,
     )
 
-    private fun imageOf(bitmap: Bitmap): ImageBitmap = imageCache.getOrPut(bitmap) { bitmap.asImageBitmap() }
+    private fun imageOf(bitmap: Bitmap): ImageBitmap = synchronized(imageCache) {
+        imageCache[bitmap]?.get() ?: bitmap.asImageBitmap().also { imageCache[bitmap] = WeakReference(it) }
+    }
 
     /** Background thread only: converts the compile preview, filling in built-in badges where it has no icons. */
     private fun studioIcons(inputs: IconInputs): StudioIcons {
@@ -1050,20 +1104,20 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         var myFiles = preview.myFiles.map { icon ->
             PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback)
         }
-        // Built-in badges stand in only when Apply would draw them too (built-in icons on), so the
-        // preview never shows colourful icons the phone will not get.
-        val needSettings = inputs.builtIn && settings.none { it.bitmap != null }
-        val needMyFiles = inputs.builtIn && myFiles.none { it.bitmap != null }
+        // Built-in badges stand in only when Apply would draw them too (built-in icons on, element
+        // enabled, no pack for it), so the preview never shows colourful icons the phone will not get.
+        val needSettings = inputs.settingsBuiltIn && settings.none { it.bitmap != null }
+        val needMyFiles = inputs.myFilesBuiltIn && myFiles.none { it.bitmap != null }
         if (needSettings || needMyFiles) {
             runCatching {
                 val theme = ThemeResolver.resolve(inputs.source, inputs.dark, inputs.light)
                 if (needSettings) {
-                    settings = styledIcons.settingsIcons(inputs.style, theme, false, STUDIO_ICON_PX, STUDIO_SETTINGS_ICONS)
+                    settings = styledIcons.settingsIcons(inputs.style, theme, inputs.night, STUDIO_ICON_PX, STUDIO_SETTINGS_ICONS)
                         .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
                         .ifEmpty { settings }
                 }
                 if (needMyFiles) {
-                    myFiles = styledIcons.myFilesIcons(inputs.style, theme, false, STUDIO_ICON_PX, STUDIO_MY_FILES_ICONS)
+                    myFiles = styledIcons.myFilesIcons(inputs.style, theme, inputs.night, STUDIO_ICON_PX, STUDIO_MY_FILES_ICONS)
                         .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
                         .ifEmpty { myFiles }
                 }
@@ -1078,6 +1132,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             loading = preview.loading,
             hasScan = SnapshotBuilder.scanStamp(getApplication<Application>()) != null,
             note = preview.note,
+            night = inputs.night,
         )
     }
 
@@ -1153,7 +1208,19 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun setBuiltInIcons(enabled: Boolean) = commitSpec { it.copy(builtInIcons = enabled) }
 
     /** Opacity of the Quick panel backdrop, 0 … 255 (255 leaves Samsung's). */
-    fun setQsPanelAlpha(alpha: Int) = commitSpec { it.copy(qsPanelAlpha = alpha.coerceIn(0, 255)) }
+    fun setQsPanelAlpha(alpha: Int) = commitSpec { it.copy(qsPanelAlpha = alpha.coerceIn(EngineThemeSpec.MIN_QS_PANEL_ALPHA, 255)) }
+
+    /**
+     * The Studio mockup switched to dark ([dark] true) or light mode: re-renders the preview icons
+     * from the matching night or day jobs. Main thread only.
+     */
+    fun setPreviewDark(dark: Boolean) {
+        if (previewNight.value == dark) return
+        previewNight.value = dark
+        // The icons on screen are the other mode's until the new render lands: show them as loading.
+        _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
+        refreshPreview()
+    }
 
     /** The group the Studio is editing (the preview outlines it); null for none. */
     fun setHighlightedGroup(group: ColorGroup?) {
@@ -1330,6 +1397,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             val result = runCatching { packStore.installed() }
             result.onSuccess { installed ->
                 val ids = installed.packs.mapTo(HashSet()) { it.id }
+                // Only a pack that the last listing had and this one lacks was removed. A theme may
+                // name a pack that was never installed here (an imported theme waiting for its
+                // pack); that choice is kept, so it works once the pack is bought or downloaded.
+                val removed = _ui.value.packs.mapTo(HashSet()) { it.id } - ids
                 entitlements.setCatalogue(ids)
                 val versions = installed.packs.associate { it.id to it.version }
                 _ui.update {
@@ -1345,14 +1416,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 }
                 val spec = _ui.value.spec
                 val selected = spec.simplePackId
-                if (selected != null && selected !in ids) {
+                if (selected != null && selected in removed) {
                     log(LogLine(LogLevel.WARN, "Theme pack $selected is no longer installed; colours only"))
                     selectPack(null)
                 }
-                val gone = spec.elementPacks.filterValues { it !in ids }
+                val gone = spec.elementPacks.filterValues { it in removed }
                 if (gone.isNotEmpty()) {
                     log(LogLine(LogLevel.WARN, "Pack ${gone.values.distinct().joinToString()} is no longer installed; ${gone.keys.joinToString()} use the default pack"))
-                    updateSpec { it.copy(elementPacks = it.elementPacks.filterValues { v -> v in ids }) }
+                    updateSpec { it.copy(elementPacks = it.elementPacks.filterValues { v -> v !in removed }) }
                 }
                 refreshPreview()
             }.onFailure { log(LogLine(LogLevel.ERROR, "Listing packs failed: ${it.javaClass.simpleName}: ${it.message}")) }
@@ -1539,8 +1610,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun productName(productId: String): String {
         if (productId == ProductIds.ALL_PACKS) return "All packs"
         val state = _ui.value
-        return state.packs.firstOrNull { ProductIds.forPack(it.id) == productId }?.name
-            ?: state.catalogue.entries.firstOrNull { ProductIds.forPack(it.id) == productId }?.name
+        // allForPack also matches a purchase made under a former product id, so the user sees
+        // the pack's current name instead of the raw id.
+        return state.packs.firstOrNull { productId in ProductIds.allForPack(it.id) }?.name
+            ?: state.catalogue.entries.firstOrNull { productId in ProductIds.allForPack(it.id) }?.name
             ?: productId
     }
 
@@ -1665,6 +1738,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         private const val STUDIO_ICON_PX = 96
         private const val STUDIO_SETTINGS_ICONS = 12
         private const val STUDIO_MY_FILES_ICONS = 6
+        private const val SETTINGS_ICONS_ELEMENT = "settings_icons"
+        private const val MY_FILES_ICONS_ELEMENT = "my_files_icons"
         private const val OPAQUE = 0xFF000000.toInt()
         private const val SAFE_MODE_TEXT = "Safe mode: Hex Next overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =

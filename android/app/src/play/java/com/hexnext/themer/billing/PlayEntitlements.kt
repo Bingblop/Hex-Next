@@ -17,6 +17,7 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import com.hexnext.engine.pack.PackIdAliases
 import com.hexnext.themer.BuildConfig
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -149,7 +150,16 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             setError(UNVERIFIABLE)
             return
         }
-        val productDetails = synchronized(lock) { details[productId] }
+        // Play product ids cannot be renamed, so a renamed pack may only exist in Play under a
+        // former id. Buy the first product of the pack that has details, in the order priceOf uses.
+        val productDetails = synchronized(lock) {
+            val candidates = catalogueIds
+                .map { PackIdAliases.current(it) }
+                .firstOrNull { productId in ProductIds.allForPack(it) }
+                ?.let { ProductIds.allForPack(it) }
+                ?: listOf(productId)
+            candidates.firstNotNullOfOrNull { details[it] }
+        }
         if (productDetails == null || !client.isReady) {
             setError("This item isn't available right now. Try again in a moment.")
             refresh()

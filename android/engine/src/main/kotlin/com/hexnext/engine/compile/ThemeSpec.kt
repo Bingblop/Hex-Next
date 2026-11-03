@@ -111,7 +111,8 @@ public data class CustomFont(val regular: String, val bold: String? = null, val 
  *   covers get the app's own colourful icons (see [IconColors.builtInJobs]). Off in files written
  *   before it existed; on in [default] themes.
  * @property qsPanelAlpha 0 … 255 alpha written to the Quick panel background resources (the
- *   [ColorGroup.QS_PANEL_BG] group), Auto or custom; 255 leaves the alpha Samsung uses.
+ *   [ColorGroup.QS_PANEL_BG] group), Auto or custom; 255 leaves the alpha Samsung uses. Values
+ *   below [MIN_QS_PANEL_ALPHA] are compiled as [MIN_QS_PANEL_ALPHA] so the panel stays readable.
  */
 @Serializable
 public data class ThemeSpec(
@@ -167,6 +168,9 @@ public data class ThemeSpec(
          * the version: they have defaults, so older files load and older readers skip them.
          */
         public const val FORMAT: Int = 1
+
+        /** Lowest Quick panel backdrop alpha the compiler writes (40%): text over it stays readable. */
+        public const val MIN_QS_PANEL_ALPHA: Int = 102
 
         /** Default seed: One UI blue. */
         public const val DEFAULT_SEED: Int = 0xFF3E91FF.toInt()

@@ -67,7 +67,7 @@ class StyledIconPreview(private val context: Context) {
             if (out.size >= limit) break
             val bitmap = render(style, name, theme, night, sizePx) ?: continue
             val key = name.removePrefix(MY_FILES_PREFIX)
-            out += Icon(key, MY_FILES_LABELS[key] ?: BackgroundSlots.humanise(name), bitmap)
+            out += Icon(key, ThemePreviewer.myFilesLabel(name), bitmap)
         }
         return out
     }
@@ -103,16 +103,6 @@ class StyledIconPreview(private val context: Context) {
             "connections", "sound", "notifications", "display", "wallpaper", "lockscreen",
             "biometrics_and_security", "cloud_and_account", "google", "galaxy_ai", "devicecare", "applications",
             "general_device_management", "accessibility", "software_update", "about",
-        )
-
-        /** One UI labels of the My Files categories. */
-        val MY_FILES_LABELS: Map<String, String> = mapOf(
-            "image" to "Images",
-            "video" to "Videos",
-            "audio" to "Audio",
-            "documents" to "Documents",
-            "download" to "Downloads",
-            "apk" to "Installation files",
         )
     }
 }

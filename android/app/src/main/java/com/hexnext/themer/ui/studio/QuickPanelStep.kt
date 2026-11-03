@@ -70,17 +70,20 @@ internal fun QuickPanelCard(viewModel: MainViewModel, spec: ThemeSpec, preview: 
         MiniPanel(preview, dark = true)
         DraftSlider(
             label = "Panel opacity",
-            value = spec.qsPanelAlpha * 100f / 255f,
-            valueRange = 0f..100f,
+            value = spec.qsPanelAlpha.coerceAtLeast(ThemeSpec.MIN_QS_PANEL_ALPHA) * 100f / 255f,
+            valueRange = MIN_PANEL_PERCENT..100f,
             format = { "${it.roundToInt()}%" },
             onDraft = { pct -> viewModel.previewDraft(spec.copy(qsPanelAlpha = alphaOf(pct))) },
             onCommit = { pct -> viewModel.setQsPanelAlpha(alphaOf(pct)) },
-            caption = "100% keeps Samsung's backdrop. Lower values let the wallpaper show through the panel.",
+            caption = "100% keeps Samsung's backdrop. Lower values let the wallpaper show through; 40% is the minimum so text stays readable.",
         )
     }
 }
 
-private fun alphaOf(percent: Float): Int = (percent * 255f / 100f).roundToInt().coerceIn(0, 255)
+private fun alphaOf(percent: Float): Int = (percent * 255f / 100f).roundToInt().coerceIn(ThemeSpec.MIN_QS_PANEL_ALPHA, 255)
+
+/** Slider floor in percent, matching the lowest alpha the compiler writes. */
+private val MIN_PANEL_PERCENT: Float = ThemeSpec.MIN_QS_PANEL_ALPHA * 100f / 255f
 
 /** A strip of the panel in [dark] colours: backdrop at its opacity, two active and two inactive tiles, a slider. */
 @Composable
