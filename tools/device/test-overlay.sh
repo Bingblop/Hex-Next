@@ -13,7 +13,8 @@ set -u
 OUT_DIR="${1:-$PWD}"
 OUT="$OUT_DIR/hexnext-overlay-test.txt"
 # Each run overwrites the report; logcat -d still shows earlier runs.
-PKG=com.hexnext.themer
+# Same package rule as install.sh: the owner artifact installs com.hexnext.themer.owner.
+case "${ARTIFACT:-HexNext-Owner-Release}" in *Owner*) PKG="${PKG:-com.hexnext.themer.owner}" ;; *) PKG="${PKG:-com.hexnext.themer}" ;; esac
 TARGET=com.android.settings
 SEMWT="android:SemWT_$TARGET"
 PROBE=HexNext_probe
@@ -100,7 +101,8 @@ elif [ $ok -eq 1 ]; then
     # from the verified zip.
     rm -rf "$WORK/apk"; mkdir -p "$WORK/apk" &&
       (cd "$WORK/apk" && unzip -o -q ../hexnext-debug.zip) &&
-      APK=$(find "$WORK/apk" -type f -name '*.apk' | head -1)
+      APK=$(find "$WORK/apk" -type f -name '*universal*.apk' | head -1)
+    [ -n "${APK:-}" ] || APK=$(find "$WORK/apk" -type f -name '*.apk' | head -1)
     if [ -n "${APK:-}" ]; then
       # Stream the APK to pm on stdin instead of staging it in the shell-writable
       # /data/local/tmp, where a planted symlink could redirect a root copy.
