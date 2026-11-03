@@ -6,12 +6,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import com.hexnext.themer.ui.ConsoleShapes
 import com.hexnext.themer.ui.ConsoleTypography
 import com.hexnext.themer.ui.LocalAppSettings
 import com.hexnext.themer.ui.LocalStatusPalette
 import com.hexnext.themer.ui.StatusPalette
 import com.hexnext.themer.ui.consoleColorScheme
+import com.hexnext.themer.ui.effectiveContrast
+import com.hexnext.themer.ui.settings.ContrastLevel
 import com.hexnext.themer.ui.settings.PaletteSource
 
 /**
@@ -32,8 +35,9 @@ fun StudioTheme(content: @Composable () -> Unit) {
     val console = settings.palette == PaletteSource.CONSOLE
     val dark = settings.isDark(isSystemInDarkTheme())
     val inherited = MaterialTheme.colorScheme
-    val colors = if (console) {
-        remember(dark, settings.pureBlack) { consoleColorScheme(dark, settings.pureBlack) }
+    val contrast = effectiveContrast(LocalContext.current, settings.contrast)
+    val colors = if (console && contrast == ContrastLevel.STANDARD) {
+        remember(dark, settings.pureBlack, contrast) { consoleColorScheme(dark, settings.pureBlack) }
     } else {
         inherited
     }

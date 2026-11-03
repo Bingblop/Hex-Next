@@ -201,6 +201,8 @@ data class PreviewState(
     val note: String? = null,
     val background: Bitmap? = null,
     val myFiles: List<ThemePreviewer.PreviewIcon> = emptyList(),
+    val nightIcons: List<ThemePreviewer.PreviewIcon> = emptyList(),
+    val nightMyFiles: List<ThemePreviewer.PreviewIcon> = emptyList(),
     val fontFile: String? = null,
     val fontName: String? = null,
     val synthesised: Set<String> = emptySet(),
@@ -297,6 +299,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         StudioPreviewState.colorsOf(spec, seedDraft ?: base.seed).copy(
             settingsIcons = icons.settings,
             myFilesIcons = icons.myFiles,
+            settingsIconsNight = icons.settingsNight,
+            myFilesIconsNight = icons.myFilesNight,
             background = icons.background,
             fontFile = icons.fontFile,
             fontName = icons.fontName,
@@ -978,6 +982,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         note = rendered.note,
                         background = rendered.background,
                         myFiles = rendered.myFiles,
+                        nightIcons = rendered.nightIcons,
+                        nightMyFiles = rendered.nightMyFiles,
                         fontFile = rendered.fontFile,
                         fontName = rendered.fontName,
                         synthesised = rendered.synthesised,
@@ -1029,6 +1035,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private data class StudioIcons(
         val settings: List<PreviewIcon> = emptyList(),
         val myFiles: List<PreviewIcon> = emptyList(),
+        val settingsNight: List<PreviewIcon> = emptyList(),
+        val myFilesNight: List<PreviewIcon> = emptyList(),
         val background: ImageBitmap? = null,
         val fontFile: String? = null,
         val fontName: String? = null,
@@ -1050,11 +1058,19 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         var myFiles = preview.myFiles.map { icon ->
             PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback)
         }
+        var settingsNight = preview.nightIcons.map { icon ->
+            PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback, synthesised = icon.name in synthesised)
+        }
+        var myFilesNight = preview.nightMyFiles.map { icon ->
+            PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback)
+        }
         // Built-in badges stand in only when Apply would draw them too (built-in icons on), so the
         // preview never shows colourful icons the phone will not get.
         val needSettings = inputs.builtIn && settings.none { it.bitmap != null }
         val needMyFiles = inputs.builtIn && myFiles.none { it.bitmap != null }
-        if (needSettings || needMyFiles) {
+        val needSettingsNight = inputs.builtIn && settingsNight.none { it.bitmap != null }
+        val needMyFilesNight = inputs.builtIn && myFilesNight.none { it.bitmap != null }
+        if (needSettings || needMyFiles || needSettingsNight || needMyFilesNight) {
             runCatching {
                 val theme = ThemeResolver.resolve(inputs.source, inputs.dark, inputs.light)
                 if (needSettings) {
@@ -1062,16 +1078,28 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
                         .ifEmpty { settings }
                 }
+                if (needSettingsNight) {
+                    settingsNight = styledIcons.settingsIcons(inputs.style, theme, true, STUDIO_ICON_PX, STUDIO_SETTINGS_ICONS)
+                        .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
+                        .ifEmpty { settingsNight }
+                }
                 if (needMyFiles) {
                     myFiles = styledIcons.myFilesIcons(inputs.style, theme, false, STUDIO_ICON_PX, STUDIO_MY_FILES_ICONS)
                         .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
                         .ifEmpty { myFiles }
+                }
+                if (needMyFilesNight) {
+                    myFilesNight = styledIcons.myFilesIcons(inputs.style, theme, true, STUDIO_ICON_PX, STUDIO_MY_FILES_ICONS)
+                        .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
+                        .ifEmpty { myFilesNight }
                 }
             }
         }
         return StudioIcons(
             settings = settings,
             myFiles = myFiles,
+            settingsNight = settingsNight,
+            myFilesNight = myFilesNight,
             background = preview.background?.let(::imageOf),
             fontFile = preview.fontFile,
             fontName = preview.fontName,

@@ -129,7 +129,10 @@ fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
     val preview by viewModel.studioPreview.collectAsState()
     BackHandler { viewModel.navigateBack() }
     DisposableEffect(model) { onDispose { model.release() } }
-    LaunchedEffect(ui.spec) { model.setSpec(ui.spec) }
+    LaunchedEffect(ui.spec, ui.seed) {
+        model.setSpec(ui.spec.copy(source = ui.spec.source.copy(seedArgb = ui.seed)))
+        model.refresh()
+    }
     // A Targets row opens the editor on its app: select it once the scanned app list is in.
     val preselect by viewModel.resourcesTarget.collectAsState()
     LaunchedEffect(preselect, state.targets, state.hasScan) {

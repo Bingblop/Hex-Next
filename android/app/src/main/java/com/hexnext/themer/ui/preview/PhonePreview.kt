@@ -28,6 +28,10 @@ fun PhonePreview(
 ) {
     val reduceMotion = LocalAppSettings.current.reduceMotion
     val palette = animatedPalette(state.scheme(dark))
+    val modeState = state.copy(
+        settingsIcons = state.settingsIcons(dark),
+        myFilesIcons = state.myFilesIcons(dark),
+    )
     val font = rememberPreviewFontFamily(state.fontFile)
     val scope = PreviewScope(
         palette = palette,
@@ -37,7 +41,7 @@ fun PhonePreview(
         reduceMotion = reduceMotion,
     )
     PreviewFrame(
-        state = state,
+        state = modeState,
         tab = tab,
         onTabChange = onTabChange,
         dark = dark,
@@ -46,10 +50,10 @@ fun PhonePreview(
         modifier = modifier,
     ) {
         if (reduceMotion) {
-            PreviewScreen(tab, state, scope)
+            PreviewScreen(tab, modeState, scope)
         } else {
             Crossfade(targetState = tab, animationSpec = tween(durationMillis = 180), label = "previewTab") { shown ->
-                PreviewScreen(shown, state, scope)
+                PreviewScreen(shown, modeState, scope)
             }
         }
     }

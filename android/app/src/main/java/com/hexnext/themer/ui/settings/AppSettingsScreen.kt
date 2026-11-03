@@ -76,6 +76,7 @@ import com.hexnext.themer.ui.RADIO_INDENT
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.appColorScheme
 import com.hexnext.themer.ui.consoleColorScheme
+import com.hexnext.themer.ui.effectiveContrast
 
 /** The eight seed swatches of the "Custom colour" palette. */
 private val SEED_PRESETS = listOf(
@@ -259,8 +260,13 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
         }
 
         // Console styles the editor only, so its swatches show the console scheme the editor draws.
-        val preview = remember(settings.palette, settings.seedArgb, settings.pureBlack, settings.contrast, dark) {
-            if (settings.palette == PaletteSource.CONSOLE) consoleColorScheme(dark, settings.pureBlack) else appColorScheme(context, settings, dark)
+        val contrast = effectiveContrast(context, settings.contrast)
+        val preview = remember(settings.palette, settings.seedArgb, settings.pureBlack, contrast, dark) {
+            if (settings.palette == PaletteSource.CONSOLE && contrast == ContrastLevel.STANDARD) {
+                consoleColorScheme(dark, settings.pureBlack)
+            } else {
+                appColorScheme(context, settings, dark)
+            }
         }
         Label("Preview")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

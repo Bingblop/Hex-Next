@@ -59,25 +59,11 @@ internal class ResourceEditorModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<ResourceEditorState> = _state.asStateFlow()
 
     private var report: DeviceReport? = null
+    private var reportStamp: String? = null
+    private var refreshed = false
     private var loaded: Pair<String, SnapshotBuilder.Result>? = null
     private var spec: ThemeSpec? = null
     private var job: Job? = null
-
-    init {
-        viewModelScope.launch {
-            val latest = withContext(Dispatchers.IO) { runCatching { builder.latestReport() }.getOrNull() }
-            report = latest
-            if (latest == null) {
-                _state.value = ResourceEditorState(hasScan = false, loading = false)
-                return@launch
-            }
-            val targets = targetsOf(latest)
-            val first = targets.firstOrNull { it.packageName == DEFAULT_TARGET }?.packageName
-                ?: targets.firstOrNull()?.packageName
-            _state.update { it.copy(hasScan = true, targets = targets, selected = first, loading = first != null) }
-            if (first != null) reload()
-        }
-    }
 
     /** Opens [packageName]'s colours. */
     fun select(packageName: String) {
@@ -93,6 +79,31 @@ internal class ResourceEditorModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
+    /** Refreshes the scan report and targets when the editor opens or the scan changes. */
+    suspend fun refresh() {
+        val (stamp, latest) = withContext(Dispatchers.IO) {
+            SnapshotBuilder.scanStamp(getApplication()) to runCatching { builder.latestReport() }.getOrNull()
+        }
+        if (refreshed && stamp == reportStamp) return
+        refreshed = true
+        reportStamp = stamp
+        report = latest
+        loaded = null
+        job?.cancel()
+        job = null
+        val targets = latest?.let(::targetsOf).orEmpty()
+        val selected = _state.value.selected?.takeIf { selected -> targets.any { it.packageName == selected } }
+            ?: targets.firstOrNull { it.packageName == DEFAULT_TARGET }?.packageName
+            ?: targets.firstOrNull()?.packageName
+        _state.value = ResourceEditorState(
+            hasScan = latest != null,
+            targets = targets,
+            selected = selected,
+            loading = selected != null,
+        )
+        if (selected != null) reload()
+    }
+
     /**
      * Drops the cached snapshot (the screen is leaving). The spec is forgotten too, so the next
      * [setSpec] (the screen opened again) reloads even when the theme did not change; otherwise a
@@ -103,6 +114,10 @@ internal class ResourceEditorModel(app: Application) : AndroidViewModel(app) {
         job = null
         loaded = null
         spec = null
+        report = null
+        reportStamp = null
+        refreshed = false
+        _state.value = ResourceEditorState()
     }
 
     private fun reload() {

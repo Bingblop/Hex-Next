@@ -102,6 +102,8 @@ class ThemePreviewer(context: Context) {
         val synthesised: Set<String> = emptySet(),
         val builtIn: Set<String> = emptySet(),
         val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
+        val nightIcons: List<PreviewIcon> = emptyList(),
+        val nightMyFiles: List<PreviewIcon> = emptyList(),
     )
 
     /**
@@ -156,11 +158,11 @@ class ThemePreviewer(context: Context) {
 
         val accent = settings?.let { accentOf(it) }
         val rowJobs = settings?.let { bestJobs(it, SettingsTestOverlay.DASHBOARD_ROW_ICONS.toHashSet()) }.orEmpty()
+        val nightRowJobs = settings?.let { bestJobs(it, SettingsTestOverlay.DASHBOARD_ROW_ICONS.toHashSet(), night = true) }.orEmpty()
         val myFilesJobs = myFilesTarget?.let { myFilesJobs(it) }.orEmpty()
+        val nightMyFilesJobs = myFilesTarget?.let { myFilesJobs(it, night = true) }.orEmpty()
         val backgroundJob = listOfNotNull(settings, myFilesTarget).firstNotNullOfOrNull { backgroundJob(spec, it) }
 
-        val icons = ArrayList<PreviewIcon>(MAX_ICONS)
-        val myFiles = ArrayList<PreviewIcon>(MAX_MY_FILES)
         val synthesised = HashSet<String>()
         val builtIn = HashSet<String>()
         var background: Bitmap? = null
@@ -172,30 +174,53 @@ class ThemePreviewer(context: Context) {
                 if (bitmap == null) failed++
                 return bitmap
             }
-            for (name in previewRows(rowJobs)) {
-                if (icons.size >= MAX_ICONS) break
-                val job = rowJobs[name] ?: continue
-                val bitmap = bitmapOf(job)
-                if (job.synthesis != null) synthesised += name
-                if (job.badge != null) builtIn += name
-                icons += PreviewIcon(name, labelFor(name), bitmap)
+            fun renderIcons(
+                rows: Map<String, PlannedDrawableJob>,
+                files: List<PlannedDrawableJob>,
+            ): Pair<List<PreviewIcon>, List<PreviewIcon>> {
+                val icons = ArrayList<PreviewIcon>(MAX_ICONS)
+                val myFiles = ArrayList<PreviewIcon>(MAX_MY_FILES)
+                for (name in previewRows(rows)) {
+                    if (icons.size >= MAX_ICONS) break
+                    val job = rows[name] ?: continue
+                    if (job.synthesis != null) synthesised += name
+                    if (job.badge != null) builtIn += name
+                    icons += PreviewIcon(name, labelFor(name), bitmapOf(job))
+                }
+                for (job in files) {
+                    if (myFiles.size >= MAX_MY_FILES) break
+                    val name = job.resourceName.substringAfter('/')
+                    if (job.badge != null) builtIn += name
+                    myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmapOf(job))
+                }
+                return icons to myFiles
             }
-            for (job in myFilesJobs) {
-                if (myFiles.size >= MAX_MY_FILES) break
-                val name = job.resourceName.substringAfter('/')
-                if (job.badge != null) builtIn += name
-                myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmapOf(job))
-            }
+            val (icons, myFiles) = renderIcons(rowJobs, myFilesJobs)
+            val (nightIcons, nightMyFiles) = renderIcons(nightRowJobs, nightMyFilesJobs)
             if (backgroundJob != null) background = bitmapOf(backgroundJob)
+
+            val note = when {
+                failed == 1 -> "1 image could not be rendered."
+                failed > 1 -> "$failed images could not be rendered."
+                icons.isEmpty() && settings != null -> noIconsNote(spec, packs)
+                icons.isEmpty() -> skippedNote(compiled.skippedTargets.firstOrNull { it.name == TARGET }?.reason)
+                else -> null
+            }
+            return Preview(
+                icons = icons,
+                accent = accent,
+                note = note,
+                background = background,
+                myFiles = myFiles,
+                fontFile = fontFile,
+                fontName = fontName,
+                synthesised = synthesised,
+                builtIn = builtIn,
+                iconStyle = spec.iconStyle,
+                nightIcons = nightIcons,
+                nightMyFiles = nightMyFiles,
+            )
         }
-        val note = when {
-            failed == 1 -> "1 image could not be rendered."
-            failed > 1 -> "$failed images could not be rendered."
-            icons.isEmpty() && settings != null -> noIconsNote(spec, packs)
-            icons.isEmpty() -> skippedNote(compiled.skippedTargets.firstOrNull { it.name == TARGET }?.reason)
-            else -> null
-        }
-        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle)
     }
 
     private fun slotsOrThrow(spec: ThemeSpec): SlotCatalogue {
@@ -344,22 +369,15 @@ class ThemePreviewer(context: Context) {
     }
 
     /** Icon name → the job to render: non-night with the highest density, else any non-night, else any. */
-    private fun bestJobs(target: CompiledTarget, wanted: Set<String>): Map<String, PlannedDrawableJob> {
+    private fun bestJobs(target: CompiledTarget, wanted: Set<String>, night: Boolean = false): Map<String, PlannedDrawableJob> {
         val byName = target.drawables
             .filter { it.resourceName.substringAfter('/') in wanted }
             .groupBy { it.resourceName.substringAfter('/') }
         val best = LinkedHashMap<String, PlannedDrawableJob>()
         for ((name, candidates) in byName) {
-            best[name] = bestOf(candidates) ?: continue
+            best[name] = bestOf(candidates, night) ?: continue
         }
         return best
-    }
-
-    private fun bestOf(candidates: List<PlannedDrawableJob>): PlannedDrawableJob? {
-        val day = candidates.filterNot { isNight(it.configuration) }
-        // A pack with only night variants still gets a preview, from its night job.
-        val pool = if (day.isNotEmpty()) day else candidates
-        return pool.maxByOrNull { densityRank(it.configuration) }
     }
 
     /**
@@ -367,7 +385,7 @@ class ThemePreviewer(context: Context) {
      * target), best configuration each; custom icons first, since the compiler appends them after
      * the pack's own jobs and a pack with 8 or more icons would otherwise hide them.
      */
-    private fun myFilesJobs(target: CompiledTarget): List<PlannedDrawableJob> {
+    private fun myFilesJobs(target: CompiledTarget, night: Boolean = false): List<PlannedDrawableJob> {
         val grouped = target.drawables
             .filter { (it.elementId == MY_FILES_ICONS_ELEMENT || it.custom != null) && it.source.category != CustomAssets.CATEGORY_BACKGROUND }
             .groupBy { it.resourceName }
@@ -376,7 +394,7 @@ class ThemePreviewer(context: Context) {
         val out = ArrayList<PlannedDrawableJob>()
         for ((_, candidates) in grouped) {
             if (out.size >= MAX_MY_FILES) break
-            out += bestOf(candidates) ?: continue
+            out += bestOf(candidates, night) ?: continue
         }
         return out
     }
@@ -487,6 +505,13 @@ class ThemePreviewer(context: Context) {
 
         /** True when the FRRO configuration qualifier string contains `night`. */
         internal fun isNight(configuration: String): Boolean = configuration.split('-').contains("night")
+
+        /** The highest-density drawable for [night], falling back to the other mode if needed. */
+        internal fun bestOf(candidates: List<PlannedDrawableJob>, night: Boolean = false): PlannedDrawableJob? {
+            val mode = candidates.filter { isNight(it.configuration) == night }
+            val pool = if (mode.isNotEmpty()) mode else candidates
+            return pool.maxByOrNull { densityRank(it.configuration) }
+        }
 
         /** Density of a configuration string as a comparable number; 0 without a density qualifier. */
         internal fun densityRank(configuration: String): Int {

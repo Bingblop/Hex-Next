@@ -90,6 +90,8 @@ data class StudioPreviewState(
     val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
     val settingsIcons: List<PreviewIcon> = emptyList(),
     val myFilesIcons: List<PreviewIcon> = emptyList(),
+    val settingsIconsNight: List<PreviewIcon> = emptyList(),
+    val myFilesIconsNight: List<PreviewIcon> = emptyList(),
     val background: ImageBitmap? = null,
     val fontFile: String? = null,
     val fontName: String? = null,
@@ -101,6 +103,12 @@ data class StudioPreviewState(
 ) {
     /** The scheme for [dark] mode. */
     fun scheme(dark: Boolean): PreviewScheme = if (dark) this.dark else light
+
+    /** The Settings icons for [dark] mode. */
+    fun settingsIcons(dark: Boolean): List<PreviewIcon> = if (dark) settingsIconsNight else settingsIcons
+
+    /** The My Files icons for [dark] mode. */
+    fun myFilesIcons(dark: Boolean): List<PreviewIcon> = if (dark) myFilesIconsNight else myFilesIcons
 
     companion object {
         /**

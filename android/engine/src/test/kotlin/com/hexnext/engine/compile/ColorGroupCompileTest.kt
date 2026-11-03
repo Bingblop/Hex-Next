@@ -314,6 +314,24 @@ class ColorGroupCompileTest {
     }
 
     @Test
+    fun `inventory reports night-only APK literals as the original day value`() {
+        val name = "sesl_round_and_bgcolor_light"
+        val original = 0xFF717171.toInt()
+        val b = ArscTestBuilder(settings)
+        b.typeNames += "color"
+        b.typeSpec(1, 1)
+        b.type(1, 1, b.config(uiMode = 0x20), mapOf(0 to ArscTestBuilder.Entry.Simple(b.key(name), 0x1c, original)))
+        val target = TargetSnapshot(settings, installed = true, table = ArscReader.read(b.build()))
+        val spec = baseSpec.group(ColorGroup.BACKGROUND, red, blue)
+        val rows = ColorGroupMatcher.inventory(target, Fixtures.reference, spec, rules9)
+        val day = rows.single { it.resourceName == "$settings:color/$name" && it.configuration == "" }
+        val night = rows.single { it.resourceName == "$settings:color/$name" && it.configuration == "night" }
+        assertEquals(original, day.observed)
+        assertEquals(original, night.observed)
+        assertEquals(red, day.planned)
+    }
+
+    @Test
     fun `group counts list reached resources and packages`() {
         val counts = ColorGroupMatcher.groupCounts(device(), rules9)
         // Settings: two SemWT track/bar names plus the APK-only dark track.

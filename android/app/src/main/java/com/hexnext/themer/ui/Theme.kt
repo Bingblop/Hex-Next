@@ -69,7 +69,7 @@ fun HexNextTheme(settings: AppSettings = AppSettings(), content: @Composable () 
 fun appColorScheme(context: Context, settings: AppSettings, dark: Boolean): ColorScheme {
     // "Standard" follows the contrast the user chose in Android's accessibility settings, so a
     // phone set to high contrast system-wide is not quietly shown at standard contrast here.
-    val contrast = if (settings.contrast == ContrastLevel.STANDARD) systemContrast(context) else settings.contrast
+    val contrast = effectiveContrast(context, settings.contrast)
     val scheme = when {
         settings.palette == PaletteSource.SEED ->
             seededColorScheme(settings.seedArgb, dark, contrast)
@@ -82,6 +82,9 @@ fun appColorScheme(context: Context, settings: AppSettings, dark: Boolean): Colo
     }
     return if (dark && settings.pureBlack) scheme.pureBlack() else scheme
 }
+
+fun effectiveContrast(context: Context, requested: ContrastLevel): ContrastLevel =
+    if (requested == ContrastLevel.STANDARD) systemContrast(context) else requested
 
 /** The system-wide contrast (Settings > Accessibility) as one of the app's levels; standard when it cannot be read. */
 private fun systemContrast(context: Context): ContrastLevel {
@@ -229,7 +232,7 @@ fun consoleColorScheme(dark: Boolean, pureBlack: Boolean = false): ColorScheme {
         )
     } else {
         lightColorScheme(
-            primary = Color(0xFF0891B2),
+            primary = Color(0xFF0E7490),
             onPrimary = Color(0xFFFFFFFF),
             primaryContainer = Color(0xFFCFF5FC),
             onPrimaryContainer = Color(0xFF083344),
@@ -248,7 +251,7 @@ fun consoleColorScheme(dark: Boolean, pureBlack: Boolean = false): ColorScheme {
             onSurface = Color(0xFF0F172A),
             surfaceVariant = Color(0xFFEEF2F8),
             onSurfaceVariant = Color(0xFF475569),
-            surfaceTint = Color(0xFF0891B2),
+            surfaceTint = Color(0xFF0E7490),
             inverseSurface = Color(0xFF121A2B),
             inverseOnSurface = Color(0xFFF1F5F9),
             error = Color(0xFFE11D48),
@@ -305,7 +308,7 @@ data class StatusPalette(
             ok = Color(0xFF15803D),
             warn = Color(0xFFB45309),
             bad = Color(0xFFE11D48),
-            info = Color(0xFF0891B2),
+            info = Color(0xFF0E7490),
             muted = Color(0xFF475569),
         )
     }
