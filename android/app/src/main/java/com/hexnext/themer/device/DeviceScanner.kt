@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.Process
+import com.hexnext.engine.arsc.ArscReadOptions
+import com.hexnext.engine.arsc.ArscReader as EngineArscReader
+import com.hexnext.engine.arsc.ResourceValue
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayDump
 import com.hexnext.engine.frro.FrroReader
@@ -288,6 +291,9 @@ class DeviceScanner(context: Context) {
                         .writeText(parsed.ofType(type).map { it.name }.distinct().sorted().joinToString("\n"))
                 }
             }
+            // Sizes, numbers and switches (name, configuration, value) of the targets the native
+            // extras tune: the Quick panel shapes and the pack options rebuilt in Hex Next.
+            if (status.pkg in VALUE_SCAN_TARGETS) runCatching { writeValues(out, out.parentFile) }
             status.copy(
                 arscPath = out.absolutePath,
                 arscBytes = out.length(),
@@ -297,6 +303,33 @@ class DeviceScanner(context: Context) {
             )
         }.getOrElse {
             status.copy(arscPath = out.absolutePath, arscBytes = out.length(), error = "arsc parse: ${it.message}")
+        }
+    }
+
+    /**
+     * Writes every `dimen`, `integer` and `bool` of [arsc] to `names-<type>.txt` in [dir] as
+     * `name<TAB>config<TAB>value`, one line per configured value. Dimensions are decoded from
+     * Android's packed complex form (`12.0dp`, `3.5px` …).
+     */
+    private fun writeValues(arsc: File, dir: File) {
+        val types = setOf("dimen", "integer", "bool")
+        val table = EngineArscReader.read(arsc, ArscReadOptions(types = types, overlayable = false))
+        for (type in types) {
+            val lines = ArrayList<String>()
+            for (entry in table.entries) {
+                if (entry.type != type) continue
+                for (cv in entry.values) {
+                    val text = when (val v = cv.value) {
+                        is ResourceValue.Dimension -> complexDimension(v.raw)
+                        is ResourceValue.IntValue -> v.value.toString()
+                        is ResourceValue.BoolValue -> v.value.toString()
+                        is ResourceValue.Reference -> "@0x" + Integer.toHexString(v.id)
+                        else -> v.toString()
+                    }
+                    lines += "${entry.name}\t${cv.config.ifEmpty { "default" }}\t$text"
+                }
+            }
+            File(dir, "names-$type.txt").writeText(lines.sorted().joinToString("\n"))
         }
     }
 
@@ -498,6 +531,19 @@ class DeviceScanner(context: Context) {
 
     companion object {
         private const val ARSC = "resources.arsc"
+
+        /** Targets whose sizes, numbers and switches the scan lists (see [writeValues]). */
+        private val VALUE_SCAN_TARGETS = setOf("com.android.systemui", "android")
+
+        private val COMPLEX_UNITS = arrayOf("px", "dp", "sp", "pt", "in", "mm")
+        private val RADIX_MULTS = floatArrayOf(1f / (1 shl 8), 1f / (1 shl 15), 1f / (1 shl 23), 1f / (1L shl 31).toFloat())
+
+        /** Decodes a `TYPE_DIMENSION` complex value, e.g. `0x00001001` → `16.0dp`. */
+        internal fun complexDimension(raw: Int): String {
+            val value = (raw and 0xFFFFFF00.toInt()).toFloat() * RADIX_MULTS[(raw shr 4) and 0x3]
+            val unit = COMPLEX_UNITS.getOrNull(raw and 0xF) ?: "unit${raw and 0xF}"
+            return "$value$unit"
+        }
         private const val SCAN_DIR = "scan"
         /** A scan in progress writes here; it becomes [SCAN_DIR] only when the scan finished. */
         private const val SCAN_STAGING_DIR = "scan.new"
