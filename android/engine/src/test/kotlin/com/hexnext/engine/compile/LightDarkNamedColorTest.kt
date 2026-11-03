@@ -6,10 +6,15 @@ import com.hexnext.engine.compile.Fixtures.ref
 import com.hexnext.engine.compile.Fixtures.semwt
 import com.hexnext.engine.palette.ThemeSource
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
-class ZzProbeTest {
+/**
+ * A colour whose name ends in `_light` or `_dark` keeps that mode's group colour in both
+ * configurations, so a "light card" stays light at night and a "dark card" stays dark by day.
+ */
+class LightDarkNamedColorTest {
     @Test
-    fun probe() {
+    fun `light and dark named colours keep their own mode's group colour`() {
         val pkg = "com.android.settings"
         val b = ArscTestBuilder(pkg)
         b.typeNames += listOf("color")
@@ -24,6 +29,15 @@ class ZzProbeTest {
             .withGroupColor(ColorGroup.BACKGROUND, false, 0xFFEEEEEE.toInt()).withGroupColor(ColorGroup.BACKGROUND, true, 0xFF111111.toInt())
             .withGroupColor(ColorGroup.SURFACE, false, 0xFFFFFFFF.toInt()).withGroupColor(ColorGroup.SURFACE, true, 0xFF222222.toInt())
         val t = ThemeCompiler.compile(spec, dev, InMemoryPackResolver(emptyList()), OneUiRules.load(9)) { 7L }
-        for (c in t.targets.single().colors) println("PROBE ${c.resourceName} [${c.configuration}] %08x".format(c.argb))
+        val got = t.targets.single().colors.associate { "${it.resourceName}|${it.configuration}" to it.argb }
+        val bg = "$pkg:color/sec_foo_background_color_light"
+        val card = "$pkg:color/sec_bar_card_dark"
+        assertEquals(
+            mapOf(
+                "$bg|" to 0xFFEEEEEE.toInt(), "$bg|night" to 0xFFEEEEEE.toInt(),
+                "$card|" to 0xFF222222.toInt(), "$card|night" to 0xFF222222.toInt(),
+            ),
+            got.filterKeys { it.startsWith(bg) || it.startsWith(card) },
+        )
     }
 }
