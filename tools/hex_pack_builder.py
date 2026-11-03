@@ -126,12 +126,12 @@ def _write_pack(raw: bytes, out_zip: Path, meta: dict, entry: dict) -> dict:
                 category = "/".join(category_path)
                 dst.writestr(f"layers/{pass_}/{stage}/{tint}/{category}/{file_name}", src.read(info))
                 key = (pass_, stage, tint, category)
-                entry = layers.setdefault(key, {
+                layer = layers.setdefault(key, {
                     "pass": pass_, "stage": stage, "category": category,
                     "tint": tint_descriptor(tint), "path": f"layers/{pass_}/{stage}/{tint}/{category}",
                     "resources": [],
                 })
-                entry["resources"].append(re.sub(r"(\.9)?\.png$", "", file_name))
+                layer["resources"].append(re.sub(r"(\.9)?\.png$", "", file_name))
             elif name.startswith("assets/info_images/") and not name.endswith("/"):
                 previews += 1
                 ext = Path(name).suffix or ".png"

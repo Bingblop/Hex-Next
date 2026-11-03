@@ -132,7 +132,8 @@ fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
     val preview by viewModel.studioPreview.collectAsState()
     BackHandler { viewModel.navigateBack() }
     DisposableEffect(model) { onDispose { model.release() } }
-    LaunchedEffect(ui.spec) { model.setSpec(ui.spec) }
+    // The editor resolves colours from the spec, so it must carry the seed the rest of the app uses.
+    LaunchedEffect(ui.spec, ui.seed) { model.setSpec(ui.spec.copy(source = ui.spec.source.copy(seedArgb = ui.seed))) }
     // The scan report is read on every visit and again when a scan finishes (the activity-scoped
     // Diagnostics model keeps scanning after Back), so "Scan phone" never leaves a stale list.
     val diagnostics: DiagnosticsViewModel = viewModel()

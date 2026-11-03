@@ -54,6 +54,24 @@ class UnmappedPluginTest(unittest.TestCase):
         self.assertEqual(pack["package"], "com.hexnext.pack." + pack["id"])
         self.assertNotIn("Some Author", json.dumps(pack))
 
+    def test_tinted_layers_do_not_overwrite_the_catalogue_entry(self):
+        import io
+        import json
+        import zipfile
+        source_id = next(k for k, v in builder_names().items() if isinstance(v, dict))
+        meta = {"name": source_id, "label": "", "version": "", "day_night": False, "features": []}
+        raw = io.BytesIO()
+        with zipfile.ZipFile(raw, "w") as z:
+            z.writestr("assets/icons_tints/once/base/xx3/settings_icons/ic_settings_display.png", b"png")
+        with tempfile.TemporaryDirectory() as out, \
+                patch.object(builder, "catalog_one", return_value=meta), \
+                patch.object(builder, "base_apk_bytes", return_value=raw.getvalue()):
+            entry = builder.build_pack(Path("plugin.apk"), Path(out))
+            with zipfile.ZipFile(Path(out, entry["file"])) as z:
+                pack = json.loads(z.read("pack.json"))
+        self.assertEqual(pack["id"], builder_names()[source_id]["id"])
+        self.assertEqual(pack["layers"][0]["resources"], ["ic_settings_display"])
+
     def test_option_text_never_names_a_source_plugin(self):
         # Peridot's options named another source plugin ("Deliun App Icons") and its own; the app
         # shows them. Authors and the legacy brand go too.

@@ -88,6 +88,7 @@ class ColorGroupMatcherTest {
         assertGroups(ColorGroup.SLIDER, sysui, "brightness_slider_bg", "volume_slider_progress_color")
         // A stateless tile colour follows its value: accent is the on state, neutral the off state.
         assertEquals(ColorGroup.QS_TILE_ACTIVE, group("qs_tile_bg", sysui, shade(PaletteRole.ACCENT1, 500)))
+        assertEquals(ColorGroup.QS_TILE_INACTIVE, group("qs_tile_bg", sysui, shade(PaletteRole.NEUTRAL2, 800)))
         // Foreground parts of a tile never join the tile fill.
         assertNotEquals(ColorGroup.QS_TILE_ACTIVE, group("sec_qs_tile_icon_on_color", sysui))
         assertEquals(ColorGroup.TEXT_PRIMARY, group("qs_tile_label_on_color", sysui))

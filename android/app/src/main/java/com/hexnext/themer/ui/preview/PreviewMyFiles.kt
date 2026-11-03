@@ -35,29 +35,49 @@ import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.themer.ui.studio.PreviewIcon
 import com.hexnext.themer.ui.studio.StudioPreviewState
 
+private data class DefaultCategory(val key: String, val label: String, val argb: Long)
+
 private val DefaultCategories = listOf(
-    "Images" to 0xFFFF6B8A,
-    "Videos" to 0xFF8C6CFF,
-    "Audio files" to 0xFFFF9F43,
-    "Documents" to 0xFF3E91FF,
-    "Downloads" to 0xFF22B8A6,
-    "APK files" to 0xFF34C759,
-    "Compressed" to 0xFFF6B92B,
-    "Favourites" to 0xFFFF5A6E,
+    DefaultCategory("images", "Images", 0xFFFF6B8A),
+    DefaultCategory("videos", "Videos", 0xFF8C6CFF),
+    DefaultCategory("audio", "Audio files", 0xFFFF9F43),
+    DefaultCategory("documents", "Documents", 0xFF3E91FF),
+    DefaultCategory("downloads", "Downloads", 0xFF22B8A6),
+    DefaultCategory("apk", "APK files", 0xFF34C759),
+    DefaultCategory("compressed", "Compressed", 0xFFF6B92B),
+    DefaultCategory("favourites", "Favourites", 0xFFFF5A6E),
 )
 
 private const val CATEGORY_COUNT = 8
 
 /** Rendered My Files icons first (unique by key), then default categories up to eight. */
-private fun categories(icons: List<PreviewIcon>): List<PreviewIcon> {
-    val rendered = icons.distinctBy { it.key }.take(CATEGORY_COUNT)
+internal fun categories(icons: List<PreviewIcon>): List<PreviewIcon> {
+    val rendered = icons.distinctBy { categoryKey(it.key) ?: it.key }.take(CATEGORY_COUNT)
     if (rendered.size >= CATEGORY_COUNT) return rendered
-    val taken = rendered.mapTo(HashSet()) { it.label.lowercase() }
+    val taken = rendered.mapNotNullTo(HashSet()) { categoryKey(it.key) }
     val fill = DefaultCategories
-        .filter { it.first.lowercase() !in taken }
+        .filter { it.key !in taken }
         .take(CATEGORY_COUNT - rendered.size)
-        .map { (label, argb) -> PreviewIcon(key = "default:$label", label = label, bitmap = null, fallbackArgb = argb.toInt()) }
+        .map { PreviewIcon(key = "default:${it.key}", label = it.label, bitmap = null, fallbackArgb = it.argb.toInt()) }
     return rendered + fill
+}
+
+private fun categoryKey(key: String): String? {
+    val name = key.substringAfterLast(':').substringAfterLast('/')
+        .removePrefix("home_category_")
+        .removePrefix("file_type_")
+        .lowercase()
+    return when (name) {
+        "image", "images" -> "images"
+        "video", "videos" -> "videos"
+        "audio", "audio_files" -> "audio"
+        "document", "documents" -> "documents"
+        "download", "downloads" -> "downloads"
+        "apk", "apks", "installation_files" -> "apk"
+        "compressed", "archive", "archives" -> "compressed"
+        "favorite", "favorites", "favourite", "favourites" -> "favourites"
+        else -> null
+    }
 }
 
 private class RecentFile(val name: String, val detail: String, val shade: String, val letter: String)

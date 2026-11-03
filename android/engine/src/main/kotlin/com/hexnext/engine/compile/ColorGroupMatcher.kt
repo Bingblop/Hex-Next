@@ -117,7 +117,7 @@ public object ColorGroupMatcher {
             if (!typeName.startsWith(COLOR_PREFIX)) continue
             val written = planned[key]
             val observed = decisions.observed[key] ?: literalValues[key] ?: literalValues[typeName to ""]
-                ?: written ?: decisions.values[key] ?: 0
+                ?: decisions.tableObserved[key] ?: written ?: decisions.values[key] ?: 0
             val inferred = if (decisions.inferred.containsKey(key)) decisions.inferred[key] else reference.infer(observed)
             val group = decisions.groups[key] ?: classify(pkg, typeName, inferred, rules)
             rows += ResourceColor("$pkg:$typeName", config, observed, inferred, group, written, pins[typeName])
@@ -217,6 +217,9 @@ public object ColorGroupMatcher {
                 return Match(g, false)
             }
         }
+        if (tone == Tone.NEUTRAL && STATELESS_TILE_FILL.containsMatchIn(name)) {
+            return Match(ColorGroup.QS_TILE_INACTIVE, false)
+        }
         val g = fallback(name, inferred, tone) ?: return null
         val out = family?.remap?.get(g) ?: g
         if (!qsAllowed && out.quickSettings) return null
@@ -279,6 +282,10 @@ public object ColorGroupMatcher {
         "text|title|label|summary|hint|icon|glyph|stroke|divider|line|outline|border|shadow|ripple|dot|tick|mark|" +
             "thumb|track|cursor|handle|scrim|(^|_)dim(_|$)|arrow|indicator|button|btn|switch|check|radio|progress|seek|" +
             "tile|selected|pressed|focus|badge|underline",
+        RegexOption.IGNORE_CASE,
+    )
+    private val STATELESS_TILE_FILL = Regex(
+        """(^|_)qs_tile_(?:round_)?(?:bg|background)(?:_color)?$""",
         RegexOption.IGNORE_CASE,
     )
 

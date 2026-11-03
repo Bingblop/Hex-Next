@@ -363,16 +363,6 @@ class ThemePreviewer(context: Context) {
         return best
     }
 
-    /**
-     * The job of the wanted mode ([night] or day) with the highest density; when there is none in
-     * that mode, the best job of the other one (a day-only pack still shows in dark mode, as the
-     * phone falls back to it, and a night-only pack still gets a preview in light mode).
-     */
-    private fun bestOf(candidates: List<PlannedDrawableJob>, night: Boolean): PlannedDrawableJob? {
-        val wanted = candidates.filter { isNight(it.configuration) == night }
-        val pool = if (wanted.isNotEmpty()) wanted else candidates
-        return pool.maxByOrNull { densityRank(it.configuration) }
-    }
 
     /**
      * The first [MAX_MY_FILES] My Files category tile jobs (`home_category_*` drawables of element
@@ -452,6 +442,16 @@ class ThemePreviewer(context: Context) {
     }
 
     companion object {
+        /**
+         * The job of the wanted mode ([night] or day) with the highest density; when there is none in
+         * that mode, the best job of the other one (a day-only pack still shows in dark mode, as the
+         * phone falls back to it, and a night-only pack still gets a preview in light mode).
+         */
+        internal fun bestOf(candidates: List<PlannedDrawableJob>, night: Boolean = false): PlannedDrawableJob? {
+            val wanted = candidates.filter { isNight(it.configuration) == night }
+            val pool = if (wanted.isNotEmpty()) wanted else candidates
+            return pool.maxByOrNull { densityRank(it.configuration) }
+        }
         private const val TARGET = "com.android.settings"
         private const val MY_FILES = "com.sec.android.app.myfiles"
         private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES)
