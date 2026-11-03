@@ -154,7 +154,7 @@ jobs:
           set -euo pipefail
           git fetch --depth 1 origin packs
           mkdir -p app/src/debug/assets/packs
-          for pack in velvet-rope particle-zoo firefly stardust; do
+          for pack in iolite willemite ekanite bixbite; do
             git show "origin/packs:$pack.zip" > "app/src/debug/assets/packs/$pack.zip"
           done
           ls -l app/src/debug/assets/packs
