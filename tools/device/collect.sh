@@ -28,6 +28,7 @@ run "App version" "dumpsys package $PKG | grep -E 'versionName|versionCode|lastU
 run "App files" "ls -laR $APP 2>/dev/null | head -200"
 
 # The apply report (progressive; status started/running/finished/aborted).
+run "theme.json (the chosen packs and options)" "cat $APP/theme.json 2>/dev/null || echo '(none)'"
 run "apply-last.json" "cat $APP/reports/apply-last.json 2>/dev/null || echo '(none)'"
 
 # Build logs: the newest three, in full.
@@ -67,7 +68,7 @@ done
 run "System UI and framework values (count; full list in hexnext-values.txt)" "wc -l $OUT_DIR/hexnext-values.txt"
 run "System UI request" "cat $APP/requests/com.android.systemui.json 2>/dev/null || echo '(none)'"
 run "Quick Settings build-log lines (newest log)" "f=\$(ls -t $APP/logs/*.jsonl 2>/dev/null | head -1); [ -n \"\$f\" ] && grep -E 'Quick Settings: |\"target\":\"com.android.systemui\"' \"\$f\" | tail -40"
-for name in qs_tile_round_background_on qs_tile_round_background_dim qs_tile_container_bg; do
+for name in qs_tile_round_background_on qs_tile_round_background_dim qs_tile_container_bg qs_tile_label qs_tile_sub_label qs_tile_icon_off_tint_color; do
   printf '$ cmd overlay lookup --user current com.android.systemui com.android.systemui:color/%s\n' "$name" >>"$OUT"
   root "cmd overlay lookup --user current com.android.systemui com.android.systemui:color/$name" >>"$OUT"
 done

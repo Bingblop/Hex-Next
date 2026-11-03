@@ -25,8 +25,8 @@ COLOR=sec_widget_round_and_bgcolor
 # (tests/test_device_scripts.py fails when they drift apart).
 # Empty until a CI run signed with the pinned debug key exists (see install.sh); without them
 # the test skips the install and tests the build that is already installed.
-RUN_ID="${RUN_ID:-41597918719}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-3ed6c6c1109f043322e6b5e3c05025e248d1b0642285dc699c8847b15a2eeeed}"
+RUN_ID="${RUN_ID:-41654728164}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-93c470aba390ebbd45395aaf3bd3d5c200db3828c35f5fab9e53782f877a1d7d}"
 ARTIFACT="${ARTIFACT:-HexNext-Owner-Release}"
 REPO=Bingblop/Hex-Next
 # The build is downloaded and unpacked in the app-private home directory, never in OUT_DIR:
