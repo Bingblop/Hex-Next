@@ -379,20 +379,46 @@ internal fun StudioPage(viewModel: MainViewModel, ui: UiState, preview: PreviewM
 // ---- Skins ----
 
 /**
- * Skins (§ 1.2, 2): the pack list with search, palette dots, lock state and price, Unlock all,
- * Import, the catalogue, Simple or Advanced and the per-element pack rows and options.
+ * Skins (§ 1.2, 2): every skin of the catalogue and every pack on the phone, locked ones
+ * included, with search, palette dots, coverage, lock state and price, Unlock all, Import, the
+ * catalogue, Simple or Advanced and the per-element pack rows and options. With [preview] the
+ * live phone sits above (or beside) the list, so picking a skin shows it at once; a locked skin
+ * is preview only and Apply asks for the unlock.
  */
 @Composable
-internal fun SkinsPage(viewModel: MainViewModel, ui: UiState) {
+internal fun SkinsPage(
+    viewModel: MainViewModel,
+    ui: UiState,
+    preview: PreviewModel? = null,
+    onElementTap: (ColorGroup) -> Unit = {},
+    peekCollapsed: Boolean = false,
+    onPeekCollapsed: (Boolean) -> Unit = {},
+    wide: Boolean = false,
+) {
     val locks = PackLocks.of(ui)
     val activity = LocalContext.current.findActivity()
     val onUnlock: (String) -> Unit = { productId -> activity?.let { viewModel.unlock(it, productId) } }
-    LazyColumn(
-        state = rememberLazyListState(),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PAGE_PADDING,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    // The gallery lists the whole catalogue, not only the packs on the phone: load it once.
+    LaunchedEffect(Unit) {
+        if (ui.catalogue.entries.isEmpty() && !ui.catalogue.loading) viewModel.loadCatalogue()
+    }
+    val previewOnly = remember(ui.spec, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.previewOnlyPacksInTheme() }
+    val listState = rememberLazyListState()
+    val content: LazyListScope.() -> Unit = {
+        if (previewOnly.isNotEmpty()) {
+            item(key = "preview-only") {
+                val name = ui.packDisplayName(previewOnly.first())
+                Text(
+                    "Preview — unlock $name to apply",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
         item(key = "packs") {
             PackCard(
                 packs = ui.packs,
@@ -411,9 +437,30 @@ internal fun SkinsPage(viewModel: MainViewModel, ui: UiState) {
                 onDelete = viewModel::deletePack,
                 onCatalogueUrl = viewModel::setCatalogueUrl,
                 onLoadCatalogue = viewModel::loadCatalogue,
-                onDownload = viewModel::downloadPack,
+                onDownload = { viewModel.downloadPack(it) },
+                onPreviewCatalogue = viewModel::previewCataloguePack,
             )
         }
+    }
+    if (preview != null) {
+        PreviewedPage(
+            preview = preview,
+            onElementTap = onElementTap,
+            peekCollapsed = peekCollapsed,
+            onPeekCollapsed = onPeekCollapsed,
+            wide = wide,
+            listState = listState,
+            tabs = {},
+            content = content,
+        )
+    } else {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PAGE_PADDING,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content,
+        )
     }
 }
 
@@ -476,6 +523,7 @@ internal fun ColoursPage(
                 )
             }
             ColoursTab.QUICK_PANEL -> {
+                item(key = "quickPanel") { QuickPanelCard(viewModel, ui.spec) }
                 item(key = "quickPanelGroups") {
                     ElementColorsCard(
                         viewModel = viewModel,
@@ -485,11 +533,10 @@ internal fun ColoursPage(
                         groups = QUICK_PANEL_GROUPS,
                         bringHighlightIntoView = jumpToElements,
                         title = "Quick panel colours",
-                        subtitle = "The panel backdrop, tiles, sliders and notification cards, for light and dark.",
-                        eyebrow = "System UI · ${QUICK_PANEL_GROUPS.size} groups",
+                        subtitle = "Backdrop and tiles change only the Quick panel. Sliders and notification cards also change in other One UI apps.",
+                        eyebrow = "Quick panel · ${QUICK_PANEL_GROUPS.size} groups",
                     )
                 }
-                item(key = "quickPanel") { QuickPanelCard(viewModel, ui.spec, state) }
             }
             ColoursTab.SHADES -> item(key = "shades") { ShadesCard(viewModel, ui.spec, state) }
         }
@@ -513,9 +560,9 @@ internal fun IconsPage(
 ) {
     val listState = rememberLazyListState()
     val needsRoot = ui.capability == Capability.SHELL
-    // A locked pack (left in the theme by an import or a refund) lends no colours either.
-    val paletteHint = remember(ui.packs, ui.spec.simplePackId, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) {
-        ui.packs.firstOrNull { it.id == ui.spec.simplePackId && ui.packLooksUnlocked(it.id) }
+    // A locked pack lends its colours to the preview too; Apply still asks for the unlock.
+    val paletteHint = remember(ui.packs, ui.spec.simplePackId) {
+        ui.packs.firstOrNull { it.id == ui.spec.simplePackId }
             ?.pack?.paletteArgb?.values?.map { it or OPAQUE_ARGB }?.take(6).orEmpty()
     }
     PreviewedPage(

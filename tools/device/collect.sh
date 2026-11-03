@@ -43,6 +43,19 @@ run "Settings colour lookup" "cmd overlay lookup --user current com.android.sett
 run "Hex Next frro files" "ls -laZ /data/resource-cache/ | grep -i hexnext"
 run "Hex Next idmap files" "ls -la /data/resource-cache/ | grep -i hexnext | grep -i idmap"
 
+# Quick Settings (System UI): Samsung's SemWT values, the app's colour names, the last request,
+# the build-log policy line, and what the Quick panel resources resolve to now.
+run "System UI SemWT dump" "cat $APP/scan/semwt/com.android.systemui.txt 2>/dev/null || echo '(none; re-run the scan)'"
+run "System UI SemWT mapping" "cat $APP/scan/semwt/com.android.systemui.json 2>/dev/null || echo '(none)'"
+root "cat $APP/scan/com.android.systemui/names-color.txt 2>/dev/null" >"$OUT_DIR/hexnext-systemui-colors.txt"
+run "System UI colour names (count; full list in hexnext-systemui-colors.txt)" "wc -l $APP/scan/com.android.systemui/names-color.txt 2>/dev/null || echo '(none)'"
+run "System UI request" "cat $APP/requests/com.android.systemui.json 2>/dev/null || echo '(none)'"
+run "Quick Settings build-log lines (newest log)" "f=\$(ls -t $APP/logs/*.jsonl 2>/dev/null | head -1); [ -n \"\$f\" ] && grep -E 'Quick Settings: |\"target\":\"com.android.systemui\"' \"\$f\" | tail -40"
+for name in qs_tile_round_background_on qs_tile_round_background_dim qs_tile_container_bg; do
+  printf '$ cmd overlay lookup --user current com.android.systemui com.android.systemui:color/%s\n' "$name" >>"$OUT"
+  root "cmd overlay lookup --user current com.android.systemui com.android.systemui:color/$name" >>"$OUT"
+done
+
 # Which drawables the test overlay claims to override, and whether lookups resolve to frro:/ paths.
 section "Drawable lookups from the newest build log"
 newest=$(root "ls -t $APP/logs/*.jsonl 2>/dev/null | head -1")

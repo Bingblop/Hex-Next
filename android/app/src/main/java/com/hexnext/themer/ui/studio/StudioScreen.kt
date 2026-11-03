@@ -94,6 +94,7 @@ import com.hexnext.themer.ui.StatusCard
 import com.hexnext.themer.ui.StatusPill
 import com.hexnext.themer.ui.UiState
 import com.hexnext.themer.ui.findActivity
+import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.ui.statusPillText
 
 /** The bottom-navigation destinations of the shell (§ 1.2), in order. Saved by name. */
@@ -206,14 +207,30 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                 NoticeAction.RETRY_APPLY -> viewModel.applyTheme()
                 NoticeAction.RETRY_REMOVE -> viewModel.removeTheme()
                 NoticeAction.CONFIRM_WORKS -> viewModel.confirmWorks()
+                NoticeAction.UNLOCK_PACK -> {
+                    val packId = current.packId
+                    if (activity != null && packId != null) viewModel.unlock(activity, ProductIds.forPack(packId))
+                }
                 null -> Unit
             }
         }
     }
 
-    // The Quick panel sub-tab shows the Quick panel on the phone.
+    // The Quick panel sub-tab shows the Quick panel on the phone; leaving it brings back the phone
+    // tab that was showing before, unless the user picked another one meanwhile.
+    var previewTabBeforeQs by rememberSaveable { mutableStateOf<PreviewTab?>(null) }
     LaunchedEffect(destination, coloursTab) {
-        if (destination == Destination.COLOURS && coloursTab == ColoursTab.QUICK_PANEL) previewTab = PreviewTab.QUICK_PANEL
+        val onQuickPanel = destination == Destination.COLOURS && coloursTab == ColoursTab.QUICK_PANEL
+        if (onQuickPanel) {
+            if (previewTab != PreviewTab.QUICK_PANEL) {
+                previewTabBeforeQs = previewTab
+                previewTab = PreviewTab.QUICK_PANEL
+            }
+        } else {
+            val before = previewTabBeforeQs
+            if (before != null && previewTab == PreviewTab.QUICK_PANEL) previewTab = before
+            previewTabBeforeQs = null
+        }
     }
 
     val openTargets: () -> Unit = {
@@ -236,6 +253,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         } else {
             destination = Destination.COLOURS
             coloursTab = when {
+                previewTab == PreviewTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
                 coloursTab == ColoursTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
                 group.quickSettings -> ColoursTab.QUICK_PANEL
                 else -> ColoursTab.ELEMENTS
@@ -257,6 +275,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         // (landscape), and of the bottom bar too when no NavigationBar sits below to absorb it.
         val applyBarInsets = WindowInsets.navigationBars.union(WindowInsets.displayCutout)
             .only(if (rail) WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom else WindowInsetsSides.Horizontal)
+        // The first pack of the theme that is not unlocked: the bar offers Unlock instead of Apply.
+        val previewOnlyPack = remember(ui.spec, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.previewOnlyPacksInTheme().firstOrNull() }
         val applyBar: @Composable () -> Unit = {
             Box(Modifier.background(MaterialTheme.colorScheme.surfaceContainer).windowInsetsPadding(applyBarInsets)) {
                 ApplyBar(
@@ -274,6 +294,12 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     onConfirmWorks = viewModel::confirmWorks,
                     onDetails = openTargets,
                     onConnection = { showPrivilege = true },
+                    previewOnlyPack = previewOnlyPack?.let { ui.packDisplayName(it) },
+                    previewOnlyPrice = previewOnlyPack?.let { ui.entitlement.priceOf(it) },
+                    previewOnlyPending = previewOnlyPack?.let { ui.entitlement.isPending(it) } == true,
+                    onUnlock = if (ui.canPurchase && previewOnlyPack != null && activity != null) {
+                        { viewModel.unlock(activity, ProductIds.forPack(previewOnlyPack)) }
+                    } else null,
                 )
             }
         }
@@ -384,7 +410,15 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         ) {
                             when (destination) {
                                 Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide)
-                                Destination.SKINS -> SkinsPage(viewModel, ui)
+                                Destination.SKINS -> SkinsPage(
+                                    viewModel = viewModel,
+                                    ui = ui,
+                                    preview = previewModel,
+                                    onElementTap = onElementTap,
+                                    peekCollapsed = peekCollapsed,
+                                    onPeekCollapsed = { peekCollapsed = it },
+                                    wide = wide,
+                                )
                                 Destination.COLOURS -> ColoursPage(
                                     viewModel = viewModel,
                                     ui = ui,

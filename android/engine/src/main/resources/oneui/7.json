@@ -62,7 +62,7 @@
     ],
     "qs_tile_active": [
       "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*((?<!in)active|(^|_)on(_|$)|enabled|activated|checked)",
-      "^(?!.*(icon|label|text|title|stroke))(sec_)?qs_tiles?(_|$)"
+      "^(?!.*(icon|label|text|title|stroke|container|search|flashlight))(sec_)?qs_tiles?(_|$)"
     ],
     "qs_panel_bg": [
       "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(^|_)qs_.*(background|bg)",
@@ -78,10 +78,10 @@
       "^(?!.*(icon|text|title|label|stroke|divider|button|btn|ripple|shadow)).*(navigation_?bar|nav_?bar|status_?bar)"
     ],
     "slider": [
-      "^(?!.*(icon|text|title|label|loading|swipe_refresh|stroke)).*(brightness|volume|seek_?bar|slider|progress|tick_?mark|level_control)"
+      "^(?!.*(icon|text|title|label|loading|swipe_refresh|stroke|flashlight)|.*(dialog|panel|window)_?(background|bg)).*(brightness|volume|seek_?bar|slider|progress|tick_?mark|level_control)"
     ],
     "switch": [
-      "^(?!.*(text|title|label|icon)).*(switch|checkbox|check_box|radio|toggle|(^|_)thumb|(^|_)track|_on_mtrl|_off_mtrl)"
+      "^(?!.*(text|title|label|icon|flashlight)).*(switch|checkbox|check_box|radio|toggle|(^|_)thumb|(^|_)track|_on_mtrl|_off_mtrl)"
     ],
     "button": [
       "^(?!.*(text|title|label|icon|stroke)).*(button|(^|_)btn)"

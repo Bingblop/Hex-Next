@@ -61,7 +61,7 @@ class ThemePreviewer(context: Context) {
     private var fullSnapshot: SoftReference<SnapshotBuilder.Result>? = null
 
     private var packsStamp: String? = null
-    private var packResolver: DirectoryPackResolver? = null
+    private var packResolver: LayeredPackResolver? = null
 
     /** A rendered job and the file stamps its pixels depend on besides the pack listing. */
     private data class IconKey(val job: PlannedDrawableJob, val customStamp: String?)
@@ -291,15 +291,19 @@ class ThemePreviewer(context: Context) {
      * every pack zip on its first lookup and caches the result for its lifetime, so it is kept
      * until a zip is added, replaced or removed; the rendered icons are dropped with it.
      */
-    private fun packResolver(): DirectoryPackResolver {
-        val dir = ThemeApplier.packsDir(appContext)
-        val stamp = dir.listFiles { f -> f.isFile }.orEmpty()
-            .sortedBy { it.name }
-            .joinToString("\n") { "${it.name}|${it.length()}|${it.lastModified()}" }
+    private fun packResolver(): LayeredPackResolver {
+        // Installed packs and locked packs downloaded for the preview only (PackDirs.forPreview):
+        // rendered in memory here, never built into an overlay.
+        val dirs = PackDirs.forPreview(appContext.filesDir)
+        val stamp = dirs.joinToString("\n--\n") { dir ->
+            dir.listFiles { f -> f.isFile }.orEmpty()
+                .sortedBy { it.name }
+                .joinToString("\n") { "${it.name}|${it.length()}|${it.lastModified()}" }
+        }
         packResolver?.takeIf { stamp == packsStamp }?.let { return it }
         packsStamp = stamp
         iconCache.evictAll()
-        return DirectoryPackResolver(dir).also { packResolver = it }
+        return LayeredPackResolver.over(dirs).also { packResolver = it }
     }
 
     /**
@@ -426,7 +430,7 @@ class ThemePreviewer(context: Context) {
     }
 
     /** Why Settings gets no row icons: no pack chosen for them, pack not installed, or a pack without them. */
-    private fun noIconsNote(spec: ThemeSpec, packs: DirectoryPackResolver): String {
+    private fun noIconsNote(spec: ThemeSpec, packs: LayeredPackResolver): String {
         val packId = spec.packFor(ICONS_ELEMENT)
         return when {
             packId == null || !spec.isElementEnabled(ICONS_ELEMENT) -> NOTE_NO_ICON_PACK

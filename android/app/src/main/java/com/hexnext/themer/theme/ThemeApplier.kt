@@ -553,7 +553,12 @@ class ThemeApplier(context: Context) {
             SemWtController.run(service, SemWtPlanner.raiseCycle(hexId), log)
         }
 
-        val probe = OverlayLookup.probe(target)
+        // The device's current mode, so System UI (whose colours all have day and night values) is verified too.
+        val night = runCatching {
+            (android.content.res.Resources.getSystem().configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }.getOrNull()
+        val probe = OverlayLookup.probe(target, night)
         var verified: Boolean? = null
         var verifyDetail = ""
         if (probe != null) {
@@ -1181,7 +1186,14 @@ class ThemeApplier(context: Context) {
         private val SU_PATHS = listOf("/system/bin/su", "/system/xbin/su", "/sbin/su", "/debug_ramdisk/su")
 
         /** Pack zips (`<id>.zip`, `<id>.hexnext`, optional `index.json`). */
-        fun packsDir(context: Context): File = File(context.filesDir, "packs").apply { mkdirs() }
+        fun packsDir(context: Context): File = File(context.filesDir, PackDirs.APPLY).apply { mkdirs() }
+
+        /**
+         * Locked catalogue packs downloaded for the preview only ([PackDirs.PREVIEW]). The apply,
+         * the overlay builder and Diagnostics' repair never read it: they resolve packs from
+         * [packsDir] alone, so a pack that is not unlocked cannot reach an overlay.
+         */
+        fun previewPacksDir(context: Context): File = File(context.filesDir, PackDirs.PREVIEW).apply { mkdirs() }
 
         fun reportFile(context: Context): File = File(File(context.filesDir, "reports"), "apply-last.json")
 

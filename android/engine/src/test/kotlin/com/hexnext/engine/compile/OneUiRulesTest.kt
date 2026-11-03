@@ -136,7 +136,40 @@ class OneUiRulesTest {
         }
         // The versions share one rule set until a release renames its colours.
         assertEquals(OneUiRules.load(9).colorGroups, OneUiRules.load(8).colorGroups)
-        assertEquals(OneUiRules.load(9).colorGroupFamilies, OneUiRules.load(7).colorGroupFamilies)
+        // Exact names are device-verified per release (One UI 9 only so far); the patterns are shared.
+        fun patterns(major: Int) = OneUiRules.load(major).colorGroupFamilies.mapValues { it.value.copy(exact = emptyMap()) }
+        assertEquals(patterns(9), patterns(7))
+        assertEquals(patterns(9), patterns(8))
+    }
+
+    @Test
+    fun `One UI 9 Quick Settings names are allowed and every exact name is a System UI rule`() {
+        val rules = OneUiRules.load(9)
+        val qs = rules.quickSettings
+        val exact = rules.colorGroupFamilies.getValue("systemui").exact
+        assertEquals(setOf("qs_tile_active", "qs_tile_inactive", "qs_panel_bg"), exact.keys)
+        for ((id, names) in exact) {
+            val group = ColorGroup.byId(id)
+            assertTrue(group != null, "unknown group $id")
+            for (name in names) {
+                assertTrue(qs.allowsColour(name), name)
+                assertEquals(group, ColorGroupMatcher.classify("com.android.systemui", "color/$name", null, rules), name)
+            }
+        }
+        // Verified names the old regex froze are now allowed; 7 and 8 stay on the regex alone.
+        assertTrue(qs.extraColours.isNotEmpty())
+        for (name in qs.extraColours) {
+            assertFalse(ThemeCompiler.QS_COLOUR_NAMES.containsMatchIn(name), "$name is already allowed by the regex")
+            assertTrue(qs.allowsColour(name), name)
+            assertTrue(qs.allowsColour("color/$name"), name)
+        }
+        assertFalse(qs.allowsColour("some_unknown_systemui_color"))
+        for (major in listOf(7, 8)) assertTrue(OneUiRules.load(major).quickSettings.extraColours.isEmpty(), "One UI $major")
+        // With an explicit list, extra names still count.
+        val listed = QuickSettingsRules(colours = listOf("qs_tile_bg"), extraColours = listOf("color/open_theme_noti_header_color"))
+        assertTrue(listed.allowsColour("open_theme_noti_header_color"))
+        assertTrue(listed.allowsColour("qs_tile_bg"))
+        assertFalse(listed.allowsColour("qs_other"))
     }
 
     @Test

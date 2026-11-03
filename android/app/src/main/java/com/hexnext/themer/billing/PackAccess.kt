@@ -1,12 +1,12 @@
 package com.hexnext.themer.billing
 
 import com.hexnext.engine.compile.Elements
-import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.pack.PackIdAliases
 
 /**
- * Which packs may be downloaded, selected and applied. Every catalogue pack is a paid unlock:
+ * Which packs may be applied (every pack may be downloaded, selected and previewed; see
+ * [specForPreview]). Every catalogue pack is a paid unlock:
  * the ids this APK shipped with ([PaidPacks]) and the [official] ids this install has seen in a
  * fetched catalogue or downloaded from one ([OfficialPacks]). Only a pack imported from a file
  * whose id is in neither is the user's own and free. [bundled] holds the test packs seeded into
@@ -52,25 +52,14 @@ object PackAccess {
         packsUsedBy(spec).filterNotTo(LinkedHashSet()) { id -> isUnlocked(id) && isUnlocked(PackIdAliases.current(id)) }
 
     /**
-     * [spec] with every pack that [isUnlocked] rejects taken out, for the live preview: a locked
-     * pack (named by an imported theme file, kept after a refund, or kept by "Describe your
-     * theme") must never be rendered from its artwork. In simple mode a locked pack becomes
-     * colours only; in advanced mode each part that resolves to a locked pack is switched off
-     * (colours only) rather than falling back to another pack. Returns [spec] itself when it uses
-     * no locked pack.
+     * The theme the live preview renders for [spec]: [spec] itself, locked packs included. Every
+     * catalogue pack may be downloaded, selected and previewed before purchase; the preview is
+     * compiled and rendered in memory only and builds no overlay. Building stays gated: an apply
+     * runs only while [lockedPacksIn] (with the store-verified [isUnlocked], never the cached
+     * hint) is empty, and the applier reads only the directory of unlocked packs.
      */
-    fun withoutLockedPacks(spec: ThemeSpec, isUnlocked: (String) -> Boolean): ThemeSpec {
-        fun ok(id: String) = isUnlocked(id) && isUnlocked(PackIdAliases.current(id))
-        val referenced = listOfNotNull(spec.simplePackId) + spec.elementPacks.values
-        if (referenced.all(::ok)) return spec
-        val lockedParts = Elements.ALL.asSequence()
-            .map { it.id }
-            .filter { id -> spec.isElementEnabled(id) && spec.packFor(id)?.let { !ok(it) } == true }
-            .toList()
-        return spec.copy(
-            simplePackId = spec.simplePackId?.takeIf(::ok),
-            elementPacks = spec.elementPacks.filterValues(::ok),
-            elementEnabled = if (spec.mode == ThemeMode.ADVANCED) spec.elementEnabled + lockedParts.associateWith { false } else spec.elementEnabled,
-        )
-    }
+    fun specForPreview(spec: ThemeSpec): ThemeSpec = spec
+
+    /** True when [spec] may be built into overlays: it uses no pack that [isUnlocked] rejects. */
+    fun canBuild(spec: ThemeSpec, isUnlocked: (String) -> Boolean): Boolean = lockedPacksIn(spec, isUnlocked).isEmpty()
 }

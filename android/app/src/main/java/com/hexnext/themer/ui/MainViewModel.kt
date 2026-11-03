@@ -56,6 +56,7 @@ import com.hexnext.themer.theme.CatalogueEntry
 import com.hexnext.themer.theme.CustomAssetStore
 import com.hexnext.themer.theme.FontInstaller
 import com.hexnext.themer.theme.InstalledPack
+import com.hexnext.themer.theme.InstalledPacks
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.MonetSeed
@@ -100,7 +101,7 @@ import java.util.WeakHashMap
 enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING, RESOURCES }
 
 /** What a [Notice] offers to do besides dismissing itself. */
-enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE, CONFIRM_WORKS }
+enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE, CONFIRM_WORKS, UNLOCK_PACK }
 
 /**
  * One transient message for the snackbar: the outcome of an apply, remove or import, with an
@@ -114,6 +115,8 @@ data class Notice(
     val isError: Boolean = false,
     /** True for a confirmed success (success haptic). */
     val isSuccess: Boolean = false,
+    /** The pack [NoticeAction.UNLOCK_PACK] starts the purchase of. */
+    val packId: String? = null,
     /** Distinguishes two identical notices in a row so each one shows. */
     val id: Long = System.nanoTime(),
 )
@@ -150,8 +153,13 @@ data class UiState(
     val applyProtectionExpired: Boolean = false,
     /** True when the editor asked for a phone scan; Diagnostics starts it and clears the flag. */
     val scanRequested: Boolean = false,
-    /** Pack zips in `files/packs` that could be read. */
+    /**
+     * Pack zips that could be read: `files/packs`, plus locked catalogue packs downloaded into
+     * `files/packs-preview` for the preview only (their ids are in [previewOnlyPackIds]).
+     */
     val packs: List<InstalledPack> = emptyList(),
+    /** Packs of [packs] that sit in the preview-only directory: shown and previewed, never built. */
+    val previewOnlyPackIds: Set<String> = emptySet(),
     /** Pack zips that could not be read: file name → message. */
     val packErrors: Map<String, String> = emptyMap(),
     /** The stored theme (`files/theme.json`) without the seed; [EngineThemeSpec.default] until loaded. */
@@ -194,6 +202,18 @@ data class UiState(
 
     /** [isPackUnlocked], or the cached purchase hint while the store has not answered: for display only. */
     fun packLooksUnlocked(id: String): Boolean = PackAccess.looksUnlocked(entitlement, id, bundledPackIds, officialPackIds)
+
+    /**
+     * The packs the current theme uses that are not unlocked: the preview shows them, Apply
+     * refuses them. For display only (the cached hint); Apply checks [isPackUnlocked].
+     */
+    fun previewOnlyPacksInTheme(): Set<String> = PackAccess.lockedPacksIn(spec) { packLooksUnlocked(it) }
+
+    /** The display name of pack [id] from the installed packs or the catalogue; the id capitalised otherwise. */
+    fun packDisplayName(id: String): String =
+        packs.firstOrNull { it.id == id }?.name
+            ?: catalogue.entries.firstOrNull { it.id == id }?.name
+            ?: id.replaceFirstChar { it.titlecase() }
 }
 
 /** The "Preview" card: Settings dashboard icons of the theme to apply, from [ThemePreviewer]. */
@@ -229,6 +249,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private val applier = ThemeApplier(app)
     private val themeStore = ThemeStore(app)
     private val packStore = PackStore(app)
+
+    /**
+     * Locked catalogue packs downloaded so they can be browsed and previewed before purchase
+     * ([ThemeApplier.previewPacksDir]). The applier never reads this directory; a zip moves to
+     * [packStore] once its purchase is verified ([refreshPacks]).
+     */
+    private val previewPackStore = PackStore(app) { ThemeApplier.previewPacksDir(it) }
     private val previewer = ThemePreviewer(app)
     private val assets = CustomAssetStore(app)
     private val appSettings = AppSettingsStore.get(app)
@@ -520,8 +547,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             officialPacks.ids.collect { ids ->
                 val changed = _ui.value.officialPackIds != ids
                 _ui.update { if (it.officialPackIds == ids) it else it.copy(officialPackIds = ids) }
-                // A pack that became paid must leave the preview at once (specToPreview).
-                if (changed) refreshPreview()
+                // A pack that became paid stays in the preview (preview only) but may have to move
+                // between the pack directories, and its badge changes.
+                if (changed) refreshPacks()
             }
         }
         viewModelScope.launch {
@@ -529,11 +557,12 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             entitlements.state.collect { state ->
                 val old = _ui.value.entitlement
                 _ui.update { if (it.entitlement == state) it else it.copy(entitlement = state) }
-                // A purchase, refund or store answer changes which packs the preview may render.
+                // A verified purchase moves its preview-only zip into files/packs, where an apply
+                // can use it (refreshPacks); the preview renders locked and unlocked packs alike.
                 if (old.ready != state.ready || old.unlockAll != state.unlockAll ||
-                    old.ownedProductIds != state.ownedProductIds || old.cachedProductIds != state.cachedProductIds
+                    old.ownedProductIds != state.ownedProductIds
                 ) {
-                    refreshPreview()
+                    refreshPacks()
                 }
                 val before = previous
                 previous = state
@@ -705,7 +734,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val stillLocked = PackAccess.lockedPacksIn(spec) { _ui.value.isPackUnlocked(it) }
         if (stillLocked.isNotEmpty()) {
             log(LogLine(LogLevel.ERROR, "Not applied: pack ${stillLocked.joinToString()} is locked"))
-            postNotice(Notice("Unlock ${packName(stillLocked.first())} to apply this theme", isError = true))
+            postNotice(lockedNotice(stillLocked.first(), "Unlock ${packName(stillLocked.first())} to apply this theme"))
             return@runTask false
         }
         val report = applier.apply(service, spec, ::log)
@@ -894,8 +923,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         if (locked.isEmpty()) {
             postNotice(Notice("Theme imported. Apply it to see it on your phone", isSuccess = true))
         } else {
-            log(LogLine(LogLevel.WARN, "Imported theme uses locked pack ${locked.joinToString()}; the preview shows colours only for it"))
-            postNotice(Notice("Theme imported. Unlock ${packName(locked.first())} to preview and apply it"))
+            log(LogLine(LogLevel.WARN, "Imported theme uses locked pack ${locked.joinToString()}; preview only until it is unlocked"))
+            postNotice(lockedNotice(locked.first(), "Theme imported. Unlock ${packName(locked.first())} to apply it"))
         }
     }
 
@@ -915,14 +944,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun replaceSpec(spec: EngineThemeSpec) = updateSpec { spec }
 
     /**
-     * [specToApply] without the packs this install has not unlocked ([PackAccess.withoutLockedPacks]):
-     * the preview never renders a locked pack's artwork, even when an imported theme file, a
-     * refund or "Describe your theme" left one in the theme. Apply still refuses such a theme.
+     * The theme the live preview renders: [specToApply] as it is, locked packs included, so every
+     * catalogue pack can be browsed and previewed before purchase. The preview compiles and
+     * renders in memory only (ThemePreviewer); it writes no overlay. Building overlays stays
+     * gated: [applyTheme] refuses a theme that uses a locked pack, and the applier only reads
+     * `files/packs`, never the preview-only directory.
      */
-    private fun specToPreview(): EngineThemeSpec {
-        val state = _ui.value
-        return PackAccess.withoutLockedPacks(specToApply()) { state.packLooksUnlocked(it) }
-    }
+    private fun specToPreview(): EngineThemeSpec = PackAccess.specForPreview(specToApply())
 
     /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
     private fun specToApply(): EngineThemeSpec {
@@ -970,10 +998,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * for a part also switches the part back on, so the choice takes effect.
      */
     fun setElementPack(elementId: String, packId: String?) {
-        if (packId != null && !_ui.value.isPackUnlocked(packId)) {
-            refuseLocked(packId)
-            return
-        }
+        // A locked pack may be chosen for the preview; Apply refuses it until it is unlocked.
         updateSpec { it.withElementPack(elementId, packId).withElementEnabled(elementId, true) }
     }
 
@@ -1394,8 +1419,31 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Re-reads `files/packs`; a selected pack that is gone falls back to colours only. */
     fun refreshPacks() {
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { packStore.installed() }
-            result.onSuccess { installed ->
+            val result = runCatching {
+                // A preview-only pack whose purchase is now verified moves to files/packs, where an
+                // apply can use it. Only the verified state counts, never the cached hint.
+                val previewOnly = previewPackStore.installed()
+                // OfficialPacks' own set too: the UiState copy may lag a just-recorded download.
+                val state = _ui.value
+                val official = state.officialPackIds + officialPacks.ids.value
+                for (pack in previewOnly.packs) {
+                    if (PackAccess.isUnlocked(state.entitlement, pack.id, state.bundledPackIds, official) &&
+                        packStore.adoptFrom(previewPackStore, pack.id)
+                    ) {
+                        log(LogLine(LogLevel.OK, "${pack.name} unlocked: it can be applied now"))
+                    }
+                }
+                previewPackStore.pruneOlderThan(PREVIEW_PACK_MAX_AGE_MS, keep = PackAccess.packsUsedBy(_ui.value.spec) + listOfNotNull(_ui.value.spec.simplePackId))
+                val applicable = packStore.installed()
+                val preview = previewPackStore.installed()
+                val applicableIds = applicable.packs.mapTo(HashSet()) { it.id }
+                val extra = preview.packs.filter { it.id !in applicableIds }
+                InstalledPacks(
+                    (applicable.packs + extra).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }),
+                    applicable.errors + preview.errors,
+                ) to extra.mapTo(HashSet()) { it.id }
+            }
+            result.onSuccess { (installed, previewOnlyIds) ->
                 val ids = installed.packs.mapTo(HashSet()) { it.id }
                 // Only a pack that the last listing had and this one lacks was removed. A theme may
                 // name a pack that was never installed here (an imported theme waiting for its
@@ -1406,6 +1454,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 _ui.update {
                     it.copy(
                         packs = installed.packs,
+                        previewOnlyPackIds = previewOnlyIds,
                         packErrors = installed.errors,
                         catalogue = it.catalogue.copy(
                             entries = it.catalogue.entries.map { e ->
@@ -1430,13 +1479,20 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
     }
 
-    /** Chooses the pack of the next apply (null = colours only) and persists it in the theme; a locked pack is refused. */
+    /**
+     * Chooses the pack of the next apply (null = colours only) and persists it in the theme. A
+     * locked pack may be chosen: the preview shows it, and Apply refuses it until it is unlocked.
+     */
     fun selectPack(id: String?) {
-        if (id != null && !_ui.value.isPackUnlocked(id)) {
-            refuseLocked(id)
-            return
-        }
         updateSpec { it.copy(simplePackId = id) }
+    }
+
+    /**
+     * The Skins gallery picked catalogue pack [entry]: selects it when it is on the device,
+     * otherwise downloads it (into the preview-only directory while locked) and then selects it.
+     */
+    fun previewCataloguePack(entry: CatalogueEntry) {
+        if (_ui.value.packs.any { it.id == entry.id }) selectPack(entry.id) else downloadPack(entry, selectWhenDone = true)
     }
 
     /** Copies the chosen document into `files/packs` and lists it. */
@@ -1463,7 +1519,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         _ui.update { it.copy(busy = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val removed = packStore.delete(id)
+                val removed = packStore.delete(id) or previewPackStore.delete(id)
                 if (_ui.value.selectedPackId == id) selectPack(null)
                 log(LogLine(if (removed) LogLevel.OK else LogLevel.WARN, if (removed) "Removed pack $id" else "Pack $id was not found"))
             } catch (t: Exception) {
@@ -1514,23 +1570,34 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
     }
 
-    /** Downloads [entry] into `files/packs` with progress in [CatalogueState.downloading]. */
-    fun downloadPack(entry: CatalogueEntry) {
+    /**
+     * Downloads [entry] with progress in [CatalogueState.downloading]: into `files/packs` when it
+     * is unlocked, otherwise into the preview-only directory, so a locked pack can be browsed and
+     * previewed (Apply still refuses it). With [selectWhenDone] the pack is selected afterwards.
+     */
+    fun downloadPack(entry: CatalogueEntry, selectWhenDone: Boolean = false) {
         if (_ui.value.busy || entry.id in _ui.value.catalogue.downloading) return
-        if (!_ui.value.isPackUnlocked(entry.id)) {
-            refuseLocked(entry.id)
-            return
-        }
         val url = _ui.value.catalogue.url
+        // An entry of the official catalogue is paid even before OfficialPacks has recorded its id,
+        // so it is judged with that id already counted as official (never the cached hint).
+        fun unlocked(state: UiState, vararg ids: String): Boolean {
+            val known = state.officialPackIds + officialPacks.ids.value
+            val official = if (isOfficialCatalogue(url)) known + ids else known
+            return ids.all { PackAccess.isUnlocked(state.entitlement, it, state.bundledPackIds, official) }
+        }
+        val store = if (unlocked(_ui.value, entry.id)) packStore else previewPackStore
         _ui.update { it.copy(busy = true, catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to 0f))) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val pack = packStore.download(url, entry) { read, total ->
+                val pack = store.download(url, entry) { read, total ->
                     val fraction = if (total > 0) (read.toFloat() / total).coerceIn(0f, 1f) else 0f
                     _ui.update { it.copy(catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to fraction))) }
                 }
                 if (isOfficialCatalogue(url)) officialPacks.record(listOf(entry.id, pack.id))
-                log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)"))
+                // The zip declared an id that is not unlocked: keep it out of files/packs.
+                if (store === packStore && !unlocked(_ui.value, entry.id, pack.id)) previewPackStore.adoptFrom(packStore, pack.id)
+                log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)" + if (store === previewPackStore) ", preview only until unlocked" else ""))
+                if (selectWhenDone) selectPack(pack.id)
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Download of ${entry.name} failed: ${t.message ?: t.javaClass.simpleName}"))
                 postNotice(Notice("Couldn't download ${entry.name}", isError = true))
@@ -1569,11 +1636,19 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             state.entitlement.isPending(packId) -> postNotice(Notice("The payment for $name is still pending"))
             else -> {
-                log(LogLine(LogLevel.WARN, "$name is locked: unlock it to download or apply it"))
-                postNotice(Notice("Unlock $name to use it", isError = true))
+                log(LogLine(LogLevel.WARN, "$name is a preview: unlock it to apply it"))
+                postNotice(lockedNotice(packId, "$name is a preview. Unlock it to apply"))
             }
         }
     }
+
+    /** [message] with an "Unlock" action for [packId] in a store build. */
+    private fun lockedNotice(packId: String, message: String): Notice =
+        if (entitlements.canPurchase) {
+            Notice(message, actionLabel = "Unlock", action = NoticeAction.UNLOCK_PACK, isError = true, packId = packId)
+        } else {
+            Notice(message, isError = true)
+        }
 
     /** The name of pack [packId] from the installed packs or the catalogue; the id when neither has it. */
     private fun packName(packId: String): String {
@@ -1733,6 +1808,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         private const val MAX_LOG_CHARS = 2000
         private const val MAX_THEME_FILE_BYTES = 4 shl 20
         private const val PREVIEW_DEBOUNCE_MS = 400L
+
+        /** A locked pack kept for the preview only is deleted after this long unless the theme uses it. */
+        private const val PREVIEW_PACK_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
         /** Size and count of the built-in badges the Studio preview draws without pack icons. */
         private const val STUDIO_ICON_PX = 96

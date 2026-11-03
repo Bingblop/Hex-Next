@@ -110,9 +110,10 @@ public data class CustomFont(val regular: String, val bold: String? = null, val 
  * @property builtInIcons when true, Settings rows and My Files categories no pack or custom icon
  *   covers get the app's own colourful icons (see [IconColors.builtInJobs]). Off in files written
  *   before it existed; on in [default] themes.
- * @property qsPanelAlpha 0 … 255 alpha written to the Quick panel background resources (the
- *   [ColorGroup.QS_PANEL_BG] group), Auto or custom; 255 leaves the alpha Samsung uses. Values
- *   below [MIN_QS_PANEL_ALPHA] are compiled as [MIN_QS_PANEL_ALPHA] so the panel stays readable.
+ * @property qsPanelAlpha 0 … 255 opacity of the Quick panel background resources (the
+ *   [ColorGroup.QS_PANEL_BG] group), Auto or custom, as a fraction of the alpha Samsung uses:
+ *   255 leaves it, lower values scale it down. The compiled alpha never drops below
+ *   [MIN_QS_PANEL_ALPHA] (unless Samsung's own is lower) so the panel stays readable.
  */
 @Serializable
 public data class ThemeSpec(

@@ -37,7 +37,9 @@ public data class ResourceColor(
 /**
  * Decides which [ColorGroup] each colour resource belongs to, and lists a target's colours.
  *
- * Classification ([classify]) runs three stages, first hit wins:
+ * Classification ([classify]) runs these stages, first hit wins:
+ * 0. **Exact names.** [ColorGroupFamily.exact] of the package's family: device-verified names,
+ *    no tone check (see [Match.exact]).
  * 1. **App rules.** The [ColorGroupFamily] that [OneUiRules.colorGroupPackages] assigns to the
  *    package (keyboard, dialer, AOD, System UI lock screen).
  * 2. **Name rules.** [OneUiRules.colorGroups], groups in file order, patterns in list order.
@@ -165,8 +167,12 @@ public object ColorGroupMatcher {
     // ---------------------------------------------------------------------------------------
     // Internals shared with ThemeCompiler.
 
-    /** A classification: the group, and whether it came from the shade fallback rather than a name. */
-    internal data class Match(val group: ColorGroup, val byFallback: Boolean)
+    /**
+     * A classification: the group, whether it came from the shade fallback rather than a name,
+     * and whether it came from a [ColorGroupFamily.exact] name (Auto then applies the group's
+     * Auto colour, see [ThemeCompiler.planColors]).
+     */
+    internal data class Match(val group: ColorGroup, val byFallback: Boolean, val exact: Boolean = false)
 
     /**
      * Groups whose resources a group colour may also reach in the APK's own resource table (names
@@ -199,6 +205,8 @@ public object ColorGroupMatcher {
         // Quick Settings groups only ever reach System UI.
         val qsAllowed = pkg == SYSTEMUI
         if (family != null) {
+            val exact = family.exact[name.lowercase()]
+            if (exact != null && (qsAllowed || !exact.quickSettings)) return Match(exact, byFallback = false, exact = true)
             for (rule in family.rules) {
                 if (!qsAllowed && rule.group.quickSettings) continue
                 if (fits(rule.group, tone) && rule.regex.containsMatchIn(name)) {
@@ -331,7 +339,7 @@ public object ColorGroupMatcher {
 
     private class Rule(val group: ColorGroup, val regex: Regex)
 
-    private class Family(val rules: List<Rule>, val remap: Map<ColorGroup, ColorGroup>)
+    private class Family(val rules: List<Rule>, val remap: Map<ColorGroup, ColorGroup>, val exact: Map<String, ColorGroup>)
 
     private class Compiled(val generic: List<Rule>, val families: Map<String, Family>, val packages: Map<String, String>) {
         fun familyFor(pkg: String): Family? = packages[pkg]?.let(families::get)
@@ -352,6 +360,10 @@ public object ColorGroupMatcher {
                         val a = ColorGroup.byId(from) ?: return@mapNotNull null
                         val b = ColorGroup.byId(to) ?: return@mapNotNull null
                         a to b
+                    }.toMap(),
+                    f.exact.entries.flatMap { (id, names) ->
+                        val g = ColorGroup.byId(id) ?: return@flatMap emptyList()
+                        names.map { it.substringAfter('/').lowercase() to g }
                     }.toMap(),
                 )
             },

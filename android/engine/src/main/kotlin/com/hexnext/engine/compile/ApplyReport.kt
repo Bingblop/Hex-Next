@@ -76,13 +76,33 @@ public object OverlayLookup {
     public fun matches(output: String, argb: Int): Boolean? = parseColor(output)?.let { it == argb }
 
     /**
+     * Resources to verify a target with first, per package: the One UI 9 Quick Settings fills
+     * (active tile, then the tile-grid card), which every Hex Next theme now writes.
+     */
+    public val PREFERRED: Map<String, List<String>> = mapOf(
+        "com.android.systemui" to listOf("color/qs_tile_round_background_on", "color/qs_tile_container_bg"),
+    )
+
+    /**
      * The colour to verify [target] with: the first colour set for the default configuration
      * whose resource has no other configuration variant (so the lookup reads the same value in
      * light and dark mode) and whose value differs from SemWT's (see [CompiledTarget.semwtMatches];
      * a colour SemWT also sets to that value would verify even while SemWT outranks Hex Next), or
      * null when there is none.
+     *
+     * With [night] known (the device's current mode), a [PREFERRED] resource of the target is
+     * tried first in that mode's configuration, even when it has both variants: System UI's
+     * colours all have day and night values, so without this its apply was never verified.
      */
-    public fun probe(target: CompiledTarget): PlannedColor? {
+    public fun probe(target: CompiledTarget, night: Boolean? = null): PlannedColor? {
+        if (night != null) {
+            val config = if (night) "night" else ""
+            for (name in PREFERRED[target.packageName].orEmpty()) {
+                val full = "${target.packageName}:$name"
+                if (!night && full in target.semwtMatches) continue
+                target.colors.firstOrNull { it.resourceName == full && it.configuration == config }?.let { return it }
+            }
+        }
         val configured = target.colors.filter { it.configuration.isNotEmpty() }.mapTo(HashSet()) { it.resourceName }
         return target.colors.firstOrNull {
             it.configuration.isEmpty() && it.resourceName !in configured && it.resourceName !in target.semwtMatches

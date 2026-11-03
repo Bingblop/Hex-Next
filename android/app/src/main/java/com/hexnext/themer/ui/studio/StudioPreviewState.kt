@@ -77,7 +77,8 @@ data class PreviewScheme(
  *
  * @property seedArgb the primary seed actually applied (MainViewModel keeps it apart from the spec).
  * @property highlightedGroup the group the Studio is editing; the preview outlines its elements.
- * @property qsPanelAlpha 0 … 1 opacity of the Quick panel backdrop over the wallpaper.
+ * @property qsPanelAlpha 0 … 1 opacity of the Quick panel backdrop, as a fraction of Samsung's own
+ *   (the compiler scales Samsung's alpha by it; the preview draws it over an opaque panel colour).
  * @property iconsLoading true while the compile preview is rendering icons.
  * @property hasScan false before the first device scan: icons are built-in or fallbacks only.
  * @property note a short line under the mockup (why icons are missing), null for none.

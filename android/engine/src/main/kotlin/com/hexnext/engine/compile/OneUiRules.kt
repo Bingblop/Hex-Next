@@ -18,6 +18,10 @@ import kotlinx.serialization.json.Json
  * @property colours allowlisted System UI colour names (`qs_tile_bg`, or `color/qs_tile_bg`).
  *   Empty means "any name matching [ThemeCompiler.QS_COLOUR_NAMES]"; a non-empty list is the
  *   complete set of colours kept.
+ * @property extraColours System UI colour names allowed in addition to [colours] (or to the
+ *   regex when [colours] is empty): verified names from a device dump that the regex misses,
+ *   such as One UI 9's `open_theme_noti_header_color`. Every other name keeps the existing
+ *   behaviour (Samsung's value copied verbatim, reported as [ThemeCompiler.REASON_QS_POLICY]).
  * @property drawablesAllowed true lets packs build System UI drawables for elements that are
  *   not [QuickSettingsPolicy.COLOURS_ONLY]. Every bundled version keeps it false.
  * @property filterColours false switches the colour filter off entirely (every recoloured
@@ -27,6 +31,7 @@ import kotlinx.serialization.json.Json
 public data class QuickSettingsRules(
     val layout: String = "",
     val colours: List<String> = emptyList(),
+    val extraColours: List<String> = emptyList(),
     val drawablesAllowed: Boolean = false,
     val filterColours: Boolean = true,
 ) {
@@ -52,6 +57,7 @@ public data class QuickSettingsRules(
     public fun allowsColour(name: String): Boolean {
         if (!filterColours) return true
         val short = name.substringAfter('/')
+        if (extraColours.any { it.substringAfter('/') == short }) return true
         return if (colours.isEmpty()) ThemeCompiler.QS_COLOUR_NAMES.containsMatchIn(short) else colours.any { it.substringAfter('/') == short }
     }
 
@@ -77,11 +83,17 @@ public data class QuickSettingsRules(
  *   [OneUiRules.colorGroups]; tried before the generic rules.
  * @property remap generic result → group for this family: a colour the generic rules or the
  *   fallback put in `background` becomes `keyboard_bg` in the keyboard, for example.
+ * @property exact [ColorGroup.id] → bare colour names (`qs_tile_round_background_on`, no
+ *   `color/`, compared case-insensitively) verified on a device to be that element. They are
+ *   tried before [groups], skip the tone check (a white active tile is still the active tile),
+ *   and take the group's Auto colour when the user left the group on Auto, so the device shows
+ *   what the Studio preview shows ([ThemeSpec.effectiveGroupColor]).
  */
 @Serializable
 public data class ColorGroupFamily(
     val groups: Map<String, List<String>> = emptyMap(),
     val remap: Map<String, String> = emptyMap(),
+    val exact: Map<String, List<String>> = emptyMap(),
 )
 
 /**

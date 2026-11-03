@@ -107,8 +107,8 @@ private enum class Step(val title: String) {
  * @param selectedPackId the editor's current pack (null = colours only).
  * @param onImportPack copies a chosen pack file into the app, so a fresh install can end the
  *   guide with a pack without leaving it.
- * @param isPackLocked true for a pack this install has not unlocked; its row says so and the
- *   view model refuses to select it (packs are unlocked from the main screen).
+ * @param isPackLocked true for a pack this install has not unlocked; its row says so. It can be
+ *   selected and previewed; Apply refuses it until it is unlocked (from the main screen).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -432,7 +432,7 @@ private fun PackPage(
                     Text(pack.name, style = MaterialTheme.typography.titleSmall)
                     Text(
                         listOfNotNull(
-                            if (isPackLocked(pack.id)) "Locked, unlock it on the main screen" else null,
+                            if (isPackLocked(pack.id)) "Preview only, unlock to apply" else null,
                             pack.author.takeIf { it.isNotBlank() },
                             "${pack.drawableCount} drawables",
                             if (pack.hasSettingsIcons) "Settings icons" else null,

@@ -148,7 +148,7 @@ public data class CompiledTheme(
  *    **Element groups** come next: every colour is classified with [ColorGroupMatcher.classify],
  *    and a user colour for its group and mode ([ThemeSpec.colorGroups]) replaces the inferred or
  *    verbatim value, keeping Samsung's alpha ([ColorGroupMatcher.groupValue]). Quick panel
- *    backgrounds take [ThemeSpec.qsPanelAlpha] below 255. With any group colour set, literal APK
+ *    backgrounds have their alpha scaled by [ThemeSpec.qsPanelAlpha] / 255 below 255. With any group colour set, literal APK
  *    colours SemWT does not set are added in `""` and `night` when a name rule puts them in a
  *    set structural group ([ColorGroupMatcher.TABLE_GROUPS]). One `group colours` event counts
  *    what the groups reached.
@@ -326,6 +326,17 @@ public object ThemeCompiler {
         return digest.joinToString("") { "%02x".format(it) }
     }
 
+    /**
+     * Scales the alpha of a Quick panel background by [qsAlpha] / 255 rather than replacing it, so
+     * a backdrop Samsung already ships see-through only ever gets more see-through. The result
+     * never drops below [ThemeSpec.MIN_QS_PANEL_ALPHA] (or the stock alpha, when that is lower).
+     */
+    private fun scaleQsAlpha(argb: Int, qsAlpha: Int): Int {
+        val stock = ColorMath.alpha(argb)
+        val floor = minOf(stock, ThemeSpec.MIN_QS_PANEL_ALPHA)
+        return ColorMath.withAlpha(argb, (stock * qsAlpha / OPAQUE_ALPHA).coerceAtLeast(floor))
+    }
+
     private fun hashLine(job: PlannedDrawableJob): String {
         val head = "d|${job.configuration}|${job.resourceName}|"
         val synthesis = job.synthesis
@@ -420,7 +431,9 @@ public object ThemeCompiler {
      * 1. SemWT colours: [RoleInference] against [reference]; unmatched values are kept verbatim.
      * 2. Element groups: each key is classified with [ColorGroupMatcher.classify]; a user colour
      *    for its group and mode ([ThemeSpec.colorGroups]) replaces the value (observed alpha
-     *    kept). [ThemeSpec.qsPanelAlpha] below 255 is written onto every Quick panel background.
+     *    kept). A name in [ColorGroupFamily.exact] whose group is on Auto takes the group's Auto
+     *    colour ([ColorGroup.auto]) the same way, so the device matches the Studio preview.
+     *    [ThemeSpec.qsPanelAlpha] below 255 scales the alpha of every Quick panel background.
      * 3. With any group colour set, exclusive literal colours of [table] that SemWT does not set
      *    and that a name rule puts in a set [ColorGroupMatcher.TABLE_GROUPS] group are added in
      *    `""` and `night`. A `_dark` / `_light` name takes the dark / light colour in both.
@@ -473,18 +486,21 @@ public object ThemeCompiler {
             val match = inferred[key]
             val reliable = match != null && match.deltaE <= RoleInference.DEFAULT_MAX_DELTA_E && match.alpha != 0
             if (!reliable && ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(key.first.substringAfter('/'))) continue
-            val group = ColorGroupMatcher.classify(pkg, key.first, match, rules) ?: continue
+            val m = ColorGroupMatcher.match(pkg, key.first, match, rules) ?: continue
+            val group = m.group
             groups[key] = group
             var value = entry.value
             var changed = false
+            // A device-verified exact name takes the group's Auto colour too, as the Studio preview shows it.
             val user = spec.groupColor(group, isNight(key.second))
+                ?: if (m.exact) group.auto(resolved(), isNight(key.second)) else null
             if (user != null) {
                 value = ColorGroupMatcher.groupValue(group, user, observed.getValue(key), inferred[key])
                 reached += key
                 changed = true
             }
             if (group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) {
-                value = ColorMath.withAlpha(value, qsAlpha)
+                value = scaleQsAlpha(value, qsAlpha)
                 changed = true
             }
             if (changed) {
@@ -528,7 +544,7 @@ public object ThemeCompiler {
                         continue
                     }
                     var value = ColorGroupMatcher.groupValue(m.group, user, literal, match)
-                    if (m.group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) value = ColorMath.withAlpha(value, qsAlpha)
+                    if (m.group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) value = scaleQsAlpha(value, qsAlpha)
                     values[key] = value
                     groups[key] = m.group
                     tableObserved[key] = literal

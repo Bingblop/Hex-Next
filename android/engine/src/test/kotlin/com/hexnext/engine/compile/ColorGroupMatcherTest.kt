@@ -81,11 +81,36 @@ class ColorGroupMatcherTest {
 
     @Test
     fun `Quick panel names land in the Quick panel groups`() {
-        assertGroups(ColorGroup.QS_PANEL_BG, sysui, "quick_panel_bg", "qs_background_dark", "sec_qs_detail_bg_color", "notification_panel_background_color")
-        assertGroups(ColorGroup.QS_TILE_ACTIVE, sysui, "qs_tile_round_background_on", "qs_tile_bg_active", "sec_qs_tile_bg_enabled")
+        // Real One UI 9 System UI SemWT names (apply logs of the owner's SM-S948U1, Nov 1 2026),
+        // whatever tone Samsung's value has: the white active tile is still the active tile.
+        val white = shade(PaletteRole.NEUTRAL1, 0)
+        val grey = shade(PaletteRole.NEUTRAL2, 600)
+        val accent = shade(PaletteRole.ACCENT1, 500)
+        for (inferred in listOf(null, white, grey, accent)) {
+            assertEquals(ColorGroup.QS_TILE_ACTIVE, group("qs_tile_round_background_on", sysui, inferred), "$inferred")
+            assertEquals(ColorGroup.QS_TILE_INACTIVE, group("qs_tile_round_background_dim", sysui, inferred), "$inferred")
+            assertEquals(ColorGroup.QS_PANEL_BG, group("qs_tile_container_bg", sysui, inferred), "$inferred")
+            // The tile search field and the torch-strength popup are not tiles, switches or panel sliders.
+            for (n in listOf(
+                "qs_tile_search_background_color", "qs_flashlight_seekbar_progress_color", "qs_flashlight_seekbar_tickmark_color",
+                "qs_flashlight_thumb_stroke_color",
+            )) {
+                val g = group(n, sysui, inferred)
+                assertTrue(g != ColorGroup.QS_TILE_ACTIVE && g != ColorGroup.QS_TILE_INACTIVE && g != ColorGroup.SWITCH && g != ColorGroup.SLIDER, "$n $inferred -> $g")
+            }
+        }
+        // Exact names are System UI only.
+        assertNull(group("qs_tile_round_background_on", settings, white))
+        // Generic name rules still cover other releases' names.
+        assertGroups(ColorGroup.QS_PANEL_BG, sysui, "quick_panel_bg", "sec_qs_detail_bg_color", "notification_panel_background_color")
+        assertGroups(ColorGroup.QS_TILE_ACTIVE, sysui, "qs_tile_bg_active", "sec_qs_tile_bg_enabled")
         assertGroups(ColorGroup.QS_TILE_INACTIVE, sysui, "qs_tile_round_background_off", "qs_tile_bg_inactive", "qs_tile_bg_unavailable")
         assertGroups(ColorGroup.NOTIFICATION_BG, sysui, "notification_bg", "notification_guts_bg_color", "notification_card_background")
-        assertGroups(ColorGroup.SLIDER, sysui, "brightness_slider_bg", "volume_slider_progress_color")
+        assertGroups(ColorGroup.SLIDER, sysui, "brightness_slider_bg", "volume_slider_progress_color", "volume_panel_seekbar_progress")
+        // The volume dialog's own backdrop is not a slider fill.
+        for (n in listOf("volume_dialog_background", "volume_panel_bg", "volume_dialog_bg_color")) {
+            assertNotEquals(ColorGroup.SLIDER, group(n, sysui), n)
+        }
         // A stateless tile colour follows its value: accent is the on state, neutral the off state.
         assertEquals(ColorGroup.QS_TILE_ACTIVE, group("qs_tile_bg", sysui, shade(PaletteRole.ACCENT1, 500)))
         assertEquals(ColorGroup.QS_TILE_INACTIVE, group("qs_tile_bg", sysui, shade(PaletteRole.NEUTRAL2, 800)))
@@ -97,7 +122,7 @@ class ColorGroupMatcherTest {
             assertNotEquals(ColorGroup.QS_PANEL_BG, group(n, sysui), n)
         }
         // Quick Settings groups never reach a package other than System UI.
-        for (n in listOf("quick_panel_bg", "keyboard_panel_bg", "qs_background_dark", "qs_tile_bg_active")) {
+        for (n in listOf("quick_panel_bg", "keyboard_panel_bg", "qs_tile_container_bg", "qs_tile_round_background_on", "qs_tile_bg_active")) {
             assertFalse(group(n, settings)?.quickSettings == true, n)
         }
     }

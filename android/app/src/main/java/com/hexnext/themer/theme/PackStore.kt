@@ -59,6 +59,10 @@ data class CatalogueEntry(
     val dayNight: Boolean,
     /** True when a zip with this id and this (or a newer) version is already on the device. */
     val installed: Boolean,
+    /** The index's layer categories (`categories`), for the gallery's coverage chips. */
+    val categories: List<String> = emptyList(),
+    /** How many preview images the zip carries under `previews/` (`previewCount`). */
+    val previewCount: Int = 0,
 )
 
 /**
@@ -73,11 +77,54 @@ data class CatalogueEntry(
  * ([migrateFormer]); while that fails it is listed under its current id and name, never its old
  * one. Ids passed in ([delete], the catalogue's installed check) may be former ids.
  */
-class PackStore(context: Context) {
+class PackStore(
+    context: Context,
+    /**
+     * The directory this store manages: [ThemeApplier.packsDir] (packs an apply may use) by
+     * default, or [ThemeApplier.previewPacksDir] for locked packs kept for the preview only.
+     */
+    private val dirOf: (Context) -> File = { ThemeApplier.packsDir(it) },
+) {
 
     private val appContext = context.applicationContext
 
-    private val dir: File get() = ThemeApplier.packsDir(appContext)
+    private val dir: File get() = dirOf(appContext)
+
+    /**
+     * Moves pack [id]'s zip from [other] (the preview-only store) into this store, validating it
+     * first; true when a zip was moved. Called once the pack's purchase is verified.
+     */
+    fun adoptFrom(other: PackStore, id: String): Boolean {
+        requireSafeId(id)
+        val source = other.zipFor(id)
+        if (!source.isFile) return false
+        val pack = try {
+            PackReader.read(source)
+        } catch (e: PackFormatException) {
+            source.delete()
+            return false
+        }
+        if (PackIdAliases.current(pack.id) != PackIdAliases.current(id)) return false
+        installCurrent(source, pack)
+        source.delete()
+        return true
+    }
+
+    /**
+     * Deletes pack zips (and stale `.part` files) older than [maxAgeMs] whose id is not in [keep]:
+     * the preview-only store's clean-up, so locked packs do not pile up on the device.
+     */
+    fun pruneOlderThan(maxAgeMs: Long, keep: Set<String>): List<String> {
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        val removed = ArrayList<String>()
+        dir.listFiles { f -> f.isFile && f.lastModified() < cutoff }.orEmpty().forEach { file ->
+            val id = file.name.substringBefore('.')
+            if (file.name.endsWith(".part") || (isPackFile(file.name) && PackIdAliases.current(id) !in keep)) {
+                if (file.delete()) removed += id
+            }
+        }
+        return removed
+    }
 
     /**
      * `pack.json` of each zip by path, size and mtime: [installed] opens only the zips that
@@ -504,6 +551,8 @@ class PackStore(context: Context) {
             hasSettingsIcons = categories.any { it.startsWith(SETTINGS_ICON_PREFIX) },
             dayNight = dayNight,
             installed = false,
+            categories = categories,
+            previewCount = previewCount,
         )
     }
 

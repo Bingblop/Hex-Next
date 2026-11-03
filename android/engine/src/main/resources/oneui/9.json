@@ -24,6 +24,21 @@
   "quickSettings": {
     "layout": "oneui9",
     "colours": [],
+    "extraColours": [
+      "open_theme_noti_header_color",
+      "basic_token_sys_primary",
+      "basic_list_button_ripple_background_color",
+      "basic_interaction_no_item_text",
+      "control_manage_apps_description",
+      "control_spinner_item_text_color",
+      "sec_wifi_icon_gray_color",
+      "sesl_action_bar_text_color_subtitle_dark",
+      "sesl_action_bar_text_color_subtitle_light",
+      "sesl_extended_appbar_subtitle_dark",
+      "sesl_extended_appbar_subtitle_light",
+      "sesl_list_subheader_text_color",
+      "sesl_list_subheader_text_color_dark"
+    ],
     "drawablesAllowed": false
   },
   "renamed": {
@@ -74,7 +89,7 @@
     ],
     "qs_tile_active": [
       "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*((?<!in)active|(^|_)on(_|$)|enabled|activated|checked)",
-      "^(?!.*(icon|label|text|title|stroke))(sec_)?qs_tiles?(_|$)"
+      "^(?!.*(icon|label|text|title|stroke|container|search|flashlight))(sec_)?qs_tiles?(_|$)"
     ],
     "qs_panel_bg": [
       "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(^|_)qs_.*(background|bg)",
@@ -90,10 +105,10 @@
       "^(?!.*(icon|text|title|label|stroke|divider|button|btn|ripple|shadow)).*(navigation_?bar|nav_?bar|status_?bar)"
     ],
     "slider": [
-      "^(?!.*(icon|text|title|label|loading|swipe_refresh|stroke)).*(brightness|volume|seek_?bar|slider|progress|tick_?mark|level_control)"
+      "^(?!.*(icon|text|title|label|loading|swipe_refresh|stroke|flashlight)|.*(dialog|panel|window)_?(background|bg)).*(brightness|volume|seek_?bar|slider|progress|tick_?mark|level_control)"
     ],
     "switch": [
-      "^(?!.*(text|title|label|icon)).*(switch|checkbox|check_box|radio|toggle|(^|_)thumb|(^|_)track|_on_mtrl|_off_mtrl)"
+      "^(?!.*(text|title|label|icon|flashlight)).*(switch|checkbox|check_box|radio|toggle|(^|_)thumb|(^|_)track|_on_mtrl|_off_mtrl)"
     ],
     "button": [
       "^(?!.*(text|title|label|icon|stroke)).*(button|(^|_)btn)"
@@ -160,6 +175,11 @@
       }
     },
     "systemui": {
+      "exact": {
+        "qs_tile_active": ["qs_tile_round_background_on"],
+        "qs_tile_inactive": ["qs_tile_round_background_dim"],
+        "qs_panel_bg": ["qs_tile_container_bg"]
+      },
       "groups": {
         "lock_screen": [
           "^(?!.*(background|(^|_)bg(_|$)|bgcolor|scrim|shadow|(^|_)dim(_|$))).*(^|_)(keyguard|lockscreen|lock_screen|kg|aod|lock)(_|$)"

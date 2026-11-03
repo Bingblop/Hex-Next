@@ -335,7 +335,10 @@ internal fun PreviewIconImage(
 }
 
 /** Simple vector glyphs drawn with shapes (the app ships only the core icon set). */
-internal enum class Glyph { WIFI, BLUETOOTH, SIGNAL, BATTERY, MOON, DND, BOLT, SUN, VOLUME, POWER, TORCH }
+internal enum class Glyph {
+    WIFI, BLUETOOTH, SIGNAL, BATTERY, MOON, DND, BOLT, SUN, VOLUME, POWER, TORCH,
+    NOTE, SPEAKER, DATA, DOLBY, PLANE, EYE, CAST, RECORD, NFC,
+}
 
 /**
  * Draws [glyph] in [color]. [cutout] is the colour behind the glyph, used for the moon and
@@ -400,6 +403,19 @@ internal fun GlyphIcon(
                 )
                 drawLine(color, Offset(center.x, s * 0.12f), Offset(center.x, center.y), s * 0.11f, StrokeCap.Round)
             }
+            Glyph.NOTE -> drawNote(color)
+            Glyph.SPEAKER -> drawSpeaker(color)
+            Glyph.DATA -> drawData(color)
+            Glyph.DOLBY -> drawDolby(color)
+            Glyph.PLANE -> drawPlane(color)
+            Glyph.EYE -> drawEye(color)
+            Glyph.CAST -> drawCast(color)
+            Glyph.RECORD -> {
+                val s = size.minDimension
+                drawCircle(color, s * 0.36f, center, style = Stroke(width = s * 0.09f))
+                drawCircle(color, s * 0.18f, center)
+            }
+            Glyph.NFC -> drawNfc(color)
             Glyph.TORCH -> {
                 val w = size.width
                 val h = size.height
@@ -420,6 +436,144 @@ internal fun GlyphIcon(
             }
         }
     }
+}
+
+private fun DrawScope.drawNote(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    val stroke = s * 0.09f
+    val stemX = w * 0.60f
+    drawCircle(color, s * 0.15f, Offset(w * 0.47f, h * 0.74f))
+    drawLine(color, Offset(stemX, h * 0.74f), Offset(stemX, h * 0.16f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(stemX, h * 0.16f), Offset(w * 0.80f, h * 0.28f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(w * 0.80f, h * 0.28f), Offset(w * 0.80f, h * 0.40f), stroke, StrokeCap.Round)
+}
+
+/** The media output (speaker box) glyph. */
+private fun DrawScope.drawSpeaker(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    val stroke = s * 0.09f
+    drawRoundRect(
+        color,
+        topLeft = Offset(w * 0.24f, h * 0.10f),
+        size = Size(w * 0.52f, h * 0.80f),
+        cornerRadius = CornerRadius(s * 0.12f),
+        style = Stroke(width = stroke),
+    )
+    drawCircle(color, s * 0.13f, Offset(w * 0.5f, h * 0.60f), style = Stroke(width = stroke))
+    drawCircle(color, s * 0.05f, Offset(w * 0.5f, h * 0.28f))
+}
+
+/** Mobile data: an up arrow and a down arrow. */
+private fun DrawScope.drawData(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    val stroke = s * 0.09f
+    val up = w * 0.36f
+    val down = w * 0.64f
+    drawLine(color, Offset(up, h * 0.82f), Offset(up, h * 0.18f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(up, h * 0.18f), Offset(up - s * 0.14f, h * 0.32f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(up, h * 0.18f), Offset(up + s * 0.14f, h * 0.32f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(down, h * 0.18f), Offset(down, h * 0.82f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(down, h * 0.82f), Offset(down - s * 0.14f, h * 0.68f), stroke, StrokeCap.Round)
+    drawLine(color, Offset(down, h * 0.82f), Offset(down + s * 0.14f, h * 0.68f), stroke, StrokeCap.Round)
+}
+
+/** A double-D audio badge. */
+private fun DrawScope.drawDolby(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    drawRoundRect(
+        color,
+        topLeft = Offset(w * 0.08f, h * 0.22f),
+        size = Size(w * 0.84f, h * 0.56f),
+        cornerRadius = CornerRadius(s * 0.08f),
+        style = Stroke(width = s * 0.08f),
+    )
+    val r = h * 0.18f
+    drawArc(color, 90f, 180f, true, Offset(w * 0.47f - r, h * 0.5f - r), Size(r * 2, r * 2))
+    drawArc(color, -90f, 180f, true, Offset(w * 0.53f - r, h * 0.5f - r), Size(r * 2, r * 2))
+}
+
+private fun DrawScope.drawPlane(color: Color) {
+    val w = size.width
+    val h = size.height
+    val pts = floatArrayOf(
+        0.50f, 0.08f, 0.56f, 0.14f, 0.56f, 0.40f, 0.90f, 0.60f, 0.90f, 0.68f, 0.56f, 0.57f,
+        0.56f, 0.78f, 0.66f, 0.86f, 0.66f, 0.92f, 0.50f, 0.87f, 0.34f, 0.92f, 0.34f, 0.86f,
+        0.44f, 0.78f, 0.44f, 0.57f, 0.10f, 0.68f, 0.10f, 0.60f, 0.44f, 0.40f, 0.44f, 0.14f,
+    )
+    val path = Path().apply {
+        moveTo(w * pts[0], h * pts[1])
+        var i = 2
+        while (i < pts.size) {
+            lineTo(w * pts[i], h * pts[i + 1])
+            i += 2
+        }
+        close()
+    }
+    drawPath(path, color)
+}
+
+/** Eye comfort: an eye outline with a pupil. */
+private fun DrawScope.drawEye(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    val path = Path().apply {
+        moveTo(w * 0.08f, h * 0.5f)
+        cubicTo(w * 0.30f, h * 0.16f, w * 0.70f, h * 0.16f, w * 0.92f, h * 0.5f)
+        cubicTo(w * 0.70f, h * 0.84f, w * 0.30f, h * 0.84f, w * 0.08f, h * 0.5f)
+        close()
+    }
+    drawPath(path, color, style = Stroke(width = s * 0.08f, join = StrokeJoin.Round))
+    drawCircle(color, s * 0.13f, center)
+}
+
+/** Smart View: a screen with a cast corner. */
+private fun DrawScope.drawCast(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    val stroke = Stroke(width = s * 0.08f, cap = StrokeCap.Round)
+    drawRoundRect(
+        color,
+        topLeft = Offset(w * 0.12f, h * 0.20f),
+        size = Size(w * 0.76f, h * 0.56f),
+        cornerRadius = CornerRadius(s * 0.08f),
+        style = stroke,
+    )
+    drawLine(color, Offset(w * 0.36f, h * 0.86f), Offset(w * 0.64f, h * 0.86f), s * 0.08f, StrokeCap.Round)
+    drawCircle(color, s * 0.07f, Offset(w * 0.30f, h * 0.62f))
+    val r = s * 0.16f
+    drawArc(color, -90f, 90f, false, Offset(w * 0.30f - r, h * 0.62f - r), Size(r * 2, r * 2), style = stroke)
+}
+
+/** NFC: an N in a rounded square. */
+private fun DrawScope.drawNfc(color: Color) {
+    val s = size.minDimension
+    val w = size.width
+    val h = size.height
+    val stroke = Stroke(width = s * 0.08f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    drawRoundRect(
+        color,
+        topLeft = Offset(w * 0.14f, h * 0.14f),
+        size = Size(w * 0.72f, h * 0.72f),
+        cornerRadius = CornerRadius(s * 0.16f),
+        style = stroke,
+    )
+    val n = Path().apply {
+        moveTo(w * 0.37f, h * 0.66f)
+        lineTo(w * 0.37f, h * 0.34f)
+        lineTo(w * 0.63f, h * 0.66f)
+        lineTo(w * 0.63f, h * 0.34f)
+    }
+    drawPath(n, color, style = stroke)
 }
 
 private fun DrawScope.drawWifi(color: Color) {

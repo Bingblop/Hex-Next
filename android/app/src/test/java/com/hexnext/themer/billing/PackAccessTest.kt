@@ -123,34 +123,40 @@ class PackAccessTest {
     }
 
     @Test
-    fun thePreviewNeverRendersALockedPack() {
+    fun aLockedPackIsPreviewedButNeverBuilt() {
         val owned = EntitlementState(ready = true, ownedProductIds = setOf("pack_carnelian"))
         val unlocked: (String) -> Boolean = { PackAccess.isUnlocked(owned, it, emptySet(), noOfficial) }
 
+        // Simple mode: the locked pack stays in the preview, and Apply refuses it.
         val simple = ThemeSpec.default().copy(simplePackId = "ametrine")
-        assertEquals(null, PackAccess.withoutLockedPacks(simple, unlocked).simplePackId)
-        val bought = ThemeSpec.default().copy(simplePackId = "carnelian")
-        assertTrue(PackAccess.withoutLockedPacks(bought, unlocked) === bought)
+        val shownSimple = PackAccess.specForPreview(simple)
+        assertEquals("ametrine", shownSimple.simplePackId)
+        assertEquals(setOf("ametrine"), PackAccess.packsUsedBy(shownSimple))
+        assertEquals(setOf("ametrine"), PackAccess.lockedPacksIn(simple, unlocked))
+        assertFalse(PackAccess.canBuild(simple, unlocked))
 
+        // A bought pack previews and builds.
+        val bought = ThemeSpec.default().copy(simplePackId = "carnelian")
+        assertTrue(PackAccess.specForPreview(bought) === bought)
+        assertTrue(PackAccess.canBuild(bought, unlocked))
+
+        // Advanced mode: a locked part keeps its pack in the preview; the build is refused for it.
         val advanced = ThemeSpec.default().copy(
             mode = ThemeMode.ADVANCED,
             simplePackId = "carnelian",
             elementPacks = mapOf(STATUS_BAR to "ametrine"),
         )
-        val shown = PackAccess.withoutLockedPacks(advanced, unlocked)
-        assertEquals("carnelian", shown.simplePackId)
-        assertEquals(emptyMap<String, String>(), shown.elementPacks)
-        assertFalse(shown.isElementEnabled(STATUS_BAR))
-        assertTrue(shown.isElementEnabled(SETTINGS_ICONS))
-        assertEquals(emptySet<String>(), PackAccess.lockedPacksIn(shown, unlocked))
+        val shown = PackAccess.specForPreview(advanced)
+        assertEquals(mapOf(STATUS_BAR to "ametrine"), shown.elementPacks)
+        assertTrue(shown.isElementEnabled(STATUS_BAR))
+        assertEquals(setOf("carnelian", "ametrine"), PackAccess.packsUsedBy(shown))
+        assertEquals(setOf("ametrine"), PackAccess.lockedPacksIn(advanced, unlocked))
+        assertFalse(PackAccess.canBuild(advanced, unlocked))
 
-        // A locked default pack switches off every part that falls back to it.
-        val lockedDefault = advanced.copy(simplePackId = "ametrine", elementPacks = mapOf(STATUS_BAR to "carnelian"))
-        val shownDefault = PackAccess.withoutLockedPacks(lockedDefault, unlocked)
-        assertEquals(null, shownDefault.simplePackId)
-        assertTrue(shownDefault.isElementEnabled(STATUS_BAR))
-        assertFalse(shownDefault.isElementEnabled(SETTINGS_ICONS))
-        assertEquals(setOf("carnelian"), PackAccess.packsUsedBy(shownDefault))
+        // The cached purchase hint makes the badge look unlocked, but never lets a build run.
+        val starting = EntitlementState(cachedProductIds = setOf("pack_ametrine"))
+        assertTrue(PackAccess.looksUnlocked(starting, "ametrine", emptySet(), noOfficial))
+        assertFalse(PackAccess.canBuild(simple) { PackAccess.isUnlocked(starting, it, emptySet(), noOfficial) })
     }
 
     private companion object {

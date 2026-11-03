@@ -43,9 +43,12 @@ import com.hexnext.themer.ui.LocalAppSettings
 import com.hexnext.themer.ui.MainViewModel
 import kotlinx.coroutines.delay
 
-/** "412 resources in 31 apps", or null without a count. */
-private fun countLine(count: GroupCount?): String? {
-    if (count == null || count.resources == 0) return null
+/**
+ * "412 resources in 31 apps", or null without a count. With [sayNothing] (counts are loaded and
+ * the group is a Quick panel group) a group that reaches nothing says so instead of staying silent.
+ */
+private fun countLine(count: GroupCount?, sayNothing: Boolean = false): String? {
+    if (count == null || count.resources == 0) return if (sayNothing) "Reaches nothing on this phone" else null
     val resources = if (count.resources == 1) "1 resource" else "${count.resources} resources"
     val apps = if (count.packages == 1) "1 app" else "${count.packages} apps"
     return "$resources in $apps"
@@ -69,7 +72,7 @@ private fun startsBoth(spec: ThemeSpec, group: ColorGroup): Boolean {
 /**
  * One UI element colours (Studio v2 § 2.2): a row per [ColorGroup] in [groups], under its
  * [ColorGroupSection], with day and night swatches, Auto or Custom, the resource count of the last
- * scan and a "Colour only" badge on Quick Settings groups. A swatch opens [ColorPickerSheet]
+ * scan and a "Quick panel only" badge on groups that reach only System UI. A swatch opens [ColorPickerSheet]
  * for that mode ("Same for light and dark" writes both).
  *
  * The row of [StudioPreviewState.highlightedGroup] is outlined. With [bringHighlightIntoView]
@@ -130,6 +133,7 @@ internal fun ElementColorsCard(
                         spec = spec,
                         preview = preview,
                         count = counts[group],
+                        counted = counts.isNotEmpty(),
                         highlighted = preview.highlightedGroup == group,
                         bringIntoView = bringHighlightIntoView,
                         onSelect = { viewModel.setHighlightedGroup(group) },
@@ -233,6 +237,7 @@ private fun ElementRow(
     spec: ThemeSpec,
     preview: StudioPreviewState,
     count: GroupCount?,
+    counted: Boolean,
     highlighted: Boolean,
     bringIntoView: Boolean,
     onSelect: () -> Unit,
@@ -281,7 +286,7 @@ private fun ElementRow(
                 Text(group.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f, fill = false))
                 if (group.quickSettings) {
                     StudioPill(
-                        "Colour only",
+                        "Quick panel only",
                         container = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f),
                         content = MaterialTheme.colorScheme.tertiary,
                     )
@@ -295,7 +300,7 @@ private fun ElementRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                listOfNotNull(status, countLine(count)).joinToString(" · "),
+                listOfNotNull(status, countLine(count, counted && group.quickSettings)).joinToString(" · "),
                 style = MaterialTheme.typography.labelMedium,
                 color = if (lightCustom || darkCustom) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
             )

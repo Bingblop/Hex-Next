@@ -70,10 +70,14 @@ import java.util.zip.ZipFile
  * serves one thread at a time (an apply or a preview), never two concurrently.
  */
 class DrawableRenderer(
-    private val packs: DirectoryPackResolver,
+    private val packs: LayeredPackResolver,
     private val customDir: File? = null,
     private val synthesizer: IconSynthesizer? = null,
 ) : Closeable {
+
+    /** An apply: packs from one directory ([ThemeApplier.packsDir]) only. */
+    constructor(packs: DirectoryPackResolver, customDir: File? = null, synthesizer: IconSynthesizer? = null) :
+        this(LayeredPackResolver(packs), customDir, synthesizer)
 
     /**
      * [png] to fabricate. [ninePatch] asks the service to fabricate it as a 9-patch SOURCE

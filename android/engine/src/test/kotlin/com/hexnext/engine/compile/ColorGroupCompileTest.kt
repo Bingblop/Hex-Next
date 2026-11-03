@@ -201,7 +201,9 @@ class ColorGroupCompileTest {
         for (spec in listOf(autoEntries, roundTrip, baseSpec.withAllGroupsAuto(), unknownId)) {
             val c = compile(spec)
             for (pkg in listOf(settings, sysui)) assertEquals(stock.target(pkg)!!.contentHash, c.target(pkg)!!.contentHash, pkg)
-            assertTrue(c.events.none { it.message == "group colours" })
+            // System UI's device-verified exact names (qs_tile_round_background_on) take their Auto colour,
+            // in every spec alike; nothing else is reached on Auto.
+            assertTrue(c.events.none { it.message == "group colours" && it.target != sysui })
         }
         assertTrue(roundTrip.colorGroups.isEmpty())
     }
@@ -244,15 +246,19 @@ class ColorGroupCompileTest {
     }
 
     @Test
-    fun `qsPanelAlpha is written onto Quick panel backgrounds, Auto or custom`() {
+    fun `qsPanelAlpha scales Samsung's alpha on Quick panel backgrounds, Auto or custom`() {
+        // The fixture panel is 0xE0; 0x66 of it is below the floor, so the floor is written.
         val auto = compile(baseSpec.copy(qsPanelAlpha = 0x66)).target(sysui)!!
         assertEquals(withAlpha(resolved.light.shade(PaletteRole.NEUTRAL1, 100), 0x66), auto.color("quick_panel_bg")!!.argb)
         assertEquals(withAlpha(resolved.dark.shade(PaletteRole.NEUTRAL1, 900), 0x66), auto.color("quick_panel_bg", "night")!!.argb)
         // Tiles are not the panel.
         assertEquals(resolved.light.shade(PaletteRole.ACCENT1, 500), auto.color("qs_tile_bg")!!.argb)
-        val custom = compile(baseSpec.copy(qsPanelAlpha = 0x70).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!
-        assertEquals(withAlpha(blue, 0x70), custom.color("quick_panel_bg")!!.argb)
-        assertEquals(withAlpha(red, 0x70), custom.color("quick_panel_bg", "night")!!.argb)
+        // 0xCC / 255 of Samsung's 0xE0 is 0xB3: more see-through than stock, never more solid.
+        val custom = compile(baseSpec.copy(qsPanelAlpha = 0xCC).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!
+        assertEquals(withAlpha(blue, 0xB3), custom.color("quick_panel_bg")!!.argb)
+        assertEquals(withAlpha(red, 0xB3), custom.color("quick_panel_bg", "night")!!.argb)
+        val nearlyFull = compile(baseSpec.copy(qsPanelAlpha = 0xF0).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!
+        assertTrue((nearlyFull.color("quick_panel_bg")!!.argb ushr 24) < 0xE0)
         // Below the floor the panel keeps a readable alpha; 0 never makes it fully transparent.
         val floor = ThemeSpec.MIN_QS_PANEL_ALPHA
         val clear = compile(baseSpec.copy(qsPanelAlpha = 0).group(ColorGroup.QS_PANEL_BG, blue, red)).target(sysui)!!

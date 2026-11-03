@@ -15,7 +15,7 @@ public enum class ColorGroupSection(public val label: String) {
 
 /**
  * A One UI element colour group: a set of colour resources, across every Samsung target, that the
- * user colours as one ("Switches", "QS tile active"). Which resources belong to a group is decided
+ * user colours as one ("Switches", "Quick panel tiles: on"). Which resources belong to a group is decided
  * by `ColorGroupMatcher`; this type is only the catalogue.
  *
  * [id] is persisted in [ThemeSpec.colorGroups] and must never change; constants may be added but
@@ -47,8 +47,8 @@ public enum class ColorGroup(
     BUTTON("button", "Buttons", "Filled and text buttons", ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 600, 200),
     SLIDER("slider", "Brightness and volume sliders", "Seek bars, brightness and volume sliders", ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 500, 300),
     QS_PANEL_BG("qs_panel_bg", "Quick panel background", "Quick panel and expanded detail backdrop", ColorGroupSection.QUICK_PANEL, PaletteRole.NEUTRAL1, 100, 900, quickSettings = true),
-    QS_TILE_ACTIVE("qs_tile_active", "QS tile active", "Quick Settings tiles that are on", ColorGroupSection.QUICK_PANEL, PaletteRole.ACCENT1, 500, 300, quickSettings = true),
-    QS_TILE_INACTIVE("qs_tile_inactive", "QS tile inactive", "Quick Settings tiles that are off", ColorGroupSection.QUICK_PANEL, PaletteRole.NEUTRAL2, 100, 800, quickSettings = true),
+    QS_TILE_ACTIVE("qs_tile_active", "Quick panel tiles: on", "Tiles that are switched on", ColorGroupSection.QUICK_PANEL, PaletteRole.ACCENT1, 500, 300, quickSettings = true),
+    QS_TILE_INACTIVE("qs_tile_inactive", "Quick panel tiles: off", "Tiles that are switched off", ColorGroupSection.QUICK_PANEL, PaletteRole.NEUTRAL2, 100, 800, quickSettings = true),
     NOTIFICATION_BG("notification_bg", "Notification background", "Notification cards and the notification shade", ColorGroupSection.QUICK_PANEL, PaletteRole.NEUTRAL1, 10, 800),
     DIALOG("dialog", "Dialogs and popups", "Dialogs, popup menus and bottom sheets", ColorGroupSection.SYSTEM, PaletteRole.NEUTRAL1, 10, 800),
     KEYBOARD_BG("keyboard_bg", "Keyboard background", "Samsung Keyboard backdrop", ColorGroupSection.APPS, PaletteRole.NEUTRAL2, 50, 900),

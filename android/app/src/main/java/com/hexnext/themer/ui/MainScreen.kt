@@ -754,6 +754,8 @@ internal fun PackCard(
     onCatalogueUrl: (String) -> Unit,
     onLoadCatalogue: () -> Unit,
     onDownload: (CatalogueEntry) -> Unit,
+    /** A catalogue skin that is not on the phone yet was picked: download it (preview only while locked) and select it. */
+    onPreviewCatalogue: ((CatalogueEntry) -> Unit)? = null,
 ) {
     var showCatalogue by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -767,6 +769,12 @@ internal fun PackCard(
     val shownPacks = remember(packs, needle, spec.simplePackId) {
         if (needle.isEmpty()) packs else packs.filter { it.name.contains(needle, ignoreCase = true) || it.id == spec.simplePackId }
     }
+    // Catalogue skins not on the phone yet, locked ones included: every skin can be previewed.
+    val notDownloaded = remember(catalogue.entries, packs, needle) {
+        val onPhone = packs.mapTo(HashSet()) { it.id }
+        catalogue.entries.filter { it.id !in onPhone && (needle.isEmpty() || it.name.contains(needle, ignoreCase = true)) }
+    }
+    val skinCount = packs.size + catalogue.entries.count { e -> packs.none { it.id == e.id } }
     SectionCard(
         title = "Theme pack",
         trailing = {
@@ -793,7 +801,7 @@ internal fun PackCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (packs.isEmpty()) {
+        if (packs.isEmpty() && (onPreviewCatalogue == null || catalogue.entries.isEmpty())) {
             EmptyState(
                 icon = Icons.Outlined.Star,
                 text = "No theme packs yet. Your accent colour still applies without one.",
@@ -805,7 +813,14 @@ internal fun PackCard(
         if (advanced) {
             Text("Default pack", style = MaterialTheme.typography.labelLarge)
         }
-        if (packs.size > 1) {
+        if (skinCount > 0) {
+            Text(
+                if (skinCount == 1) "1 skin" else "$skinCount skins",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (skinCount > 1) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -826,7 +841,7 @@ internal fun PackCard(
                 )
             }
         }
-        if (packs.isNotEmpty() && shownPacks.isEmpty()) {
+        if (skinCount > 0 && shownPacks.isEmpty() && notDownloaded.isEmpty()) {
             Text(
                 "No pack name matches \"$needle\".",
                 style = MaterialTheme.typography.bodySmall,
@@ -836,7 +851,8 @@ internal fun PackCard(
         shownPacks.forEach { pack ->
             val selected = spec.simplePackId == pack.id
             val locked = locks.locked(pack.id)
-            PackRow(selected = selected, enabled = !busy && !locked, onClick = { onSelect(pack.id) }) {
+            // A locked skin can be selected and previewed; Apply asks for the unlock.
+            PackRow(selected = selected, enabled = !busy, onClick = { onSelect(pack.id) }) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PaletteDots(pack)
@@ -848,7 +864,14 @@ internal fun PackCard(
                             modifier = Modifier.weight(1f, fill = false),
                         )
                     }
-                    PackBadges(pack, locked = locked, pending = locks.pending(pack.id))
+                    PackBadges(pack, locked = locked, pending = locks.pending(pack.id), price = locks.price(pack.id))
+                    if (locked && selected) {
+                        Text(
+                            "Preview only. Unlock to apply.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (locked) {
                         if (locks.canPurchase) {
                             UnlockButton(
@@ -876,6 +899,19 @@ internal fun PackCard(
                     elementId = null,
                     enabled = !busy,
                     onOption = onOption,
+                )
+            }
+        }
+        if (onPreviewCatalogue != null && notDownloaded.isNotEmpty() && !advanced) {
+            Text("More skins", style = MaterialTheme.typography.labelLarge)
+            notDownloaded.forEach { entry ->
+                CatalogueSkinRow(
+                    entry = entry,
+                    progress = catalogue.downloading[entry.id],
+                    busy = busy,
+                    locks = locks,
+                    onUnlock = onUnlock,
+                    onPreview = onPreviewCatalogue,
                 )
             }
         }
@@ -996,12 +1032,13 @@ private fun PaletteDots(pack: InstalledPack) {
 /** Badges of a pack row: lock state, day and night, drawables, Settings icons. Each one a word. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PackBadges(pack: InstalledPack, locked: Boolean, pending: Boolean) {
+private fun PackBadges(pack: InstalledPack, locked: Boolean, pending: Boolean, price: String? = null) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (locked) {
-            LockedLabel(pending = pending)
+            LockedLabel(pending = pending, price = price)
         }
         if (pack.dayNight) PackBadge("Day and night")
+        coverageLabels(pack.pack.layers.map { it.category }).forEach { PackBadge(it) }
         PackBadge("${pack.drawableCount} drawables")
         if (pack.hasSettingsIcons) PackBadge("Settings icons")
     }
@@ -1198,7 +1235,8 @@ private fun ElementPackDialog(
                 }
                 items(covering) { pack ->
                     val locked = locks.locked(pack.id)
-                    PackRow(selected = enabled && setId == pack.id, enabled = !busy && !locked, onClick = { onElementPack(element.id, pack.id) }) {
+                    // A locked pack can be chosen for the preview; Apply asks for the unlock.
+                    PackRow(selected = enabled && setId == pack.id, enabled = !busy, onClick = { onElementPack(element.id, pack.id) }) {
                         Column(Modifier.weight(1f)) {
                             Text(pack.name, style = MaterialTheme.typography.titleSmall)
                             Text(
@@ -1206,7 +1244,7 @@ private fun ElementPackDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (locked) LockedLabel(pending = locks.pending(pack.id))
+                            if (locked) LockedLabel(pending = locks.pending(pack.id), price = locks.price(pack.id))
                         }
                     }
                 }
@@ -1905,11 +1943,13 @@ private fun CatalogueRow(
     onUnlock: (String) -> Unit,
     onDownload: (CatalogueEntry) -> Unit,
 ) {
-    // A locked pack shows its name, size and price only: it cannot be downloaded until unlocked.
+    // A locked pack can be downloaded to preview it (kept apart from the packs an apply may use);
+    // its row also offers the unlock.
     val locked = locks.locked(entry.id)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f)) {
             Text(entry.name, style = MaterialTheme.typography.titleSmall)
+            if (locked) LockedLabel(pending = locks.pending(entry.id), price = locks.price(entry.id))
             Text(
                 // Size and contents only: never an author or version (see packSummary).
                 listOfNotNull(
@@ -1922,20 +1962,74 @@ private fun CatalogueRow(
         }
         when {
             progress != null -> LinearProgressIndicator(progress = { progress }, modifier = Modifier.width(72.dp))
-            locked && locks.canPurchase -> UnlockButton(
+            entry.installed && locked && locks.canPurchase -> UnlockButton(
                 name = entry.name,
                 price = locks.price(entry.id),
                 pending = locks.pending(entry.id),
                 enabled = !busy,
                 onClick = { onUnlock(ProductIds.forPack(entry.id)) },
             )
-            locked -> LockedLabel(pending = false)
             entry.installed -> Text("Installed", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             else -> TextButton(
                 onClick = { onDownload(entry) },
                 enabled = !busy,
-                modifier = Modifier.semantics { contentDescription = "Download ${entry.name}" },
-            ) { Text("Download") }
+                modifier = Modifier.semantics { contentDescription = (if (locked) "Preview " else "Download ") + entry.name },
+            ) { Text(if (locked) "Preview" else "Download") }
+        }
+    }
+}
+
+/**
+ * The parts of One UI a catalogue skin styles, from its index categories (e.g. "Keyboard",
+ * "Phone", "Status bar"): at most [max] labels plus "+N".
+ */
+internal fun coverageLabels(categories: List<String>, max: Int = 4): List<String> {
+    val labels = categories.mapNotNull { Elements.resolveCategory(it) }.distinctBy { it.id }.map { it.label }
+    return if (labels.size <= max) labels else labels.take(max) + "+${labels.size - max}"
+}
+
+/**
+ * A catalogue skin that is not on the phone yet, in the Skins list: its name, what it styles,
+ * its lock state and price. Tapping it downloads it (preview only while locked) and selects it,
+ * so the live phone shows it at once.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CatalogueSkinRow(
+    entry: CatalogueEntry,
+    progress: Float?,
+    busy: Boolean,
+    locks: PackLocks,
+    onUnlock: (String) -> Unit,
+    onPreview: (CatalogueEntry) -> Unit,
+) {
+    val locked = locks.locked(entry.id)
+    PackRow(selected = false, enabled = !busy && progress == null, onClick = { onPreview(entry) }) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(entry.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (locked) LockedLabel(pending = locks.pending(entry.id), price = locks.price(entry.id)) else PackBadge("Free")
+                if (entry.dayNight) PackBadge("Day and night")
+                coverageLabels(entry.categories).forEach { PackBadge(it) }
+            }
+            if (progress != null) {
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            } else {
+                Text(
+                    if (locked) "Tap to preview. Unlock to apply." else "Tap to download and preview.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (locked && locks.canPurchase) {
+                UnlockButton(
+                    name = entry.name,
+                    price = locks.price(entry.id),
+                    pending = locks.pending(entry.id),
+                    enabled = !busy,
+                    onClick = { onUnlock(ProductIds.forPack(entry.id)) },
+                )
+            }
         }
     }
 }
@@ -1963,6 +2057,10 @@ internal fun restartProtectionText(unconfirmed: Boolean, expired: Boolean): Stri
  * [applying] a progress bar and the last log line (a polite live region) show; while
  * [unconfirmed] an "It works" row sits on top. Tapping the summary opens the target list
  * ([onDetails]); while disconnected it opens the connection sheet ([onConnection]).
+ *
+ * While the theme uses a pack that is not unlocked ([previewOnlyPack], its name) the bar says it
+ * is a preview and, in a store build ([onUnlock] not null), offers Unlock in place of Apply.
+ * Apply is refused for such a theme anyway (MainViewModel.applyTheme).
  */
 @Composable
 internal fun ApplyBar(
@@ -1979,6 +2077,10 @@ internal fun ApplyBar(
     onDetails: () -> Unit,
     onConnection: () -> Unit,
     modifier: Modifier = Modifier,
+    previewOnlyPack: String? = null,
+    previewOnlyPrice: String? = null,
+    previewOnlyPending: Boolean = false,
+    onUnlock: (() -> Unit)? = null,
 ) {
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     val status = LocalStatusPalette.current
@@ -2019,6 +2121,7 @@ internal fun ApplyBar(
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val summary = when {
+                previewOnlyPack != null -> "Unlock $previewOnlyPack to apply — preview only"
                 !connected -> "Connect first: start Shizuku with root"
                 report == null -> "Not applied yet"
                 else -> lastApplyLine(report)
@@ -2040,6 +2143,7 @@ internal fun ApplyBar(
                     summary,
                     style = MaterialTheme.typography.bodySmall,
                     color = when {
+                        previewOnlyPack != null -> status.warn
                         !connected -> MaterialTheme.colorScheme.onSurfaceVariant
                         failed -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurface
@@ -2054,7 +2158,15 @@ internal fun ApplyBar(
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text("Remove") }
-            Button(
+            if (previewOnlyPack != null && onUnlock != null) {
+                UnlockButton(
+                    name = previewOnlyPack,
+                    price = previewOnlyPrice,
+                    pending = previewOnlyPending,
+                    enabled = !busy,
+                    onClick = onUnlock,
+                )
+            } else Button(
                 onClick = onApply,
                 enabled = connected && !busy,
                 shape = MaterialTheme.shapes.small,
