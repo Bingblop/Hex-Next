@@ -1,6 +1,7 @@
 package com.hexnext.engine.compile
 
 import com.hexnext.engine.map.PlannedColor
+import com.hexnext.engine.map.PlannedValue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -34,6 +35,11 @@ public enum class TargetResult {
  * @property semwtDisabled true when `android:SemWT_<target>` was disabled for this target.
  * @property verified result of the post-apply `cmd overlay lookup` of the first colour set: true
  *   when the target resolves to the value Hex Next set, false on a mismatch, null when not checked.
+ * @property valueCount non-colour values written to the target's value overlay
+ *   ([CompiledTarget.valueOverlayName]); 0 when it has none.
+ * @property valueVerified the lookup of one written value: true on a match, false on a mismatch
+ *   (the target is then [TargetResult.PARTIAL], never [TargetResult.FAILED]), null when not checked.
+ * @property valueMessage what happened to the values (skipped, quarantined, failed …), empty when fine.
  */
 @Serializable
 public data class TargetOutcome(
@@ -47,7 +53,30 @@ public data class TargetOutcome(
     val millis: Long = 0,
     val message: String = "",
     val verified: Boolean? = null,
+    val valueCount: Int = 0,
+    val valueVerified: Boolean? = null,
+    val valueMessage: String = "",
 ) {
+    /**
+     * This outcome with the value overlay's result: [count] values written, [verified] as
+     * [valueVerified], [message] as [valueMessage]. A mismatch or a failed value overlay turns
+     * [TargetResult.OK] into [TargetResult.PARTIAL]; an [TargetResult.EMPTY] colour target whose
+     * values landed becomes [TargetResult.OK] (or PARTIAL), since the values are on.
+     */
+    public fun withValues(count: Int, verified: Boolean?, message: String = "", failed: Boolean = false): TargetOutcome {
+        val base = when {
+            result == TargetResult.EMPTY && count > 0 && !failed -> TargetResult.OK
+            else -> result
+        }
+        val partial = (failed || verified == false) && base == TargetResult.OK
+        return copy(
+            result = if (partial) TargetResult.PARTIAL else base,
+            valueCount = count,
+            valueVerified = verified,
+            valueMessage = message,
+        )
+    }
+
     /**
      * This outcome with the lookup verification recorded. A mismatch turns [TargetResult.OK] into
      * [TargetResult.PARTIAL] (the overlay is in place but something outranks it or the value did
@@ -74,6 +103,50 @@ public object OverlayLookup {
 
     /** True when [output] resolves to [argb], false when it resolves to another colour, null when unreadable. */
     public fun matches(output: String, argb: Int): Boolean? = parseColor(output)?.let { it == argb }
+
+    private val DIMEN_TEXT = Regex("""(-?\d+(?:\.\d+)?)(px|dip|dp|sp|pt|in|mm)\b""")
+    private val BOOL_TEXT = Regex("""\b(true|false)\b""")
+    private val HEX_TEXT = Regex("""\b0x([0-9a-fA-F]{1,8})\b""")
+    private val INT_TEXT = Regex("""(?<![\w.#])-?\d+(?![\w.])""")
+    private val FLOAT_TEXT = Regex("""-?\d+\.\d+(?:[eE]-?\d+)?""")
+
+    /**
+     * The value of [dataType] in `cmd overlay lookup` [output], as `Res_value` data: `12.0dip`
+     * (dimension), `true` (boolean), `4` or `0x4` (integer), `0.5` (float). The last match on the
+     * output wins (the value follows the resource name). Null when there is none.
+     */
+    public fun parseValue(output: String, dataType: Int): Int? = when (dataType) {
+        ValueTypes.TYPE_DIMENSION -> DIMEN_TEXT.findAll(output).lastOrNull()?.let { Dimens.parse(it.groupValues[1] + it.groupValues[2]) }
+        ValueTypes.TYPE_INT_BOOLEAN -> BOOL_TEXT.findAll(output).lastOrNull()?.let { if (it.value == "true") ValueTypes.BOOL_TRUE else 0 }
+        ValueTypes.TYPE_INT_DEC, ValueTypes.TYPE_INT_HEX ->
+            HEX_TEXT.findAll(output).lastOrNull()?.groupValues?.get(1)?.toLong(16)?.toInt()
+                ?: INT_TEXT.findAll(output.substringAfterLast("->").substringAfterLast(' ')).lastOrNull()?.value?.toIntOrNull()
+                ?: INT_TEXT.findAll(output).lastOrNull()?.value?.toIntOrNull()
+        ValueTypes.TYPE_FLOAT -> FLOAT_TEXT.findAll(output).lastOrNull()?.value?.toFloatOrNull()?.toRawBits()
+        else -> null
+    }
+
+    /** True when [output] resolves to [value], false on another value, null when unreadable. */
+    public fun matchesValue(output: String, value: PlannedValue): Boolean? {
+        val got = parseValue(output, value.dataType) ?: return null
+        return when (value.dataType) {
+            ValueTypes.TYPE_DIMENSION -> Dimens.sameSize(got, value.data)
+            ValueTypes.TYPE_INT_BOOLEAN -> (got != 0) == (value.data != 0)
+            ValueTypes.TYPE_FLOAT -> Math.abs(Float.fromBits(got) - Float.fromBits(value.data)) < 1e-4f
+            else -> got == value.data
+        }
+    }
+
+    /**
+     * The value to verify [target]'s value overlay with: the first default-configuration value
+     * whose resource has no other configuration (so the lookup reads it whatever the screen),
+     * else the first default-configuration value; null when there is none.
+     */
+    public fun valueProbe(target: CompiledTarget): PlannedValue? {
+        val configured = target.values.filter { it.configuration.isNotEmpty() }.mapTo(HashSet()) { it.resourceName }
+        return target.values.firstOrNull { it.configuration.isEmpty() && it.resourceName !in configured }
+            ?: target.values.firstOrNull { it.configuration.isEmpty() }
+    }
 
     /**
      * Resources to verify a target with first, per package: the One UI 9 Quick Settings fills
@@ -184,6 +257,8 @@ public data class ApplyReport(
         append(", $semwtDisabledCount SemWT disabled")
         val checked = verifiedCount + mismatchCount
         if (checked > 0) append(", $verifiedCount/$checked verified")
+        val values = outcomes.sumOf { it.valueCount }
+        if (values > 0) append(", $values values")
     }
 
     /** This report as JSON. */

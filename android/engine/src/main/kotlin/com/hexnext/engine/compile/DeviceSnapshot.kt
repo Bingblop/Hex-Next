@@ -16,6 +16,10 @@ import com.hexnext.engine.frro.FabricatedOverlayFile
  * @property table the target's parsed `resources.arsc`, null when it could not be read.
  * @property semwt Samsung's `SemWT_<pkg>` fabricated overlay, null when there is none.
  * @property versionCode installed version code, null when unknown.
+ * @property values `type/name` → every configured value of the target's dimens, integers and
+ *   bools, from the scan's `names-<type>.txt` ([ValueNames]). Empty for targets the scan does not
+ *   list values for, and for scans made before it did (a re-scan fills it). The value planner
+ *   only ever writes names listed here.
  */
 public data class TargetSnapshot(
     val packageName: String,
@@ -24,6 +28,7 @@ public data class TargetSnapshot(
     val table: ResourceTable? = null,
     val semwt: FabricatedOverlayFile? = null,
     val versionCode: Long? = null,
+    val values: Map<String, List<ScannedValue>> = emptyMap(),
 )
 
 /**

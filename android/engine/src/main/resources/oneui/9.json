@@ -39,7 +39,58 @@
       "sesl_list_subheader_text_color",
       "sesl_list_subheader_text_color_dark"
     ],
-    "drawablesAllowed": false
+    "drawablesAllowed": false,
+    "_valuesNote": "Candidate names (AOSP and Samsung naming); the planner writes only names the phone's scan lists, so a wrong candidate is skipped, never written. Confirm with tools/device/collect.sh (hexnext-values.txt).",
+    "values": {
+      "tileCorner": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/qs_corner_radius",
+          "com.android.systemui:dimen/qs_tile_corner_radius",
+          "com.android.systemui:dimen/sec_qs_tile_corner_radius",
+          "com.android.systemui:dimen/sec_qs_tile_round_corner_radius"
+        ],
+        "min": 0,
+        "max": 40,
+        "unit": "DP"
+      },
+      "panelCorner": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/notification_scrim_corner_radius",
+          "com.android.systemui:dimen/qs_panel_corner_radius",
+          "com.android.systemui:dimen/sec_qs_panel_corner_radius",
+          "com.android.systemui:dimen/sec_panel_corner_radius"
+        ],
+        "min": 0,
+        "max": 48,
+        "unit": "DP"
+      },
+      "sliderThickness": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/rounded_slider_height",
+          "com.android.systemui:dimen/brightness_slider_height",
+          "com.android.systemui:dimen/sec_brightness_slider_height",
+          "com.android.systemui:dimen/sec_qs_brightness_slider_height"
+        ],
+        "min": 24,
+        "max": 64,
+        "unit": "DP"
+      },
+      "notificationCorner": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/notification_corner_radius",
+          "com.android.systemui:dimen/sec_notification_corner_radius",
+          "android:dimen/notification_corner_radius"
+        ],
+        "min": 0,
+        "max": 40,
+        "unit": "DP"
+      }
+    },
+    "valueNames": []
   },
   "renamed": {
     "drawable/ic_settings_display": "drawable/sec_ic_settings_display",
@@ -176,9 +227,15 @@
     },
     "systemui": {
       "exact": {
-        "qs_tile_active": ["qs_tile_round_background_on"],
-        "qs_tile_inactive": ["qs_tile_round_background_dim"],
-        "qs_panel_bg": ["qs_tile_container_bg"]
+        "qs_tile_active": ["qs_tile_round_background_on", "qs_tile_round_background_on_stroke", "subscreen_qs_tile_round_background_on"],
+        "qs_tile_inactive": ["qs_tile_round_background_dim", "qs_tile_round_background_off", "qs_tile_round_background_off_stroke", "subscreen_qs_tile_round_background_dim", "subscreen_qs_tile_round_background_off", "qs_edit_tile_round_background_available"],
+        "qs_panel_bg": ["qs_tile_container_bg", "sec_panel_background_color", "sec_panel_background_color_tablet", "open_theme_qp_bg_color", "sec_brightness_mirror_background_color", "sec_qs_detail_bg_color", "qs_detail_background_color", "sec_qs_detailed_container_background", "qs_edit_panel_available_background_color"],
+        "qs_tile_icon_on": ["qs_tile_icon_on_dim_tint_color", "subscreen_qs_tile_icon_on_color", "animated_brightness_sun_icon_color", "qs_edit_panel_active_tile_icon_color"],
+        "qs_tile_icon_off": ["qs_tile_icon_off_tint_color", "subscreen_qs_tile_icon_off_color", "qs_edit_panel_tile_icon_color", "qs_edit_tile_icon_available", "qs_edit_panel_available_tile_icon_color"],
+        "qs_text": ["qs_tile_label", "qs_tile_sub_label", "shade_header_clock_color", "shade_header_text_color", "qs_status_bar_clock_color", "sec_qs_header_tint_color", "qs_multisim_carrier_name_color", "qs_edit_tile_available_label_color", "qs_page_indicator_tint_color_selected", "sec_qs_page_indicator_tint_color", "qs_edit_content_text_color", "qs_detail_header_title", "qs_detail_item_name", "sec_qs_detail_header_text_color", "sec_qs_detail_primary_text_color", "sec_qs_detail_item_text_color"],
+        "notification_bg": ["sec_qs_media_player_background_color", "sec_qs_media_player_guts_background_color", "qp_notification_background_color", "open_theme_notification_bg_color"],
+        "text_primary": ["media_primary_text", "qp_notification_title_color", "open_theme_notification_title_text_color"],
+        "text_secondary": ["media_secondary_text", "media_tertiary_text", "qp_notification_content_color", "open_theme_notification_content_text_color"]
       },
       "groups": {
         "lock_screen": [

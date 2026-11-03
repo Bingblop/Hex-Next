@@ -206,7 +206,7 @@ internal fun GroupColorSheet(
             append(if (night) "Dark mode" else "Light mode")
             append(" · ")
             append(group.description)
-            if (group.quickSettings) append(" · Quick Settings is colour-only")
+            if (group.quickSettings) append(" · Quick Settings icons stay Samsung's")
         },
         initial = preview.scheme(night).color(group),
         shades = preview.scheme(night).shades,

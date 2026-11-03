@@ -114,6 +114,15 @@ public data class CustomFont(val regular: String, val bold: String? = null, val 
  *   [ColorGroup.QS_PANEL_BG] group), Auto or custom, as a fraction of the alpha Samsung uses:
  *   255 leaves it, lower values scale it down. The compiled alpha never drops below
  *   [MIN_QS_PANEL_ALPHA] (unless Samsung's own is lower) so the panel stays readable.
+ *   [groupAlpha] for [ColorGroup.QS_PANEL_BG] wins over it when present.
+ * @property shapes [ShapeControls] id → value: Quick panel shapes and sizes (tile corners, panel
+ *   corners, slider thickness …). The One UI rules map each id to resource names; only names the
+ *   phone defines are written, in a separate `HexNextValues_<pkg>` overlay. Missing means stock.
+ * @property values `pkg:type/name` → value: advanced and pack-driven non-colour values. Only names
+ *   the rules allowlist ([QuickSettingsRules.allowsValue]) and the phone defines are written.
+ * @property groupAlpha [ColorGroup.id] → 0 … 255 opacity applied to that group's colours as a
+ *   fraction of Samsung's alpha (as [qsPanelAlpha] does for the panel). Out-of-range values are
+ *   clamped when compiling, never rejected, so an imported theme always loads.
  */
 @Serializable
 public data class ThemeSpec(
@@ -137,6 +146,9 @@ public data class ThemeSpec(
     val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
     val builtInIcons: Boolean = false,
     val qsPanelAlpha: Int = 255,
+    val shapes: Map<String, ValueSetting> = emptyMap(),
+    val values: Map<String, ValueSetting> = emptyMap(),
+    val groupAlpha: Map<String, Int> = emptyMap(),
     val format: Int = FORMAT,
 ) {
     init {
@@ -160,13 +172,38 @@ public data class ThemeSpec(
         get() = (listOfNotNull(simplePackId) + if (mode == ThemeMode.ADVANCED) elementPacks.values else emptyList())
             .distinct().sorted()
 
+    /** True when the theme asks for any non-colour value ([shapes] or [values]). */
+    public fun hasValues(): Boolean = shapes.isNotEmpty() || values.isNotEmpty()
+
+    /**
+     * A stable text of [shapes] and [values] (sorted keys), used to recognise the value set a
+     * System UI crash rollback quarantined.
+     */
+    public fun valuesKey(): String {
+        fun line(prefix: String, m: Map<String, ValueSetting>) = m.toSortedMap().map { (k, v) ->
+            "$prefix|$k|${v.kind}|${v.number}|${v.unit}|${v.flag}"
+        }
+        return (line("s", shapes) + line("v", values)).joinToString("\n")
+    }
+
+    /**
+     * The 0 … 255 alpha scale for [group]: [groupAlpha], else [qsPanelAlpha] for the Quick panel
+     * background, else 255 (unchanged). Clamped to 0 … 255.
+     */
+    public fun alphaFor(group: ColorGroup): Int {
+        val a = groupAlpha[group.id] ?: if (group == ColorGroup.QS_PANEL_BG) qsPanelAlpha else 255
+        return a.coerceIn(0, 255)
+    }
+
     /** This theme as JSON. */
     public fun toJson(): String = SpecJson.encodeToString(serializer(), this)
 
     public companion object {
         /**
-         * Current [format] version. Additive fields (such as [colorGroups] and [iconStyle]) keep
-         * the version: they have defaults, so older files load and older readers skip them.
+         * Current [format] version. Additive fields (such as [colorGroups], [iconStyle],
+         * [shapes], [values] and [groupAlpha]) keep the version: they have defaults, so older
+         * files load and older readers skip them. An older app that re-saves a theme drops the
+         * fields it does not know.
          */
         public const val FORMAT: Int = 1
 

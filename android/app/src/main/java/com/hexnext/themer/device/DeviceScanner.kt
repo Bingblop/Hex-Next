@@ -7,6 +7,8 @@ import android.os.Process
 import com.hexnext.engine.arsc.ArscReadOptions
 import com.hexnext.engine.arsc.ArscReader as EngineArscReader
 import com.hexnext.engine.arsc.ResourceValue
+import com.hexnext.engine.compile.Dimens
+import com.hexnext.engine.compile.ValuePlanner
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayDump
 import com.hexnext.engine.frro.FrroReader
@@ -308,25 +310,35 @@ class DeviceScanner(context: Context) {
 
     /**
      * Writes every `dimen`, `integer` and `bool` of [arsc] to `names-<type>.txt` in [dir] as
-     * `name<TAB>config<TAB>value`, one line per configured value. Dimensions are decoded from
-     * Android's packed complex form (`12.0dp`, `3.5px` …).
+     * `name<TAB>config<TAB>value`, one line per configured value, in the text
+     * [com.hexnext.engine.compile.ValueNames.parse] reads. Dimensions are decoded from Android's
+     * packed complex form (`12.0dp`, `3.5px` …), floats are written `0.5f`; a reference
+     * (`@0x7f…`) gets a fourth column with the value it resolves to in that configuration, when
+     * it resolves inside the table.
      */
     private fun writeValues(arsc: File, dir: File) {
         val types = setOf("dimen", "integer", "bool")
         val table = EngineArscReader.read(arsc, ArscReadOptions(types = types, overlayable = false))
+        fun text(v: ResourceValue): String? = when (v) {
+            is ResourceValue.Dimension -> Dimens.format(v.raw)
+            is ResourceValue.IntValue -> v.value.toString()
+            is ResourceValue.BoolValue -> v.value.toString()
+            is ResourceValue.FloatValue -> "${v.value}f"
+            is ResourceValue.Reference -> "@0x" + Integer.toHexString(v.id)
+            else -> null
+        }
         for (type in types) {
             val lines = ArrayList<String>()
             for (entry in table.entries) {
                 if (entry.type != type) continue
                 for (cv in entry.values) {
-                    val text = when (val v = cv.value) {
-                        is ResourceValue.Dimension -> complexDimension(v.raw)
-                        is ResourceValue.IntValue -> v.value.toString()
-                        is ResourceValue.BoolValue -> v.value.toString()
-                        is ResourceValue.Reference -> "@0x" + Integer.toHexString(v.id)
-                        else -> v.toString()
+                    val v = cv.value
+                    var line = "${entry.name}\t${cv.config.ifEmpty { "default" }}\t${text(v) ?: v.toString()}"
+                    if (v is ResourceValue.Reference) {
+                        val resolved = runCatching { table.resolve(v, cv.config) }.getOrNull()
+                        if (resolved != null && resolved !is ResourceValue.Reference) text(resolved)?.let { line += "\t$it" }
                     }
-                    lines += "${entry.name}\t${cv.config.ifEmpty { "default" }}\t$text"
+                    lines += line
                 }
             }
             File(dir, "names-$type.txt").writeText(lines.sorted().joinToString("\n"))
@@ -533,17 +545,10 @@ class DeviceScanner(context: Context) {
         private const val ARSC = "resources.arsc"
 
         /** Targets whose sizes, numbers and switches the scan lists (see [writeValues]). */
-        private val VALUE_SCAN_TARGETS = setOf("com.android.systemui", "android")
-
-        private val COMPLEX_UNITS = arrayOf("px", "dp", "sp", "pt", "in", "mm")
-        private val RADIX_MULTS = floatArrayOf(1f / (1 shl 8), 1f / (1 shl 15), 1f / (1 shl 23), 1f / (1L shl 31).toFloat())
+        private val VALUE_SCAN_TARGETS = ValuePlanner.VALUE_TARGETS
 
         /** Decodes a `TYPE_DIMENSION` complex value, e.g. `0x00001001` → `16.0dp`. */
-        internal fun complexDimension(raw: Int): String {
-            val value = (raw and 0xFFFFFF00.toInt()).toFloat() * RADIX_MULTS[(raw shr 4) and 0x3]
-            val unit = COMPLEX_UNITS.getOrNull(raw and 0xF) ?: "unit${raw and 0xF}"
-            return "$value$unit"
-        }
+        internal fun complexDimension(raw: Int): String = Dimens.format(raw)
         private const val SCAN_DIR = "scan"
         /** A scan in progress writes here; it becomes [SCAN_DIR] only when the scan finished. */
         private const val SCAN_STAGING_DIR = "scan.new"

@@ -533,7 +533,7 @@ internal fun ColoursPage(
                         groups = QUICK_PANEL_GROUPS,
                         bringHighlightIntoView = jumpToElements,
                         title = "Quick panel colours",
-                        subtitle = "Backdrop and tiles change only the Quick panel. Sliders and notification cards also change in other One UI apps.",
+                        subtitle = "Backdrop, tiles, icons and text change only the Quick panel. Notification cards also change in other One UI apps.",
                         eyebrow = "Quick panel · ${QUICK_PANEL_GROUPS.size} groups",
                     )
                 }

@@ -1,0 +1,437 @@
+{
+  "_note": "Pack options rebuilt natively. Keys are pack option keys that gate no layer category; a key that gates layers in a pack stays a layer option there. Colour tokens: primary, accent, box_stroke, text_primary, text_secondary, notification_header, qs_tile_active, qs_tile_icon_on, white, black, gray, or #AARRGGBB.",
+  "extras": [
+    {
+      "id": "notification_cards",
+      "label": "Notification cards",
+      "element": "notifications",
+      "keys": {
+        "notione": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "primary"
+            }
+          ]
+        },
+        "notitwo": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "accent"
+            }
+          ]
+        },
+        "notigrad": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "primary"
+            }
+          ]
+        },
+        "glonotibg": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "primary"
+            }
+          ]
+        },
+        "0notidivi": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "primary"
+            }
+          ]
+        },
+        "1notidivi": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "accent"
+            }
+          ]
+        },
+        "2notidivi": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "notification_header"
+            }
+          ]
+        },
+        "3notidivi": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "text_secondary"
+            }
+          ]
+        },
+        "4notidivi": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "qs_tile_icon_on"
+            }
+          ]
+        },
+        "5notidivi": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "colour": "qs_tile_active"
+            }
+          ]
+        },
+        "0notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 255
+            }
+          ]
+        },
+        "1notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 230
+            }
+          ]
+        },
+        "2notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 204
+            }
+          ]
+        },
+        "3notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 178
+            }
+          ]
+        },
+        "4notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 153
+            }
+          ]
+        },
+        "5notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 128
+            }
+          ]
+        },
+        "6notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 102
+            }
+          ]
+        },
+        "7notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 76
+            }
+          ]
+        },
+        "8notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 51
+            }
+          ]
+        },
+        "9notitrans": {
+          "effects": [
+            {
+              "group": "notification_bg",
+              "alpha": 26
+            }
+          ]
+        },
+        "0roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 2
+            }
+          ]
+        },
+        "1roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 8
+            }
+          ]
+        },
+        "2roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 14
+            }
+          ]
+        },
+        "3roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 20
+            }
+          ]
+        },
+        "4roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 26
+            }
+          ]
+        },
+        "5roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 32
+            }
+          ]
+        },
+        "6roundnoti": {
+          "effects": [
+            {
+              "shape": "notificationCorner",
+              "dp": 38
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "qs_panel_surface",
+      "label": "Quick panel surface",
+      "element": "quick_settings_panel",
+      "keys": {
+        "gloglass": {
+          "effects": [
+            {
+              "group": "qs_panel_bg",
+              "alpha": 150
+            },
+            {
+              "group": "qs_tile_active",
+              "alpha": 90
+            },
+            {
+              "group": "qs_tile_inactive",
+              "alpha": 90
+            }
+          ]
+        },
+        "qsnoblr": {
+          "effects": [
+            {
+              "group": "qs_panel_bg",
+              "alpha": 255
+            }
+          ]
+        },
+        "hidcarriernoti": {
+          "effects": [
+            {
+              "names": "^qs_multisim_carrier_name_color$",
+              "targets": [
+                "com.android.systemui"
+              ],
+              "alpha": 0
+            }
+          ]
+        },
+        "qshc": {
+          "effects": [
+            {
+              "names": "^qs_multisim_carrier_name_color$",
+              "targets": [
+                "com.android.systemui"
+              ],
+              "alpha": 0
+            }
+          ]
+        },
+        "green": {
+          "effects": [
+            {
+              "names": "^sec_qs_header_tint_color$",
+              "targets": [
+                "com.android.systemui"
+              ],
+              "colour": "#FF4CAF50"
+            }
+          ],
+          "packs": [
+            "carnelian"
+          ]
+        }
+      }
+    },
+    {
+      "id": "list_dividers",
+      "label": "List dividers",
+      "element": "dialogs",
+      "keys": {
+        "uidivid": {
+          "effects": [
+            {
+              "names": "divider",
+              "colour": "white"
+            }
+          ]
+        },
+        "uione": {
+          "effects": [
+            {
+              "names": "divider",
+              "colour": "primary"
+            }
+          ]
+        },
+        "uitwo": {
+          "effects": [
+            {
+              "names": "divider",
+              "colour": "accent"
+            }
+          ]
+        },
+        "uigrad": {
+          "effects": [
+            {
+              "names": "divider",
+              "colour": "primary"
+            }
+          ]
+        },
+        "uidivider": {
+          "effects": [
+            {
+              "names": "divider",
+              "colour": "box_stroke"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "controls_tint",
+      "label": "Controls tint",
+      "element": "controls",
+      "keys": {
+        "rdone": {
+          "effects": [
+            {
+              "names": "radio|checkbox|check_box|checkmark",
+              "colour": "primary"
+            }
+          ]
+        },
+        "radiotint": {
+          "effects": [
+            {
+              "names": "radio|checkbox|check_box|checkmark",
+              "colour": "primary"
+            }
+          ]
+        },
+        "radtwo": {
+          "effects": [
+            {
+              "names": "radio|checkbox|check_box|checkmark",
+              "colour": "accent"
+            }
+          ]
+        },
+        "radioac": {
+          "effects": [
+            {
+              "names": "radio|checkbox|check_box|checkmark",
+              "colour": "accent"
+            }
+          ]
+        },
+        "swone": {
+          "effects": [
+            {
+              "names": "switch.*thumb|thumb.*switch",
+              "colour": "primary"
+            }
+          ]
+        },
+        "tintsw": {
+          "effects": [
+            {
+              "names": "switch.*thumb|thumb.*switch",
+              "colour": "primary"
+            }
+          ]
+        },
+        "swtwo": {
+          "effects": [
+            {
+              "names": "switch.*thumb|thumb.*switch",
+              "colour": "text_secondary"
+            }
+          ]
+        },
+        "acensw": {
+          "effects": [
+            {
+              "names": "switch.*thumb|thumb.*switch",
+              "colour": "accent"
+            }
+          ]
+        },
+        "1prog": {
+          "effects": [
+            {
+              "group": "slider",
+              "colour": "primary"
+            }
+          ]
+        },
+        "2prog": {
+          "effects": [
+            {
+              "group": "slider",
+              "colour": "accent"
+            }
+          ]
+        },
+        "3prog": {
+          "effects": [
+            {
+              "group": "slider",
+              "colour": "primary"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

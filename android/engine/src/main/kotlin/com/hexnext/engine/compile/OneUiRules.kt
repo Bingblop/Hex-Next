@@ -26,6 +26,11 @@ import kotlinx.serialization.json.Json
  *   not [QuickSettingsPolicy.COLOURS_ONLY]. Every bundled version keeps it false.
  * @property filterColours false switches the colour filter off entirely (every recoloured
  *   System UI colour is kept). Meant for tests and experiments, not bundled rule files.
+ * @property values [ShapeControls] id → the candidate resources behind that shape control
+ *   (non-colour values: dimens, integers, bools). Only candidates the phone defines are written
+ *   (see [ValuePlanner]); a version without entries gets no shape controls at all.
+ * @property valueNames further `pkg:type/name` values that [ThemeSpec.values] (advanced and pack
+ *   entries) may set; every other name is skipped with [ValuePlanner.REASON_VALUE_POLICY].
  */
 @Serializable
 public data class QuickSettingsRules(
@@ -34,7 +39,21 @@ public data class QuickSettingsRules(
     val extraColours: List<String> = emptyList(),
     val drawablesAllowed: Boolean = false,
     val filterColours: Boolean = true,
+    val values: Map<String, ValueRule> = emptyMap(),
+    val valueNames: List<String> = emptyList(),
 ) {
+    /**
+     * True when the value [name] (`pkg:type/name`) may be written: it is a candidate of some
+     * [values] control or listed in [valueNames].
+     */
+    public fun allowsValue(name: String): Boolean = name in allowedValueNames
+
+    /** The [values] control whose candidates include [name], or null. */
+    public fun valueRuleFor(name: String): Pair<String, ValueRule>? =
+        values.entries.firstOrNull { name in it.value.names }?.toPair()
+
+    private val allowedValueNames: Set<String> by lazy { values.values.flatMapTo(HashSet()) { it.names } + valueNames }
+
     /** True when the policy only writes colours into System UI (no pack drawables). */
     public val coloursOnly: Boolean get() = !drawablesAllowed
 
@@ -77,6 +96,30 @@ public data class QuickSettingsRules(
 }
 
 /**
+ * The resources behind one shape control ([QuickSettingsRules.values]).
+ *
+ * @property type resource type of every candidate: `dimen`, `integer`, `bool` or `float`
+ *   (a `<item format="float" type="dimen">`).
+ * @property names candidate resources, `pkg:type/name`, best first. Several can be written at
+ *   once (the same corner drawn by two layouts); names the phone lacks are skipped.
+ * @property min lowest value written, in [unit] for dimens; values are clamped, never rejected.
+ * @property max highest value written.
+ * @property unit unit of [min], [max] and the control's slider.
+ * @property step slider step in [unit].
+ * @property scale true when the control is a factor of the stock value rather than a size.
+ */
+@Serializable
+public data class ValueRule(
+    val type: String = "dimen",
+    val names: List<String> = emptyList(),
+    val min: Double? = null,
+    val max: Double? = null,
+    val unit: DimenUnit = DimenUnit.DP,
+    val step: Double = 1.0,
+    val scale: Boolean = false,
+)
+
+/**
  * App-specific colour group rules for the packages [OneUiRules.colorGroupPackages] assigns to it.
  *
  * @property groups [ColorGroup.id] → patterns, with the same syntax and order as
@@ -87,7 +130,9 @@ public data class QuickSettingsRules(
  *   `color/`, compared case-insensitively) verified on a device to be that element. They are
  *   tried before [groups], skip the tone check (a white active tile is still the active tile),
  *   and take the group's Auto colour when the user left the group on Auto, so the device shows
- *   what the Studio preview shows ([ThemeSpec.effectiveGroupColor]).
+ *   what the Studio preview shows ([ThemeSpec.effectiveGroupColor]). They are written whether
+ *   SemWT sets them or only the APK defines them, and System UI exact names pass the Quick
+ *   Settings filter ([OneUiRules.allowsSystemUiColour]).
  */
 @Serializable
 public data class ColorGroupFamily(
@@ -134,7 +179,29 @@ public data class OneUiRules(
     /** [typeName] (`type/name`) after [renamed]. */
     public fun rename(typeName: String): String = renamed[typeName] ?: typeName
 
+    /**
+     * The [ColorGroupFamily.exact] names of [pkg]'s family, bare and lower case; empty when the
+     * package has no family or the family no exact names.
+     */
+    public fun exactColourNames(pkg: String): Set<String> {
+        val family = colorGroupPackages[pkg]?.let(colorGroupFamilies::get) ?: return emptySet()
+        return family.exact.values.flatMapTo(HashSet()) { names -> names.map { it.substringAfter('/').lowercase() } }
+    }
+
+    /**
+     * True when the System UI colour [name] (`qs_tile_bg` or `color/qs_tile_bg`) may be written:
+     * [QuickSettingsRules.allowsColour], or, under the pattern filter (no explicit
+     * [QuickSettingsRules.colours] list, which stays the complete set), a device-verified
+     * [ColorGroupFamily.exact] name of System UI such as `shade_header_clock_color`.
+     */
+    public fun allowsSystemUiColour(name: String): Boolean =
+        quickSettings.allowsColour(name) ||
+            (quickSettings.colours.isEmpty() && name.substringAfter('/').lowercase() in systemUiExact)
+
+    private val systemUiExact: Set<String> by lazy { exactColourNames(SYSTEMUI_PACKAGE) }
+
     public companion object {
+        private const val SYSTEMUI_PACKAGE = "com.android.systemui"
         private val RulesJson = Json { ignoreUnknownKeys = true }
 
         /** Parses a rule file; a blank Quick Settings layout is filled in from `major`. */

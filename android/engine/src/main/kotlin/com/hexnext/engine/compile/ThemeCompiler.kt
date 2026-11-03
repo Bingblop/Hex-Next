@@ -8,6 +8,7 @@ import com.hexnext.engine.log.LogLevel
 import com.hexnext.engine.map.DrawableSource
 import com.hexnext.engine.map.PlannedColor
 import com.hexnext.engine.map.PlannedDrawable
+import com.hexnext.engine.map.PlannedValue
 import com.hexnext.engine.map.ResourceMapper
 import com.hexnext.engine.map.Skipped
 import com.hexnext.engine.map.ThemeRequest
@@ -106,6 +107,10 @@ public data class PlannedDrawableJob(
  *   lookup of them cannot tell whether Hex Next or SemWT wins.
  * @property semwtConfigMatches the same check for every configuration, as `"<resource>|<config>"`
  *   (config empty for the default), so a night-mode probe can also skip colours SemWT sets alike.
+ * @property values non-colour values of the separate value overlay [valueOverlayName]
+ *   (see [ValuePlanner]); empty for most targets.
+ * @property valueOverlayName `HexNextValues_<pkg with dots as underscores>`.
+ * @property valueHash [ValuePlanner.valueHash] of [values]; [contentHash] never includes them.
  */
 public data class CompiledTarget(
     val packageName: String,
@@ -118,9 +123,15 @@ public data class CompiledTarget(
     val versionCode: Long? = null,
     val semwtMatches: Set<String> = emptySet(),
     val semwtConfigMatches: Set<String> = emptySet(),
+    val values: List<PlannedValue> = emptyList(),
+    val valueOverlayName: String = ValuePlanner.overlayName(packageName),
+    val valueHash: String = ValuePlanner.valueHash(values),
 ) {
-    /** True when there is nothing to fabricate. */
+    /** True when the colour and drawable overlay has nothing to fabricate (values are separate). */
     public val isEmpty: Boolean get() = colors.isEmpty() && drawables.isEmpty()
+
+    /** True when the value overlay has something to fabricate. */
+    public val hasValues: Boolean get() = values.isNotEmpty()
 }
 
 /**
@@ -157,8 +168,9 @@ public data class CompiledTheme(
  *    what the groups reached.
  *    [ThemeSpec.colorPins] then win
  *    (a pinned resource absent from SemWT is written in `""` and, for shade pins, `night`).
- *    For System UI only names [QuickSettingsRules.allowsColour] accepts are themed
- *    ([REASON_QS_POLICY]): the version's allowlist, or [QS_COLOUR_NAMES] when it is empty.
+ *    For System UI only names [OneUiRules.allowsSystemUiColour] accepts are themed
+ *    ([REASON_QS_POLICY]): the version's allowlist, or [QS_COLOUR_NAMES] when it is empty, plus
+ *    the System UI [ColorGroupFamily.exact] names.
  *    A rejected colour SemWT sets keeps Samsung's observed value, copied verbatim (apply
  *    disables SemWT); one only a pin set is left out.
  *    Names missing from the target table are skipped by [ResourceMapper].
@@ -260,6 +272,9 @@ public object ThemeCompiler {
     /** `HexNext_` + [packageName] with dots replaced by underscores. */
     public fun overlayName(packageName: String): String = "HexNext_" + packageName.replace('.', '_')
 
+    /** The value overlay of [packageName] ([ValuePlanner.overlayName]). */
+    public fun valueOverlayName(packageName: String): String = ValuePlanner.overlayName(packageName)
+
     /**
      * Compiles [spec] for [device].
      *
@@ -279,6 +294,13 @@ public object ThemeCompiler {
         }
         val resolved: ResolvedTheme by lazy { ThemeResolver.resolve(spec.source, spec.darkAdjustments, spec.lightAdjustments) }
         val derivedPalette: Map<String, Int> by lazy { SlotPalette.derive(resolved) }
+        // Pack options rebuilt natively, merged below the user's own settings.
+        val extras = NativeExtras.resolve(spec, packs, { resolved })
+        @Suppress("NAME_SHADOWING")
+        val spec = extras.spec
+        if (extras.applied.isNotEmpty()) {
+            event(LogLevel.INFO, "", "native extras", mapOf("count" to extras.applied.size.toString(), "choices" to extras.applied.joinToString(";")))
+        }
 
         val order = rules.targets + device.targets.keys.filterNot { it in rules.targets }.sorted()
         val compiled = mutableListOf<CompiledTarget>()
@@ -299,7 +321,7 @@ public object ThemeCompiler {
                 event(LogLevel.INFO, pkg, "target skipped", mapOf("reason" to reason))
                 continue
             }
-            val ctx = TargetContext(spec, device, packs, rules, snapshot!!, snapshot.table!!, { resolved }, { derivedPalette }, ::event)
+            val ctx = TargetContext(spec, device, packs, rules, snapshot!!, snapshot.table!!, { resolved }, { derivedPalette }, ::event, extras.colours)
             val target = ctx.compile()
             compiled += target
             event(
@@ -311,7 +333,7 @@ public object ThemeCompiler {
                     "skipped" to target.skipped.size.toString(),
                     "semwtCoverage" to target.semwtCoverage.toString(),
                     "hash" to target.contentHash,
-                ),
+                ) + if (target.hasValues) mapOf("values" to target.values.size.toString(), "valueHash" to target.valueHash) else emptyMap(),
             )
         }
         return CompiledTheme(compiled, events, skippedTargets)
@@ -330,14 +352,20 @@ public object ThemeCompiler {
     }
 
     /**
-     * Scales the alpha of a Quick panel background by [qsAlpha] / 255 rather than replacing it, so
-     * a backdrop Samsung already ships see-through only ever gets more see-through. The result
+     * Scales the alpha of a [group] colour by [scale] / 255 rather than replacing it, so a colour
+     * Samsung already ships see-through only ever gets more see-through. A Quick panel backdrop
      * never drops below [ThemeSpec.MIN_QS_PANEL_ALPHA] (or the stock alpha, when that is lower).
      */
-    private fun scaleQsAlpha(argb: Int, qsAlpha: Int): Int {
+    private fun scaleGroupAlpha(argb: Int, group: ColorGroup, scale: Int): Int {
         val stock = ColorMath.alpha(argb)
-        val floor = minOf(stock, ThemeSpec.MIN_QS_PANEL_ALPHA)
-        return ColorMath.withAlpha(argb, (stock * qsAlpha / OPAQUE_ALPHA).coerceAtLeast(floor))
+        val floor = if (group == ColorGroup.QS_PANEL_BG) minOf(stock, ThemeSpec.MIN_QS_PANEL_ALPHA) else 0
+        return ColorMath.withAlpha(argb, (stock * scale / OPAQUE_ALPHA).coerceAtLeast(floor))
+    }
+
+    /** The alpha scale [ThemeSpec.alphaFor] gives [group], with the panel backdrop's readability floor. */
+    private fun groupAlphaScale(spec: ThemeSpec, group: ColorGroup): Int {
+        val a = spec.alphaFor(group)
+        return if (group == ColorGroup.QS_PANEL_BG) a.coerceAtLeast(ThemeSpec.MIN_QS_PANEL_ALPHA) else a
     }
 
     private fun hashLine(job: PlannedDrawableJob): String {
@@ -440,8 +468,10 @@ public object ThemeCompiler {
      * 3. With any group colour set, exclusive literal colours of [table] that SemWT does not set
      *    and that a name rule puts in a set [ColorGroupMatcher.TABLE_GROUPS] group are added in
      *    `""` and `night`. A `_dark` / `_light` name takes the dark / light colour in both.
+     *    [ColorGroupFamily.exact] names are added this way in every case, with the group's
+     *    effective colour (Auto included, whatever the group), so the device matches the preview.
      * 4. [ThemeSpec.colorPins] win over everything above.
-     * 5. System UI: the Quick Settings filter, exactly as before groups existed.
+     * 5. System UI: the Quick Settings filter ([OneUiRules.allowsSystemUiColour]).
      */
     internal fun planColors(
         pkg: String,
@@ -450,6 +480,7 @@ public object ThemeCompiler {
         reference: ShadeReference,
         spec: ThemeSpec,
         rules: OneUiRules,
+        extraColours: List<ExtraColour> = emptyList(),
         resolved: () -> ResolvedTheme,
     ): ColorDecisions {
         fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"
@@ -481,7 +512,8 @@ public object ThemeCompiler {
         // Element groups beat role inference (and the verbatim copy of fixed colours).
         val groups = HashMap<Pair<String, String>, ColorGroup>()
         val reached = LinkedHashSet<Pair<String, String>>()
-        val qsAlpha = spec.qsPanelAlpha.coerceAtLeast(ThemeSpec.MIN_QS_PANEL_ALPHA)
+        // Alpha scales per group: ThemeSpec.groupAlpha, or qsPanelAlpha for the panel backdrop.
+        val alphaScales = ColorGroup.ALL.associateWith { g -> groupAlphaScale(spec, g) }.filterValues { it < OPAQUE_ALPHA }
         for (entry in values.entries) {
             val key = entry.key
             // A colour whose meaning is its hue (error, Sunday red) that no reliable shade explains
@@ -496,14 +528,14 @@ public object ThemeCompiler {
             var changed = false
             // A device-verified exact name takes the group's Auto colour too, as the Studio preview shows it.
             val user = spec.groupColor(group, isNight(key.second))
-                ?: if (m.exact) group.auto(resolved(), isNight(key.second)) else null
+                ?: if (m.exact) spec.effectiveGroupColor(group, resolved(), isNight(key.second)) else null
             if (user != null) {
                 value = ColorGroupMatcher.groupValue(group, user, observed.getValue(key), inferred[key])
                 reached += key
                 changed = true
             }
-            if (group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) {
-                value = scaleQsAlpha(value, qsAlpha)
+            alphaScales[group]?.let { scale ->
+                value = scaleGroupAlpha(value, group, scale)
                 changed = true
             }
             if (changed) {
@@ -515,13 +547,17 @@ public object ThemeCompiler {
         // Group colours also reach APK colours SemWT does not set.
         val tableObserved = HashMap<Pair<String, String>, Int>()
         var tableAdded = 0
-        if (table != null && spec.colorGroups.values.any { !it.isAuto }) {
+        val anyGroupSet = spec.colorGroups.values.any { !it.isAuto }
+        // Device-verified exact names take their group's Auto colour from the table too.
+        val exactNames = rules.exactColourNames(pkg)
+        if (table != null && (anyGroupSet || exactNames.isNotEmpty())) {
             val known = values.keys.mapTo(HashSet()) { it.first }
             for (c in tableColors(table)) {
                 if (!c.exclusive || c.typeName in known) continue
                 val name = c.typeName.substringAfter('/')
+                if (!anyGroupSet && name.lowercase() !in exactNames) continue
                 if (ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(name)) continue
-                if (pkg == SYSTEMUI && !rules.quickSettings.allowsColour(name)) continue
+                if (pkg == SYSTEMUI && !rules.allowsSystemUiColour(name)) continue
                 val forced: Boolean? = when {
                     name.endsWith("_dark") -> true
                     name.endsWith("_light") -> false
@@ -537,17 +573,19 @@ public object ThemeCompiler {
                     val match = reference.infer(literal)
                     inferred[key] = match
                     val m = ColorGroupMatcher.match(pkg, c.typeName, match, rules)
-                    val user = if (m == null || m.byFallback || m.group !in ColorGroupMatcher.TABLE_GROUPS) {
-                        null
-                    } else {
-                        spec.groupColor(m.group, forced ?: isNight(config))
+                    val mode = forced ?: isNight(config)
+                    val user = when {
+                        m == null || m.byFallback -> null
+                        m.exact -> spec.effectiveGroupColor(m.group, resolved(), mode)
+                        m.group !in ColorGroupMatcher.TABLE_GROUPS -> null
+                        else -> spec.groupColor(m.group, mode)
                     }
                     if (m == null || user == null) {
                         untouched += key to literal
                         continue
                     }
                     var value = ColorGroupMatcher.groupValue(m.group, user, literal, match)
-                    if (m.group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) value = scaleQsAlpha(value, qsAlpha)
+                    alphaScales[m.group]?.let { value = scaleGroupAlpha(value, m.group, it) }
                     values[key] = value
                     groups[key] = m.group
                     tableObserved[key] = literal
@@ -556,6 +594,31 @@ public object ThemeCompiler {
                     wrote = true
                 }
                 if (wrote) for ((key, literal) in untouched) values[key] = literal
+            }
+        }
+
+        // Native extras by name (divider and control tints, a hidden carrier label): after the
+        // groups, before the pins. SemWT colours and exclusive APK literals, in "" and night.
+        for (ec in extraColours) {
+            for (entry in values.entries) {
+                if (!ec.matches(pkg, entry.key.first.substringAfter('/'))) continue
+                entry.setValue(ec.apply(entry.value, isNight(entry.key.second)))
+                fixed.remove(entry.key)
+                reached.remove(entry.key)
+            }
+            if (table == null) continue
+            val known = values.keys.mapTo(HashSet()) { it.first }
+            for (c in tableColors(table)) {
+                if (!c.exclusive || c.typeName in known) continue
+                val name = c.typeName.substringAfter('/')
+                if (!ec.matches(pkg, name)) continue
+                if (pkg == SYSTEMUI && !rules.allowsSystemUiColour(name)) continue
+                for (config in DAY_NIGHT) {
+                    val literal = c.literals[config] ?: c.literals.getValue(c.literals.keys.first())
+                    values[c.typeName to config] = ec.apply(literal, isNight(config))
+                    tableObserved[c.typeName to config] = literal
+                    tableAdded++
+                }
             }
         }
 
@@ -579,13 +642,12 @@ public object ThemeCompiler {
         var dropped = 0
         var verbatim = 0
         if (pkg == SYSTEMUI) {
-            val qs = rules.quickSettings
             val it = values.entries.iterator()
             while (it.hasNext()) {
                 val entry = it.next()
                 val key = entry.key
                 val (typeName, config) = key
-                if (!qs.allowsColour(typeName.substringAfter('/'))) {
+                if (!rules.allowsSystemUiColour(typeName.substringAfter('/'))) {
                     qsSkipped += Skipped(display(typeName, config), REASON_QS_POLICY)
                     // Reported once, as a policy skip, not also as "kept fixed".
                     fixed.remove(key)
@@ -636,6 +698,7 @@ public object ThemeCompiler {
         val resolved: () -> ResolvedTheme,
         val derived: () -> Map<String, Int>,
         val event: (LogLevel, String, String, Map<String, String>) -> Unit,
+        val extraColours: List<ExtraColour> = emptyList(),
     ) {
         val pkg = snapshot.packageName
         val semwt: FabricatedOverlayFile? = snapshot.semwt
@@ -644,6 +707,7 @@ public object ThemeCompiler {
         fun compile(): CompiledTarget {
             val colors = compileColors()
             val drawables = compileDrawables()
+            val values = compileValues()
             val semwtNames = semwt?.entries?.mapTo(HashSet()) { rules.rename(it.typeAndName) }.orEmpty()
             val planned = colors.map { it.resourceName.substringAfter(':') } + drawables.map { it.resourceName.substringAfter(':') }
             val coverage = planned.distinct().count { it in semwtNames }
@@ -658,7 +722,28 @@ public object ThemeCompiler {
                 versionCode = snapshot.versionCode,
                 semwtMatches = semwtMatches(colors),
                 semwtConfigMatches = semwtConfigMatches(colors),
+                values = values,
             )
+        }
+
+        /** The value overlay's content ([ValuePlanner]), with one `values planned` event. */
+        private fun compileValues(): List<PlannedValue> {
+            val plan = ValuePlanner.plan(pkg, snapshot, spec, rules)
+            if (plan.requested == 0 && plan.skipped.isEmpty()) return emptyList()
+            skipped += plan.skipped
+            val rescan = plan.skipped.any { it.reason == ValuePlanner.REASON_RESCAN }
+            event(
+                if (rescan || plan.clamped > 0) LogLevel.WARN else LogLevel.INFO, pkg,
+                if (rescan) "values skipped: re-scan needed" else "values planned",
+                mapOf(
+                    "count" to plan.values.size.toString(),
+                    "skipped" to plan.skipped.size.toString(),
+                    "clamped" to plan.clamped.toString(),
+                    "controls" to plan.controls.joinToString(","),
+                    "overlay" to ValuePlanner.overlayName(pkg),
+                ),
+            )
+            return plan.values
         }
 
         /** Default-configuration colours whose planned value equals SemWT's own default value. */
@@ -695,7 +780,7 @@ public object ThemeCompiler {
         private fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"
 
         private fun compileColors(): List<PlannedColor> {
-            val d = planColors(pkg, table, semwt, ShadeReference(device.systemShades), spec, rules, resolved)
+            val d = planColors(pkg, table, semwt, ShadeReference(device.systemShades), spec, rules, extraColours, resolved)
             if (d.reached.isNotEmpty()) {
                 val perGroup = d.reached.mapNotNull { d.groups[it] }.groupingBy { it }.eachCount()
                 event(

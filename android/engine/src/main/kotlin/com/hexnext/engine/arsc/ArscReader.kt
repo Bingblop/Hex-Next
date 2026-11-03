@@ -45,6 +45,7 @@ public object ArscReader {
     private const val TYPE_REFERENCE = 0x01
     private const val TYPE_ATTRIBUTE = 0x02
     private const val TYPE_STRING = 0x03
+    private const val TYPE_FLOAT = 0x04
     private const val TYPE_DIMENSION = 0x05
     private const val TYPE_DYNAMIC_REFERENCE = 0x07
     private const val TYPE_DYNAMIC_ATTRIBUTE = 0x08
@@ -272,6 +273,7 @@ public object ArscReader {
                 val s = pool[value]
                 if (typeName != "string" && s.startsWith("res/")) ResourceValue.FileRef(s) else ResourceValue.Str(s)
             }
+            TYPE_FLOAT -> ResourceValue.FloatValue(Float.fromBits(value))
             TYPE_DIMENSION -> ResourceValue.Dimension(value)
             TYPE_INT_DEC, TYPE_INT_HEX -> ResourceValue.IntValue(value)
             TYPE_INT_BOOLEAN -> ResourceValue.BoolValue(value != 0)

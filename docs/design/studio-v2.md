@@ -159,7 +159,10 @@ The Colours step holds these cards, top to bottom.
   `slider`).
 - A QS panel opacity slider (`qsPanelAlpha`, shown as 0-100 %).
 - The preview is forced to the Quick panel tab while this step is open.
-- A note: "Quick Settings is colour-only on One UI 9."
+- Shape sliders: tile corners, panel corners, slider thickness and notification corners. Each
+  resolves through `quickSettings.values` in `oneui/9.json`; it is hidden when the phone defines
+  none of its names and shows "Rescan needed" when the scan predates the size lists.
+- A note: Hex Next changes colours, opacity and a few One UI sizes, never QS icons or layout.
 
 ## 3. Live preview (UI: live-preview-ui)
 

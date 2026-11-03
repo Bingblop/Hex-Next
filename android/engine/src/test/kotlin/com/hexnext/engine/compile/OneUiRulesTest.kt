@@ -117,8 +117,10 @@ class OneUiRulesTest {
     fun `every bundled version has valid colour group rules`() {
         for (major in 7..9) {
             val rules = OneUiRules.load(major)
-            // Every group except the app-specific ones has generic name rules.
-            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN)
+            // Every group except the app-specific ones and the ink groups drawn on another group
+            // (reached by device-verified exact names only) has generic name rules.
+            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN) +
+                ColorGroup.ALL.filter { it.contrastOn != null }
             assertEquals(ColorGroup.ALL.filterNot { it in appOnly }.map { it.id }.toSet(), rules.colorGroups.keys, "One UI $major")
             val patterns = rules.colorGroups.values.flatten() + rules.colorGroupFamilies.values.flatMap { it.groups.values.flatten() }
             assertTrue(patterns.isNotEmpty())
@@ -147,12 +149,21 @@ class OneUiRulesTest {
         val rules = OneUiRules.load(9)
         val qs = rules.quickSettings
         val exact = rules.colorGroupFamilies.getValue("systemui").exact
-        assertEquals(setOf("qs_tile_active", "qs_tile_inactive", "qs_panel_bg"), exact.keys)
+        assertEquals(
+            setOf(
+                "qs_tile_active", "qs_tile_inactive", "qs_panel_bg", "qs_tile_icon_on", "qs_tile_icon_off", "qs_text",
+                "notification_bg", "text_primary", "text_secondary",
+            ),
+            exact.keys,
+        )
+        // A name belongs to one group only.
+        val all = exact.values.flatten()
+        assertEquals(all.size, all.toSet().size)
         for ((id, names) in exact) {
             val group = ColorGroup.byId(id)
             assertTrue(group != null, "unknown group $id")
             for (name in names) {
-                assertTrue(qs.allowsColour(name), name)
+                assertTrue(rules.allowsSystemUiColour(name), name)
                 assertEquals(group, ColorGroupMatcher.classify("com.android.systemui", "color/$name", null, rules), name)
             }
         }

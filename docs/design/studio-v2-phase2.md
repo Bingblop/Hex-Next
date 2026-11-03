@@ -45,7 +45,7 @@ monospace text. The app is a phone app:
 
 - English only. No AI model names in code or comments.
 - Only Samsung and One UI system packages are themed.
-- Quick Settings theming is colour-only. No QS drawables, shapes, tile layouts, blur or sizes.
+- Quick Settings theming changes colours, opacity and a few sizes One UI itself defines (tile and panel corner radius, slider thickness, notification corner radius), each written only when the phone's scan lists that resource (`quickSettings.values` in `oneui/9.json`). The sizes go in a separate `HexNextValues_<pkg>` overlay that the staged stability monitor turns off first. No QS drawables, tile layouts or blur.
 - No plugin templates are decrypted.
 - These stay intact:
   - the OtherBuild guard (`safety/OtherBuild.kt`, `ui/BlockedScreen.kt`)
@@ -222,7 +222,8 @@ VM means `ui/MainViewModel.kt`.
 | Preset tiles (Terpsichora 3sett, MIMI, Project X, Blend, Glass, ayOS/AOSP R) | replaced by the user's installed packs, named from the catalogue, as the Settings icons source (`setElementPack(SETTINGS_ICONS, id)`). The legacy names are dropped | Skins |
 | "Palette Primary" / "Palette Duotone" tiles | `IconColorStyle.ACCENT` / `DUOTONE` | Icons > Style |
 | "Remove Icons Frame (settframe)", "Large icons (bigsetico)", "Hide account (hidemail)", "About logo (uselogo)", "Dividers (uidivider)", 4G/LTE, in-out arrows, switch knob tint, keyboard key border, navbar style, dial button tint | Real **only** when the selected pack offers the option: `OptionList` over `PackOptions` / `LiveOption`, VM `setOption(pack, live, value, elementId)`. Option labels are the pack's own (already scrubbed by the pack tools). There are no hard-coded tweak toggles | Skins > pack options |
-| QS icon style, QS toggle size, panel blur, notification corner radius, hide carrier label, QS volume panel layout | dropped: QS and System UI theming is colour-only | n/a |
+| Notification corner radius, hide carrier label | native extras (`extras/native.json`): `roundnoti` sets the notification corner size, `hidcarriernoti` / `qshc` zero the carrier label alpha | pack card |
+| QS icon style, QS toggle size, panel blur, QS volume panel layout | dropped: no drawables or layout in QS | n/a |
 | 26 SecSettings dashboard icons grid | Preview Settings tab icons (`StudioPreviewState.settingsIcons`), custom icon slots (`CustomIconsCard`, `ui.iconSlots`, VM `assignIcon`) | Icons > Custom icons |
 | "Connections — PX Fixed .PNG (28dp)" per-icon colour lock | `CustomIconsCard` assign / unassign; per-icon colour is not a feature (dropped) | Icons > Custom icons |
 | "All 7 APK skins + colour palette vector mode across 8 apps" | dropped: legacy names; covered by Style + packs | n/a |

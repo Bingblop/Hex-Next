@@ -6,6 +6,9 @@ import com.hexnext.engine.compile.SnapshotMapper
 import com.hexnext.engine.compile.TargetAvailability
 import com.hexnext.engine.compile.TargetScan
 import com.hexnext.engine.compile.TargetSnapshot
+import com.hexnext.engine.compile.ScannedValue
+import com.hexnext.engine.compile.ValueNames
+import com.hexnext.engine.compile.ValuePlanner
 import com.hexnext.engine.device.LegacyOverlays
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OneUiProfile
@@ -90,6 +93,7 @@ class SnapshotBuilder(context: Context) {
                 dump = dump,
                 table = status?.let { readArsc(it, warnings) },
                 semwtFrro = if (dump == null || dump.entries.isEmpty()) semWt?.let { readFrro(report, it, warnings) } else null,
+                values = if (pkg in ValuePlanner.VALUE_TARGETS) status?.let { readValues(it, warnings) }.orEmpty() else emptyMap(),
             )
             // Reduce now: the dump text and the scan are dropped before the next target is read.
             snapshots[pkg] = SnapshotMapper.target(scan)
@@ -132,6 +136,30 @@ class SnapshotBuilder(context: Context) {
         }.onFailure { warnings += "arsc ${status.pkg}: ${it.javaClass.simpleName}: ${it.message}" }.getOrNull()
     }
 
+    /**
+     * The `names-{dimen,integer,bool}.txt` value lists the scan wrote beside [status]'s arsc.
+     * Empty (and a warning) when a scan from before value lists exists: the Quick panel shape
+     * controls then show "Rescan needed" and nothing is written.
+     */
+    private fun readValues(status: PackageStatus, warnings: MutableList<String>): Map<String, List<ScannedValue>> {
+        val dir = status.arscPath?.let { File(it).parentFile } ?: return emptyMap()
+        if (!dir.isDirectory) return emptyMap()
+        val out = HashMap<String, List<ScannedValue>>()
+        var found = false
+        var dropped = 0
+        for (type in VALUE_TYPES) {
+            val file = File(dir, "names-$type.txt")
+            if (!file.isFile) continue
+            found = true
+            runCatching { ValueNames.parse(type, file.readText()) }
+                .onSuccess { out += it.values; dropped += it.dropped }
+                .onFailure { warnings += "values ${status.pkg}/$type: ${it.message}" }
+        }
+        if (!found) warnings += "${status.pkg}: no value lists in the scan. Re-scan to enable Quick panel shapes."
+        if (dropped > 0) warnings += "${status.pkg}: $dropped unreadable value lines skipped."
+        return out
+    }
+
     private fun readFrro(report: DeviceReport, status: SemWtStatus, warnings: MutableList<String>): FabricatedOverlayFile? {
         val live = status.frroPath?.substringAfterLast('/')
         val candidates = report.frroCopied.filter { it.substringAfterLast('/').contains("SemWT_${status.target}-") }
@@ -143,6 +171,8 @@ class SnapshotBuilder(context: Context) {
 
     companion object {
         private const val SHADES_FILE = "system_shades.json"
+
+        private val VALUE_TYPES = listOf("dimen", "integer", "bool")
 
         private fun shadesFile(context: Context): File = File(File(context.filesDir, "scan"), SHADES_FILE)
 

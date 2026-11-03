@@ -10,10 +10,13 @@ import com.hexnext.engine.pack.PackOption
  * @property option the option as declared in `pack.json`, with its [PackOption.label] trimmed
  *   and falling back to the key when blank.
  * @property elementIds ids of the [Element]s that consume the categories gated by this option.
+ * @property extra the [NativeExtra.id] of an option Hex Next rebuilds natively ([NativeExtras]),
+ *   null for a layer option.
  */
 public data class LiveOption(
     val option: PackOption,
     val elementIds: Set<String>,
+    val extra: String? = null,
 ) {
     /** The keys this option toggles: [PackOption.keys] for a select, the single [PackOption.key] for a switch. */
     public val keys: List<String>
@@ -55,6 +58,16 @@ public object PackOptions {
         }
         return result
     }
+
+    /**
+     * Every option of [pack] the pack card shows: the [live] layer options, then the options
+     * Hex Next rebuilds natively ([NativeExtras.options]).
+     */
+    public fun all(pack: Pack): List<LiveOption> = live(pack) + NativeExtras.options(pack).map { it.live }
+
+    /** The state of [live] in [spec]: [NativeExtras.value] for a native option, else [value]. */
+    public fun value(spec: ThemeSpec, pack: Pack, live: LiveOption, elementId: String? = null): String =
+        if (live.extra != null) NativeExtras.value(spec, pack, live, elementId) else value(spec, pack, live.option, elementId)
 
     /**
      * The effective state of [option] of [pack] in [spec]: `"true"` / `"false"` for a switch, the

@@ -891,7 +891,7 @@ internal fun PackCard(
                 ) { Text("Remove") }
             }
             Reveal(visible = selected && !advanced) {
-                val options = remember(pack.pack) { PackOptions.live(pack.pack) }
+                val options = remember(pack.pack) { PackOptions.all(pack.pack) }
                 OptionList(
                     pack = pack.pack,
                     options = options,
@@ -1092,9 +1092,10 @@ private fun OptionList(
     if (options.isEmpty()) return
     Column(Modifier.padding(start = RADIO_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { live ->
-            val current = PackOptions.value(spec, pack, live.option, elementId)
+            val current = PackOptions.value(spec, pack, live, elementId)
             if (live.option.type == PackOption.SELECT) {
                 Text(live.option.label, style = MaterialTheme.typography.labelLarge)
+                if (live.extra != null) NativeOptionNote()
                 live.option.keys.forEachIndexed { index, key ->
                     PackRow(selected = current == key, enabled = enabled, onClick = { onOption(pack, live, key, elementId) }) {
                         Text(
@@ -1110,9 +1111,20 @@ private fun OptionList(
                     enabled = enabled,
                     onCheckedChange = { on -> onOption(pack, live, if (on) "true" else "false", elementId) },
                 )
+                if (live.extra != null) NativeOptionNote()
             }
         }
     }
+}
+
+/** Under a native pack option ([LiveOption.extra]): Hex Next rebuilds it with One UI's own resources. */
+@Composable
+private fun NativeOptionNote() {
+    Text(
+        "Rebuilt by Hex Next from One UI's own colours and sizes",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** The parts of One UI, in registry order, that at least one installed pack covers, with those packs. */
@@ -1175,7 +1187,7 @@ private fun ElementRow(
     }
     if (effective != null) {
         val options = remember(effective.pack, element.id) {
-            PackOptions.live(effective.pack).filter { element.id in it.elementIds }
+            PackOptions.all(effective.pack).filter { element.id in it.elementIds }
         }
         OptionList(
             pack = effective.pack,

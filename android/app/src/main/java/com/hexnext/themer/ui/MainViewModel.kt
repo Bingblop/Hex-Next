@@ -22,6 +22,9 @@ import com.hexnext.engine.compile.OneUiRules
 import com.hexnext.engine.compile.ThemeExport
 import com.hexnext.engine.compile.ThemeFormatException
 import com.hexnext.engine.compile.ThemeMode
+import com.hexnext.engine.compile.ValueControl
+import com.hexnext.engine.compile.ValuePlanner
+import com.hexnext.engine.compile.ValueSetting
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import com.hexnext.engine.compile.withCustomBackground
 import com.hexnext.engine.compile.withCustomIcon
@@ -70,6 +73,7 @@ import com.hexnext.themer.theme.ThemeStore
 import com.hexnext.themer.theme.formatOneUi
 import com.hexnext.themer.ui.settings.AppSettingsStore
 import com.hexnext.themer.ui.studio.PreviewIcon
+import com.hexnext.themer.ui.studio.QsShapes
 import com.hexnext.themer.ui.studio.StudioPreviewState
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -383,6 +387,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             note = icons.note,
             iconsNight = icons.night,
             dragging = draftSpec != null || seedDraft != null,
+            qsShapes = QsShapes.of(spec),
         )
     }
         .conflate()
@@ -392,6 +397,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Resources per element group over every scanned app, for the element colour rows; empty without a scan. */
     private val _groupCounts = MutableStateFlow<Map<ColorGroup, GroupCount>>(emptyMap())
     val groupCounts: StateFlow<Map<ColorGroup, GroupCount>> = _groupCounts.asStateFlow()
+
+    /**
+     * The Quick panel shape controls over the last scan ([ValuePlanner.availableControls]), loaded
+     * with [loadGroupCounts]; empty without a scan. A control without names on this phone is
+     * hidden, one whose scan predates value lists shows "Rescan needed".
+     */
+    private val _valueControls = MutableStateFlow<Map<String, ValueControl>>(emptyMap())
+    val valueControls: StateFlow<Map<String, ValueControl>> = _valueControls.asStateFlow()
 
     /** The scan stamp [_groupCounts] was computed from; null before the first count. Main thread only. */
     private var groupCountsStamp: String? = null
@@ -1316,6 +1329,21 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** The app's own colourful icons for Settings rows and My Files categories no pack covers. */
     fun setBuiltInIcons(enabled: Boolean) = commitSpec { it.copy(builtInIcons = enabled) }
 
+    /**
+     * Sets Quick panel shape [id] ([ShapeControls]) to [setting]; null returns it to One UI's
+     * size. A changed value set is no longer the one a crash rollback quarantined.
+     */
+    fun setShape(id: String, setting: ValueSetting?) {
+        commitSpec { if (setting == null) it.copy(shapes = it.shapes - id) else it.copy(shapes = it.shapes + (id to setting)) }
+        ThemeApplier.clearValuesQuarantine(getApplication())
+    }
+
+    /** Every Quick panel shape back to One UI's sizes. */
+    fun resetShapes() {
+        commitSpec { it.copy(shapes = emptyMap()) }
+        ThemeApplier.clearValuesQuarantine(getApplication())
+    }
+
     /** Opacity of the Quick panel backdrop, 0 … 255 (255 leaves Samsung's). */
     fun setQsPanelAlpha(alpha: Int) = commitSpec { it.copy(qsPanelAlpha = alpha.coerceIn(EngineThemeSpec.MIN_QS_PANEL_ALPHA, 255)) }
 
@@ -1346,15 +1374,18 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val known = groupCountsStamp
         groupCountsJob = viewModelScope.launch {
             val app = getApplication<Application>()
-            val result = withContext<Pair<String?, Map<ColorGroup, GroupCount>>?>(Dispatchers.IO) {
+            val result = withContext<Triple<String?, Map<ColorGroup, GroupCount>, Map<String, ValueControl>>?>(Dispatchers.IO) {
                 val stamp = SnapshotBuilder.scanStamp(app)
                 when {
-                    stamp == null -> null to emptyMap()
+                    stamp == null -> Triple(null, emptyMap(), emptyMap())
                     stamp == known -> null
                     else -> runCatching {
                         val built = SnapshotBuilder(app).build()
-                        val counts = built?.let { ColorGroupMatcher.groupCounts(it.snapshot, OneUiRules.forProfile(it.snapshot.oneUi)) }.orEmpty()
-                        stamp to counts
+                        val rules = built?.let { OneUiRules.forProfile(it.snapshot.oneUi) }
+                        val counts = built?.let { ColorGroupMatcher.groupCounts(it.snapshot, rules!!) }.orEmpty()
+                        // The Quick panel shape controls: which candidate names this phone defines.
+                        val controls = if (built != null && rules != null) ValuePlanner.availableControls(built.snapshot, rules) else emptyMap()
+                        Triple(stamp, counts, controls)
                     }.getOrElse {
                         log(LogLine(LogLevel.WARN, "Counting element colours failed: ${it.javaClass.simpleName}: ${it.message}"))
                         null
@@ -1363,6 +1394,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             } ?: return@launch
             groupCountsStamp = result.first
             _groupCounts.value = result.second
+            _valueControls.value = result.third
         }
     }
 

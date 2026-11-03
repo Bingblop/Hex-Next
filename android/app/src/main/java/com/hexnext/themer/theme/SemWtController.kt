@@ -1,5 +1,6 @@
 package com.hexnext.themer.theme
 
+import com.hexnext.engine.map.PlannedValue
 import android.os.Bundle
 import com.hexnext.engine.compile.OverlayLookup
 import com.hexnext.engine.device.OverlayList
@@ -96,6 +97,24 @@ object SemWtController {
             val r = service.exec("cmd overlay lookup --user current $target $resource")
             last = r.output().trim()
             matched = OverlayLookup.matches(last, argb)
+            if (matched == true) return true to last
+        }
+        return matched to last
+    }
+
+    /**
+     * As [verifyColor] for a size, number or switch: `cmd overlay lookup` of [value] in
+     * [target], compared with [OverlayLookup.matchesValue] (null when the output is unreadable).
+     */
+    fun verifyValue(service: IThemeService, target: String, value: PlannedValue, attempts: Int = 3): Pair<Boolean?, String> {
+        if (!SAFE_TOKEN.matches(target) || !SAFE_RESOURCE.matches(value.resourceName)) return null to "unsafe lookup arguments"
+        var last = ""
+        var matched: Boolean? = null
+        repeat(attempts.coerceAtLeast(1)) { attempt ->
+            if (attempt > 0) Thread.sleep(1000)
+            val r = service.exec("cmd overlay lookup --user current $target ${value.resourceName}")
+            last = r.output().trim()
+            matched = OverlayLookup.matchesValue(last, value)
             if (matched == true) return true to last
         }
         return matched to last

@@ -30,6 +30,21 @@ public data class ThemeRequest(
 public data class PlannedColor(val resourceName: String, val argb: Int, val configuration: String = "")
 
 /**
+ * A non-colour value to fabricate in the target's value overlay. [resourceName] is
+ * `package:type/name`; [dataType] a `Res_value` type (`0x04` float, `0x05` dimension, `0x10`
+ * integer, `0x12` boolean); [configuration] the configuration qualifier string the device defines
+ * the resource in (`""` for the default, `land`, `sw600dp-v13` …); [control] what asked for it
+ * (a shape control id, `values`, or `pack:<pack id>:<option key>`).
+ */
+public data class PlannedValue(
+    val resourceName: String,
+    val dataType: Int,
+    val data: Int,
+    val configuration: String = "",
+    val control: String = "",
+)
+
+/**
  * A drawable to composite and fabricate once per entry of [configs]: real density qualifiers
  * such as `xxhdpi` (see [ResourceMapper.pngDensities]), never `""` or `anydpi`.
  */

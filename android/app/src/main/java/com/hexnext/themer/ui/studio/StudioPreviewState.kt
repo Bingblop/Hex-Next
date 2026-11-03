@@ -4,7 +4,10 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.IconColorStyle
+import com.hexnext.engine.compile.ShapeControls
 import com.hexnext.engine.compile.ThemeSpec
+import com.hexnext.engine.compile.ValueKind
+import com.hexnext.engine.compile.ValueSetting
 import com.hexnext.engine.compile.effectiveGroupColors
 import com.hexnext.engine.palette.ResolvedScheme
 import com.hexnext.engine.palette.ResolvedTheme
@@ -85,6 +88,7 @@ data class PreviewScheme(
  * @property iconsNight true when the icons were rendered for dark mode (night jobs), false for light.
  * @property dragging true while a slider or colour drag shows a draft: the mockup then jumps to the
  *   new colours instead of animating, so it keeps up with the finger.
+ * @property qsShapes the Quick panel sizes the theme sets ([ThemeSpec.shapes]), for the mockup.
  */
 @Immutable
 data class StudioPreviewState(
@@ -104,6 +108,7 @@ data class StudioPreviewState(
     val note: String? = null,
     val iconsNight: Boolean = true,
     val dragging: Boolean = false,
+    val qsShapes: QsShapes = QsShapes(),
 ) {
     /** The scheme for [dark] mode. */
     fun scheme(dark: Boolean): PreviewScheme = if (dark) this.dark else light
@@ -122,6 +127,41 @@ data class StudioPreviewState(
                 dark = PreviewScheme.of(spec, theme.dark, theme),
                 iconStyle = spec.iconStyle,
             )
+        }
+    }
+}
+
+/**
+ * The Quick panel shape settings the mockup draws ([ShapeControls]); null leaves the mockup's
+ * One UI default. The preview scales device dp to its 300 dp design screen ([PREVIEW_DP]).
+ */
+@Immutable
+data class QsShapes(
+    val tileCorner: ValueSetting? = null,
+    val panelCorner: ValueSetting? = null,
+    val sliderThickness: ValueSetting? = null,
+) {
+    companion object {
+        /** Preview dp per device dp: the mockup is 300 dp wide, a One UI phone about 412 dp. */
+        const val PREVIEW_DP: Float = 300f / 412f
+
+        fun of(spec: ThemeSpec): QsShapes = QsShapes(
+            tileCorner = spec.shapes[ShapeControls.TILE_CORNER],
+            panelCorner = spec.shapes[ShapeControls.PANEL_CORNER],
+            sliderThickness = spec.shapes[ShapeControls.SLIDER_THICKNESS],
+        )
+
+        /**
+         * [setting] in preview dp: an absolute size scaled by [PREVIEW_DP], a factor times
+         * [default] (already in preview dp); null for none or an unknown kind.
+         */
+        fun previewDp(setting: ValueSetting?, default: Float): Float? {
+            val n = setting?.number ?: return null
+            return when (setting.kind) {
+                ValueKind.DIMEN -> (n * PREVIEW_DP).toFloat()
+                ValueKind.SCALE -> (default * n).toFloat()
+                else -> null
+            }?.coerceAtLeast(0f)
         }
     }
 }
