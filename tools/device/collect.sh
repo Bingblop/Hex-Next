@@ -61,7 +61,7 @@ run "System UI colour names (count; full list in hexnext-systemui-colors.txt)" "
 : >"$OUT_DIR/hexnext-values.txt"
 for pkg in com.android.systemui android; do
   for type in dimen integer bool; do
-    root "cat $APP/scan/$pkg/names-$type.txt 2>/dev/null" | sed "s|^|$pkg $type |" >>"$OUT_DIR/hexnext-values.txt"
+    root "awk 1 $APP/scan/$pkg/names-$type.txt 2>/dev/null" | sed "s|^|$pkg $type |" >>"$OUT_DIR/hexnext-values.txt"
   done
 done
 run "System UI and framework values (count; full list in hexnext-values.txt)" "wc -l $OUT_DIR/hexnext-values.txt"
