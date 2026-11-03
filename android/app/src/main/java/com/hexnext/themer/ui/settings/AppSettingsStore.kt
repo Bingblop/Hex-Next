@@ -14,12 +14,22 @@ enum class ThemeMode(val label: String) {
     DARK("Dark"),
 }
 
-/** Where the app's own Material 3 colours come from. */
+/**
+ * Where the app's own Material 3 colours come from. Stored by [name]: constants may be added, never
+ * renamed or removed, so older stored values keep working.
+ */
 enum class PaletteSource(val label: String) {
     /** The phone's dynamic colours (the wallpaper, or the theme Hex Next applied). */
     DYNAMIC("Phone colours"),
     /** A scheme built from [AppSettings.seedArgb]. */
     SEED("Custom colour"),
+
+    /**
+     * The navy console look (cyan, coral and amber accents) for the theme editor. The other screens
+     * (App settings, Diagnostics, the setup guide) keep the phone's colours, as with [DYNAMIC].
+     * The default of fresh installs.
+     */
+    CONSOLE("Console"),
 }
 
 /** Material 3 contrast levels; [level] is the value the colour utilities take (0, 0.5, 1). */
@@ -35,7 +45,7 @@ enum class ContrastLevel(val label: String, val level: Double) {
  */
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val palette: PaletteSource = PaletteSource.DYNAMIC,
+    val palette: PaletteSource = PaletteSource.CONSOLE,
     /** Opaque ARGB seed of the [PaletteSource.SEED] scheme. */
     val seedArgb: Int = DEFAULT_SEED,
     /** Paints dark backgrounds pure black, for AMOLED screens. */

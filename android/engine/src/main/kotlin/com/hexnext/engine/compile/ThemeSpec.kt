@@ -42,6 +42,41 @@ public sealed class ColorPin {
 }
 
 /**
+ * How pack icons (Settings rows, My Files categories) and synthesised Settings icons are coloured.
+ * System UI drawables are never affected: Quick Settings stays colour-only.
+ */
+@Serializable
+public enum class IconColorStyle {
+    /** The pack's own artwork and palette, never re-tinted by the theme. The default. */
+    PACK_ORIGINAL,
+
+    /** Every accent layer tinted from the theme's accent shades (the pre-Studio behaviour). */
+    ACCENT,
+
+    /** Each Settings row / My Files category gets its own vivid hue, like stock One UI. */
+    MULTICOLOR,
+
+    /** Accent layers alternate between the primary and tertiary accent. */
+    DUOTONE,
+
+    /** As [MULTICOLOR], with each accent layer drawn as a two-stop linear gradient. */
+    GRADIENT,
+}
+
+/**
+ * The user's colour for one [ColorGroup], per mode; a null side means Auto (derived from the
+ * palette, see [ColorGroup.auto]).
+ */
+@Serializable
+public data class GroupColor(val light: Int? = null, val dark: Int? = null) {
+    /** The override for night ([night] true) or day configurations, null for Auto. */
+    public fun forNight(night: Boolean): Int? = if (night) dark else light
+
+    /** True when neither mode is overridden. */
+    public val isAuto: Boolean get() = light == null && dark == null
+}
+
+/**
  * A custom font the user imported: file names under `custom/fonts`.
  *
  * @property regular file name of the regular weight.
@@ -67,6 +102,15 @@ public data class CustomFont(val regular: String, val bold: String? = null, val 
  * @property customFont the system font to install with the theme, null for the system default.
  * @property synthesizeMissingIcons when true the compiler plans pack-style icons for Settings
  *   dashboard rows the pack lacks (see `PlannedDrawableJob.synthesis`).
+ * @property colorGroups [ColorGroup.id] → user colours for that One UI element group. A group
+ *   colour beats role inference for every resource the group matches, in every Samsung target;
+ *   [colorPins] still beat groups. Missing or [GroupColor.isAuto] entries mean Auto.
+ * @property iconStyle how pack and synthesised icons are coloured (see [IconColorStyle]).
+ * @property builtInIcons when true, Settings rows and My Files categories no pack or custom icon
+ *   covers get the app's own colourful icons (see [IconColors.builtInJobs]). Off in files written
+ *   before it existed; on in [default] themes.
+ * @property qsPanelAlpha 0 … 255 alpha written to the Quick panel background resources (the
+ *   [ColorGroup.QS_PANEL_BG] group), Auto or custom; 255 leaves the alpha Samsung uses.
  */
 @Serializable
 public data class ThemeSpec(
@@ -86,8 +130,16 @@ public data class ThemeSpec(
     val customBackgrounds: Map<String, String> = emptyMap(),
     val customFont: CustomFont? = null,
     val synthesizeMissingIcons: Boolean = true,
+    val colorGroups: Map<String, GroupColor> = emptyMap(),
+    val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
+    val builtInIcons: Boolean = false,
+    val qsPanelAlpha: Int = 255,
     val format: Int = FORMAT,
 ) {
+    init {
+        require(qsPanelAlpha in 0..255) { "qsPanelAlpha $qsPanelAlpha is not 0..255" }
+    }
+
     /** True unless [elementEnabled] switches [elementId] off. */
     public fun isElementEnabled(elementId: String): Boolean = elementEnabled[elementId] != false
 
@@ -109,14 +161,18 @@ public data class ThemeSpec(
     public fun toJson(): String = SpecJson.encodeToString(serializer(), this)
 
     public companion object {
-        /** Current [format] version. */
+        /**
+         * Current [format] version. Additive fields (such as [colorGroups] and [iconStyle]) keep
+         * the version: they have defaults, so older files load and older readers skip them.
+         */
         public const val FORMAT: Int = 1
 
         /** Default seed: One UI blue. */
         public const val DEFAULT_SEED: Int = 0xFF3E91FF.toInt()
 
         /** A fresh theme: default seed, no packs, everything enabled. */
-        public fun default(): ThemeSpec = ThemeSpec(id = "default", name = "Hex Next", source = ThemeSource(DEFAULT_SEED))
+        public fun default(): ThemeSpec =
+            ThemeSpec(id = "default", name = "Hex Next", source = ThemeSource(DEFAULT_SEED), builtInIcons = true)
 
         /** Parses JSON written by [toJson]; unknown keys are ignored. */
         public fun fromJson(json: String): ThemeSpec = try {
@@ -127,4 +183,6 @@ public data class ThemeSpec(
     }
 }
 
-internal val SpecJson: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false }
+// coerceInputValues: an enum constant written by a newer build (say a future IconColorStyle)
+// falls back to the property's default instead of making the whole theme unreadable.
+internal val SpecJson: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = false; coerceInputValues = true }

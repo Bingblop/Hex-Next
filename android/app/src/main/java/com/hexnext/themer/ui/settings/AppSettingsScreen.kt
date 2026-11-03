@@ -75,6 +75,7 @@ import com.hexnext.themer.ui.ColorSwatch
 import com.hexnext.themer.ui.RADIO_INDENT
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.appColorScheme
+import com.hexnext.themer.ui.consoleColorScheme
 
 /** The eight seed swatches of the "Custom colour" palette. */
 private val SEED_PRESETS = listOf(
@@ -184,6 +185,12 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
 
         Label("Colour palette")
         ChoiceRow(
+            selected = settings.palette == PaletteSource.CONSOLE,
+            title = PaletteSource.CONSOLE.label,
+            summary = "Navy studio look with cyan and coral accents in the theme editor. Other screens follow the phone's colours.",
+            onClick = { store.setPalette(PaletteSource.CONSOLE) },
+        )
+        ChoiceRow(
             selected = settings.palette == PaletteSource.DYNAMIC,
             title = PaletteSource.DYNAMIC.label,
             summary = "Follow the wallpaper, or the theme applied by Hex Next.",
@@ -251,8 +258,9 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
             }
         }
 
+        // Console styles the editor only, so its swatches show the console scheme the editor draws.
         val preview = remember(settings.palette, settings.seedArgb, settings.pureBlack, settings.contrast, dark) {
-            appColorScheme(context, settings, dark)
+            if (settings.palette == PaletteSource.CONSOLE) consoleColorScheme(dark, settings.pureBlack) else appColorScheme(context, settings, dark)
         }
         Label("Preview")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

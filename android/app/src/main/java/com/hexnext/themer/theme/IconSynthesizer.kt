@@ -4,15 +4,24 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
+import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import androidx.core.content.res.ResourcesCompat
 import com.hexnext.themer.R
 import java.io.IOException
+import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sign
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
@@ -25,6 +34,9 @@ import kotlin.math.sqrt
  * colour the median of those pixels. The glyph pixels are then inpainted with the per-radius
  * ring colour (so gradients survive), and one of the `hx_glyph_*` VectorDrawables is drawn on
  * top, tinted with the glyph colour, centred, sized like the reference glyph.
+ *
+ * [drawBadge] draws a built-in icon from scratch (no pack): a One UI style squircle in a flat
+ * colour or a linear gradient, a soft top highlight, and the glyph at [DEFAULT_GLYPH_FRACTION].
  */
 class IconSynthesizer(context: Context) {
 
@@ -62,6 +74,73 @@ class IconSynthesizer(context: Context) {
         val scaled = Bitmap.createScaledBitmap(out, max(1, outW), max(1, outH), true)
         if (scaled !== out) out.recycle()
         return scaled
+    }
+
+    /**
+     * A built-in icon of [sizePx] square: a squircle filled with [fill] (a top-left → bottom-right
+     * gradient to [fillEnd] when set) and the `hx_glyph_*` art of [glyph] in [glyphColor], centred
+     * at about 52 % of the size. Throws [IOException] for an unknown glyph.
+     */
+    fun drawBadge(glyph: String, fill: Int, fillEnd: Int?, glyphColor: Int, sizePx: Int): Bitmap {
+        val drawable = glyphDrawable(glyph)
+        val size = sizePx.coerceIn(1, MAX_BADGE_PX)
+        val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val inset = size * BADGE_INSET
+        val left = inset
+        val top = inset
+        val right = size - inset
+        val bottom = size - inset
+        val path = squircle(left, top, right, bottom)
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        paint.style = Paint.Style.FILL
+        if (fillEnd != null && fillEnd != fill) {
+            paint.shader = LinearGradient(left, top, right, bottom, opaque(fill), opaque(fillEnd), Shader.TileMode.CLAMP)
+        } else {
+            paint.color = opaque(fill)
+        }
+        canvas.drawPath(path, paint)
+
+        // A soft light from the top keeps flat colours from looking printed.
+        paint.color = Color.WHITE
+        paint.shader = LinearGradient(
+            0f, top, 0f, top + (bottom - top) * HIGHLIGHT_DEPTH,
+            Color.argb(HIGHLIGHT_ALPHA, 255, 255, 255), Color.argb(0, 255, 255, 255), Shader.TileMode.CLAMP,
+        )
+        canvas.drawPath(path, paint)
+        paint.shader = null
+
+        val glyphSize = size * DEFAULT_GLYPH_FRACTION
+        val c = size / 2f
+        drawable.setBounds(
+            (c - glyphSize / 2f).roundToInt(), (c - glyphSize / 2f).roundToInt(),
+            (c + glyphSize / 2f).roundToInt(), (c + glyphSize / 2f).roundToInt(),
+        )
+        drawable.colorFilter = PorterDuffColorFilter(opaque(glyphColor), PorterDuff.Mode.SRC_IN)
+        drawable.isFilterBitmap = true
+        drawable.draw(canvas)
+        return out
+    }
+
+    /** A superellipse (|x|^n + |y|^n = 1, n = [SQUIRCLE_EXPONENT]) filling the given box. */
+    private fun squircle(left: Float, top: Float, right: Float, bottom: Float): Path {
+        val cx = (left + right) / 2f
+        val cy = (top + bottom) / 2f
+        val rx = (right - left) / 2f
+        val ry = (bottom - top) / 2f
+        val path = Path()
+        val exponent = 2.0 / SQUIRCLE_EXPONENT
+        for (i in 0 until SQUIRCLE_POINTS) {
+            val t = 2.0 * Math.PI * i / SQUIRCLE_POINTS
+            val ct = cos(t)
+            val st = sin(t)
+            val x = cx + rx * (sign(ct) * abs(ct).pow(exponent)).toFloat()
+            val y = cy + ry * (sign(st) * abs(st).pow(exponent)).toFloat()
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        path.close()
+        return path
     }
 
     private fun glyphDrawable(glyph: String): Drawable {
@@ -276,7 +355,17 @@ class IconSynthesizer(context: Context) {
         private const val MAX_GLYPH_SIZE = 0.62f
         private const val DEFAULT_GLYPH_FRACTION = 0.52f
 
-        /** Dashboard row key → original Hex Next glyph (see `tools/glyphs/build.js`). */
+        /** Transparent margin around a built-in badge, as a fraction of its size per side. */
+        private const val BADGE_INSET = 0.04f
+        private const val SQUIRCLE_EXPONENT = 4.6
+        private const val SQUIRCLE_POINTS = 128
+        private const val HIGHLIGHT_ALPHA = 46
+        private const val HIGHLIGHT_DEPTH = 0.6f
+
+        /** Largest built-in badge drawn: far above any real icon slot (46 dp at 640 dpi is 184 px). */
+        private const val MAX_BADGE_PX = 1024
+
+        /** Dashboard row or built-in glyph key → original Hex Next glyph (see `tools/glyphs/build.js`). */
         val GLYPHS: Map<String, Int> = mapOf(
             "cloud_and_account" to R.drawable.hx_glyph_cloud_and_account,
             "google" to R.drawable.hx_glyph_google,
@@ -305,6 +394,13 @@ class IconSynthesizer(context: Context) {
             "modes" to R.drawable.hx_glyph_modes,
             "software_update" to R.drawable.hx_glyph_software_update,
             "tips" to R.drawable.hx_glyph_tips,
+            // My Files categories (built-in icons only; IconColors names them `myfiles_<category>`).
+            "myfiles_images" to R.drawable.hx_glyph_myfiles_images,
+            "myfiles_videos" to R.drawable.hx_glyph_myfiles_videos,
+            "myfiles_audio" to R.drawable.hx_glyph_myfiles_audio,
+            "myfiles_documents" to R.drawable.hx_glyph_myfiles_documents,
+            "myfiles_downloads" to R.drawable.hx_glyph_myfiles_downloads,
+            "myfiles_apk" to R.drawable.hx_glyph_myfiles_apk,
         )
     }
 }

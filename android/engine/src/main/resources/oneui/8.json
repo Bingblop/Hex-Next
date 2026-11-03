@@ -55,5 +55,104 @@
     "modes",
     "software_update",
     "tips"
-  ]
+  ],
+  "colorGroups": {
+    "qs_tile_inactive": [
+      "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*(inactive|(^|_)off(_|$)|unavailable|disabled|(^|_)dim(_|$))"
+    ],
+    "qs_tile_active": [
+      "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*((?<!in)active|(^|_)on(_|$)|enabled|activated|checked)",
+      "^(?!.*(icon|label|text|title|stroke))(sec_)?qs_tiles?(_|$)"
+    ],
+    "qs_panel_bg": [
+      "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(^|_)qs_.*(background|bg)",
+      "^(?!.*(tile|icon|text|title|label|stroke|divider))quick_?(settings?|panel).*(background|bg)",
+      "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(panel_background|panel_bg|shade_background|shade_bg)"
+    ],
+    "notification_bg": [
+      "^(?!.*(icon|text|title|label|stroke|divider|button|btn)).*notifi(cation)?s?_.*(bg|background|card)",
+      "^(?!.*(icon|text|title|label|stroke|divider|button|btn)).*notifi(cation)?s?_?(bg|background)",
+      "notification_guts"
+    ],
+    "system_bars": [
+      "^(?!.*(icon|text|title|label|stroke|divider|button|btn|ripple|shadow)).*(navigation_?bar|nav_?bar|status_?bar)"
+    ],
+    "slider": [
+      "^(?!.*(icon|text|title|label|loading|swipe_refresh|stroke)).*(brightness|volume|seek_?bar|slider|progress|tick_?mark|level_control)"
+    ],
+    "switch": [
+      "^(?!.*(text|title|label|icon)).*(switch|checkbox|check_box|radio|toggle|(^|_)thumb|(^|_)track|_on_mtrl|_off_mtrl)"
+    ],
+    "button": [
+      "^(?!.*(text|title|label|icon|stroke)).*(button|(^|_)btn)"
+    ],
+    "icon_tint": [
+      "^(?!.*((background|bg|bgcolor)(_color)?(_(dark|light))?$|button|btn)).*(^|_)icons?(_|$)"
+    ],
+    "dialog": [
+      "^(?!.*(text|title|label|icon|stroke|divider|button|btn)).*(dialog|popup|pop_up|bottom_?sheet|menu_(bg|background)|tooltip|snackbar|toast)"
+    ],
+    "accent": [
+      "^(?!.*(background|bg|bgcolor)(_color)?(_(dark|light))?$).*(link|highlight|(?<!un)selected|activated|accent|primary_color|color_primary|primary_dark|control_activated|indicator|loading_progress|swipe_refresh)"
+    ],
+    "text_secondary": [
+      "^(?!.*((background|bg|bgcolor)(_color)?(_(dark|light))?$|icon|button|btn)).*(summary|subtitle|sub_?text|(^|_)sub(_|$)|secondary|hint|description|caption|state_text|chart.*text|empty_text)"
+    ],
+    "text_primary": [
+      "^(?!.*((background|bg|bgcolor)(_color)?(_(dark|light))?$|icon|button|btn|cursor|shadow|stroke)).*(^|_)(text|texts|title|label|primary_text|foreground)(_|$|color)"
+    ],
+    "surface": [
+      "^(?!.*(text|title|label|icon|stroke|divider|shadow|button|btn|thumb|track|seek|progress|tile|ripple|indicator)).*(card|container|list_bg|item_bg|app_?bar|action_?bar|tool_?bar|bottom_navigation|tab_?layout|search_view|cell)"
+    ],
+    "background": [
+      "^(?!.*(text|title|label|icon|stroke|divider|shadow|button|btn|thumb|track|seek|progress|tile|ripple|indicator|highlight|selected)).*(background|bgcolor|(^|_)bg(_|$)|window|screen_bg)"
+    ]
+  },
+  "colorGroupPackages": {
+    "com.samsung.android.honeyboard": "keyboard",
+    "com.samsung.android.dialer": "dialer",
+    "com.samsung.android.incallui": "dialer",
+    "com.samsung.android.app.aodservice": "aod",
+    "com.android.systemui": "systemui"
+  },
+  "colorGroupFamilies": {
+    "keyboard": {
+      "groups": {
+        "keyboard_key": [
+          "^(?!.*(text|label|symbol|icon|hint|preview|shadow|stroke)).*(^|_)(keys?|keycap|key_cap|keybg|btn|button)(_|$)"
+        ],
+        "keyboard_bg": [
+          "^(?!.*(text|label|symbol|icon|hint|(^|_)keys?(_|$)|btn|button|stroke)).*(background|(^|_)bg(_|$)|bgcolor|board|window|panel|toolbar|candidate)"
+        ]
+      },
+      "remap": {
+        "background": "keyboard_bg",
+        "surface": "keyboard_key"
+      }
+    },
+    "dialer": {
+      "groups": {
+        "dialer": [
+          "^(?!.*(background|(^|_)bg(_|$)|bgcolor|text|title|label|divider|stroke)).*(^|_)(calls?|dial|dialer|dialpad|dial_pad|keypad|key_pad|answer|accept|incall|in_call|ongoing)(_|$)"
+        ]
+      },
+      "remap": {
+        "button": "dialer"
+      }
+    },
+    "aod": {
+      "groups": {
+        "lock_screen": [
+          "^(?!.*(background|(^|_)bg(_|$)|bgcolor|window|scrim|(^|_)dim(_|$)|shadow)).*"
+        ]
+      }
+    },
+    "systemui": {
+      "groups": {
+        "lock_screen": [
+          "^(?!.*(background|(^|_)bg(_|$)|bgcolor|scrim|shadow|(^|_)dim(_|$))).*(^|_)(keyguard|lockscreen|lock_screen|kg|aod|lock)(_|$)"
+        ]
+      }
+    }
+  }
 }

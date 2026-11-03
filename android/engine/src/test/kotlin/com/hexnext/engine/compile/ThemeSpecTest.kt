@@ -33,6 +33,13 @@ class ThemeSpecTest {
         customBackgrounds = mapOf("com.android.settings:drawable/sec_bg" to "wall-11223344.png"),
         customFont = CustomFont("inter-aabbccdd.ttf", "inter-bold-eeff0011.ttf", "Inter"),
         synthesizeMissingIcons = false,
+        colorGroups = mapOf(
+            ColorGroup.QS_TILE_ACTIVE.id to GroupColor(light = 0xFFFF2A54.toInt(), dark = 0xFF00E5FF.toInt()),
+            ColorGroup.BACKGROUND.id to GroupColor(dark = 0xFF000000.toInt()),
+        ),
+        iconStyle = IconColorStyle.MULTICOLOR,
+        builtInIcons = true,
+        qsPanelAlpha = 235,
     )
 
     @Test
@@ -54,6 +61,12 @@ class ThemeSpecTest {
         assertEquals(emptyMap(), spec.customBackgrounds)
         assertNull(spec.customFont)
         assertTrue(spec.synthesizeMissingIcons)
+        assertEquals(emptyMap(), spec.colorGroups)
+        assertEquals(IconColorStyle.PACK_ORIGINAL, spec.iconStyle)
+        // Files written before built-in icons existed keep their look; new themes opt in.
+        assertFalse(spec.builtInIcons)
+        assertTrue(ThemeSpec.default().builtInIcons)
+        assertEquals(255, spec.qsPanelAlpha)
         assertFailsWith<IllegalArgumentException> { ThemeSpec.fromJson("{}") }
         assertFailsWith<IllegalArgumentException> { ThemeSpec.fromJson("""{"id":"x","name":"X","source":{"seedArgb":1},"colorPins":{"a":{"type":"shade","role":"ERROR","shade":500}}}""") }
     }
@@ -108,5 +121,39 @@ class ThemeSpecTest {
     fun `shade pins are validated`() {
         assertFailsWith<IllegalArgumentException> { ColorPin.Shade(PaletteRole.ERROR, 500) }
         assertFailsWith<IllegalArgumentException> { ColorPin.Shade(PaletteRole.ACCENT1, 550) }
+    }
+
+    @Test
+    fun `unknown icon styles and group ids from newer builds do not break loading`() {
+        val spec = ThemeSpec.fromJson(
+            """{"id":"x","name":"X","source":{"seedArgb":1},"iconStyle":"HOLOGRAM","colorGroups":{"future_group":{"light":5}}}""",
+        )
+        assertEquals(IconColorStyle.PACK_ORIGINAL, spec.iconStyle)
+        assertNull(ColorGroup.byId("future_group"))
+        assertEquals(5, spec.colorGroups["future_group"]?.light)
+    }
+
+    @Test
+    fun `group colours are set per mode and return to auto`() {
+        val theme = com.hexnext.engine.palette.ThemeResolver.resolve(ThemeSpec.default().source)
+        var spec = ThemeSpec.default().withGroupColor(ColorGroup.SWITCH, night = true, argb = 0x00123456)
+        assertEquals(0xFF123456.toInt(), spec.groupColor(ColorGroup.SWITCH, night = true))
+        assertNull(spec.groupColor(ColorGroup.SWITCH, night = false))
+        assertEquals(ColorGroup.SWITCH.auto(theme, night = false), spec.effectiveGroupColor(ColorGroup.SWITCH, theme, night = false))
+        assertEquals(ColorGroup.ALL.size, spec.effectiveGroupColors(theme, night = true).size)
+        spec = spec.withGroupColor(ColorGroup.SWITCH, night = true, argb = null)
+        assertEquals(emptyMap(), spec.colorGroups)
+    }
+
+    @Test
+    fun `group ids are unique and every auto shade resolves`() {
+        assertEquals(ColorGroup.ALL.size, ColorGroup.ALL.map { it.id }.toSet().size)
+        val theme = com.hexnext.engine.palette.ThemeResolver.resolve(ThemeSpec.default().source)
+        for (g in ColorGroup.ALL) {
+            assertEquals(g, ColorGroup.byId(g.id))
+            g.auto(theme, night = true)
+            g.auto(theme, night = false)
+        }
+        assertTrue(ColorGroup.ALL.filter { it.quickSettings }.all { it.section == ColorGroupSection.QUICK_PANEL })
     }
 }

@@ -1,6 +1,7 @@
 package com.hexnext.engine.compile
 
 import com.hexnext.engine.arsc.ResourceTable
+import com.hexnext.engine.arsc.ResourceValue
 import com.hexnext.engine.frro.FabricatedOverlayFile
 import com.hexnext.engine.log.BuildEvent
 import com.hexnext.engine.log.LogLevel
@@ -13,8 +14,11 @@ import com.hexnext.engine.map.ThemeRequest
 import com.hexnext.engine.pack.CompositePlan
 import com.hexnext.engine.pack.LayerPlanner
 import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.palette.ColorMath
+import com.hexnext.engine.palette.InferredColor
 import com.hexnext.engine.palette.ResolvedTheme
 import com.hexnext.engine.palette.RoleInference
+import com.hexnext.engine.palette.ShadeReference
 import com.hexnext.engine.palette.ThemeResolver
 import java.security.MessageDigest
 
@@ -52,6 +56,14 @@ public class InMemoryPackResolver(
 public data class IconSynthesis(val glyph: String, val reference: PlannedDrawableJob)
 
 /**
+ * A built-in icon drawn from scratch, with no pack: a badge filled with [fillArgb] (a linear
+ * gradient to [fillEndArgb] when set) and the app's own glyph for row [glyph] in [glyphArgb].
+ * Planned by [IconColors.builtInJobs] when the spec asks for built-in icons and no pack supplies
+ * them.
+ */
+public data class IconBadge(val glyph: String, val fillArgb: Int, val fillEndArgb: Int?, val glyphArgb: Int)
+
+/**
  * One drawable to composite on the device and fabricate.
  *
  * @property resourceName `package:type/name` in the target.
@@ -66,6 +78,7 @@ public data class IconSynthesis(val glyph: String, val reference: PlannedDrawabl
  * @property custom file name under the app's `custom/<icons|backgrounds>` directory when the
  *   user replaced this drawable with an imported image; [plan] is then empty.
  * @property synthesis set when the icon is generated from a reference pack icon; [plan] is then empty.
+ * @property badge set for a built-in icon drawn without a pack (see [IconBadge]); [plan] is then empty.
  */
 public data class PlannedDrawableJob(
     val resourceName: String,
@@ -76,6 +89,7 @@ public data class PlannedDrawableJob(
     val elementId: String,
     val custom: String? = null,
     val synthesis: IconSynthesis? = null,
+    val badge: IconBadge? = null,
 )
 
 /**
@@ -131,6 +145,13 @@ public data class CompiledTheme(
  *    from the dark scheme when its configuration contains `night`, else from the light scheme;
  *    entries without a match keep Samsung's observed value, copied verbatim into the overlay in
  *    the same configuration because apply disables SemWT ([REASON_FIXED], still reported).
+ *    **Element groups** come next: every colour is classified with [ColorGroupMatcher.classify],
+ *    and a user colour for its group and mode ([ThemeSpec.colorGroups]) replaces the inferred or
+ *    verbatim value, keeping Samsung's alpha ([ColorGroupMatcher.groupValue]). Quick panel
+ *    backgrounds take [ThemeSpec.qsPanelAlpha] below 255. With any group colour set, literal APK
+ *    colours SemWT does not set are added in `""` and `night` when a name rule puts them in a
+ *    set structural group ([ColorGroupMatcher.TABLE_GROUPS]). One `group colours` event counts
+ *    what the groups reached.
  *    [ThemeSpec.colorPins] then win
  *    (a pinned resource absent from SemWT is written in `""` and, for shade pins, `night`).
  *    For System UI only names [QuickSettingsRules.allowsColour] accepts are themed
@@ -227,6 +248,11 @@ public object ThemeCompiler {
     private const val TYPE_RGB8 = 0x1d
     private const val TYPE_RGB4 = 0x1f
     private const val OPAQUE = 0xFF000000.toInt()
+    private const val OPAQUE_ALPHA = 255
+    private val DAY_NIGHT = listOf("", "night")
+
+    /** Table qualifier strings of a night-only value (aapt2 adds `-v8` to `night`). */
+    private val NIGHT_QUALIFIERS = setOf("night", "night-v8")
 
     /** `HexNext_` + [packageName] with dots replaced by underscores. */
     public fun overlayName(packageName: String): String = "HexNext_" + packageName.replace('.', '_')
@@ -290,7 +316,7 @@ public object ThemeCompiler {
 
     /**
      * SHA-256 (lower-case hex) of the sorted entries of a target: one line per colour
-     * (`c|config|name|argb`) and drawable (`d|config|name|ninepatch|layer:tint,…`; custom jobs
+     * (`c|config|name|argb`) and drawable (`d|config|name|ninepatch|layer:tint[>gradientEnd],…`; custom jobs
      * `d|config|name|custom:<file>`; synthesis jobs `d|config|name|synth:<glyph>|<reference line>`).
      */
     public fun contentHash(colors: List<PlannedColor>, drawables: List<PlannedDrawableJob>): String {
@@ -306,8 +332,14 @@ public object ThemeCompiler {
         return when {
             job.custom != null -> head + "custom:${job.custom}"
             synthesis != null -> head + "synth:${synthesis.glyph}|" + hashLine(synthesis.reference)
+            job.badge != null -> head + job.badge.let { b ->
+                "badge:${b.glyph}|%08x|%s|%08x".format(b.fillArgb, b.fillEndArgb?.let { "%08x".format(it) } ?: "-", b.glyphArgb)
+            }
             else -> head + "${job.ninePatch}|" +
-                job.plan.steps.joinToString(",") { s -> "${s.layerPath}:${s.tintArgb?.let { "%08x".format(it) } ?: "-"}" }
+                job.plan.steps.joinToString(",") { s ->
+                    "${s.layerPath}:${s.tintArgb?.let { "%08x".format(it) } ?: "-"}" +
+                        (s.gradientEndArgb?.let { ">%08x".format(it) } ?: "")
+                }
         }
     }
 
@@ -321,6 +353,241 @@ public object ThemeCompiler {
     /** `night-<density>`, `<density>`, `night` or `""`. */
     internal fun configFor(night: Boolean, density: String): String =
         listOfNotNull("night".takeIf { night }, density.ifEmpty { null }).joinToString("-")
+
+    /**
+     * Every colour decision for one target, shared by [compile] and [ColorGroupMatcher.inventory]
+     * so the resource editor shows exactly what an apply writes.
+     *
+     * @property values `(type/name, configuration)` → value to write, before the target-table check
+     *   of [mapColors].
+     * @property fixed SemWT colours copied verbatim because no rule recolours them.
+     * @property observed Samsung's SemWT value per key.
+     * @property inferred nearest scan-time shade per SemWT and APK-table key considered.
+     * @property groups [ColorGroup] per classified key.
+     * @property reached keys whose final value is a group colour (pins and the Quick Settings
+     *   filter already applied).
+     * @property tableObserved APK literal per key a group colour added from the resource table.
+     * @property tableAdded how many of [values] came from the resource table.
+     */
+    internal class ColorDecisions(
+        val values: LinkedHashMap<Pair<String, String>, Int>,
+        val fixed: LinkedHashMap<Pair<String, String>, Skipped>,
+        val observed: Map<Pair<String, String>, Int>,
+        val inferred: Map<Pair<String, String>, InferredColor?>,
+        val groups: Map<Pair<String, String>, ColorGroup>,
+        val reached: Set<Pair<String, String>>,
+        val tableObserved: Map<Pair<String, String>, Int>,
+        val tableAdded: Int,
+        val qsSkipped: List<Skipped>,
+        val qsDropped: Int,
+        val qsVerbatim: Int,
+    )
+
+    /**
+     * A colour of a target's resource table whose values are literal colours: [literals] maps
+     * `""` (day) and `"night"` to the value. [exclusive] is true when the resource has no value in
+     * any other configuration and no reference value, so writing day and night replaces it fully.
+     */
+    internal class TableColor(val typeName: String, val literals: Map<String, Int>, val exclusive: Boolean)
+
+    /** Literal colours of [table] (see [TableColor]), in table order. */
+    internal fun tableColors(table: ResourceTable): List<TableColor> {
+        val out = ArrayList<TableColor>()
+        for (entry in table.entries) {
+            if (entry.type != "color") continue
+            val literals = LinkedHashMap<String, Int>(2)
+            var exclusive = true
+            for (v in entry.values) {
+                val config = when {
+                    v.config.isEmpty() -> ""
+                    v.resConfig.isNight && v.config in NIGHT_QUALIFIERS -> "night"
+                    else -> null
+                }
+                val argb = (v.value as? ResourceValue.Color)?.argb
+                if (config == null || argb == null) {
+                    exclusive = false
+                    continue
+                }
+                literals[config] = argb
+            }
+            if (literals.isNotEmpty()) out += TableColor(entry.key, literals, exclusive)
+        }
+        return out
+    }
+
+    /**
+     * Plans the colours of target [pkg], in order:
+     * 1. SemWT colours: [RoleInference] against [reference]; unmatched values are kept verbatim.
+     * 2. Element groups: each key is classified with [ColorGroupMatcher.classify]; a user colour
+     *    for its group and mode ([ThemeSpec.colorGroups]) replaces the value (observed alpha
+     *    kept). [ThemeSpec.qsPanelAlpha] below 255 is written onto every Quick panel background.
+     * 3. With any group colour set, exclusive literal colours of [table] that SemWT does not set
+     *    and that a name rule puts in a set [ColorGroupMatcher.TABLE_GROUPS] group are added in
+     *    `""` and `night`. A `_dark` / `_light` name takes the dark / light colour in both.
+     * 4. [ThemeSpec.colorPins] win over everything above.
+     * 5. System UI: the Quick Settings filter, exactly as before groups existed.
+     */
+    internal fun planColors(
+        pkg: String,
+        table: ResourceTable?,
+        semwt: FabricatedOverlayFile?,
+        reference: ShadeReference,
+        spec: ThemeSpec,
+        rules: OneUiRules,
+        resolved: () -> ResolvedTheme,
+    ): ColorDecisions {
+        fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"
+        val values = LinkedHashMap<Pair<String, String>, Int>()
+        val fixed = LinkedHashMap<Pair<String, String>, Skipped>()
+        // Samsung's observed SemWT value per key, before recolouring or pins.
+        val observed = HashMap<Pair<String, String>, Int>()
+        val inferred = HashMap<Pair<String, String>, InferredColor?>()
+        for (e in semwt?.entries.orEmpty()) {
+            if (e.dataType !in COLOR_TYPES) continue
+            val typeName = rules.rename(e.typeAndName)
+            val config = e.configuration.orEmpty()
+            val key = typeName to config
+            // RGB8 / RGB4 values can arrive with the alpha byte cleared; they are opaque.
+            val data = if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) e.data or OPAQUE else e.data
+            observed[key] = data
+            val match = reference.infer(data)
+            inferred[key] = match
+            val out = RoleInference.recolor(match, resolved(), isNight(config))
+            if (out == null) {
+                // Apply disables SemWT, so its value is copied verbatim or the stock APK colour returns.
+                fixed[key] = Skipped(display(typeName, config), REASON_FIXED)
+                values[key] = data
+            } else {
+                values[key] = out
+            }
+        }
+
+        // Element groups beat role inference (and the verbatim copy of fixed colours).
+        val groups = HashMap<Pair<String, String>, ColorGroup>()
+        val reached = LinkedHashSet<Pair<String, String>>()
+        val qsAlpha = spec.qsPanelAlpha
+        for (entry in values.entries) {
+            val key = entry.key
+            val group = ColorGroupMatcher.classify(pkg, key.first, inferred[key], rules) ?: continue
+            groups[key] = group
+            var value = entry.value
+            var changed = false
+            val user = spec.groupColor(group, isNight(key.second))
+            if (user != null) {
+                value = ColorGroupMatcher.groupValue(group, user, observed.getValue(key), inferred[key])
+                reached += key
+                changed = true
+            }
+            if (group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) {
+                value = ColorMath.withAlpha(value, qsAlpha)
+                changed = true
+            }
+            if (changed) {
+                entry.setValue(value)
+                fixed.remove(key)
+            }
+        }
+
+        // Group colours also reach APK colours SemWT does not set.
+        val tableObserved = HashMap<Pair<String, String>, Int>()
+        var tableAdded = 0
+        if (table != null && spec.colorGroups.values.any { !it.isAuto }) {
+            val known = values.keys.mapTo(HashSet()) { it.first }
+            for (c in tableColors(table)) {
+                if (!c.exclusive || c.typeName in known) continue
+                val name = c.typeName.substringAfter('/')
+                if (ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(name)) continue
+                if (pkg == SYSTEMUI && !rules.quickSettings.allowsColour(name)) continue
+                val forced: Boolean? = when {
+                    name.endsWith("_dark") -> true
+                    name.endsWith("_light") -> false
+                    else -> null
+                }
+                for (config in DAY_NIGHT) {
+                    val literal = c.literals[config] ?: c.literals.getValue(c.literals.keys.first())
+                    val key = c.typeName to config
+                    val match = reference.infer(literal)
+                    inferred[key] = match
+                    val m = ColorGroupMatcher.match(pkg, c.typeName, match, rules) ?: continue
+                    if (m.byFallback || m.group !in ColorGroupMatcher.TABLE_GROUPS) continue
+                    val user = spec.groupColor(m.group, forced ?: isNight(config)) ?: continue
+                    var value = ColorGroupMatcher.groupValue(m.group, user, literal, match)
+                    if (m.group == ColorGroup.QS_PANEL_BG && qsAlpha < OPAQUE_ALPHA) value = ColorMath.withAlpha(value, qsAlpha)
+                    values[key] = value
+                    groups[key] = m.group
+                    tableObserved[key] = literal
+                    reached += key
+                    tableAdded++
+                }
+            }
+        }
+
+        for ((pinKey, pin) in spec.colorPins) {
+            if (pinKey.substringBefore(':', "") != pkg) continue
+            val typeName = rules.rename(pinKey.substringAfter(':'))
+            val existing = (values.keys + fixed.keys).filter { it.first == typeName }.map { it.second }.distinct()
+            val configs = existing.ifEmpty { if (pin is ColorPin.Shade) listOf("", "night") else listOf("") }
+            for (config in configs) {
+                val key = typeName to config
+                values[key] = when (pin) {
+                    is ColorPin.Fixed -> pin.argb
+                    is ColorPin.Shade -> resolved().scheme(isNight(config)).shade(pin.role, pin.shade)
+                }
+                fixed.remove(key)
+                reached.remove(key)
+            }
+        }
+
+        val qsSkipped = mutableListOf<Skipped>()
+        var dropped = 0
+        var verbatim = 0
+        if (pkg == SYSTEMUI) {
+            val qs = rules.quickSettings
+            val it = values.entries.iterator()
+            while (it.hasNext()) {
+                val entry = it.next()
+                val key = entry.key
+                val (typeName, config) = key
+                if (!qs.allowsColour(typeName.substringAfter('/'))) {
+                    qsSkipped += Skipped(display(typeName, config), REASON_QS_POLICY)
+                    // Reported once, as a policy skip, not also as "kept fixed".
+                    fixed.remove(key)
+                    reached.remove(key)
+                    val samsung = observed[key]
+                    if (samsung != null) {
+                        // Apply disables SemWT, so Samsung's value is copied verbatim or the stock APK colour returns.
+                        entry.setValue(samsung)
+                        verbatim++
+                    } else {
+                        // Only a pin wrote it; SemWT never set it, so leaving it out keeps the stock value.
+                        it.remove()
+                    }
+                    dropped++
+                }
+            }
+        }
+        return ColorDecisions(values, fixed, observed, inferred, groups, reached, tableObserved, tableAdded, qsSkipped, dropped, verbatim)
+    }
+
+    /**
+     * Maps planned [values] onto [table] per configuration: the overlay colours, and the names the
+     * table lacks ([ResourceMapper.REASON_NOT_IN_TARGET]) as skips named `pkg:type/name`.
+     */
+    internal fun mapColors(
+        pkg: String,
+        table: ResourceTable,
+        semwt: FabricatedOverlayFile?,
+        values: Map<Pair<String, String>, Int>,
+    ): Pair<List<PlannedColor>, List<Skipped>> {
+        val out = mutableListOf<PlannedColor>()
+        val skipped = mutableListOf<Skipped>()
+        for ((config, group) in values.entries.groupBy({ it.key.second }, { it.key.first to it.value })) {
+            val plan = ResourceMapper.map(table, semwt, ThemeRequest(colors = group.toMap(LinkedHashMap())))
+            plan.colorEntries.mapTo(out) { it.copy(configuration = config) }
+            plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name.substringAfter(':')}", it.reason) }
+        }
+        return out to skipped
+    }
 
     private class TargetContext(
         val spec: ThemeSpec,
@@ -373,66 +640,20 @@ public object ThemeCompiler {
         private fun display(typeName: String, config: String) = "$pkg:$typeName" + if (config.isEmpty()) "" else " [$config]"
 
         private fun compileColors(): List<PlannedColor> {
-            val values = LinkedHashMap<Pair<String, String>, Int>()
-            val fixed = LinkedHashMap<Pair<String, String>, Skipped>()
-            // Samsung's observed SemWT value per key, before recolouring or pins.
-            val observed = HashMap<Pair<String, String>, Int>()
-            for (e in semwt?.entries.orEmpty()) {
-                if (e.dataType !in COLOR_TYPES) continue
-                val typeName = rules.rename(e.typeAndName)
-                val config = e.configuration.orEmpty()
-                val key = typeName to config
-                // RGB8 / RGB4 values can arrive with the alpha byte cleared; they are opaque.
-                val data = if (e.dataType == TYPE_RGB8 || e.dataType == TYPE_RGB4) e.data or OPAQUE else e.data
-                observed[key] = data
-                val out = RoleInference.recolor(data, device.systemShades, resolved(), isNight(config))
-                if (out == null) {
-                    // Apply disables SemWT, so its value is copied verbatim or the stock APK colour returns.
-                    fixed[key] = Skipped(display(typeName, config), REASON_FIXED)
-                    values[key] = data
-                } else {
-                    values[key] = out
-                }
+            val d = planColors(pkg, table, semwt, ShadeReference(device.systemShades), spec, rules, resolved)
+            if (d.reached.isNotEmpty()) {
+                val perGroup = d.reached.mapNotNull { d.groups[it] }.groupingBy { it }.eachCount()
+                event(
+                    LogLevel.INFO, pkg, "group colours",
+                    mapOf(
+                        "count" to d.reached.size.toString(),
+                        "fromApk" to d.tableAdded.toString(),
+                    ) + ColorGroup.ALL.mapNotNull { g -> perGroup[g]?.let { g.id to it.toString() } },
+                )
             }
-            for ((pinKey, pin) in spec.colorPins) {
-                if (pinKey.substringBefore(':', "") != pkg) continue
-                val typeName = rules.rename(pinKey.substringAfter(':'))
-                val existing = (values.keys + fixed.keys).filter { it.first == typeName }.map { it.second }.distinct()
-                val configs = existing.ifEmpty { if (pin is ColorPin.Shade) listOf("", "night") else listOf("") }
-                for (config in configs) {
-                    val key = typeName to config
-                    values[key] = when (pin) {
-                        is ColorPin.Fixed -> pin.argb
-                        is ColorPin.Shade -> resolved().scheme(isNight(config)).shade(pin.role, pin.shade)
-                    }
-                    fixed.remove(key)
-                }
-            }
+            skipped += d.qsSkipped
             if (pkg == SYSTEMUI) {
                 val qs = rules.quickSettings
-                var dropped = 0
-                var verbatim = 0
-                val it = values.entries.iterator()
-                while (it.hasNext()) {
-                    val entry = it.next()
-                    val key = entry.key
-                    val (typeName, config) = key
-                    if (!qs.allowsColour(typeName.substringAfter('/'))) {
-                        skipped += Skipped(display(typeName, config), REASON_QS_POLICY)
-                        // Reported once, as a policy skip, not also as "kept fixed".
-                        fixed.remove(key)
-                        val samsung = observed[key]
-                        if (samsung != null) {
-                            // Apply disables SemWT, so Samsung's value is copied verbatim or the stock APK colour returns.
-                            entry.setValue(samsung)
-                            verbatim++
-                        } else {
-                            // Only a pin wrote it; SemWT never set it, so leaving it out keeps the stock value.
-                            it.remove()
-                        }
-                        dropped++
-                    }
-                }
                 val deviceMajor = device.oneUi.version?.major
                 event(
                     LogLevel.INFO, pkg,
@@ -443,28 +664,24 @@ public object ThemeCompiler {
                         "deviceOneUi" to (device.oneUi.version?.name ?: "unknown"),
                         "rulesFallback" to (deviceMajor != rules.major).toString(),
                         "allowlist" to if (qs.colours.isEmpty()) "pattern" else qs.colours.size.toString(),
-                        "colours" to (values.size - verbatim).toString(),
-                        "dropped" to dropped.toString(),
-                        "verbatim" to verbatim.toString(),
+                        "colours" to (d.values.size - d.qsVerbatim).toString(),
+                        "dropped" to d.qsDropped.toString(),
+                        "verbatim" to d.qsVerbatim.toString(),
                     ),
                 )
             }
 
             // Reported after the Quick Settings filter so only colours actually written verbatim are counted.
-            if (fixed.isNotEmpty()) {
+            if (d.fixed.isNotEmpty()) {
                 event(
                     LogLevel.WARN, pkg, "colours kept fixed",
-                    mapOf("count" to fixed.size.toString(), "names" to fixed.values.take(20).joinToString(",") { it.name }),
+                    mapOf("count" to d.fixed.size.toString(), "names" to d.fixed.values.take(20).joinToString(",") { it.name }),
                 )
             }
-            skipped += fixed.values
+            skipped += d.fixed.values
 
-            val out = mutableListOf<PlannedColor>()
-            for ((config, group) in values.entries.groupBy({ it.key.second }, { it.key.first to it.value })) {
-                val plan = ResourceMapper.map(table, semwt, ThemeRequest(colors = group.toMap(LinkedHashMap())))
-                plan.colorEntries.mapTo(out) { it.copy(configuration = config) }
-                plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name.substringAfter(':')}", it.reason) }
-            }
+            val (out, mapped) = mapColors(pkg, table, semwt, d.values)
+            skipped += mapped
             return out
         }
 
@@ -490,6 +707,11 @@ public object ThemeCompiler {
             customJobs(spec.customIcons, CustomAssets.CATEGORY_ICON, jobs, overridden)
             customJobs(spec.customBackgrounds, CustomAssets.CATEGORY_BACKGROUND, jobs, overridden)
             if (pkg == SETTINGS && spec.synthesizeMissingIcons) synthesisJobs(jobs, overridden)
+            if (spec.builtInIcons) {
+                for (j in IconColors.builtInJobs(spec, pkg, table, rules, jobs.keys.toSet(), overridden, resolved())) {
+                    jobs.putIfAbsent(j.resourceName to j.configuration, j)
+                }
+            }
             return jobs.values.toList()
         }
 
@@ -569,7 +791,9 @@ public object ThemeCompiler {
                     jobs[resourceName to config] = PlannedDrawableJob(
                         resourceName, config, CompositePlan(emptyList()), ninePatch = false,
                         source = reference.source.copy(resourceName = name), elementId = SETTINGS_ICONS,
-                        synthesis = IconSynthesis(row, reference),
+                        synthesis = IconSynthesis(
+                            row, IconColors.styleReference(spec.iconStyle, reference, resourceName, isNight(config), resolved()),
+                        ),
                     )
                     event(
                         LogLevel.INFO, pkg, "icon synthesised",
@@ -602,7 +826,11 @@ public object ThemeCompiler {
             // and never for colours-only elements (tile shapes).
             val qsBlocked = pkg == SYSTEMUI &&
                 (!rules.quickSettings.drawablesAllowed || element.quickSettingsPolicy == QuickSettingsPolicy.COLOURS_ONLY)
-            val palette = if (options["palette"] == "pack") emptyMap() else pack.paletteArgb + derived()
+            val palette = if (options["palette"] == "pack" || IconColors.keepsPackPalette(spec.iconStyle, element.id)) {
+                emptyMap()
+            } else {
+                pack.paletteArgb + derived()
+            }
             val entryNames = packs.entryNames(pack.id).ifEmpty { null }
             val jobs = LinkedHashMap<Pair<String, String>, PlannedDrawableJob>()
             val dayWinners = LinkedHashMap<Pair<String, String>, Pair<PlannedDrawable, CategoryName>>()
@@ -610,7 +838,11 @@ public object ThemeCompiler {
             val nightSources = HashMap<Pair<String, String>, CategoryName>()
 
             fun job(pd: PlannedDrawable, category: CategoryName, night: Boolean, density: String): PlannedDrawableJob? {
-                val plan = LayerPlanner.plan(pack, category.raw, pd.source.resourceName, palette, night, entryNames)
+                val plan = IconColors.style(
+                    spec.iconStyle, element.id,
+                    LayerPlanner.plan(pack, category.raw, pd.source.resourceName, palette, night, entryNames),
+                    pd.resourceName, night, resolved(),
+                )
                 if (plan.isEmpty) {
                     skipped += Skipped(pd.resourceName, REASON_NO_LAYERS)
                     return null

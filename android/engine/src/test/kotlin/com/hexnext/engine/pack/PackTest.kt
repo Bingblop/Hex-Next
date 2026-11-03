@@ -84,10 +84,10 @@ class PackTest {
         val plan = LayerPlanner.plan(pack, "navbar", "ic_sysbar_back", mapOf("xy2" to 0xFF00FF00.toInt()), night = true, PackReader.entryNames(zip))
         assertEquals(
             listOf(
-                CompositeStep("layers/once/base/xx1/navbar/ic_sysbar_back.png", 0xFF111111.toInt()),
+                CompositeStep("layers/once/base/xx1/navbar/ic_sysbar_back.png", 0xFF111111.toInt(), slot = "xx1"),
                 CompositeStep("layers/once/first/H80FF0000/navbar/ic_sysbar_back.png", 0x80FF0000.toInt()),
-                CompositeStep("layers/twice/base/xy2/navbar/ic_sysbar_back.9.png", 0xFF00FF00.toInt()),
-                CompositeStep("layers/twice/first/zz9/navbar/ic_sysbar_back.png", null),
+                CompositeStep("layers/twice/base/xy2/navbar/ic_sysbar_back.9.png", 0xFF00FF00.toInt(), slot = "xy2"),
+                CompositeStep("layers/twice/first/zz9/navbar/ic_sysbar_back.png", null, slot = "zz9"),
             ),
             plan.steps,
         )

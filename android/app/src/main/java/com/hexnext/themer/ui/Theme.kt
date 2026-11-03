@@ -180,6 +180,94 @@ fun seededColorScheme(seed: Int, dark: Boolean, contrast: ContrastLevel): ColorS
     }
 }
 
+/**
+ * The console scheme of the theme editor ([PaletteSource.CONSOLE]): navy surfaces with cyan
+ * (primary), coral (secondary) and amber (tertiary) accents when [dark]; a cool paper-white
+ * variant otherwise. [pureBlack] blackens the dark backgrounds like the other schemes.
+ */
+fun consoleColorScheme(dark: Boolean, pureBlack: Boolean = false): ColorScheme {
+    val scheme = if (dark) {
+        darkColorScheme(
+            primary = Color(0xFF22D3EE),
+            onPrimary = Color(0xFF032A33),
+            primaryContainer = Color(0xFF0E3A47),
+            onPrimaryContainer = Color(0xFFA5F3FC),
+            inversePrimary = Color(0xFF0891B2),
+            secondary = Color(0xFFFF5A6E),
+            onSecondary = Color(0xFF3A0710),
+            secondaryContainer = Color(0xFF4A1622),
+            onSecondaryContainer = Color(0xFFFFD1D8),
+            tertiary = Color(0xFFFBBF24),
+            onTertiary = Color(0xFF2E2000),
+            tertiaryContainer = Color(0xFF3D2E07),
+            onTertiaryContainer = Color(0xFFFDE68A),
+            background = Color(0xFF0B1220),
+            onBackground = Color(0xFFE6EDF7),
+            surface = Color(0xFF0B1220),
+            onSurface = Color(0xFFE6EDF7),
+            surfaceVariant = Color(0xFF162238),
+            onSurfaceVariant = Color(0xFF8A9BB4),
+            surfaceTint = Color(0xFF22D3EE),
+            inverseSurface = Color(0xFFE6EDF7),
+            inverseOnSurface = Color(0xFF111A2B),
+            error = Color(0xFFF87171),
+            onError = Color(0xFF450A0A),
+            errorContainer = Color(0xFF5B1A1A),
+            onErrorContainer = Color(0xFFFECACA),
+            outline = Color(0xFF3A4A66),
+            outlineVariant = Color(0xFF24324A),
+            scrim = Color(0xFF000000),
+            surfaceBright = Color(0xFF1F2C44),
+            surfaceDim = Color(0xFF0B1220),
+            surfaceContainer = Color(0xFF111A2B),
+            surfaceContainerHigh = Color(0xFF162238),
+            surfaceContainerHighest = Color(0xFF1C2A42),
+            surfaceContainerLow = Color(0xFF0E1626),
+            surfaceContainerLowest = Color(0xFF080E1A),
+        )
+    } else {
+        lightColorScheme(
+            primary = Color(0xFF0891B2),
+            onPrimary = Color(0xFFFFFFFF),
+            primaryContainer = Color(0xFFCFF5FC),
+            onPrimaryContainer = Color(0xFF083344),
+            inversePrimary = Color(0xFF22D3EE),
+            secondary = Color(0xFFE11D48),
+            onSecondary = Color(0xFFFFFFFF),
+            secondaryContainer = Color(0xFFFFE0E6),
+            onSecondaryContainer = Color(0xFF4C0519),
+            tertiary = Color(0xFFB45309),
+            onTertiary = Color(0xFFFFFFFF),
+            tertiaryContainer = Color(0xFFFEF3C7),
+            onTertiaryContainer = Color(0xFF451A03),
+            background = Color(0xFFF4F7FB),
+            onBackground = Color(0xFF0B1220),
+            surface = Color(0xFFF4F7FB),
+            onSurface = Color(0xFF0B1220),
+            surfaceVariant = Color(0xFFE5EBF3),
+            onSurfaceVariant = Color(0xFF51627D),
+            surfaceTint = Color(0xFF0891B2),
+            inverseSurface = Color(0xFF162238),
+            inverseOnSurface = Color(0xFFE6EDF7),
+            error = Color(0xFFDC2626),
+            onError = Color(0xFFFFFFFF),
+            errorContainer = Color(0xFFFEE2E2),
+            onErrorContainer = Color(0xFF7F1D1D),
+            outline = Color(0xFF9AA8BE),
+            outlineVariant = Color(0xFFD5DDE8),
+            scrim = Color(0xFF000000),
+            surfaceBright = Color(0xFFFFFFFF),
+            surfaceDim = Color(0xFFDCE3ED),
+            surfaceContainer = Color(0xFFFFFFFF),
+            surfaceContainerHigh = Color(0xFFEEF2F8),
+            surfaceContainerHighest = Color(0xFFE5EBF3),
+            surfaceContainerLow = Color(0xFFF8FAFD),
+            surfaceContainerLowest = Color(0xFFFFFFFF),
+        )
+    }
+    return if (dark && pureBlack) scheme.pureBlack() else scheme
+}
+
 /** Pure black backgrounds for AMOLED screens; the same roles the compiled theme blackens. */
 private fun ColorScheme.pureBlack(): ColorScheme = copy(
     background = Color.Black,

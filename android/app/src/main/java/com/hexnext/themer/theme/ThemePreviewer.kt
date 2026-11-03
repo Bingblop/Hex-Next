@@ -8,6 +8,7 @@ import com.hexnext.engine.compile.CompiledTarget
 import com.hexnext.engine.compile.CompiledTheme
 import com.hexnext.engine.compile.CustomAssets
 import com.hexnext.engine.compile.Elements
+import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.OneUiRules
 import com.hexnext.engine.compile.PlannedDrawableJob
 import com.hexnext.engine.compile.ThemeCompiler
@@ -86,6 +87,9 @@ class ThemePreviewer(context: Context) {
      * @property fontFile absolute path of the chosen font's regular file, null for the system default.
      * @property fontName display name of the chosen font.
      * @property synthesised names (without type) of the [icons] the compiler generates in the pack's style.
+     * @property builtIn names (without type) of the [icons] and [myFiles] icons drawn from the app's
+     *   built-in art ([PlannedDrawableJob.badge]: no pack covers them and built-in icons are on).
+     * @property iconStyle the icon colour style the icons were rendered with.
      */
     data class Preview(
         val icons: List<PreviewIcon>,
@@ -96,6 +100,8 @@ class ThemePreviewer(context: Context) {
         val fontFile: String? = null,
         val fontName: String? = null,
         val synthesised: Set<String> = emptySet(),
+        val builtIn: Set<String> = emptySet(),
+        val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
     )
 
     /**
@@ -156,6 +162,7 @@ class ThemePreviewer(context: Context) {
         val icons = ArrayList<PreviewIcon>(MAX_ICONS)
         val myFiles = ArrayList<PreviewIcon>(MAX_MY_FILES)
         val synthesised = HashSet<String>()
+        val builtIn = HashSet<String>()
         var background: Bitmap? = null
         var failed = 0
         val customRoot = CustomAssetStore.rootDir(appContext)
@@ -170,11 +177,13 @@ class ThemePreviewer(context: Context) {
                 val job = rowJobs[name] ?: continue
                 val bitmap = bitmapOf(job)
                 if (job.synthesis != null) synthesised += name
+                if (job.badge != null) builtIn += name
                 icons += PreviewIcon(name, labelFor(name), bitmap)
             }
             for (job in myFilesJobs) {
                 if (myFiles.size >= MAX_MY_FILES) break
                 val name = job.resourceName.substringAfter('/')
+                if (job.badge != null) builtIn += name
                 myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmapOf(job))
             }
             if (backgroundJob != null) background = bitmapOf(backgroundJob)
@@ -186,7 +195,7 @@ class ThemePreviewer(context: Context) {
             icons.isEmpty() -> skippedNote(compiled.skippedTargets.firstOrNull { it.name == TARGET }?.reason)
             else -> null
         }
-        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised)
+        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle)
     }
 
     private fun slotsOrThrow(spec: ThemeSpec): SlotCatalogue {
@@ -435,7 +444,7 @@ class ThemePreviewer(context: Context) {
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"
         private const val MY_FILES_ICONS_ELEMENT = "my_files_icons"
-        private const val MAX_ICONS = 8
+        private const val MAX_ICONS = 12
         private const val MAX_MY_FILES = 8
         private const val NAME_PREFIX = "sec_ic_settings_"
 

@@ -149,6 +149,9 @@ import com.hexnext.themer.ui.onboarding.OnboardingScreen
 import com.hexnext.themer.ui.settings.AppSettingsScreen
 import com.hexnext.themer.ui.settings.AppSettingsStore
 import com.hexnext.themer.ui.settings.rememberSafeUriHandler
+import com.hexnext.themer.ui.studio.ResourceEditorScreen
+import com.hexnext.themer.ui.studio.StudioScreen
+import com.hexnext.themer.ui.studio.StudioTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -159,7 +162,8 @@ import java.io.File
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface as AndroidTypeface
 
-private val PRESETS = listOf(
+/** The 12 colour presets of the Studio's seed and colour pickers. */
+internal val COLOR_PRESETS: List<Int> = listOf(
     0xFF00E5FF, 0xFF3E7BFA, 0xFF7E57C2, 0xFFEC407A, 0xFFE53935, 0xFFFF7043,
     0xFFF4B400, 0xFF10B981, 0xFF34A853, 0xFF00A6A6, 0xFF8D6E63, 0xFF78909C,
 ).map { it.toInt() }
@@ -224,7 +228,8 @@ fun MainScreen(viewModel: MainViewModel) {
 @Composable
 private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState, settingsStore: AppSettingsStore) {
     when (target) {
-        Screen.MAIN -> EditorScreen(viewModel, ui, shizuku)
+        Screen.MAIN -> StudioTheme { StudioScreen(viewModel, ui, shizuku) }
+        Screen.RESOURCES -> StudioTheme { ResourceEditorScreen(viewModel, ui) }
         Screen.SETTINGS -> AppSettingsScreen(
             store = settingsStore,
             onBack = viewModel::navigateBack,
@@ -281,7 +286,7 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
  * "Root · One UI 8.0": the pill next to the title. The connection state comes first because it is
  * the part that changes; the version keeps only its One UI half, the Connection card has the rest.
  */
-private fun statusPillText(versionLine: String, state: ShizukuState): String {
+internal fun statusPillText(versionLine: String, state: ShizukuState): String {
     val connection = when (state) {
         is ShizukuState.Ready -> when {
             // su was found but Shizuku is not running: the service cannot commit overlays.
@@ -300,7 +305,7 @@ private fun statusPillText(versionLine: String, state: ShizukuState): String {
 }
 
 @Composable
-private fun StatusPill(text: String, ok: Boolean) {
+internal fun StatusPill(text: String, ok: Boolean) {
     Text(
         text,
         style = MaterialTheme.typography.labelSmall,
@@ -314,217 +319,8 @@ private fun StatusPill(text: String, ok: Boolean) {
     )
 }
 
-/** The editor: top bar with the status pill and the App settings gear, the cards, the snackbar. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditorScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
-    // Both saveable, so they survive a trip to Settings or Diagnostics (see MainScreen's holder).
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val ready = shizuku as? ShizukuState.Ready
-    val appSettings = LocalAppSettings.current
-    val haptic = LocalHapticFeedback.current
-    val snackbar = remember { SnackbarHostState() }
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-
-    // One snackbar per notice: haptic on arrival, the action when tapped. The notice is consumed
-    // only once the snackbar is gone (shown, dismissed, or the editor left while it showed, so it
-    // does not replay on return). Consuming it earlier would change this effect's key, and the
-    // key change cancels showSnackbar, which takes the snackbar down within a frame. An activity
-    // recreated for a configuration change (rotation, unfold, an overlay on android) also cancels
-    // the effect: the notice is kept then, so the new editor shows it again.
-    val notice = ui.notice
-    LaunchedEffect(notice?.id) {
-        val current = notice ?: return@LaunchedEffect
-        if (appSettings.haptics && (current.isError || current.isSuccess)) {
-            haptic.performHapticFeedback(if (current.isError) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
-        }
-        val result = try {
-            snackbar.showSnackbar(
-                message = current.message,
-                actionLabel = current.actionLabel,
-                withDismissAction = current.actionLabel == null,
-                duration = if (current.actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short,
-            )
-        } finally {
-            if (activity?.isChangingConfigurations != true) viewModel.consumeNotice(current.id)
-        }
-        if (result == SnackbarResult.ActionPerformed) {
-            when (current.action) {
-                NoticeAction.OPEN_DIAGNOSTICS -> viewModel.navigate(Screen.DIAGNOSTICS)
-                NoticeAction.REQUEST_PERMISSION -> viewModel.requestPermission()
-                NoticeAction.RETRY_APPLY -> viewModel.applyTheme()
-                NoticeAction.RETRY_REMOVE -> viewModel.removeTheme()
-                NoticeAction.CONFIRM_WORKS -> viewModel.confirmWorks()
-                null -> Unit
-            }
-        }
-    }
-
-    val locks = PackLocks.of(ui)
-    val onUnlock: (String) -> Unit = { productId -> activity?.let { viewModel.unlock(it, productId) } }
-    // "Describe your theme" may only pick packs this install can apply.
-    val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
-
-    val paletteHint = remember(ui.packs, ui.spec.simplePackId) {
-        ui.packs.firstOrNull { it.id == ui.spec.simplePackId }
-            ?.pack?.paletteArgb?.values?.map { it or 0xFF000000.toInt() }?.take(6).orEmpty()
-    }
-
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        // The keyboard counts as an inset, so the hex and description fields scroll clear of it.
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            LargeTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.semantics(mergeDescendants = true) {},
-                    ) {
-                        Text("Hex Next", fontWeight = FontWeight.SemiBold)
-                        StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "App settings")
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        // The Connection card is the first item, or the second behind the safe-mode banner.
-        val connectionIndex = if (ui.safeModeBanner != null) 1 else 0
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(
-                start = 16.dp + padding.calculateStartPadding(LayoutDirection.Ltr),
-                end = 16.dp + padding.calculateEndPadding(LayoutDirection.Ltr),
-                top = padding.calculateTopPadding() + 4.dp,
-                bottom = padding.calculateBottomPadding() + 24.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            ui.safeModeBanner?.let { banner ->
-                item(key = "safeMode") { SafeModeBanner(banner, failed = ui.safeModeFailed, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode) }
-            }
-            item(key = "connection") { StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission) }
-            item(key = "describe") {
-                DescribeThemeCard(
-                    packs = unlockedPacks,
-                    spec = ui.spec,
-                    busy = ui.busy,
-                    onApply = { _, newSpec ->
-                        // The apply path reads the seed from the preference, so both must move.
-                        viewModel.setSeed(newSpec.source.seedArgb)
-                        viewModel.replaceSpec(newSpec)
-                    },
-                    onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-                )
-            }
-            item(key = "colour") { ColorCard(seed = ui.seed, onSeed = viewModel::setSeed) }
-            item(key = "packs") {
-                PackCard(
-                    packs = ui.packs,
-                    errors = ui.packErrors,
-                    spec = ui.spec,
-                    busy = ui.busy,
-                    catalogue = ui.catalogue,
-                    locks = locks,
-                    onUnlock = onUnlock,
-                    onSelect = viewModel::selectPack,
-                    onMode = viewModel::setMode,
-                    onOption = viewModel::setOption,
-                    onElementPack = viewModel::setElementPack,
-                    onElementEnabled = viewModel::setElementEnabled,
-                    onImport = viewModel::importPack,
-                    onDelete = viewModel::deletePack,
-                    onCatalogueUrl = viewModel::setCatalogueUrl,
-                    onLoadCatalogue = viewModel::loadCatalogue,
-                    onDownload = viewModel::downloadPack,
-                )
-            }
-            item(key = "icons") {
-                CustomIconsCard(
-                    assets = ui.customIcons,
-                    slots = ui.iconSlots,
-                    slotsError = ui.slotsError,
-                    spec = ui.spec,
-                    busy = ui.busy,
-                    needsRoot = ui.capability == Capability.SHELL,
-                    paletteHint = paletteHint,
-                    fileOf = viewModel::assetFile,
-                    onImport = viewModel::importCustomIcon,
-                    onGenerated = viewModel::noteGeneratedIcon,
-                    onAssign = viewModel::assignIcon,
-                    onDelete = viewModel::deleteAsset,
-                    onSynthesize = viewModel::setSynthesizeMissingIcons,
-                    onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-                    onScan = viewModel::openScan,
-                )
-            }
-            item(key = "backgrounds") {
-                BackgroundsCard(
-                    assets = ui.customBackgrounds,
-                    slots = ui.backgroundSlots,
-                    slotsError = ui.slotsError,
-                    spec = ui.spec,
-                    busy = ui.busy,
-                    needsRoot = ui.capability == Capability.SHELL,
-                    fileOf = viewModel::assetFile,
-                    onImport = viewModel::importCustomBackground,
-                    onAssign = viewModel::assignBackground,
-                    onDelete = viewModel::deleteAsset,
-                    onScan = viewModel::openScan,
-                )
-            }
-            item(key = "fonts") {
-                FontCard(
-                    fonts = ui.customFonts,
-                    spec = ui.spec,
-                    busy = ui.busy,
-                    needsRoot = ui.capability == Capability.SHELL,
-                    fileOf = viewModel::assetFile,
-                    onImport = viewModel::importFont,
-                    onFont = viewModel::setFont,
-                    onBold = viewModel::setFontBold,
-                    onDelete = viewModel::deleteAsset,
-                )
-            }
-            item(key = "preview") { PreviewCard(ui.preview, onScan = viewModel::openScan) }
-            item(key = "apply") {
-                CompiledThemeCard(
-                    // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
-                    connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE,
-                    busy = ui.busy,
-                    // Only Apply theme or Remove theme shows as running; a pack download or import only disables the buttons.
-                    applying = ui.serviceBusy,
-                    report = ui.lastApply,
-                    unconfirmed = ui.applyUnconfirmed,
-                    protectionExpired = ui.applyProtectionExpired,
-                    progressLine = ui.log.lastOrNull()?.text,
-                    onApply = viewModel::applyTheme,
-                    onRemove = viewModel::removeTheme,
-                    onConfirmWorks = viewModel::confirmWorks,
-                    onDetails = { viewModel.navigate(Screen.DIAGNOSTICS) },
-                    onConnection = { scope.launch { listState.animateScrollToItem(connectionIndex) } },
-                )
-            }
-            if (ui.log.isNotEmpty()) {
-                item(key = "log") { LogCard(ui.log, onClear = viewModel::clearLog) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SafeModeBanner(text: String, failed: Boolean, onOpenDiagnostics: () -> Unit, onDismiss: () -> Unit) {
+internal fun SafeModeBanner(text: String, failed: Boolean, onOpenDiagnostics: () -> Unit, onDismiss: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Assertive },
         shape = MaterialTheme.shapes.large,
@@ -675,7 +471,7 @@ internal fun SectionCard(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StatusCard(
+internal fun StatusCard(
     state: ShizukuState,
     capability: Capability,
     versionLine: String,
@@ -757,7 +553,7 @@ internal fun connectionSummary(state: ShizukuState): String = when (state) {
 
 /** The access tier of the Connection card: tonal for a usable connection, error colours while disconnected. */
 @Composable
-private fun TierPill(capability: Capability) {
+internal fun TierPill(capability: Capability) {
     val ok = capability != Capability.NONE
     Text(
         capability.label,
@@ -773,7 +569,7 @@ private fun TierPill(capability: Capability) {
 
 /** "Needs root" at the right of a card title whose feature the colours-only tier cannot apply. */
 @Composable
-private fun NeedsRootBadge() {
+internal fun NeedsRootBadge() {
     Text(
         "Needs root",
         style = MaterialTheme.typography.labelSmall,
@@ -788,7 +584,7 @@ private fun NeedsRootBadge() {
 
 /** The one-line reason under a "Needs root" badge. */
 @Composable
-private fun NeedsRootReason(text: String) {
+internal fun NeedsRootReason(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
 }
 
@@ -858,46 +654,6 @@ internal fun RootGuide(links: Map<String, String>, startExpanded: Boolean = fals
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ColorCard(seed: Int, onSeed: (Int) -> Unit) {
-    SectionCard("Accent colour") {
-        Text(
-            "The main colour of your theme. Also used by the Settings test in Diagnostics.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color(seed))
-            )
-            Spacer(Modifier.width(16.dp))
-            HexField(seed, onSeed)
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            PRESETS.forEach { color ->
-                ColorSwatch(color = color, selected = color == seed, onClick = { onSeed(color) })
-            }
-        }
-        val hsv = remember(seed) { FloatArray(3).also { AndroidColor.colorToHSV(seed, it) } }
-        Text("Hue", style = MaterialTheme.typography.labelLarge)
-        Slider(
-            value = hsv[0],
-            onValueChange = { hue ->
-                onSeed(AndroidColor.HSVToColor(floatArrayOf(hue, hsv[1].coerceAtLeast(0.35f), hsv[2].coerceAtLeast(0.45f))))
-            },
-            valueRange = 0f..359f,
-            modifier = Modifier.semantics { contentDescription = "Hue" },
-        )
-    }
-}
-
 /**
  * One colour choice: a 36 dp circle inside a 48 dp touch target, announced as a radio button
  * named by its hex value. Shared with App settings' seed swatches.
@@ -926,8 +682,9 @@ internal fun ColorSwatch(color: Int, selected: Boolean, onClick: () -> Unit, ena
     }
 }
 
+/** A `#RRGGBB` field: [onSeed] gets every valid colour typed; an outside change of [seed] rewrites the text. */
 @Composable
-private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
+internal fun HexField(seed: Int, onSeed: (Int) -> Unit, modifier: Modifier = Modifier, label: String = "Hex") {
     var text by remember { mutableStateOf(seed.toHex()) }
     LaunchedEffect(seed) { if (parseHexColor(text) != seed) text = seed.toHex() }
     OutlinedTextField(
@@ -936,13 +693,13 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
             text = value
             parseHexColor(value)?.let(onSeed)
         },
-        label = { Text("Hex") },
+        label = { Text(label) },
         singleLine = true,
         isError = parseHexColor(text) == null,
         supportingText = { if (parseHexColor(text) == null) Text("Enter a colour like #3E7BFA") },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
@@ -953,7 +710,7 @@ private fun HexField(seed: Int, onSeed: (Int) -> Unit) {
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun PackCard(
+internal fun PackCard(
     packs: List<InstalledPack>,
     errors: Map<String, String>,
     spec: ThemeSpec,
@@ -1130,7 +887,7 @@ internal val RADIO_INDENT = 56.dp
  * selectable node (named by its text, with its selected state); the button only draws.
  */
 @Composable
-private fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+internal fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1154,7 +911,7 @@ private fun packSummary(pack: InstalledPack): String = listOfNotNull(
 
 /** A switch row written like [PackRow]: label left, [Switch] right, the whole row one toggleable node. */
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1390,7 +1147,7 @@ private fun rememberThumbnail(file: File, targetPx: Int = 192): ImageBitmap? {
  * [FontFamilyCache], so list items that scroll back into view do not parse it again.
  */
 @Composable
-private fun rememberFontFamily(path: String?): FontFamily? {
+internal fun rememberFontFamily(path: String?): FontFamily? {
     val state = produceState(initialValue = path?.let(FontFamilyCache::peek), key1 = path) {
         value = path?.let { p ->
             withContext(Dispatchers.IO) { FontFamilyCache.load(File(p)) }
@@ -1494,7 +1251,7 @@ private fun ConfirmAssetDelete(asset: CustomAssetStore.Asset, text: String, onCo
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CustomIconsCard(
+internal fun CustomIconsCard(
     assets: List<CustomAssetStore.Asset>,
     slots: List<ThemePreviewer.IconSlot>,
     slotsError: String?,
@@ -1510,6 +1267,8 @@ private fun CustomIconsCard(
     onSynthesize: (Boolean) -> Unit,
     onOpenProviders: () -> Unit,
     onScan: () -> Unit,
+    /** False when the icon style card already carries the synthesis switch (the Studio's Icons step). */
+    showSynthesize: Boolean = true,
 ) {
     var assigning by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1532,12 +1291,14 @@ private fun CustomIconsCard(
         if (needsRoot) {
             NeedsRootReason("Custom icons replace system images, which needs root. Your colours still apply.")
         }
-        SwitchRow(
-            label = "Fill in missing Settings icons in the pack's style",
-            checked = spec.synthesizeMissingIcons,
-            enabled = !locked,
-            onCheckedChange = onSynthesize,
-        )
+        if (showSynthesize) {
+            SwitchRow(
+                label = "Fill in missing Settings icons in the pack's style",
+                checked = spec.synthesizeMissingIcons,
+                enabled = !locked,
+                onCheckedChange = onSynthesize,
+            )
+        }
         if (assets.isEmpty()) {
             EmptyState(
                 icon = Icons.Outlined.Add,
@@ -1626,7 +1387,7 @@ private fun CustomIconsCard(
 
 /** Imported backgrounds and the background drawables of the last scan they can fill. */
 @Composable
-private fun BackgroundsCard(
+internal fun BackgroundsCard(
     assets: List<CustomAssetStore.Asset>,
     slots: List<BackgroundSlots.Slot>,
     slotsError: String?,
@@ -1824,7 +1585,7 @@ private fun SlotDialog(
  * face; the chosen font can take a second file for bold. A sample line shows the choice.
  */
 @Composable
-private fun FontCard(
+internal fun FontCard(
     fonts: List<CustomAssetStore.Asset>,
     spec: ThemeSpec,
     busy: Boolean,
@@ -1943,153 +1704,6 @@ private fun FontCard(
         )
     }
 }
-
-// ---- Preview ----
-
-private val PREVIEW_SAMPLE = "The quick brown fox jumps over the lazy dog"
-
-/**
- * The theme as it will apply, rendered from the last device scan: a phone-shaped mock of the
- * Settings dashboard with the planned icons (pack, custom and generated), the chosen background
- * and font, and a strip of My Files icons. Nothing is clickable.
- */
-@Composable
-private fun PreviewCard(preview: PreviewState, onScan: () -> Unit) {
-    SectionCard("Preview") {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                "Settings as it will look, drawn from the last phone scan.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            preview.accent?.let { accent ->
-                Text("Accent", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Box(
-                    Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(Color(accent))
-                )
-            }
-        }
-        if (preview.loading) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("Rendering…", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        PhoneMock(preview)
-        preview.note?.let { note ->
-            val failed = note.startsWith("Could not")
-            // Without a scan the previewer has nothing to draw: give the user the scan, not a sentence about it.
-            if (preview.icons.isEmpty() && !failed && note.contains("scan", ignoreCase = true)) {
-                EmptyState(
-                    icon = Icons.Outlined.Search,
-                    text = "Scan your phone once to preview the icons.",
-                    actionLabel = "Scan phone",
-                    onAction = onScan,
-                )
-            } else {
-                Text(
-                    note.replace("device scan", "phone scan"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/** The phone-shaped mock of [PreviewCard]. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun PhoneMock(preview: PreviewState) {
-    val family = rememberFontFamily(preview.fontFile)
-    val accent = preview.accent?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
-    val rows = remember(preview.icons) { preview.icons.ifEmpty { ThemePreviewer.defaultRows(PREVIEW_ROWS) }.take(PREVIEW_ROWS) }
-    val background = preview.background
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            // One stop for the whole mock: nothing in it is interactive and every icon has its label beside it.
-            .semantics(mergeDescendants = true) { contentDescription = "Preview of Settings with your theme" }
-    ) {
-        if (background != null) {
-            Image(
-                background.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize(),
-            )
-        }
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .background(
-                    if (background != null) MaterialTheme.colorScheme.surface.copy(alpha = 0.78f) else Color.Transparent,
-                    RoundedCornerShape(16.dp),
-                )
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, fontFamily = family)
-            rows.forEach { icon ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    val bitmap = icon.bitmap
-                    if (bitmap != null) {
-                        Image(bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(48.dp))
-                    } else {
-                        Box(
-                            Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(accent.copy(alpha = 0.35f))
-                        )
-                    }
-                    Column {
-                        Text(icon.label, style = MaterialTheme.typography.bodyMedium, fontFamily = family, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (icon.name in preview.synthesised) {
-                            Text("generated", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-            if (preview.myFiles.isNotEmpty()) {
-                Text("My Files", style = MaterialTheme.typography.titleSmall, fontFamily = family)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    preview.myFiles.forEach { icon ->
-                        val bitmap = icon.bitmap
-                        if (bitmap != null) {
-                            Image(bitmap.asImageBitmap(), contentDescription = null, modifier = Modifier.size(40.dp))
-                        } else {
-                            Box(
-                                Modifier
-                                    .size(40.dp)
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(accent.copy(alpha = 0.35f))
-                            )
-                        }
-                    }
-                }
-            }
-            Text(PREVIEW_SAMPLE, style = MaterialTheme.typography.bodyMedium, fontFamily = family)
-            Text(
-                preview.fontName?.let { "Font: $it" } ?: "Font: system default",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-private const val PREVIEW_ROWS = 6
 
 /**
  * The "Get packs" dialog: the catalogue is fetched when the dialog opens empty, so the default
@@ -2221,7 +1835,7 @@ private fun CatalogueRow(
  * carries the "It works" confirmation while restart protection is armed.
  */
 @Composable
-private fun CompiledThemeCard(
+internal fun CompiledThemeCard(
     connected: Boolean,
     busy: Boolean,
     applying: Boolean,

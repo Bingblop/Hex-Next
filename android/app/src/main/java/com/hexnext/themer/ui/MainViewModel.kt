@@ -11,8 +11,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.hexnext.engine.compile.ApplyReport
+import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.engine.compile.ColorGroupMatcher
+import com.hexnext.engine.compile.ColorPin
+import com.hexnext.engine.compile.GroupCount
+import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.LiveOption
 import com.hexnext.engine.compile.CustomFont
+import com.hexnext.engine.compile.OneUiRules
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import com.hexnext.engine.compile.withCustomBackground
@@ -21,8 +27,13 @@ import com.hexnext.engine.compile.withElementEnabled
 import com.hexnext.engine.compile.withElementPack
 import com.hexnext.engine.compile.withFont
 import com.hexnext.engine.compile.withOption
+import com.hexnext.engine.compile.withAllGroupsAuto
+import com.hexnext.engine.compile.withGroupColor
 import com.hexnext.engine.compile.withSynthesizeMissingIcons
 import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.palette.PaletteStyle
+import com.hexnext.engine.palette.ThemeAdjustments
+import com.hexnext.engine.palette.ThemeResolver
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.EntitlementsProvider
@@ -45,29 +56,42 @@ import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.PackStore
 import com.hexnext.themer.theme.SemWtController
+import com.hexnext.themer.theme.SnapshotBuilder
+import com.hexnext.themer.theme.StyledIconPreview
 import com.hexnext.themer.theme.ThemeApplier
 import com.hexnext.themer.theme.ThemePreviewer
 import com.hexnext.themer.theme.ThemeStore
 import com.hexnext.themer.theme.formatOneUi
 import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.studio.PreviewIcon
+import com.hexnext.themer.ui.studio.StudioPreviewState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Collections
+import java.util.WeakHashMap
 
 /** The full-screen destinations of the app; [MainViewModel.screen] holds the current one. */
-enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING }
+enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING, RESOURCES }
 
 /** What a [Notice] offers to do besides dismissing itself. */
 enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE, CONFIRM_WORKS }
@@ -177,6 +201,8 @@ data class PreviewState(
     val fontFile: String? = null,
     val fontName: String? = null,
     val synthesised: Set<String> = emptySet(),
+    /** Names of the icons drawn from the app's built-in art (no pack covers them). */
+    val builtIn: Set<String> = emptySet(),
 )
 
 /** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
@@ -221,6 +247,77 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     private val _ui = MutableStateFlow(initialState())
     val ui: StateFlow<UiState> = _ui.asStateFlow()
+
+    // ---- Studio live preview ----
+
+    /** The spec a drag is showing (live colours only, never saved); null when nothing is dragged. */
+    private val draft = MutableStateFlow<EngineThemeSpec?>(null)
+
+    /** The primary seed a drag is showing; null when nothing is dragged (the seed lives outside the spec). */
+    private val draftSeed = MutableStateFlow<Int?>(null)
+
+    /** The group the Studio is editing; the phone preview outlines its elements. */
+    private val highlight = MutableStateFlow<ColorGroup?>(null)
+
+    /** Built-in badge icons for the preview when the compile preview has none (no scan, no pack icons). */
+    private val styledIcons = StyledIconPreview(app)
+
+    /** Compose wrappers of the preview bitmaps, by bitmap identity, so an unchanged icon stays equal. */
+    private val imageCache: MutableMap<Bitmap, ImageBitmap> = Collections.synchronizedMap(WeakHashMap())
+
+    /**
+     * The icon half of [studioPreview]: rendered from the debounced compile preview, or built-in
+     * badges in the current icon style when it has none. Keyed on the committed spec (never the
+     * draft), so a slider drag never re-renders icons.
+     */
+    private val iconPart: StateFlow<StudioIcons> = _ui
+        .map { IconInputs(it.preview, it.spec.iconStyle, it.spec.source.copy(seedArgb = it.seed), it.spec.darkAdjustments, it.spec.lightAdjustments, it.spec.builtInIcons) }
+        .distinctUntilChanged()
+        .conflate()
+        .map { studioIcons(it) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudioIcons(loading = true))
+
+    /**
+     * Everything the Studio's phone mockup draws: the colours of the draft (or the stored spec) with
+     * the primary seed, recomputed on every edit without a scan or a compile, plus the icons,
+     * background and font of the last compile preview.
+     */
+    val studioPreview: StateFlow<StudioPreviewState> = combine(
+        _ui.map { ColourInputs(it.spec, it.seed) }.distinctUntilChanged(),
+        draft,
+        draftSeed,
+        highlight,
+        iconPart,
+    ) { base, draftSpec, seedDraft, highlighted, icons ->
+        val spec = draftSpec ?: base.spec
+        StudioPreviewState.colorsOf(spec, seedDraft ?: base.seed).copy(
+            settingsIcons = icons.settings,
+            myFilesIcons = icons.myFiles,
+            background = icons.background,
+            fontFile = icons.fontFile,
+            fontName = icons.fontName,
+            highlightedGroup = highlighted,
+            qsPanelAlpha = spec.qsPanelAlpha / 255f,
+            iconsLoading = icons.loading,
+            hasScan = icons.hasScan,
+            note = icons.note,
+        )
+    }
+        .conflate()
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudioPreviewState.colorsOf(_ui.value.spec, _ui.value.seed))
+
+    /** Resources per element group over every scanned app, for the element colour rows; empty without a scan. */
+    private val _groupCounts = MutableStateFlow<Map<ColorGroup, GroupCount>>(emptyMap())
+    val groupCounts: StateFlow<Map<ColorGroup, GroupCount>> = _groupCounts.asStateFlow()
+
+    /** The scan stamp [_groupCounts] was computed from; null before the first count. Main thread only. */
+    private var groupCountsStamp: String? = null
+
+    /** True once the Studio showed the counts: a new scan then recounts them. */
+    private var groupCountsWanted = false
+    private var groupCountsJob: Job? = null
 
     /** Screens the user came through, so back returns to them (settings → AI providers → back → settings). */
     private val backStack = ArrayDeque<Screen>(
@@ -526,6 +623,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val seed = color or OPAQUE
         prefs.edit().putInt(PREF_SEED, seed).apply()
         _ui.update { it.copy(seed = seed) }
+        draftSeed.value = null
         refreshPreview()
     }
 
@@ -735,6 +833,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         fontFile = rendered.fontFile,
                         fontName = rendered.fontName,
                         synthesised = rendered.synthesised,
+                        builtIn = rendered.builtIn,
                     ),
                 )
             }
@@ -757,6 +856,188 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun invalidateSlots() {
         slotsSignature = null
         refreshPreview()
+        // A new scan changes the element colour counts too; recount once they were shown.
+        if (groupCountsWanted) loadGroupCounts()
+    }
+
+    // ---- Colour Studio ----
+
+    /** The colour inputs of [studioPreview] that come from [UiState]. */
+    private data class ColourInputs(val spec: EngineThemeSpec, val seed: Int)
+
+    /** What the icon half of [studioPreview] depends on. */
+    private data class IconInputs(
+        val preview: PreviewState,
+        val style: IconColorStyle,
+        val source: com.hexnext.engine.palette.ThemeSource,
+        val dark: ThemeAdjustments,
+        val light: ThemeAdjustments,
+        val builtIn: Boolean,
+    )
+
+    /** The icon half of [studioPreview]. */
+    private data class StudioIcons(
+        val settings: List<PreviewIcon> = emptyList(),
+        val myFiles: List<PreviewIcon> = emptyList(),
+        val background: ImageBitmap? = null,
+        val fontFile: String? = null,
+        val fontName: String? = null,
+        val loading: Boolean = false,
+        val hasScan: Boolean = false,
+        val note: String? = null,
+    )
+
+    private fun imageOf(bitmap: Bitmap): ImageBitmap = imageCache.getOrPut(bitmap) { bitmap.asImageBitmap() }
+
+    /** Background thread only: converts the compile preview, filling in built-in badges where it has no icons. */
+    private fun studioIcons(inputs: IconInputs): StudioIcons {
+        val preview = inputs.preview
+        val fallback = preview.accent ?: inputs.source.seedArgb
+        val synthesised = preview.synthesised
+        var settings = preview.icons.map { icon ->
+            PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback, synthesised = icon.name in synthesised)
+        }
+        var myFiles = preview.myFiles.map { icon ->
+            PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback)
+        }
+        // Built-in badges stand in only when Apply would draw them too (built-in icons on), so the
+        // preview never shows colourful icons the phone will not get.
+        val needSettings = inputs.builtIn && settings.none { it.bitmap != null }
+        val needMyFiles = inputs.builtIn && myFiles.none { it.bitmap != null }
+        if (needSettings || needMyFiles) {
+            runCatching {
+                val theme = ThemeResolver.resolve(inputs.source, inputs.dark, inputs.light)
+                if (needSettings) {
+                    settings = styledIcons.settingsIcons(inputs.style, theme, false, STUDIO_ICON_PX, STUDIO_SETTINGS_ICONS)
+                        .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
+                        .ifEmpty { settings }
+                }
+                if (needMyFiles) {
+                    myFiles = styledIcons.myFilesIcons(inputs.style, theme, false, STUDIO_ICON_PX, STUDIO_MY_FILES_ICONS)
+                        .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
+                        .ifEmpty { myFiles }
+                }
+            }
+        }
+        return StudioIcons(
+            settings = settings,
+            myFiles = myFiles,
+            background = preview.background?.let(::imageOf),
+            fontFile = preview.fontFile,
+            fontName = preview.fontName,
+            loading = preview.loading,
+            hasScan = SnapshotBuilder.scanStamp(getApplication<Application>()) != null,
+            note = preview.note,
+        )
+    }
+
+    /**
+     * Applies [block] to the stored theme (persisted, preview re-rendered), like every other spec
+     * change, and ends a drag preview. For Studio controls that have no dedicated setter.
+     */
+    fun editSpec(block: (EngineThemeSpec) -> EngineThemeSpec) = commitSpec(block)
+
+    /** A committed Studio edit: the stored spec changes first, then the drag preview ends, so the colours never step back. */
+    private fun commitSpec(block: (EngineThemeSpec) -> EngineThemeSpec) {
+        updateSpec(block)
+        draft.value = null
+    }
+
+    /**
+     * Shows [spec] in the live preview without saving it (a slider being dragged); null returns
+     * the preview to the stored theme. The final value is committed with a setter on release.
+     */
+    fun previewDraft(spec: EngineThemeSpec?) {
+        draft.value = spec
+    }
+
+    /** As [previewDraft], for the primary seed (which lives outside the spec); null ends it. [setSeed] commits. */
+    fun previewSeed(argb: Int?) {
+        draftSeed.value = argb?.or(OPAQUE)
+    }
+
+    /** The secondary seed (its hue replaces the secondary palette's); null is Auto. */
+    fun setSecondarySeed(argb: Int?) = commitSpec { it.copy(source = it.source.copy(secondaryArgb = argb?.or(OPAQUE))) }
+
+    /** The tertiary seed (its hue replaces the tertiary palette's); null is Auto. */
+    fun setTertiarySeed(argb: Int?) = commitSpec { it.copy(source = it.source.copy(tertiaryArgb = argb?.or(OPAQUE))) }
+
+    /** The Monet scheme variant the palettes are built with. */
+    fun setPaletteStyle(style: PaletteStyle) = commitSpec { it.copy(source = it.source.copy(style = style)) }
+
+    /** Scheme contrast, -1 … 1 (0 is standard). */
+    fun setContrast(contrast: Double) = commitSpec { it.copy(source = it.source.copy(contrast = contrast.coerceIn(-1.0, 1.0))) }
+
+    /** Changes the light ([night] false) or dark adjustments. */
+    fun setAdjustments(night: Boolean, block: (ThemeAdjustments) -> ThemeAdjustments) = commitSpec { it.withAdjustments(night, block) }
+
+    /**
+     * Pins Monet shade [key] (`accent1_500`, with or without the `system_` prefix) to [argb] in the
+     * dark ([night]) or light scheme; null unpins it.
+     */
+    fun setShadeOverride(night: Boolean, key: String, argb: Int?) = commitSpec { it.withShadeOverride(night, key, argb) }
+
+    /** The colour of element [group] in one mode; null returns that mode to Auto. */
+    fun setGroupColor(group: ColorGroup, night: Boolean, argb: Int?) = commitSpec { it.withGroupColor(group, night, argb) }
+
+    /** The colour of element [group] in both modes; null returns both to Auto. */
+    fun setGroupColorBoth(group: ColorGroup, argb: Int?) = commitSpec { it.withGroupColor(group, false, argb).withGroupColor(group, true, argb) }
+
+    /** Every element group back to Auto, in both modes. */
+    fun resetGroupColors() = commitSpec { it.withAllGroupsAuto() }
+
+    /** Pins one colour resource (`pkg:color/name`) to [pin]; null removes the pin. */
+    fun setColorPin(resourceName: String, pin: ColorPin?) = commitSpec { spec ->
+        spec.copy(colorPins = if (pin == null) spec.colorPins - resourceName else spec.colorPins + (resourceName to pin))
+    }
+
+    /** Whether Apply themes [packageName]; a missing entry means enabled, so enabling drops it. */
+    fun setTargetEnabled(packageName: String, enabled: Boolean) = commitSpec { spec ->
+        spec.copy(targetEnabled = if (enabled) spec.targetEnabled - packageName else spec.targetEnabled + (packageName to false))
+    }
+
+    /** How pack, synthesised and built-in icons are coloured. */
+    fun setIconStyle(style: IconColorStyle) = commitSpec { it.copy(iconStyle = style) }
+
+    /** The app's own colourful icons for Settings rows and My Files categories no pack covers. */
+    fun setBuiltInIcons(enabled: Boolean) = commitSpec { it.copy(builtInIcons = enabled) }
+
+    /** Opacity of the Quick panel backdrop, 0 … 255 (255 leaves Samsung's). */
+    fun setQsPanelAlpha(alpha: Int) = commitSpec { it.copy(qsPanelAlpha = alpha.coerceIn(0, 255)) }
+
+    /** The group the Studio is editing (the preview outlines it); null for none. */
+    fun setHighlightedGroup(group: ColorGroup?) {
+        highlight.value = group
+    }
+
+    /**
+     * Counts the resources of every element group over the last scan, off the main thread, once
+     * per scan ([SnapshotBuilder.scanStamp]). Without a scan the counts stay empty.
+     */
+    fun loadGroupCounts() {
+        groupCountsWanted = true
+        if (groupCountsJob?.isActive == true) return
+        val known = groupCountsStamp
+        groupCountsJob = viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext<Pair<String?, Map<ColorGroup, GroupCount>>?>(Dispatchers.IO) {
+                val stamp = SnapshotBuilder.scanStamp(app)
+                when {
+                    stamp == null -> null to emptyMap()
+                    stamp == known -> null
+                    else -> runCatching {
+                        val built = SnapshotBuilder(app).build()
+                        val counts = built?.let { ColorGroupMatcher.groupCounts(it.snapshot, OneUiRules.forProfile(it.snapshot.oneUi)) }.orEmpty()
+                        stamp to counts
+                    }.getOrElse {
+                        log(LogLine(LogLevel.WARN, "Counting element colours failed: ${it.javaClass.simpleName}: ${it.message}"))
+                        null
+                    }
+                }
+            } ?: return@launch
+            groupCountsStamp = result.first
+            _groupCounts.value = result.second
+        }
     }
 
     // ---- Custom assets ----
@@ -1228,11 +1509,32 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         private const val MAX_LOG_LINES = 400
         private const val MAX_LOG_CHARS = 2000
         private const val PREVIEW_DEBOUNCE_MS = 400L
+
+        /** Size and count of the built-in badges the Studio preview draws without pack icons. */
+        private const val STUDIO_ICON_PX = 96
+        private const val STUDIO_SETTINGS_ICONS = 12
+        private const val STUDIO_MY_FILES_ICONS = 6
         private const val OPAQUE = 0xFF000000.toInt()
         private const val SAFE_MODE_TEXT = "Safe mode: Hex Next overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =
             "Safe mode: your phone restarted repeatedly, but Hex Next overlays could not be turned off automatically"
 
         val androidVersion: String get() = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+    }
+}
+
+/** [this] with the light ([night] false) or dark adjustments changed by [block]. */
+internal fun EngineThemeSpec.withAdjustments(night: Boolean, block: (ThemeAdjustments) -> ThemeAdjustments): EngineThemeSpec =
+    if (night) copy(darkAdjustments = block(darkAdjustments)) else copy(lightAdjustments = block(lightAdjustments))
+
+/**
+ * [this] with Monet shade [key] (`accent1_500` or `system_accent1_500`) pinned to [argb] (opaque)
+ * in one mode; null unpins it. Stored in the short form.
+ */
+internal fun EngineThemeSpec.withShadeOverride(night: Boolean, key: String, argb: Int?): EngineThemeSpec {
+    val short = key.removePrefix("system_")
+    return withAdjustments(night) { adj ->
+        val rest = adj.shadeOverrides - short - "system_$short"
+        adj.copy(shadeOverrides = if (argb == null) rest else rest + (short to (argb or 0xFF000000.toInt())))
     }
 }

@@ -27,7 +27,8 @@ class ThemeCompilerTest {
     private val settings = "com.android.settings"
     private val orange = 0xFFFF6A00.toInt()
 
-    private val baseSpec = ThemeSpec.default().copy(source = ThemeSource(0xFF2E9E44.toInt()))
+    // ACCENT: these tests check icons tinted from the derived theme palette (PACK_ORIGINAL is the default).
+    private val baseSpec = ThemeSpec.default().copy(source = ThemeSource(0xFF2E9E44.toInt()), iconStyle = IconColorStyle.ACCENT)
     private val resolved = ThemeResolver.resolve(baseSpec.source)
 
     private val sysuiTable = table(
@@ -491,6 +492,18 @@ class ThemeCompilerTest {
         val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(settings)!!
         val twin = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "night-xxhdpi" }
         assertEquals(0xFF123456.toInt(), twin.plan.steps.single().tintArgb)
+    }
+
+    @Test
+    fun `the default icon style keeps pack colours for icon elements`() {
+        val spec = baseSpec.copy(simplePackId = "icons-1", iconStyle = ThemeSpec.default().iconStyle)
+        assertEquals(IconColorStyle.PACK_ORIGINAL, spec.iconStyle)
+        val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(settings)!!
+        val twin = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "night-xxhdpi" }
+        assertEquals(0xFF123456.toInt(), twin.plan.steps.single().tintArgb)
+        // ACCENT plans the same artwork with the derived palette, so the content differs.
+        val accent = compile(spec.copy(iconStyle = IconColorStyle.ACCENT), InMemoryPackResolver(listOf(iconPack))).target(settings)!!
+        assertTrue(accent.contentHash != t.contentHash)
     }
 
     @Test

@@ -112,4 +112,47 @@ class OneUiRulesTest {
         val unfiltered = QuickSettingsRules(filterColours = false)
         assertTrue(unfiltered.allowsColour("anything_at_all"))
     }
+
+    @Test
+    fun `every bundled version has valid colour group rules`() {
+        for (major in 7..9) {
+            val rules = OneUiRules.load(major)
+            // Every group except the app-specific ones has generic name rules.
+            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN)
+            assertEquals(ColorGroup.ALL.filterNot { it in appOnly }.map { it.id }.toSet(), rules.colorGroups.keys, "One UI $major")
+            val patterns = rules.colorGroups.values.flatten() + rules.colorGroupFamilies.values.flatMap { it.groups.values.flatten() }
+            assertTrue(patterns.isNotEmpty())
+            for (p in patterns) Regex(p) // throws on an invalid pattern
+            for (family in rules.colorGroupFamilies.values) {
+                for (id in family.groups.keys + family.remap.keys + family.remap.values) assertTrue(ColorGroup.byId(id) != null, "unknown group $id")
+            }
+            for ((pkg, family) in rules.colorGroupPackages) {
+                assertTrue(family in rules.colorGroupFamilies, "$pkg -> $family")
+                assertTrue(pkg in rules.targets, pkg)
+            }
+            // Inactive tiles are tried before active ones ("inactive" contains "active").
+            val order = rules.colorGroups.keys.toList()
+            assertTrue(order.indexOf("qs_tile_inactive") < order.indexOf("qs_tile_active"))
+        }
+        // The versions share one rule set until a release renames its colours.
+        assertEquals(OneUiRules.load(9).colorGroups, OneUiRules.load(8).colorGroups)
+        assertEquals(OneUiRules.load(9).colorGroupFamilies, OneUiRules.load(7).colorGroupFamilies)
+    }
+
+    @Test
+    fun `colour group rules parse with defaults`() {
+        val rules = OneUiRules.parse(
+            """{"major": 9, "colorGroups": {"switch": ["toggle"], "future_group": ["x"]},
+               "colorGroupPackages": {"p": "f"}, "colorGroupFamilies": {"f": {"groups": {"dialer": ["call"]}, "remap": {"button": "dialer"}}}}""",
+        )
+        assertEquals(listOf("switch", "future_group"), rules.colorGroups.keys.toList())
+        assertEquals(ColorGroupFamily(mapOf("dialer" to listOf("call")), mapOf("button" to "dialer")), rules.colorGroupFamilies["f"])
+        // Unknown group ids are ignored; package rules come first and remap generic results.
+        assertEquals(ColorGroup.SWITCH, ColorGroupMatcher.classify("q", "color/my_toggle", null, rules))
+        assertEquals(ColorGroup.DIALER, ColorGroupMatcher.classify("p", "color/call_end", null, rules))
+        assertEquals(ColorGroup.SWITCH, ColorGroupMatcher.classify("p", "color/my_toggle", null, rules))
+        assertEquals(null, ColorGroupMatcher.classify("q", "color/x", null, rules))
+        val empty = OneUiRules.parse("""{"major": 9}""")
+        assertTrue(empty.colorGroups.isEmpty() && empty.colorGroupPackages.isEmpty() && empty.colorGroupFamilies.isEmpty())
+    }
 }

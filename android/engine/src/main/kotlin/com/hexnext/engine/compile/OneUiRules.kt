@@ -71,6 +71,20 @@ public data class QuickSettingsRules(
 }
 
 /**
+ * App-specific colour group rules for the packages [OneUiRules.colorGroupPackages] assigns to it.
+ *
+ * @property groups [ColorGroup.id] → patterns, with the same syntax and order as
+ *   [OneUiRules.colorGroups]; tried before the generic rules.
+ * @property remap generic result → group for this family: a colour the generic rules or the
+ *   fallback put in `background` becomes `keyboard_bg` in the keyboard, for example.
+ */
+@Serializable
+public data class ColorGroupFamily(
+    val groups: Map<String, List<String>> = emptyMap(),
+    val remap: Map<String, String> = emptyMap(),
+)
+
+/**
  * Version-specific rules from `engine/src/main/resources/oneui/<major>.json`.
  *
  * @property major One UI major version the rules are for.
@@ -81,6 +95,14 @@ public data class QuickSettingsRules(
  * @property renamed resource renames, `type/name` → `type/name`, applied before every lookup.
  * @property dashboardRows Settings dashboard row keys (`display`, `galaxy_ai` …) whose icons are
  *   `com.android.settings:drawable/sec_ic_settings_<row>`; the rows icon synthesis may fill in.
+ * @property colorGroups [ColorGroup.id] → regular expressions over the bare colour name
+ *   (`sesl_switch_track_on_color_light`, no `color/`), matched case-insensitively anywhere in the
+ *   name. Groups are tried in file order and patterns in list order; the first group whose pattern
+ *   matches and whose tone fits the observed colour wins (see [ColorGroupMatcher.classify]).
+ *   Unknown group ids are ignored, so newer files stay readable.
+ * @property colorGroupPackages package → key of [colorGroupFamilies]: the app-specific rules run
+ *   before [colorGroups] for that package (`com.samsung.android.honeyboard` → `keyboard`).
+ * @property colorGroupFamilies app-specific rule families (see [ColorGroupFamily]).
  */
 @Serializable
 public data class OneUiRules(
@@ -90,6 +112,9 @@ public data class OneUiRules(
     val quickSettings: QuickSettingsRules = QuickSettingsRules(),
     val renamed: Map<String, String> = emptyMap(),
     val dashboardRows: List<String> = emptyList(),
+    val colorGroups: Map<String, List<String>> = emptyMap(),
+    val colorGroupPackages: Map<String, String> = emptyMap(),
+    val colorGroupFamilies: Map<String, ColorGroupFamily> = emptyMap(),
 ) {
     /** [targets] without [deprecated] packages. */
     public val activeTargets: List<String> get() = targets.filterNot { it in deprecated }
