@@ -26,7 +26,15 @@ HOOK="$PKG/com.hexnext.themer.autotest.AutotestActivity"
 LAB="${LAB_DIR:-$HOME/hexnext-device-lab}"
 POLL="${POLL:-30}"
 
-log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+log() {
+  printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"
+  [ -n "${RES:-}" ] && [ -d "$RES" ] && printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*" >>"$RES/runner.log"
+  return 0
+}
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  else toybox sha256sum "$1" | cut -d' ' -f1; fi
+}
 root() { su -c "$1"; }
 need() { command -v "$1" >/dev/null 2>&1 || { echo "missing $1: pkg install -y $2"; exit 1; }; }
 
@@ -99,23 +107,30 @@ restart_shizuku() {
 
 # ---- steps ----------------------------------------------------------------------------------
 step_install() {
-  local run_id want info branch concl aid got
+  local run_id want info branch concl aid got zip="$HOME/hexnext-apk/owner.zip"
   run_id=$(jq -r '.run_id // empty' "$JOB"); want=$(jq -r '.artifact_sha256 // empty' "$JOB")
   [ -n "$run_id" ] && [ -n "$want" ] || { log "install: job has no run_id/artifact_sha256"; return 1; }
-  info=$(gh api "repos/$APP_REPO/actions/runs/$run_id" --jq '.head_branch + " " + .conclusion + " " + .path') || return 1
-  set -- $info; branch=$1; concl=$2
-  [ "$concl" = success ] || { log "install: run $run_id is $concl"; return 1; }
-  aid=$(gh api "repos/$APP_REPO/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name=="HexNext-Owner-Release") | .id')
-  [ -n "$aid" ] || { log "install: run $run_id has no owner artifact (expired?)"; return 1; }
+  info=$(gh api "repos/$APP_REPO/actions/runs/$run_id" --jq '.head_branch + " " + .conclusion' 2>>"$RES/runner.log") \
+    || { log "install: cannot read run $run_id (token needs Actions: read on $APP_REPO)"; return 1; }
+  set -- $info; branch=$1; concl=${2:-}
+  [ "$concl" = success ] || { log "install: run $run_id is '$concl'"; return 1; }
   rm -rf "$HOME/hexnext-apk"; mkdir -p "$HOME/hexnext-apk"
-  gh api "repos/$APP_REPO/actions/artifacts/$aid/zip" >"$HOME/hexnext-apk/owner.zip" || return 1
-  got=$(sha256sum "$HOME/hexnext-apk/owner.zip" | cut -d' ' -f1)
+  aid=$(gh api "repos/$APP_REPO/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name=="HexNext-Owner-Release") | .id' 2>>"$RES/runner.log")
+  if [ -n "$aid" ] && gh api "repos/$APP_REPO/actions/artifacts/$aid/zip" >"$zip" 2>>"$RES/runner.log" && [ -s "$zip" ]; then
+    log "install: downloaded artifact $aid through the API"
+  else
+    log "install: API download failed (artifact '$aid'); trying nightly.link"
+    curl -fsSL --retry 3 -o "$zip" "https://nightly.link/$APP_REPO/actions/runs/$run_id/HexNext-Owner-Release.zip" 2>>"$RES/runner.log" \
+      || { log "install: download failed"; return 1; }
+  fi
+  got=$(sha256_of "$zip")
   [ "$got" = "$want" ] || { log "install: sha256 $got != job $want; NOT installing"; return 1; }
-  (cd "$HOME/hexnext-apk" && unzip -o -q owner.zip) || return 1
+  (cd "$HOME/hexnext-apk" && unzip -o -q owner.zip) 2>>"$RES/runner.log" || { log "install: unzip failed"; return 1; }
   local apk; apk=$(find "$HOME/hexnext-apk" -name '*universal*.apk' | head -1)
   [ -n "$apk" ] || apk=$(find "$HOME/hexnext-apk" -name '*.apk' | head -1)
+  [ -n "$apk" ] || { log "install: no apk in the zip"; return 1; }
   local size; size=$(wc -c <"$apk" | tr -d ' ')
-  log "install: run $run_id ($branch) sha ok, installing"
+  log "install: run $run_id ($branch) sha ok, installing $(basename "$apk")"
   su -c "pm install -r -S $size" <"$apk" >"$RES/install.txt" 2>&1
   grep -q Success "$RES/install.txt" || { log "install failed: $(tail -1 "$RES/install.txt")"; return 1; }
   root "dumpsys package $PKG | grep -E 'versionName|versionCode|lastUpdateTime' | head -3" >>"$RES/install.txt"
@@ -230,6 +245,23 @@ pending_jobs() {
 sync_lab() {
   if [ -d "$LAB/.git" ]; then (cd "$LAB" && git pull -q --rebase) || log "lab pull failed"
   else gh repo clone "$LAB_REPO" "$LAB" -- -q || { log "cannot clone $LAB_REPO"; exit 1; }; fi
+  # Commits need an identity; use the signed-in account's no-reply address when git has none.
+  if ! (cd "$LAB" && git var GIT_AUTHOR_IDENT >/dev/null 2>&1); then
+    local login uid
+    login=$(gh api user --jq .login 2>/dev/null); uid=$(gh api user --jq .id 2>/dev/null)
+    [ -n "$login" ] && (cd "$LAB" && git config --local user.name "$login" && git config --local user.email "$uid+$login@users.noreply.github.com")
+  fi
+}
+
+# Re-runs itself when the branch has a newer runner (the watcher then never needs a re-download).
+self_update() {
+  local me new
+  me=$(readlink -f "$0" 2>/dev/null || echo "$0"); new="$me.new"
+  gh api "repos/$APP_REPO/contents/tools/device/autotest.sh?ref=claude/project-thread-rje8bm" --jq .content 2>/dev/null | base64 -d >"$new" 2>/dev/null
+  if [ -s "$new" ] && bash -n "$new" 2>/dev/null && ! cmp -s "$new" "$me"; then
+    mv "$new" "$me"; log "runner updated; restarting"; exec bash "$me" "$@"
+  fi
+  rm -f "$new"
 }
 
 need jq jq; need gh gh; need git git
@@ -244,6 +276,7 @@ case "${1:-watch}" in
   watch)
     log "watching $LAB_REPO every ${POLL}s (Ctrl-C to stop)"
     while true; do
+      self_update "$@"
       sync_lab
       for j in $(pending_jobs); do run_job "$j"; done
       sleep "$POLL"
