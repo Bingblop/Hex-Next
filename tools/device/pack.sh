@@ -6,15 +6,6 @@
 #                  sh pack.sh https://example.com/packs/iolite.zip
 set -u
 SRC="${1:-}"
-# The owner build (com.hexnext.themer.owner) wins when it is installed; set PKG to override.
-if [ -z "${PKG:-}" ]; then
-  if su -c "pm path com.hexnext.themer.owner" 2>/dev/null | grep -q '^package:'; then
-    PKG=com.hexnext.themer.owner
-  else
-    PKG=com.hexnext.themer
-  fi
-fi
-DEST=/data/data/$PKG/files/packs
 [ -n "$SRC" ] || { echo "usage: sh pack.sh <pack.zip or URL>"; exit 1; }
 WORK="${HOME:-$PWD}/hexnext-packs"; mkdir -p "$WORK" || { echo "cannot create $WORK"; exit 1; }
 case "$SRC" in
@@ -46,6 +37,15 @@ esac
 # so a planted symlink cannot redirect the root copy. The staging name is the app's own
 # <id>.zip.part: a copy that fails part-way is removed here, and the app sweeps any leftover
 # .part at start-up.
+# The owner build (com.hexnext.themer.owner) wins when it is installed (checked only once the pack is valid); set PKG to override.
+if [ -z "${PKG:-}" ]; then
+  if su -c "pm path com.hexnext.themer.owner" 2>/dev/null | grep -q '^package:'; then
+    PKG=com.hexnext.themer.owner
+  else
+    PKG=com.hexnext.themer
+  fi
+fi
+DEST=/data/data/$PKG/files/packs
 PART="$DEST/$NAME.part"
 su -c "uid=\$(stat -c %u '/data/data/$PKG') && mkdir -p '$DEST' && \
   chown \"\$uid:\$uid\" '/data/data/$PKG/files' '$DEST' && \
