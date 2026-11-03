@@ -21,6 +21,10 @@
 set -u
 LAB_REPO="${LAB_REPO:-Bingblop/hexnext-device-lab}"
 APP_REPO=Bingblop/Hex-Next
+# The only ref scripts are downloaded from before they run as root. A job's own "ref" is
+# logged but never used for code, so a job cannot point the runner at another branch.
+# Switch this to main once the Studio branch is merged.
+TRUSTED_REF=claude/project-thread-rje8bm
 PKG=com.hexnext.themer.owner
 HOOK="$PKG/com.hexnext.themer.autotest.AutotestActivity"
 LAB="${LAB_DIR:-$HOME/hexnext-device-lab}"
@@ -218,9 +222,9 @@ step_capture() {
 }
 
 step_collect() {
-  local ref; ref=$(jq -r '.ref // "claude/project-thread-rje8bm"' "$JOB")
-  log "collect ($ref)"
-  gh api "repos/$APP_REPO/contents/tools/device/collect.sh?ref=$ref" --jq .content | base64 -d >"$RES/.collect.sh" || return 1
+  local ref; ref=$(jq -r '.ref // "-"' "$JOB" | tr -cd 'A-Za-z0-9._/-' | cut -c1-100)
+  log "collect (job ref $ref, script from $TRUSTED_REF)"
+  gh api "repos/$APP_REPO/contents/tools/device/collect.sh?ref=$TRUSTED_REF" --jq .content | base64 -d >"$RES/.collect.sh" || return 1
   PKG=$PKG sh "$RES/.collect.sh" "$RES" >"$RES/collect-run.txt" 2>&1
   rm -f "$RES/.collect.sh"
 }
@@ -269,7 +273,7 @@ sync_lab() {
 self_update() {
   local me new
   me=$(readlink -f "$0" 2>/dev/null || echo "$0"); new="$me.new"
-  gh api "repos/$APP_REPO/contents/tools/device/autotest.sh?ref=claude/project-thread-rje8bm" --jq .content 2>/dev/null | base64 -d >"$new" 2>/dev/null
+  gh api "repos/$APP_REPO/contents/tools/device/autotest.sh?ref=$TRUSTED_REF" --jq .content 2>/dev/null | base64 -d >"$new" 2>/dev/null
   if [ -s "$new" ] && bash -n "$new" 2>/dev/null && ! cmp -s "$new" "$me"; then
     mv "$new" "$me"; log "runner updated; restarting"; exec bash "$me" "$@"
   fi
