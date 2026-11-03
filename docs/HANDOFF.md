@@ -162,3 +162,62 @@ Paste this whole file into a new agent. It covers the project from the start (20
 - Commit and push often, so nothing is lost when usage runs out. He is watching his weekly usage, so don't waste tokens.
 - He tests on his phone and reports with screenshots; act on them directly.
 - He wants every One UI element to be colour-customisable, the live preview to be genuinely useful, and colourful PNG icons.
+
+## 10. Willemite test results and the plan (2026-11-03 18:40 UTC)
+Kyle tested build 41669190846 (commit 04cefca) with the Willemite pack. His screenshots and the device files are in the project files under `uploads/hearth/` (hexnext-collect.txt, hexnext-values.txt, hexnext-systemui-colors.txt, hexnext-settings-drawables.txt, plus preview-vs-real screenshots).
+
+**What worked:**
+- Settings dashboard icons.
+- Settings switches and checkboxes, so the SESL fallback renames work.
+- My Files pack icons.
+- Square notification corners (intended).
+- The slimmer brightness bar in the notification shade. Kyle confirmed this is INTENDED; keep it.
+
+**What failed or is wrong:**
+1. **Quick Settings mostly failed.**
+   - On the real phone: tiles are still round, the volume and brightness sliders are still white, and the container and the Bluetooth/Wi-Fi pills are untinted. Only the active-tile accent colour landed.
+   - The preview shows square tiles and a purple container, so it promises things the overlay doesn't deliver.
+   - Likely cause: the shape dimen names and some QS colour names in `oneui/9.json` are guesses that don't exist on One UI 9, or SystemUI ignores them.
+   - Next step: grep the uploaded hexnext-values.txt and hexnext-systemui-colors.txt, plus the "Quick Settings build-log lines" section of hexnext-collect.txt. Keep only names that exist and were written, and drop the rest from 9.json.
+2. **Notification card colours don't match the preview.** Find the SystemUI colour names that really paint the One UI 9 notification card, app-name text, action chips and shade background, using the SemWT mapping in the collect file. Make the overlay and `ui/preview/PreviewNotifications.kt` read the same roles.
+3. **The live preview doesn't match real One UI 9 layouts.** Rebuild these in `ui/preview/`:
+   - **Power menu:** a 2x2 grid of large round buttons (Power off grey, Restart green, Emergency call red with SOS, Medical info red). It sits over a blurred wallpaper, with lock text at the top and a "Side button settings" pill at the bottom.
+   - **My Files:**
+     - a rounded card with a 2-column grid of 6 categories (Downloads, Docs, Images, Audio, Videos, Install files) on round tinted icon backgrounds
+     - a "Recent files" card with thumbnails
+     - a Storage list: Internal storage with % used and a bar, Google Drive, OneDrive, Network storage
+     - Utilities
+     - a floating search pill
+
+     Pack icons go on the category tiles.
+   - **QS:**
+     - header with clock (with seconds) + date, then pencil, power and gear
+     - "Play music" pill
+     - thick volume pill
+     - rounded container with 4x4 ROUND tiles: an active tile is an accent circle, an inactive tile is a bare glyph
+     - brightness pill
+     - Bluetooth and Wi-Fi wide pills
+   - **Shade:**
+     - a row of 6 round tiles
+     - a slim brightness bar with a menu button
+     - Device control and Media output pills
+     - notification cards
+4. **Legacy plugin overlays can't be used as-is.** Kyle says every pack must be adapted to the new One UI layouts. Plan:
+   - Keep what works: Settings icons, switches, My Files icons, colours.
+   - For each other pack category, map it to the One UI 9 resource it replaces. Skip or rebuild natively anything that has no One UI 9 equivalent (QS is already colour-only).
+   - Record per pack in the catalogue which parts are "adapted" and which are "skipped". Only show adapted parts in the pack's options, so nothing dead is offered.
+5. **New ask: third-party launcher options in the plugin options.** This widens the Samsung-only rule for launchers.
+   - Suggested approach: a pack option "Use these icons in a third-party launcher". It exports the pack's app icons as a standard icon pack (an ADW/Nova-style `appfilter.xml` + drawables) that Nova, Lawnchair and similar launchers can select. That avoids overlaying non-Samsung apps.
+   - One UI Home (`com.sec.android.app.launcher`) can be themed directly as a Samsung target.
+   - First check which packs carry launcher or app-icon assets (`pack.json` categories in the packs zips; never open the anaconda templates).
+
+**Suggested order:**
+1. QS name pruning + notification colours (smallest change with the most visible result).
+2. Preview rebuild for QS, shade, power menu and My Files.
+3. Pack adaptation audit.
+4. Launcher option.
+5. Then the v1.0 items in §8.
+
+After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle for screenshots + `collect.sh`.
+
+**Uncommitted work:** none. A diagnosis workflow was stopped before it changed any files.
