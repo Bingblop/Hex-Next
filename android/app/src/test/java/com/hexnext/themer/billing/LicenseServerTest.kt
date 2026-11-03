@@ -49,4 +49,21 @@ class LicenseServerTest {
         assertNull(LicenseServer.itemVerdict(false, "pack_neon", "provider_unavailable", "pack_neon"))
         assertNull(LicenseServer.itemVerdict(false, "pack_neon", "internal_error", "pack_neon"))
     }
+
+    @Test
+    fun aSingleVerifyBodyThatIsNotJsonIsUnknown() {
+        assertNull(LicenseServer.bodyVerdict("", "pack_neon"))
+        assertNull(LicenseServer.bodyVerdict("not json", "pack_neon"))
+        assertNull(LicenseServer.bodyVerdict("[]", "pack_neon"))
+        assertNull(LicenseServer.bodyVerdict("{}", "pack_neon"))
+        assertNull(LicenseServer.bodyVerdict("""{"valid":false,"reason":"internal_error","productId":"pack_neon"}""", "pack_neon"))
+    }
+
+    @Test
+    fun aSingleVerifyBodyMapsTheDocumentedAnswers() {
+        assertEquals(true, LicenseServer.bodyVerdict("""{"valid":true,"productId":"pack_neon","orderId":"GPA.1"}""", "pack_neon"))
+        assertEquals(false, LicenseServer.bodyVerdict("""{"valid":true,"productId":"pack_other"}""", "pack_neon"))
+        assertEquals(false, LicenseServer.bodyVerdict("""{"valid":false,"reason":"purchase_not_found","productId":"pack_neon"}""", "pack_neon"))
+        assertEquals(false, LicenseServer.bodyVerdict("""{"valid":false,"reason":"purchase_cancelled","productId":"pack_neon"}""", "pack_neon"))
+    }
 }

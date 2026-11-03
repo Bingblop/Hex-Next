@@ -143,11 +143,13 @@ remote catalogue) and reads purchases with `queryPurchasesAsync(INAPP)` on start
 activity resume and on "Restore purchases" (App settings). Owned products are recomputed from
 that answer each time, so a refund disappears. Each full query has a growing generation: one that
 finishes verifying after a newer one was applied is dropped, state is published under the lock in
-update order, and purchase-listener grants made after a query started survive its answer. Only `PURCHASED` purchases count; `PENDING` ones
+update order, and purchase-listener grants made after a query started survive its answer. A grant
+that the snapshot does not contain is checked once more, and dropped when the later snapshot still
+does not list it. Only `PURCHASED` purchases count; `PENDING` ones
 show as pending and unlock nothing. A purchase is verified before it is granted and acknowledged:
 
 1. `LICENSE_SERVER_URL` set: every unverified product goes to `POST <url>/v1/verify-batch` (up to
-   50 per request, one rate-limit slot; `server/README.md`; the value may be the base URL or a full
+   25 per request, one rate-limit slot; `server/README.md`; the value may be the base URL or a full
    endpoint, HTTPS only), falling back to one `POST <url>/v1/verify` per product when the server
    answers 404. A product counts when its answer is `{"valid":true,"productId":...}`. HTTP 429 is
    retried up to three times after `Retry-After` (at most 30 s each). When the server still cannot

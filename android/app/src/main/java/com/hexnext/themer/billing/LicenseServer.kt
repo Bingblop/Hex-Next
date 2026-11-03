@@ -52,4 +52,30 @@ object LicenseServer {
         reason == "provider_unavailable" || reason == "internal_error" -> null
         else -> false
     }
+
+    /**
+     * One `/v1/verify` body: the same yes / no / unknown split as [itemVerdict]. A body that is
+     * not a flat JSON object, or that has no boolean `valid` field, is unknown. Treating that as
+     * "not purchased" would drop a paid pack when a proxy or a glitch returned HTTP 200 with
+     * something other than the documented answer, and it would skip the Play-signature fallback.
+     *
+     * The documented body is a flat object (`valid`, `productId`, `reason`, `orderId`). Nested
+     * values are treated as unknown rather than guessed.
+     */
+    fun bodyVerdict(body: String, requestedProductId: String): Boolean? {
+        val text = body.trim()
+        if (text.length < 2 || text.first() != '{' || text.last() != '}') return null
+        if ('{' in text.substring(1) || '[' in text || ']' in text) return null
+        val valid = VALID.find(text)?.groupValues?.get(1) ?: return null
+        val productId = stringField(text, "productId")
+        val reason = stringField(text, "reason")
+        return itemVerdict(valid == "true", productId, reason, requestedProductId)
+    }
+
+    private val VALID = Regex(""""valid"\s*:\s*(true|false)\b""")
+
+    private fun stringField(json: String, name: String): String? {
+        val match = Regex(""""$name"\s*:\s*"((?:\\.|[^"\\])*)"""").find(json) ?: return null
+        return match.groupValues[1].replace("\\\"", "\"").replace("\\\\", "\\")
+    }
 }
