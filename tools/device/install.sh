@@ -20,8 +20,8 @@
 #                  com.hexnext.themer.owner, but only one of the two may theme the phone)
 # When you change the pin, change RUN_ID / APK_ZIP_SHA256 in test-overlay.sh too.
 set -u
-RUN_ID="${RUN_ID:-41574106214}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-4447c1544b48d2caf88a1495a68e9b9e6d750053900879d4036995a220a97137}"
+RUN_ID="${RUN_ID:-41587720846}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-c7e29c5fc27baca04a67a25018e13096b7777047fc313599a2b741accb0d70f0}"
 ARTIFACT="${ARTIFACT:-HexNext-Owner-Release}"
 REPO=Bingblop/Hex-Next
 case "$ARTIFACT" in *Owner*) PKG=com.hexnext.themer.owner ;; *) PKG=com.hexnext.themer ;; esac
