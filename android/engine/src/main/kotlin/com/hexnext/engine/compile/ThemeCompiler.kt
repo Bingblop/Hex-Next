@@ -828,8 +828,15 @@ public object ThemeCompiler {
         private fun compileDrawables(): List<PlannedDrawableJob> {
             val jobs = LinkedHashMap<Pair<String, String>, PlannedDrawableJob>()
             val missingPacks = HashSet<String>()
-            // Generic elements first so targeted elements override them.
-            val elements = Elements.forTarget(pkg).sortedByDescending { it.anyTarget }
+            // Catch-all elements first, then elements for every app (controls), then targeted
+            // elements, so the more specific one overrides.
+            val elements = Elements.forTarget(pkg).sortedBy {
+                when {
+                    it.id == Elements.MISC || it.id == Elements.SYSTEM_DRAWABLES -> 0
+                    it.anyTarget -> 1
+                    else -> 2
+                }
+            }
             for (element in elements) {
                 if (!spec.isElementEnabled(element.id)) continue
                 val packId = spec.packFor(element.id) ?: continue
@@ -995,7 +1002,7 @@ public object ThemeCompiler {
                 // Several pack names can rename to one target; the pack's exact-name artwork wins over aliases.
                 val request = LinkedHashMap<String, DrawableSource>()
                 for (res in pack.layers.filter { it.category == category.raw }.flatMap { it.resources }.distinct()) {
-                    val target = rules.rename("$type/$res")
+                    val target = rules.renameFor("$type/$res") { table.find(it) != null }
                     if (request[target]?.resourceName?.let { "$type/$it" } == target) continue
                     request[target] = DrawableSource(pack.id, category.raw, res)
                 }

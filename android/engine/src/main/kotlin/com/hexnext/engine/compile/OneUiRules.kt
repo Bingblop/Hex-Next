@@ -150,6 +150,10 @@ public data class ColorGroupFamily(
  * @property quickSettings the Quick Settings policy for System UI: which colours are kept and
  *   whether pack drawables may be built. Defaults to colours only with the regex filter.
  * @property renamed resource renames, `type/name` → `type/name`, applied before every lookup.
+ * @property fallbackRenames renames used only for a pack drawable whose own name the target does
+ *   not have: older packs name switches and checkboxes `switch_thumb_on` or `checkbox_026`, which
+ *   One UI 9 apps call `sesl_switch_thumb_on` and `sesl_btn_check_to_on_026`. A target that still
+ *   has the old name keeps it.
  * @property dashboardRows Settings dashboard row keys (`display`, `galaxy_ai` …) whose icons are
  *   `com.android.settings:drawable/sec_ic_settings_<row>`; the rows icon synthesis may fill in.
  * @property colorGroups [ColorGroup.id] → regular expressions over the bare colour name
@@ -168,6 +172,7 @@ public data class OneUiRules(
     val deprecated: List<String> = emptyList(),
     val quickSettings: QuickSettingsRules = QuickSettingsRules(),
     val renamed: Map<String, String> = emptyMap(),
+    val fallbackRenames: Map<String, String> = emptyMap(),
     val dashboardRows: List<String> = emptyList(),
     val colorGroups: Map<String, List<String>> = emptyMap(),
     val colorGroupPackages: Map<String, String> = emptyMap(),
@@ -178,6 +183,16 @@ public data class OneUiRules(
 
     /** [typeName] (`type/name`) after [renamed]. */
     public fun rename(typeName: String): String = renamed[typeName] ?: typeName
+
+    /**
+     * [typeName] after [renamed], then after [fallbackRenames] when the target has no resource of
+     * that name ([has] is false for it).
+     */
+    public fun renameFor(typeName: String, has: (String) -> Boolean): String {
+        val renamedName = rename(typeName)
+        if (has(renamedName)) return renamedName
+        return fallbackRenames[renamedName] ?: renamedName
+    }
 
     /**
      * The [ColorGroupFamily.exact] names of [pkg]'s family, bare and lower case; empty when the
