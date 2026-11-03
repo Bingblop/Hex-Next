@@ -6,6 +6,7 @@ import {
   resetTokenCache,
 } from "../src/providers/googlePlay";
 import { ProviderUnavailableError, type Env } from "../src/providers/types";
+import { handleRequest } from "../src/index";
 
 // A throwaway key generated per test run; no real credentials are involved.
 let publicKey: CryptoKey;
@@ -144,5 +145,60 @@ describe("googlePlayProvider.verify", () => {
     await expect(
       googlePlayProvider.verify(request, { PACKAGE_NAME: "com.hexnext.themer" }),
     ).rejects.toBeInstanceOf(ProviderUnavailableError);
+  });
+
+  it("uses one OAuth exchange for a cold batch", async () => {
+    const urls = stubFetch(() => Response.json({ purchaseState: 0 }));
+    const response = await handleRequest(new Request("https://example.test/v1/verify-batch", {
+      method: "POST",
+      body: JSON.stringify({
+        packageName: request.packageName,
+        purchases: Array.from({ length: 25 }, (_, i) => ({ productId: `pack_${i}`, purchaseToken: `t${i}` })),
+      }),
+    }), env, { rateLimiter: { allow: async () => true } });
+    const body = await response.json() as { results: { valid: boolean }[] };
+    expect(response.status).toBe(200);
+    expect(body.results).toHaveLength(25);
+    expect(body.results.every((result) => result.valid)).toBe(true);
+    expect(urls.filter((url) => url.includes("oauth2"))).toHaveLength(1);
+    expect(urls.filter((url) => url.includes("androidpublisher"))).toHaveLength(25);
+  });
+
+  it("returns an unknown result for each item when batch authentication fails", async () => {
+    const fetchMock = vi.fn(async () => new Response("down", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await handleRequest(new Request("https://example.test/v1/verify-batch", {
+      method: "POST",
+      body: JSON.stringify({ packageName: request.packageName, purchases: [
+        { productId: "pack_one", purchaseToken: "secret-1" },
+        { productId: "pack_two", purchaseToken: "secret-2" },
+      ] }),
+    }), env, { rateLimiter: { allow: async () => true } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ results: [
+      { valid: false, reason: "provider_unavailable", productId: "pack_one" },
+      { valid: false, reason: "provider_unavailable", productId: "pack_two" },
+    ] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes the token when the service account configuration changes", async () => {
+    const urls = stubFetch(() => Response.json({ purchaseState: 0 }));
+    await googlePlayProvider.verify(request, env);
+    const account = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    // A different PEM representation is enough to prove the key participates in the cache identity.
+    account.private_key += "\n";
+    await googlePlayProvider.verify(request, { ...env, GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(account) });
+    expect(urls.filter((url) => url.includes("oauth2"))).toHaveLength(2);
+  });
+
+  it("treats malformed provider configuration and responses as unavailable", async () => {
+    await expect(googlePlayProvider.verify(request, { ...env, GOOGLE_SERVICE_ACCOUNT_JSON: "null" }))
+      .rejects.toBeInstanceOf(ProviderUnavailableError);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("not json")));
+    await expect(googlePlayProvider.verify(request, env)).rejects.toBeInstanceOf(ProviderUnavailableError);
+    resetTokenCache();
+    stubFetch(() => new Response("not json"));
+    await expect(googlePlayProvider.verify(request, env)).rejects.toBeInstanceOf(ProviderUnavailableError);
   });
 });
