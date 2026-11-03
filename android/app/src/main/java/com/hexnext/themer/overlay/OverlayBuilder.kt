@@ -165,7 +165,9 @@ class OverlayBuilder(context: Context) {
             mapOf("overlay" to name, "colors" to request.colors.size, "drawables" to request.drawables.size)
         )
         log("Building $name: ${request.colors.size} colours, ${request.drawables.size} drawables")
-        saveRequest(request)
+        // A colour request carries no sizes: keep the ones already saved, so a colour save
+        // never wipes the HexNextValues_ payload that repair restores. saveValues replaces them.
+        saveRequest(if (request.values.isEmpty()) request.copy(values = loadRequest(request.target)?.values.orEmpty()) else request)
 
         val pngDir = File(File(appContext.cacheDir, "overlay"), request.target).apply {
             deleteRecursively()
