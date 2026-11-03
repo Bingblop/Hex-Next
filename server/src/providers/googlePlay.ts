@@ -109,7 +109,7 @@ function parseServiceAccount(json: string | undefined): ServiceAccount {
   } catch {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON");
   }
-  if (!parsed || typeof parsed !== "object" || typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
+  if (typeof parsed !== "object" || parsed === null || typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key");
   }
   return {
