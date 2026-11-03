@@ -45,6 +45,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -238,26 +245,7 @@ private fun PreviewPeek(
             }
         }
     }
-    if (expanded) {
-        ModalBottomSheet(
-            onDismissRequest = { expanded = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            ) {
-                FullPhone(preview, onElementTap = { group ->
-                    expanded = false
-                    onElementTap(group)
-                })
-            }
-        }
-    }
+    if (expanded) PreviewSheet(preview, onElementTap, onDismiss = { expanded = false })
 }
 
 /**
@@ -302,17 +290,60 @@ private fun PreviewedPage(
             }
         }
     } else {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PAGE_PADDING,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(key = "peek") { PreviewPeek(preview, onElementTap, peekCollapsed, onPeekCollapsed) }
-            stickyHeader(key = "tabs") {
-                Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(vertical = 4.dp)) { tabs() }
+        // Once the peek has scrolled away, a floating button shows the phone in a sheet, so a pick
+        // far down a list (a pack, an option) can be checked without scrolling back to the top.
+        val peekOffScreen by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        var sheet by rememberSaveable { mutableStateOf(false) }
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PAGE_PADDING,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item(key = "peek") { PreviewPeek(preview, onElementTap, peekCollapsed, onPeekCollapsed) }
+                stickyHeader(key = "tabs") {
+                    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(vertical = 4.dp)) { tabs() }
+                }
+                content()
             }
-            content()
+            AnimatedVisibility(
+                visible = peekOffScreen,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = { sheet = true },
+                    icon = { Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
+                    text = { Text("Preview") },
+                )
+            }
+        }
+        if (sheet) PreviewSheet(preview, onElementTap, onDismiss = { sheet = false })
+    }
+}
+
+/** The whole phone in a bottom sheet; a tap on an element closes it and opens that element. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PreviewSheet(preview: PreviewModel, onElementTap: (ColorGroup) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        ) {
+            FullPhone(preview, onElementTap = { group ->
+                onDismiss()
+                onElementTap(group)
+            })
         }
     }
 }

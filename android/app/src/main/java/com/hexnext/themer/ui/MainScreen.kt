@@ -848,7 +848,27 @@ internal fun PackCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        shownPacks.forEach { pack ->
+        // One list in name order, skins on the phone and catalogue skins together, so a skin keeps its
+        // place when it is downloaded and selected, and its options open right under it.
+        val rows: List<Any> = remember(shownPacks, notDownloaded, advanced, onPreviewCatalogue) {
+            val extra = if (onPreviewCatalogue != null && !advanced) notDownloaded else emptyList()
+            (shownPacks + extra).sortedWith(
+                compareBy(String.CASE_INSENSITIVE_ORDER) { if (it is InstalledPack) it.name else (it as CatalogueEntry).name },
+            )
+        }
+        rows.forEach { row ->
+            if (row is CatalogueEntry) {
+                CatalogueSkinRow(
+                    entry = row,
+                    progress = catalogue.downloading[row.id],
+                    busy = busy,
+                    locks = locks,
+                    onUnlock = onUnlock,
+                    onPreview = onPreviewCatalogue ?: return@forEach,
+                )
+                return@forEach
+            }
+            val pack = row as InstalledPack
             val selected = spec.simplePackId == pack.id
             val locked = locks.locked(pack.id)
             // A locked skin can be selected and previewed; Apply asks for the unlock.
@@ -899,19 +919,6 @@ internal fun PackCard(
                     elementId = null,
                     enabled = !busy,
                     onOption = onOption,
-                )
-            }
-        }
-        if (onPreviewCatalogue != null && notDownloaded.isNotEmpty() && !advanced) {
-            Text("More skins", style = MaterialTheme.typography.labelLarge)
-            notDownloaded.forEach { entry ->
-                CatalogueSkinRow(
-                    entry = entry,
-                    progress = catalogue.downloading[entry.id],
-                    busy = busy,
-                    locks = locks,
-                    onUnlock = onUnlock,
-                    onPreview = onPreviewCatalogue,
                 )
             }
         }
