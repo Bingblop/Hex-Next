@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -135,7 +136,7 @@ internal fun PreviewQuickPanel(state: StudioPreviewState, scope: PreviewScope, m
         val container = containerColor(panel, scope.dark)
         val shapes = state.qsShapes
         // The theme's slider thickness replaces the slider's share of the height.
-        val sliderHeight = QsShapes.previewDp(shapes.sliderThickness, DEFAULT_SLIDER_DP)
+        val sliderHeight = QsShapes.previewDp(shapes.sliderThickness, DEFAULT_SLIDER_DP, LocalDensity.current)
         fun Modifier.slider(): Modifier = if (sliderHeight != null) this.height(sliderHeight.dp) else this
         Column(
             Modifier
@@ -270,7 +271,7 @@ private fun QsSlider(glyph: Glyph, fraction: Float, level: String, scope: Previe
  */
 @Composable
 private fun TileCard(container: Color, scope: PreviewScope, shapes: QsShapes, modifier: Modifier = Modifier) {
-    val corner = QsShapes.previewDp(shapes.panelCorner, DEFAULT_PANEL_CORNER_DP) ?: DEFAULT_PANEL_CORNER_DP
+    val corner = QsShapes.previewDp(shapes.panelCorner, DEFAULT_PANEL_CORNER_DP, LocalDensity.current) ?: DEFAULT_PANEL_CORNER_DP
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -312,7 +313,7 @@ private fun RoundTile(tile: QsTile, scope: PreviewScope, corner: ValueSetting?, 
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val diameter = minOf(maxWidth, maxHeight) * 0.84f
         // One UI draws the tiles round; a theme tile corner squares them off (capped at a circle).
-        val radius = QsShapes.previewDp(corner, diameter.value / 2f)?.coerceAtMost(diameter.value / 2f)
+        val radius = QsShapes.previewDp(corner, diameter.value / 2f, LocalDensity.current)?.coerceAtMost(diameter.value / 2f)
         val shape = if (radius == null) CircleShape else RoundedCornerShape(radius.dp)
         Box(
             Modifier

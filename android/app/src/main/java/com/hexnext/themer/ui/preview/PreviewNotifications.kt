@@ -15,12 +15,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.themer.ui.studio.QsShapes
 import com.hexnext.themer.ui.studio.StudioPreviewState
+
+/** The mockup's One UI notification card corner in preview dp, for [QsShapes.previewDp]. */
+private const val DEFAULT_NOTIFICATION_CORNER_DP: Float = 20f
 
 private class PreviewNotification(
     val app: String,
@@ -42,7 +47,7 @@ private val SampleNotifications = listOf(
 @Composable
 internal fun PreviewNotifications(state: StudioPreviewState, scope: PreviewScope, modifier: Modifier = Modifier) {
     QsBackdrop(state, scope, modifier) { panel ->
-        val ink = contentColorFor(panel)
+        val ink = scope.text(panel, ColorGroup.QS_TEXT)
         Column(
             Modifier
                 .fillMaxSize()
@@ -57,7 +62,7 @@ internal fun PreviewNotifications(state: StudioPreviewState, scope: PreviewScope
                 PText("3", ink.copy(alpha = 0.7f), scope, size = 11.sp)
             }
             for (notification in SampleNotifications) {
-                NotificationCard(notification, scope)
+                NotificationCard(notification, scope, state.qsShapes)
             }
             Spacer(Modifier.height(2.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -70,13 +75,15 @@ internal fun PreviewNotifications(state: StudioPreviewState, scope: PreviewScope
 }
 
 @Composable
-private fun NotificationCard(notification: PreviewNotification, scope: PreviewScope) {
+private fun NotificationCard(notification: PreviewNotification, scope: PreviewScope, shapes: QsShapes) {
+    val corner = QsShapes.previewDp(shapes.notificationCorner, DEFAULT_NOTIFICATION_CORNER_DP, LocalDensity.current)
+        ?: DEFAULT_NOTIFICATION_CORNER_DP
     val card = scope[ColorGroup.NOTIFICATION_BG]
     val dot = scope.palette.shade(notification.shade, scope[ColorGroup.ACCENT])
     Column(
         Modifier
             .fillMaxWidth()
-            .fill(ColorGroup.NOTIFICATION_BG, scope, RoundedCornerShape(20.dp))
+            .fill(ColorGroup.NOTIFICATION_BG, scope, RoundedCornerShape(corner.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {

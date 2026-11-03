@@ -61,11 +61,13 @@ public data class TargetOutcome(
      * This outcome with the value overlay's result: [count] values written, [verified] as
      * [valueVerified], [message] as [valueMessage]. A mismatch or a failed value overlay turns
      * [TargetResult.OK] into [TargetResult.PARTIAL]; an [TargetResult.EMPTY] colour target whose
-     * values landed becomes [TargetResult.OK] (or PARTIAL), since the values are on.
+     * values landed becomes [TargetResult.OK] (or PARTIAL), since the values are on, and one whose
+     * value overlay failed becomes [TargetResult.FAILED], since nothing of it is on.
      */
     public fun withValues(count: Int, verified: Boolean?, message: String = "", failed: Boolean = false): TargetOutcome {
         val base = when {
-            result == TargetResult.EMPTY && count > 0 && !failed -> TargetResult.OK
+            result == TargetResult.EMPTY && failed -> TargetResult.FAILED
+            result == TargetResult.EMPTY && count > 0 -> TargetResult.OK
             else -> result
         }
         val partial = (failed || verified == false) && base == TargetResult.OK
@@ -139,13 +141,13 @@ public object OverlayLookup {
 
     /**
      * The value to verify [target]'s value overlay with: the first default-configuration value
-     * whose resource has no other configuration (so the lookup reads it whatever the screen),
-     * else the first default-configuration value; null when there is none.
+     * whose resource has no other configuration (so the lookup reads it whatever the screen);
+     * null when there is none, since a configured variant (`sw600dp` …) may be the one the
+     * device resolves and its lookup would report a mismatch for a good apply.
      */
     public fun valueProbe(target: CompiledTarget): PlannedValue? {
         val configured = target.values.filter { it.configuration.isNotEmpty() }.mapTo(HashSet()) { it.resourceName }
         return target.values.firstOrNull { it.configuration.isEmpty() && it.resourceName !in configured }
-            ?: target.values.firstOrNull { it.configuration.isEmpty() }
     }
 
     /**

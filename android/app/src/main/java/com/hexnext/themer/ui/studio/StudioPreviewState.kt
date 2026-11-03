@@ -2,7 +2,9 @@ package com.hexnext.themer.ui.studio
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Density
 import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.engine.compile.DimenUnit
 import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.ShapeControls
 import com.hexnext.engine.compile.ThemeSpec
@@ -140,6 +142,7 @@ data class QsShapes(
     val tileCorner: ValueSetting? = null,
     val panelCorner: ValueSetting? = null,
     val sliderThickness: ValueSetting? = null,
+    val notificationCorner: ValueSetting? = null,
 ) {
     companion object {
         /** Preview dp per device dp: the mockup is 300 dp wide, a One UI phone about 412 dp. */
@@ -149,16 +152,25 @@ data class QsShapes(
             tileCorner = spec.shapes[ShapeControls.TILE_CORNER],
             panelCorner = spec.shapes[ShapeControls.PANEL_CORNER],
             sliderThickness = spec.shapes[ShapeControls.SLIDER_THICKNESS],
+            notificationCorner = spec.shapes[ShapeControls.NOTIFICATION_CORNER],
         )
 
         /**
-         * [setting] in preview dp: an absolute size scaled by [PREVIEW_DP], a factor times
+         * [setting] in preview dp: an absolute size converted to device dp with [density]
+         * (px by its density, sp by its font scale) and scaled by [PREVIEW_DP], a factor times
          * [default] (already in preview dp); null for none or an unknown kind.
          */
-        fun previewDp(setting: ValueSetting?, default: Float): Float? {
+        fun previewDp(setting: ValueSetting?, default: Float, density: Density): Float? {
             val n = setting?.number ?: return null
             return when (setting.kind) {
-                ValueKind.DIMEN -> (n * PREVIEW_DP).toFloat()
+                ValueKind.DIMEN -> {
+                    val dp = when (setting.unit) {
+                        DimenUnit.DP -> n
+                        DimenUnit.PX -> n / density.density
+                        DimenUnit.SP -> n * density.fontScale
+                    }
+                    (dp * PREVIEW_DP).toFloat()
+                }
                 ValueKind.SCALE -> (default * n).toFloat()
                 else -> null
             }?.coerceAtLeast(0f)

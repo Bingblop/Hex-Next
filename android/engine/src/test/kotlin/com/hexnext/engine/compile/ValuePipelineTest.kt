@@ -138,6 +138,31 @@ class ValuePipelineTest {
     }
 
     @Test
+    fun `a failed value overlay on a target without colours is a failure`() {
+        val empty = TargetOutcome(sysui, TargetResult.EMPTY)
+        val failed = empty.withValues(0, null, "boom", failed = true)
+        assertEquals(TargetResult.FAILED, failed.result)
+        assertEquals("boom", failed.valueMessage)
+        val report = ApplyReport("t", "T", 0, 1, listOf(failed))
+        assertEquals(1, report.failedCount)
+        assertEquals(0, report.skippedCount)
+        assertFalse(report.success)
+        // With the colour overlay in place the target is only partial.
+        assertEquals(TargetResult.PARTIAL, TargetOutcome(sysui, TargetResult.OK).withValues(0, null, failed = true).result)
+        assertEquals(TargetResult.PARTIAL, TargetOutcome(sysui, TargetResult.PARTIAL).withValues(0, null, failed = true).result)
+    }
+
+    @Test
+    fun `no value probe when every value has a configuration variant`() {
+        val a = PlannedValue("$sysui:dimen/a", ValueTypes.TYPE_DIMENSION, 0x1001, "")
+        val aTablet = PlannedValue("$sysui:dimen/a", ValueTypes.TYPE_DIMENSION, 0x2001, "sw600dp-v13")
+        val b = PlannedValue("$sysui:dimen/b", ValueTypes.TYPE_DIMENSION, 0x1001, "")
+        val bLand = PlannedValue("$sysui:dimen/b", ValueTypes.TYPE_DIMENSION, 0x1801, "land")
+        val target = CompiledTarget(sysui, "HexNext_x", emptyList(), emptyList(), emptyList(), 0, "h", values = listOf(a, aTablet, b, bLand))
+        assertNull(OverlayLookup.valueProbe(target))
+    }
+
+    @Test
     fun `the probe prefers a value with only a default configuration`() {
         val a = PlannedValue("$sysui:dimen/a", ValueTypes.TYPE_DIMENSION, 0x1001, "")
         val aLand = PlannedValue("$sysui:dimen/a", ValueTypes.TYPE_DIMENSION, 0x1001, "land")
