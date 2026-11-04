@@ -69,7 +69,9 @@ data class EntitlementState(
     fun looksUnlocked(packId: String): Boolean = unlocks(packId) ||
         (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.allForPack(packId).any { it in cachedProductIds }))
 
-    fun isPending(packId: String): Boolean = ProductIds.allForPack(packId).any { it in pendingProductIds }
+    /** A pending "Unlock all packs" counts for every pack, as it will unlock them all. */
+    fun isPending(packId: String): Boolean =
+        ProductIds.ALL_PACKS in pendingProductIds || ProductIds.allForPack(packId).any { it in pendingProductIds }
 
     /**
      * The store's formatted price of pack [packId], or null while it is unknown: the current

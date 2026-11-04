@@ -45,6 +45,14 @@ class ProductIdsTest {
     }
 
     @Test
+    fun pendingAllPacksMarksEveryPackPending() {
+        val state = EntitlementState(ready = true, pendingProductIds = setOf(ProductIds.ALL_PACKS))
+        assertTrue(state.isPending("opal"))
+        assertTrue(state.isPending("a-pack-added-later"))
+        assertFalse(state.unlocks("opal"))
+    }
+
+    @Test
     fun cachedHintOnlyCountsForDisplayBeforeTheStoreAnswers() {
         val starting = EntitlementState(ready = false, cachedProductIds = setOf("pack_opal"))
         assertTrue(starting.looksUnlocked("opal"))
