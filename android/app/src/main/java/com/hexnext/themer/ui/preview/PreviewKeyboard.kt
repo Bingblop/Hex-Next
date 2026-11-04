@@ -164,10 +164,16 @@ private fun Key(label: String, scope: PreviewScope, modifier: Modifier = Modifie
     // Letters and the special keys (Shift, Backspace, symbols, Enter) are separate groups, and the
     // labels on both are the "Keyboard letters" group, as Samsung Keyboard draws them.
     val group = if (special) ColorGroup.KEYBOARD_FUNCTION_KEY else ColorGroup.KEYBOARD_KEY
+    // With pack key art the phone draws it (key_bg) under every key instead of the flat colour.
+    val art = scope.device.keyboardKey?.let { image -> androidx.compose.runtime.remember(image) { NinePatchArt.of(image) } }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
     Box(
         modifier
             .height(36.dp)
-            .fill(group, scope, RoundedCornerShape(8.dp)),
+            .then(
+                if (art != null) Modifier.ninePatch(art, density / 3f * 0.75f).themed(group, scope, RoundedCornerShape(8.dp))
+                else Modifier.fill(group, scope, RoundedCornerShape(8.dp)),
+            ),
         contentAlignment = Alignment.Center,
     ) {
         PText(label, scope[ColorGroup.KEYBOARD_LABEL], scope, size = size, align = TextAlign.Center)

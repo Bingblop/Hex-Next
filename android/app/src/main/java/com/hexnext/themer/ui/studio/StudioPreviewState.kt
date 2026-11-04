@@ -200,4 +200,7 @@ data class DeviceColors(
     val systemUi: ResourceColors = ResourceColors(),
     val settings: ResourceColors = ResourceColors(),
     val myFiles: ResourceColors = ResourceColors(),
+    val keyboard: ResourceColors = ResourceColors(),
+    /** The key art Samsung Keyboard gets (`key_bg`, a nine-patch with its guides), or null. */
+    val keyboardKey: ImageBitmap? = null,
 )

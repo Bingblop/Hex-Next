@@ -2,6 +2,7 @@ package com.hexnext.themer.theme
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import com.hexnext.engine.compile.CompiledTarget
@@ -185,6 +186,9 @@ class ThemePreviewer(context: Context) {
         val synthesised = HashSet<String>()
         val builtIn = HashSet<String>()
         var background: Bitmap? = null
+        var keyboardKey: Bitmap? = null
+        val keyboardTarget = compiled.target(KEYBOARD)
+        val keyJob = keyboardTarget?.let { bestJobs(it, setOf("key_bg"), night)["key_bg"] }
         var failed = 0
         val customRoot = CustomAssetStore.rootDir(appContext)
         DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
@@ -211,6 +215,8 @@ class ThemePreviewer(context: Context) {
                 if (job.badge != null) builtIn += name
                 myFiles += PreviewIcon(name, label, bitmapOf(job))
             }
+            // The pack's key art, as Samsung Keyboard draws it under every key (lab-024).
+            if (keyJob != null) keyboardKey = bitmapOf(keyJob)
             if (backgroundJob != null) {
                 checkCancelled()
                 background = backgroundBitmap(renderer, backgroundJob, customRoot)
@@ -228,6 +234,8 @@ class ThemePreviewer(context: Context) {
             systemUi = colorsOf(compiled.target(SYSTEM_UI)),
             settings = colorsOf(settings),
             myFiles = colorsOf(myFilesTarget),
+            keyboard = colorsOf(keyboardTarget),
+            keyboardKey = keyboardKey?.asImageBitmap(),
         )
         return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle, deviceColors)
     }
@@ -552,7 +560,8 @@ class ThemePreviewer(context: Context) {
         private const val TARGET = "com.android.settings"
         private const val MY_FILES = "com.sec.android.app.myfiles"
         private const val SYSTEM_UI = "com.android.systemui"
-        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI)
+        private const val KEYBOARD = "com.samsung.android.honeyboard"
+        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI, KEYBOARD)
         private const val ACCENT_COLOR = "sec_widget_round_and_bgcolor"
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"
