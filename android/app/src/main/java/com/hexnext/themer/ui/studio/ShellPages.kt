@@ -81,6 +81,7 @@ import com.hexnext.themer.ui.Screen
 import com.hexnext.themer.ui.UiState
 import com.hexnext.themer.ui.ai.DescribeThemeCard
 import com.hexnext.themer.ui.findActivity
+import com.hexnext.themer.ui.rememberHapticTap
 import com.hexnext.themer.ui.preview.PhonePreview
 
 // ---- Shared pieces ----
@@ -91,6 +92,7 @@ import com.hexnext.themer.ui.preview.PhonePreview
  */
 @Composable
 internal fun <T> SubTabs(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+    val tap = rememberHapticTap()
     val shape = RoundedCornerShape(12.dp)
     Row(
         modifier
@@ -110,7 +112,10 @@ internal fun <T> SubTabs(options: List<T>, selected: T, label: (T) -> String, on
                     .heightIn(min = 48.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(option) })
+                    .selectable(selected = isSelected, role = Role.Tab, onClick = {
+                        if (!isSelected) tap()
+                        onSelect(option)
+                    })
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -166,7 +171,7 @@ private fun PreviewScanNote(preview: StudioPreviewState, onScan: () -> Unit) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PreviewPeek(
+internal fun PreviewPeek(
     preview: PreviewModel,
     onElementTap: (ColorGroup) -> Unit,
     collapsed: Boolean,

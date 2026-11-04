@@ -23,8 +23,12 @@ interface PackEntitlements {
 
     fun isUnlocked(packId: String): Boolean
 
-    /** Starts the store purchase flow for [productId]; the result arrives through [state]. */
-    fun launchPurchase(activity: Activity, productId: String)
+    /**
+     * Starts the store purchase flow for [productId]; the result arrives through [state].
+     * [grantPackIds] is the packs a bundle product ([com.hexnext.themer.billing.PackPricing]) unlocks
+     * when the purchase completes. Empty for a single pack, for [ProductIds.ALL_PACKS] and for AI.
+     */
+    fun launchPurchase(activity: Activity, productId: String, grantPackIds: Set<String> = emptySet())
 
     fun productIdFor(packId: String): String
 
@@ -44,11 +48,16 @@ data class EntitlementState(
     val unlockAll: Boolean = false,
     /** Ids of the known packs ([PackEntitlements.setCatalogue]) that are unlocked. */
     val ownedPackIds: Set<String> = emptySet(),
-    /** Product id to the store's formatted price; prices are never hard-coded. */
+    /** Product id to the store's formatted price. The UI falls back to [PackPricing] until this is filled. */
     val prices: Map<String, String> = emptyMap(),
     val error: String? = null,
     /** Verified, owned product ids of this app run; recomputed from the store on every start. */
     val ownedProductIds: Set<String> = emptySet(),
+    /**
+     * Packs unlocked by a verified bundle purchase ([PackPricing]), in addition to [ownedProductIds].
+     * Recomputed from those purchases, so a refund locks them again. Empty until the store has answered.
+     */
+    val bundlePackIds: Set<String> = emptySet(),
     /**
      * True when [ProductIds.EVERYTHING] is owned (or this build unlocks everything): every pack,
      * including packs added later, and every [PaidFeature], including features added later.
@@ -66,6 +75,11 @@ data class EntitlementState(
      * locks while [ready] is false; it never unlocks a download or an apply.
      */
     val cachedProductIds: Set<String> = emptySet(),
+    /**
+     * Packs a bundle purchase unlocked at the end of the last run. Display only, like
+     * [cachedProductIds]: it never unlocks an apply.
+     */
+    val cachedBundlePackIds: Set<String> = emptySet(),
     /** True while purchases are being read from the store. */
     val checking: Boolean = false,
 ) {
@@ -73,11 +87,18 @@ data class EntitlementState(
      * True when pack [packId] is unlocked by a verified purchase (or by this build). A purchase
      * made under a former id of the pack ([ProductIds.allForPack]) still unlocks it.
      */
-    fun unlocks(packId: String): Boolean = unlockAll || everything || ProductIds.allForPack(packId).any { it in ownedProductIds }
+    fun unlocks(packId: String): Boolean = unlockAll || everything ||
+        ProductIds.allForPack(packId).any { it in ownedProductIds } ||
+        PackIdAliases.current(packId) in bundlePackIds
 
-    /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
+    /** [unlocks], or before [ready] the cached hint: for display only. */
     fun looksUnlocked(packId: String): Boolean = unlocks(packId) ||
-        (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.EVERYTHING in cachedProductIds || ProductIds.allForPack(packId).any { it in cachedProductIds }))
+        (!ready && (
+            ProductIds.ALL_PACKS in cachedProductIds ||
+                ProductIds.EVERYTHING in cachedProductIds ||
+                ProductIds.allForPack(packId).any { it in cachedProductIds } ||
+                PackIdAliases.current(packId) in cachedBundlePackIds
+            ))
 
     /** True when [feature] may be used: a verified product of [PaidFeature.productIds], or [everything]. */
     fun unlocks(feature: PaidFeature): Boolean = everything || feature.productIds.any { it in ownedProductIds }

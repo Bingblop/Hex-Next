@@ -4,6 +4,13 @@ import com.hexnext.themer.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -80,9 +87,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.themer.billing.PackAccess
+import com.hexnext.themer.billing.PackPricing
+import com.hexnext.themer.ui.rememberHapticTap
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.Capability
@@ -159,9 +170,11 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val ready = shizuku as? ShizukuState.Ready
     val appSettings = LocalAppSettings.current
     val haptic = LocalHapticFeedback.current
+    val tap = rememberHapticTap()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
+    LaunchedEffect(activity) { viewModel.bindBillingActivity(activity) }
 
     var destination by rememberSaveable { mutableStateOf(Destination.STUDIO) }
     var coloursTab by rememberSaveable { mutableStateOf(ColoursTab.ENGINE) }
@@ -298,7 +311,10 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         val applyBarInsets = WindowInsets.navigationBars.union(WindowInsets.displayCutout)
             .only(if (rail) WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom else WindowInsetsSides.Horizontal)
         // The first pack of the theme that is not unlocked: the bar offers Unlock instead of Apply.
-        val previewOnlyPack = remember(ui.spec, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.previewOnlyPacksInTheme().firstOrNull() }
+        val lockedPacks = remember(ui.spec, ui.seed, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) {
+            PackAccess.lockedPacksIn(ui.spec.copy(source = ui.spec.source.copy(seedArgb = ui.seed))) { ui.isPackUnlocked(it) }
+        }
+        val previewOnlyPack = lockedPacks.singleOrNull()
         val applyBar: @Composable () -> Unit = {
             // Read here, so a new log line recomposes only the Apply bar.
             val progressLine by viewModel.lastLogLine.collectAsStateWithLifecycle()
@@ -313,17 +329,23 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     unconfirmed = ui.applyUnconfirmed,
                     protectionExpired = ui.applyProtectionExpired,
                     progressLine = progressLine,
-                    onApply = viewModel::applyTheme,
+                    onApply = {
+                        if (appSettings.haptics) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.applyTheme()
+                    },
                     onRemove = viewModel::removeTheme,
                     onConfirmWorks = viewModel::confirmWorks,
                     onDetails = openTargets,
                     onConnection = { showPrivilege = true },
                     previewOnlyPack = previewOnlyPack?.let { ui.packDisplayName(it) },
-                    previewOnlyPrice = previewOnlyPack?.let { ui.entitlement.priceOf(it) },
-                    previewOnlyPending = previewOnlyPack?.let { ui.entitlement.isPending(it) } == true,
-                    onUnlock = if (ui.canPurchase && previewOnlyPack != null && activity != null) {
-                        { viewModel.unlock(activity, ProductIds.forPack(previewOnlyPack)) }
-                    } else null,
+                    lockedPackCount = lockedPacks.size,
+                    lockedPackPrice = if (lockedPacks.isEmpty()) null else PackPricing.labelForOffer(
+                        lockedPacks.size,
+                        ui.entitlement.prices,
+                        lockedPacks.singleOrNull(),
+                    ),
+                    previewOnlyPending = lockedPacks.any { ui.entitlement.isPending(it) } ||
+                        (lockedPacks.size >= PackPricing.ALL_FROM && ProductIds.ALL_PACKS in ui.entitlement.pendingProductIds),
                 )
             }
         }
@@ -363,7 +385,10 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                 Destination.entries.forEach { entry ->
                                     NavigationBarItem(
                                         selected = destination == entry,
-                                        onClick = { destination = entry },
+                                        onClick = {
+                                            tap()
+                                            destination = entry
+                                        },
                                         icon = { Icon(entry.icon, contentDescription = null) },
                                         label = { Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
                                         colors = NavigationBarItemDefaults.colors(
@@ -400,7 +425,10 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         Destination.entries.forEach { entry ->
                             NavigationRailItem(
                                 selected = destination == entry,
-                                onClick = { destination = entry },
+                                onClick = {
+                                    tap()
+                                    destination = entry
+                                },
                                 icon = { Icon(entry.icon, contentDescription = null) },
                                 label = { Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
                                 colors = NavigationRailItemDefaults.colors(
@@ -424,58 +452,78 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         onTargets = openTargets,
                     )
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        pages.SaveableStateProvider(
-                            when (destination) {
-                                Destination.COLOURS -> "COLOURS:${coloursTab.name}"
-                                Destination.ICONS -> "ICONS:${iconsTab.name}"
-                                Destination.SYSTEM -> "SYSTEM:${systemTab.name}"
-                                else -> destination.name
-                            },
-                        ) {
-                            when (destination) {
-                                Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide)
-                                Destination.SKINS -> SkinsPage(
-                                    viewModel = viewModel,
-                                    ui = ui,
-                                    preview = previewModel,
-                                    onElementTap = onElementTap,
-                                    peekCollapsed = peekCollapsed,
-                                    onPeekCollapsed = { peekCollapsed = it },
-                                    wide = wide,
-                                )
-                                Destination.COLOURS -> ColoursPage(
-                                    viewModel = viewModel,
-                                    ui = ui,
-                                    preview = previewModel,
-                                    tab = coloursTab,
-                                    onTab = { coloursTab = it },
-                                    onElementTap = onElementTap,
-                                    elementsTick = elementsTick,
-                                    elementsTickHandled = elementsTickHandled,
-                                    onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
-                                    peekCollapsed = peekCollapsed,
-                                    onPeekCollapsed = { peekCollapsed = it },
-                                    wide = wide,
-                                )
-                                Destination.ICONS -> IconsPage(
-                                    viewModel = viewModel,
-                                    ui = ui,
-                                    preview = previewModel,
-                                    tab = iconsTab,
-                                    onTab = { iconsTab = it },
-                                    onElementTap = onElementTap,
-                                    peekCollapsed = peekCollapsed,
-                                    onPeekCollapsed = { peekCollapsed = it },
-                                    wide = wide,
-                                )
-                                Destination.SYSTEM -> SystemPage(
-                                    viewModel = viewModel,
-                                    ui = ui,
-                                    shizuku = shizuku,
-                                    tab = systemTab,
-                                    onTab = { systemTab = it },
-                                )
+                        val page: @Composable (Destination) -> Unit = { dest ->
+                            pages.SaveableStateProvider(
+                                when (dest) {
+                                    Destination.COLOURS -> "COLOURS:${coloursTab.name}"
+                                    Destination.ICONS -> "ICONS:${iconsTab.name}"
+                                    Destination.SYSTEM -> "SYSTEM:${systemTab.name}"
+                                    else -> dest.name
+                                },
+                            ) {
+                                when (dest) {
+                                    Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide)
+                                    Destination.SKINS -> SkinsPage(
+                                        viewModel = viewModel,
+                                        ui = ui,
+                                        preview = previewModel,
+                                        onElementTap = onElementTap,
+                                        peekCollapsed = peekCollapsed,
+                                        onPeekCollapsed = { peekCollapsed = it },
+                                        wide = wide,
+                                    )
+                                    Destination.COLOURS -> ColoursPage(
+                                        viewModel = viewModel,
+                                        ui = ui,
+                                        preview = previewModel,
+                                        tab = coloursTab,
+                                        onTab = { coloursTab = it },
+                                        onElementTap = onElementTap,
+                                        elementsTick = elementsTick,
+                                        elementsTickHandled = elementsTickHandled,
+                                        onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
+                                        peekCollapsed = peekCollapsed,
+                                        onPeekCollapsed = { peekCollapsed = it },
+                                        wide = wide,
+                                    )
+                                    Destination.ICONS -> IconsPage(
+                                        viewModel = viewModel,
+                                        ui = ui,
+                                        preview = previewModel,
+                                        tab = iconsTab,
+                                        onTab = { iconsTab = it },
+                                        onElementTap = onElementTap,
+                                        peekCollapsed = peekCollapsed,
+                                        onPeekCollapsed = { peekCollapsed = it },
+                                        wide = wide,
+                                    )
+                                    Destination.SYSTEM -> SystemPage(
+                                        viewModel = viewModel,
+                                        ui = ui,
+                                        shizuku = shizuku,
+                                        preview = previewModel,
+                                        onElementTap = onElementTap,
+                                        peekCollapsed = peekCollapsed,
+                                        onPeekCollapsed = { peekCollapsed = it },
+                                        tab = systemTab,
+                                        onTab = { systemTab = it },
+                                    )
+                                }
                             }
+                        }
+                        if (appSettings.reduceMotion) {
+                            page(destination)
+                        } else {
+                            AnimatedContent(
+                                targetState = destination,
+                                transitionSpec = {
+                                    val forward = targetState.ordinal >= initialState.ordinal
+                                    val slide = tween<IntOffset>(260)
+                                    (slideInHorizontally(slide) { full -> if (forward) full / 5 else -full / 5 } + fadeIn(tween(200)))
+                                        .togetherWith(slideOutHorizontally(slide) { full -> if (forward) -full / 6 else full / 6 } + fadeOut(tween(160)))
+                                },
+                                label = "destination",
+                            ) { dest -> page(dest) }
                         }
                     }
                 }

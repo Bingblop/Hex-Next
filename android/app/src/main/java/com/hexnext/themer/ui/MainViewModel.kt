@@ -36,6 +36,7 @@ import com.hexnext.engine.compile.withAllGroupsAuto
 import com.hexnext.engine.compile.withGroupColor
 import com.hexnext.engine.compile.withSynthesizeMissingIcons
 import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.pack.PackIdAliases
 import com.hexnext.engine.palette.PaletteStyle
 import com.hexnext.engine.palette.ThemeAdjustments
 import com.hexnext.engine.palette.ThemeResolver
@@ -45,6 +46,7 @@ import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.EntitlementsProvider
 import com.hexnext.themer.billing.OfficialPacks
 import com.hexnext.themer.billing.PackAccess
+import com.hexnext.themer.billing.PackPricing
 import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.device.CompatibilityCheck
@@ -796,14 +798,55 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * night colours need the privileged service.
      */
     fun applyTheme() {
-        // Catalogue packs are paid unlocks: a theme that uses a locked pack (an imported catalogue file, a pack
-        // whose purchase was refunded, a pick from "Describe your theme") is not applied.
+        // Catalogue packs are paid unlocks. A theme that uses locked packs is not applied: Apply
+        // opens one Play purchase for exactly those packs (or every pack, once that costs less).
         val locked = PackAccess.lockedPacksIn(specToApply()) { _ui.value.isPackUnlocked(it) }
         if (locked.isNotEmpty()) {
-            refuseLocked(locked.first())
+            val activity = billingActivity?.get()
+            if (activity != null && entitlements.canPurchase) purchaseLockedPacks(activity, locked)
+            else refuseLocked(locked.first())
             return
         }
         applyUnlockedTheme()
+    }
+
+    /** The activity Play billing needs. The shell sets it; a cleared activity cannot start a purchase. */
+    private var billingActivity: WeakReference<Activity>? = null
+
+    fun bindBillingActivity(activity: Activity?) {
+        billingActivity = activity?.let { WeakReference(it) }
+    }
+
+    /**
+     * One Play purchase for [locked]: $0.99 for a single pack, then $1.00 more per extra pack.
+     * Ten or more, or no free bundle slot, buys every pack instead. The packs named on a bundle
+     * purchase stay unlocked for good.
+     */
+    private fun purchaseLockedPacks(activity: Activity, locked: Set<String>) {
+        val ids = locked.map { PackIdAliases.current(it) }.distinct().sorted()
+        if (ids.isEmpty()) return
+        val prices = _ui.value.entitlement.prices
+        val label = PackPricing.labelForOffer(ids.size, prices, ids.singleOrNull())
+        when {
+            ids.size == 1 -> {
+                log(LogLine(LogLevel.INFO, "Opening Google Play to unlock ${packName(ids.first())} ($label)"))
+                entitlements.launchPurchase(activity, ProductIds.forPack(ids.first()))
+            }
+            ids.size >= PackPricing.ALL_FROM -> {
+                log(LogLine(LogLevel.INFO, "Opening Google Play to unlock every pack ($label)"))
+                entitlements.launchPurchase(activity, ProductIds.ALL_PACKS)
+            }
+            else -> {
+                val slot = PackPricing.freeSlot(ids.size, _ui.value.entitlement.ownedProductIds)
+                if (slot == null) {
+                    log(LogLine(LogLevel.INFO, "Opening Google Play to unlock every pack ($label)"))
+                    entitlements.launchPurchase(activity, ProductIds.ALL_PACKS)
+                } else {
+                    log(LogLine(LogLevel.INFO, "Opening Google Play to unlock ${ids.joinToString { packName(it) }} ($label)"))
+                    entitlements.launchPurchase(activity, slot, ids.toSet())
+                }
+            }
+        }
     }
 
     private fun applyUnlockedTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
@@ -1864,6 +1907,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS], or an AI / everything product). */
     fun unlock(activity: Activity, productId: String) {
         if (!entitlements.canPurchase) return
+        bindBillingActivity(activity)
         entitlements.launchPurchase(activity, productId)
     }
 
@@ -1921,6 +1965,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
         if (!before.ready) return
         val newlyOwned = state.ownedProductIds - before.ownedProductIds
+        val newBundles = state.bundlePackIds - before.bundlePackIds
         val aiNow = state.unlocks(PaidFeature.AI_CREATION)
         when {
             state.everything && !before.everything ->
@@ -1930,8 +1975,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 postNotice(Notice("AI theme creation unlocked. Thank you!", isSuccess = true))
             !aiNow && before.unlocks(PaidFeature.AI_CREATION) && ProductIds.AI_MONTHLY in before.ownedProductIds ->
                 postNotice(Notice("Your AI subscription has ended. Subscribe again to keep creating themes with AI"))
-            newlyOwned.isNotEmpty() -> {
-                val names = newlyOwned.map { productId -> productName(productId) }
+            newlyOwned.isNotEmpty() || newBundles.isNotEmpty() -> {
+                val names = (newlyOwned.filter { PackPricing.countOf(it) == null }.map { productName(it) } + newBundles.map { packName(it) })
+                    .distinct()
                 log(LogLine(LogLevel.OK, "Unlocked ${names.joinToString()}"))
                 postNotice(Notice("${names.joinToString()} unlocked. Thank you!", isSuccess = true))
             }
@@ -1941,11 +1987,12 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     private fun productName(productId: String): String {
-        when (productId) {
-            ProductIds.ALL_PACKS -> return "All packs"
-            ProductIds.AI_MONTHLY -> return "AI theme creation (monthly)"
-            ProductIds.AI_LIFETIME -> return "AI theme creation (forever)"
-            ProductIds.EVERYTHING -> return "Everything"
+        when {
+            productId == ProductIds.ALL_PACKS -> return "All packs"
+            productId == ProductIds.AI_MONTHLY -> return "AI theme creation (monthly)"
+            productId == ProductIds.AI_LIFETIME -> return "AI theme creation (forever)"
+            productId == ProductIds.EVERYTHING -> return "Everything"
+            PackPricing.countOf(productId) != null -> return "Selected packs"
         }
         val state = _ui.value
         // allForPack also matches a purchase made under a former product id, so the user sees

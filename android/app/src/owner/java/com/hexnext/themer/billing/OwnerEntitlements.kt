@@ -19,7 +19,7 @@ internal object OwnerEntitlements : PackEntitlements {
 
     override fun isUnlocked(packId: String): Boolean = true
 
-    override fun launchPurchase(activity: Activity, productId: String) = Unit
+    override fun launchPurchase(activity: Activity, productId: String, grantPackIds: Set<String>) = Unit
 
     override fun productIdFor(packId: String): String = ProductIds.forPack(packId)
 

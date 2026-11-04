@@ -347,8 +347,8 @@ private fun SeedHexField(seed: Int, onSeed: (Int) -> Unit) {
 private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
     SectionCard("Behaviour") {
         SwitchRow(
-            label = "Vibration feedback",
-            summary = "Vibrate when a theme is applied, succeeds or fails.",
+            label = "Haptic feedback",
+            summary = "Vibrate on taps, and when a theme is applied, succeeds or fails.",
             checked = settings.haptics,
             enabled = true,
             onCheckedChange = store::setHaptics,
