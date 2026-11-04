@@ -154,6 +154,10 @@ public data class ColorGroupFamily(
  *   not have: older packs name switches and checkboxes `switch_thumb_on` or `checkbox_026`, which
  *   One UI 9 apps call `sesl_switch_thumb_on` and `sesl_btn_check_to_on_026`. A target that still
  *   has the old name keeps it.
+ * @property drawableCopies pack drawable `type/name` → more target `type/name`s it also paints when
+ *   the target has them. Packs name dialog and popup art after the plugin's own slots (`dialog_`,
+ *   `popup_`, `dialog_xmlonly_oui3_night`); no One UI 9 resource has those names, so without a copy
+ *   the art never reached a dialog (device lab, lab-015/016: Force stop stayed stock grey).
  * @property dashboardRows Settings dashboard row keys (`display`, `galaxy_ai` …) whose icons are
  *   `com.android.settings:drawable/sec_ic_settings_<row>`; the rows icon synthesis may fill in.
  * @property colorGroups [ColorGroup.id] → regular expressions over the bare colour name
@@ -173,6 +177,7 @@ public data class OneUiRules(
     val quickSettings: QuickSettingsRules = QuickSettingsRules(),
     val renamed: Map<String, String> = emptyMap(),
     val fallbackRenames: Map<String, String> = emptyMap(),
+    val drawableCopies: Map<String, List<String>> = emptyMap(),
     val dashboardRows: List<String> = emptyList(),
     val colorGroups: Map<String, List<String>> = emptyMap(),
     val colorGroupPackages: Map<String, String> = emptyMap(),

@@ -1006,6 +1006,13 @@ public object ThemeCompiler {
                     if (request[target]?.resourceName?.let { "$type/$it" } == target) continue
                     request[target] = DrawableSource(pack.id, category.raw, res)
                 }
+                // Copies never replace a pack drawable that has the target's own name.
+                for (res in pack.layers.filter { it.category == category.raw }.flatMap { it.resources }.distinct()) {
+                    for (copy in rules.drawableCopies["$type/$res"].orEmpty()) {
+                        if (copy in request || table.find(copy) == null) continue
+                        request[copy] = DrawableSource(pack.id, category.raw, res)
+                    }
+                }
                 val plan = ResourceMapper.map(table, semwt, ThemeRequest(drawables = request))
                 if (!element.anyTarget) plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name}", it.reason) }
                 for (pd in plan.drawableEntries) {

@@ -35,6 +35,14 @@ class OneUiRulesTest {
     }
 
     @Test
+    fun `One UI 9 copies the pack dialog and popup art onto its real dialog drawables`() {
+        val copies = OneUiRules.load(9).drawableCopies
+        assertTrue("drawable/sesl_dialog_background" in copies.getValue("drawable/dialog_"))
+        assertTrue("drawable/dialog_background_material" in copies.getValue("drawable/dialog_"))
+        assertTrue("drawable/sesl_menu_popup_background_dark" in copies.getValue("drawable/popup_"))
+    }
+
+    @Test
     fun `every bundled version has a colours-only Quick Settings policy for its own layout`() {
         for (major in 7..9) {
             val qs = OneUiRules.load(major).quickSettings

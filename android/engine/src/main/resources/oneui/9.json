@@ -105,6 +105,24 @@
     "drawable/sec_ic_themes": "drawable/sec_ic_settings_themes",
     "drawable/sec_ic_settings_help": "drawable/sec_ic_settings_user_manual"
   },
+  "drawableCopies": {
+    "drawable/dialog_": [
+      "drawable/sesl_dialog_background",
+      "drawable/dialog_background_material",
+      "drawable/sec_dialog_background"
+    ],
+    "drawable/popup_": [
+      "drawable/sesl_menu_popup_background",
+      "drawable/sesl_menu_popup_background_dark",
+      "drawable/popup_background_material",
+      "drawable/sem_popup_background_material",
+      "drawable/sem_popup_background_material_dark",
+      "drawable/sem_list_popup_background_material",
+      "drawable/sem_list_popup_background_material_dark",
+      "drawable/sem_spinner_popup_background_material",
+      "drawable/sem_spinner_popup_background_material_dark"
+    ]
+  },
   "fallbackRenames": {
       "drawable/switch_thumb_on": "drawable/sesl_switch_thumb_on",
       "drawable/switch_track_on": "drawable/sesl_switch_track_on",
