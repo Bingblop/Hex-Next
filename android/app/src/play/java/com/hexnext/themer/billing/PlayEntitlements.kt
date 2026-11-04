@@ -288,7 +288,11 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 val snapshot = purchases.orEmpty().toList()
-                if (snapshot.isNotEmpty()) scope.launch { handlePurchases(snapshot, full = null) }
+                if (snapshot.isNotEmpty()) {
+                    // Taken on receipt: a full answer applied before the coroutine starts still counts.
+                    val appliedAtReceipt = synchronized(lock) { appliedGeneration }
+                    scope.launch { handlePurchases(snapshot, full = null, appliedAtStart = appliedAtReceipt) }
+                }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> setError(baseError())
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> queryPurchases()
@@ -319,8 +323,11 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
      * newest full answer already applied is dropped, and the state is published under [lock] so
      * publications keep the order of the updates.
      */
-    private suspend fun handlePurchases(purchases: List<Purchase>, full: FullQuery?) {
-        val appliedAtStart = synchronized(lock) { appliedGeneration }
+    private suspend fun handlePurchases(
+        purchases: List<Purchase>,
+        full: FullQuery?,
+        appliedAtStart: Long = synchronized(lock) { appliedGeneration },
+    ) {
         val serverAnswers = verifyOnServer(purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED })
         val granted = HashSet<String>()
         val pendingNow = HashSet<String>()
