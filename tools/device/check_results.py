@@ -101,6 +101,10 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
     return ok, lines
 
 
+# Apps that have no light mode at all.
+DARK_ONLY = {"com.google.android.deskclock"}
+
+
 def mode_warnings(res: Path) -> list[str]:
     """Apps whose light-mode screenshot is still dark: set to Dark in their own settings rather than
     following the system, so their light previews cannot be compared. Warnings, not failures."""
@@ -116,6 +120,8 @@ def mode_warnings(res: Path) -> list[str]:
         lum = [ImageStat.Stat(Image.open(f).convert("L")).mean[0] for f in (light, dark)]
         if lum[0] < 90 and lum[0] - lum[1] < 25:
             pkg = light.stem.removeprefix("light-real-app-")
+            if pkg in DARK_ONLY:
+                continue
             out.append(f"- warn: {pkg} stays dark in light mode (its own theme setting is not System default?)")
     return out
 
