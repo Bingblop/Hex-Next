@@ -10,12 +10,10 @@ class PaidFeatureTest {
 
     @Test
     fun productIdsAreFixedBecausePlayCannotRenameThem() {
-        assertEquals("ai_monthly", ProductIds.AI_MONTHLY)
         assertEquals("ai_lifetime", ProductIds.AI_LIFETIME)
-        assertEquals("everything", ProductIds.EVERYTHING)
-        assertEquals(setOf("ai_monthly"), ProductIds.SUBSCRIPTIONS)
-        assertTrue(ProductIds.ONE_TIME_EXTRAS.containsAll(listOf("all_packs", "ai_lifetime", "everything")))
-        assertFalse(ProductIds.ONE_TIME_EXTRAS.any { it in ProductIds.SUBSCRIPTIONS })
+        assertEquals("all_packs", ProductIds.ALL_PACKS)
+        assertEquals(listOf("all_packs", "ai_lifetime"), ProductIds.ONE_TIME_EXTRAS)
+        assertEquals(ProductIds.AI_LIFETIME, PaidFeature.AI_CREATION.productId)
     }
 
     @Test
@@ -29,27 +27,26 @@ class PaidFeatureTest {
         val state = ready.copy(unlockAll = true, ownedProductIds = setOf(ProductIds.ALL_PACKS))
         assertFalse(state.unlocks(PaidFeature.AI_CREATION))
         assertTrue(state.unlocks("willemite"))
+        assertTrue(state.unlocks("a-pack-added-next-year"))
     }
 
     @Test
-    fun subscriptionOrLifetimeUnlocksAiButNoPack() {
-        for (id in listOf(ProductIds.AI_MONTHLY, ProductIds.AI_LIFETIME)) {
-            val state = ready.copy(ownedProductIds = setOf(id))
-            assertTrue(id, state.unlocks(PaidFeature.AI_CREATION))
-            assertFalse(id, state.unlocks("willemite"))
-        }
+    fun aiPurchaseUnlocksAiButNoPack() {
+        val state = ready.copy(ownedProductIds = setOf(ProductIds.AI_LIFETIME))
+        assertTrue(state.unlocks(PaidFeature.AI_CREATION))
+        assertFalse(state.unlocks("willemite"))
     }
 
     @Test
-    fun everythingUnlocksEveryFeatureAndEveryPack() {
-        val state = ready.copy(everything = true, ownedProductIds = setOf(ProductIds.EVERYTHING))
+    fun ownerBuildUnlocksEveryFeature() {
+        val state = ready.copy(unlockAll = true, allFeatures = true)
         PaidFeature.entries.forEach { assertTrue(it.name, state.unlocks(it)) }
         assertTrue(state.unlocks("a-pack-added-next-year"))
     }
 
     @Test
     fun cachedHintOnlyShowsBeforeTheStoreAnswered() {
-        val hint = EntitlementState(cachedProductIds = setOf(ProductIds.AI_MONTHLY))
+        val hint = EntitlementState(cachedProductIds = setOf(ProductIds.AI_LIFETIME))
         assertTrue(hint.looksUnlocked(PaidFeature.AI_CREATION))
         assertFalse(hint.unlocks(PaidFeature.AI_CREATION))
         assertFalse(hint.copy(ready = true).looksUnlocked(PaidFeature.AI_CREATION))
@@ -60,28 +57,13 @@ class PaidFeatureTest {
         val state = ready.copy(pendingProductIds = setOf(ProductIds.AI_LIFETIME))
         assertTrue(state.isPending(PaidFeature.AI_CREATION))
         assertFalse(state.unlocks(PaidFeature.AI_CREATION))
+        assertFalse(state.isPending("willemite"))
     }
 
     @Test
-    fun staleSubscriptionsKeepTheHintAfterTheStoreAnswered() {
-        val state = EntitlementState(ready = true, subscriptionsStale = true, cachedProductIds = setOf(ProductIds.AI_MONTHLY))
-        assertTrue(state.looksUnlocked(PaidFeature.AI_CREATION))
-        assertFalse(state.unlocks(PaidFeature.AI_CREATION))
-    }
-
-    @Test
-    fun pendingEverythingOrAllPacksMarksEveryPackPending() {
-        for (id in listOf(ProductIds.EVERYTHING, ProductIds.ALL_PACKS)) {
-            assertTrue(id, ready.copy(pendingProductIds = setOf(id)).isPending("willemite"))
-        }
-        assertFalse(ready.copy(pendingProductIds = setOf(ProductIds.AI_MONTHLY)).isPending("willemite"))
-    }
-
-    @Test
-    fun staleSubscriptionsDoNotTrustOneTimeHints() {
-        for (id in listOf(ProductIds.AI_LIFETIME, ProductIds.EVERYTHING)) {
-            val state = EntitlementState(ready = true, subscriptionsStale = true, cachedProductIds = setOf(id))
-            assertFalse(id, state.looksUnlocked(PaidFeature.AI_CREATION))
-        }
+    fun pendingAllPacksMarksEveryPackPendingButNotAi() {
+        val state = ready.copy(pendingProductIds = setOf(ProductIds.ALL_PACKS))
+        assertTrue(state.isPending("willemite"))
+        assertFalse(state.isPending(PaidFeature.AI_CREATION))
     }
 }

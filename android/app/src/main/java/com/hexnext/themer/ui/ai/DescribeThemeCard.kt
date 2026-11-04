@@ -407,12 +407,12 @@ internal class DescribeThemeModel : ViewModel() {
     }
 
     /**
-     * Refused unless [entitlements] unlocks [PaidFeature.AI_CREATION] at this moment (a lapsed
-     * subscription must not keep generating from a screen that was open before it lapsed).
+     * Refused unless [entitlements] unlocks [PaidFeature.AI_CREATION] at this moment (a refunded
+     * purchase must not keep generating from a screen that was open before the refund).
      */
     private fun allowed(entitlements: PackEntitlements): Boolean {
         if (entitlements.state.value.unlocks(PaidFeature.AI_CREATION)) return true
-        error = "AI theme creation is locked. Subscribe or unlock it to generate."
+        error = "AI theme creation is locked. Unlock it to generate."
         return false
     }
 

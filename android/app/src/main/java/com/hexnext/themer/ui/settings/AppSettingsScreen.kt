@@ -377,30 +377,25 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Theme packs are one-time purchases on Google Play; AI theme creation is a monthly subscription
- * or a one-time unlock, and "Everything" unlocks both forever. "Restore purchases" reads them
- * from Play again, for a new phone, a reinstall or a purchase made on another device.
+ * Theme packs and AI theme creation are one-time purchases on Google Play. "Restore purchases"
+ * reads them from Play again, for a new phone, a reinstall or a purchase made on another device.
  */
 @Composable
 private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
-    val uriHandler = rememberSafeUriHandler()
-    val context = LocalContext.current
     val error = purchases.error
     val packCount = purchases.ownedProductIds.count { it.startsWith(ProductIds.PACK_PREFIX) }
     val status = when {
         purchases.checking -> "Checking your purchases with Google Play…"
         error != null -> error
         !purchases.ready -> "Your purchases have not been checked yet."
-        purchases.everything -> "Everything is unlocked forever: every pack and AI theme creation, including anything added later."
         purchases.unlockAll -> "All packs are unlocked, including packs added later."
         packCount == 0 -> "No packs unlocked yet. Unlock packs in Skins."
         packCount == 1 -> "1 pack unlocked."
         else -> "$packCount packs unlocked."
     }
     val ai = when {
-        !purchases.ready || purchases.everything -> null
-        ProductIds.AI_LIFETIME in purchases.ownedProductIds -> "AI theme creation: unlocked forever."
-        ProductIds.AI_MONTHLY in purchases.ownedProductIds -> "AI theme creation: monthly subscription active."
+        !purchases.ready -> null
+        purchases.unlocks(PaidFeature.AI_CREATION) -> "AI theme creation: unlocked forever."
         purchases.isPending(PaidFeature.AI_CREATION) -> "AI theme creation: payment pending."
         else -> "AI theme creation: locked. Unlock it from Describe your theme on the Studio tab."
     }
@@ -418,17 +413,6 @@ private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
             summary = "Unlock packs and AI theme creation you bought before on this Google account.",
             onClick = onRestore,
         )
-        if (ProductIds.AI_MONTHLY in purchases.ownedProductIds) {
-            NavRow(
-                title = "Manage subscription",
-                summary = "Cancel or change the AI subscription in Google Play.",
-                onClick = {
-                    uriHandler.openUri(
-                        "https://play.google.com/store/account/subscriptions?sku=${ProductIds.AI_MONTHLY}&package=${context.packageName}",
-                    )
-                },
-            )
-        }
     }
 }
 

@@ -49,16 +49,8 @@ data class EntitlementState(
     val error: String? = null,
     /** Verified, owned product ids of this app run; recomputed from the store on every start. */
     val ownedProductIds: Set<String> = emptySet(),
-    /**
-     * True when [ProductIds.EVERYTHING] is owned (or this build unlocks everything): every pack,
-     * including packs added later, and every [PaidFeature], including features added later.
-     */
-    val everything: Boolean = false,
-    /**
-     * True while the last subscription query gave no answer: subscriptions may be owned but are
-     * not known, so [looksUnlocked] still trusts [cachedProductIds] for them.
-     */
-    val subscriptionsStale: Boolean = false,
+    /** True when this build unlocks every [PaidFeature] without a purchase (the owner build only). */
+    val allFeatures: Boolean = false,
     /** Product ids whose payment is still pending; they are not unlocked. */
     val pendingProductIds: Set<String> = emptySet(),
     /**
@@ -73,27 +65,23 @@ data class EntitlementState(
      * True when pack [packId] is unlocked by a verified purchase (or by this build). A purchase
      * made under a former id of the pack ([ProductIds.allForPack]) still unlocks it.
      */
-    fun unlocks(packId: String): Boolean = unlockAll || everything || ProductIds.allForPack(packId).any { it in ownedProductIds }
+    fun unlocks(packId: String): Boolean = unlockAll || ProductIds.allForPack(packId).any { it in ownedProductIds }
 
     /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
     fun looksUnlocked(packId: String): Boolean = unlocks(packId) ||
-        (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.EVERYTHING in cachedProductIds || ProductIds.allForPack(packId).any { it in cachedProductIds }))
+        (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.allForPack(packId).any { it in cachedProductIds }))
 
-    /** True when [feature] may be used: a verified product of [PaidFeature.productIds], or [everything]. */
-    fun unlocks(feature: PaidFeature): Boolean = everything || feature.productIds.any { it in ownedProductIds }
+    /** True when [feature] may be used: a verified purchase of [PaidFeature.productId], or [allFeatures]. */
+    fun unlocks(feature: PaidFeature): Boolean = allFeatures || feature.productId in ownedProductIds
 
     /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
-    fun looksUnlocked(feature: PaidFeature): Boolean = unlocks(feature) ||
-        (!ready && (ProductIds.EVERYTHING in cachedProductIds || feature.productIds.any { it in cachedProductIds })) ||
-        // The one-time products were answered; only subscriptions may still be unknown.
-        (subscriptionsStale && feature.productIds.any { it in ProductIds.SUBSCRIPTIONS && it in cachedProductIds })
+    fun looksUnlocked(feature: PaidFeature): Boolean = unlocks(feature) || (!ready && feature.productId in cachedProductIds)
 
-    fun isPending(feature: PaidFeature): Boolean =
-        ProductIds.EVERYTHING in pendingProductIds || feature.productIds.any { it in pendingProductIds }
+    fun isPending(feature: PaidFeature): Boolean = feature.productId in pendingProductIds
 
-    /** A pending purchase of the pack itself, or of a product that will cover it (all packs, everything). */
-    fun isPending(packId: String): Boolean = ProductIds.ALL_PACKS in pendingProductIds ||
-        ProductIds.EVERYTHING in pendingProductIds || ProductIds.allForPack(packId).any { it in pendingProductIds }
+    /** A pending purchase of the pack itself, or of "Unlock all packs", which will cover it. */
+    fun isPending(packId: String): Boolean =
+        ProductIds.ALL_PACKS in pendingProductIds || ProductIds.allForPack(packId).any { it in pendingProductIds }
 
     /**
      * The store's formatted price of pack [packId], or null while it is unknown: the current
@@ -102,36 +90,21 @@ data class EntitlementState(
     fun priceOf(packId: String): String? = ProductIds.allForPack(packId).firstNotNullOfOrNull { prices[it] }
 }
 
-/**
- * A paid app feature (not a pack). [ProductIds.EVERYTHING] unlocks every entry, including entries
- * added later, so a new paid feature only needs an entry here and its gate in the UI.
- */
-enum class PaidFeature(val productIds: List<String>) {
+/** A paid app feature (not a pack), unlocked forever by one one-time product. */
+enum class PaidFeature(val productId: String) {
     /** "Describe your theme" and AI icon generation with the user's own AI key. */
-    AI_CREATION(listOf(ProductIds.AI_MONTHLY, ProductIds.AI_LIFETIME)),
+    AI_CREATION(ProductIds.AI_LIFETIME),
 }
 
 object ProductIds {
-    /** One-time unlock of every pack, including packs added later. */
+    /** One-time unlock of every pack, including packs added later. Not AI. */
     const val ALL_PACKS = "all_packs"
-
-    /** Monthly auto-renewing subscription (Play SUBS product) to [PaidFeature.AI_CREATION]. */
-    const val AI_MONTHLY = "ai_monthly"
 
     /** One-time, forever unlock of [PaidFeature.AI_CREATION]. */
     const val AI_LIFETIME = "ai_lifetime"
 
-    /**
-     * One-time, forever unlock of everything: every pack and every [PaidFeature], including
-     * packs and features added later.
-     */
-    const val EVERYTHING = "everything"
-
-    /** The products sold as subscriptions; every other product is a one-time (INAPP) product. */
-    val SUBSCRIPTIONS: Set<String> = setOf(AI_MONTHLY)
-
     /** The one-time products that are not packs. */
-    val ONE_TIME_EXTRAS: List<String> = listOf(ALL_PACKS, AI_LIFETIME, EVERYTHING)
+    val ONE_TIME_EXTRAS: List<String> = listOf(ALL_PACKS, AI_LIFETIME)
 
     private val disallowed = Regex("[^a-z0-9._]")
 

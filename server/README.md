@@ -42,15 +42,6 @@ An item with `provider_unavailable` (or `internal_error`) means "unknown" for th
 
 The Worker checks that `packageName` equals `PACKAGE_NAME`, then calls `purchases.products.get` on the Google Play Developer API. It returns `valid: true` only when `purchaseState` is `0`. Purchase tokens are never logged.
 
-### Subscriptions
-
-Product ids in `SUBSCRIPTION_PRODUCTS` (`src/providers/googlePlay.ts`, currently `ai_monthly`) are
-checked with `purchases.subscriptionsv2.get` instead of `purchases.products.get`. A subscription is
-valid while its state is ACTIVE, IN_GRACE_PERIOD or CANCELED with its line item's `expiryTime`
-still in the future; otherwise the reason is `subscription_inactive`, `subscription_expired`,
-`purchase_pending` or `product_mismatch`. A new subscription product must be added to that set and
-to `ProductIds.SUBSCRIPTIONS` in the app.
-
 ## Configuration
 
 Variables live in `wrangler.toml` and hold nothing secret:

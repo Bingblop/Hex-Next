@@ -347,9 +347,9 @@ internal class GenerateIconState : ViewModel() {
     /** Runs [request] on [provider] in [viewModelScope]; ignored while something is running. */
     fun generate(entitlements: PackEntitlements, keys: AiKeyStore, provider: IconProvider, request: IconRequest) {
         if (busy) return
-        // Checked again at request time: the subscription may have lapsed while the sheet was open.
+        // Checked again at request time: the purchase may have been refunded while the sheet was open.
         if (!entitlements.state.value.unlocks(PaidFeature.AI_CREATION)) {
-            error = "AI theme creation is locked. Subscribe or unlock it to generate."
+            error = "AI theme creation is locked. Unlock it to generate."
             return
         }
         busy = true

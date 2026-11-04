@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
@@ -39,11 +38,9 @@ import java.net.URL
 
 /**
  * Play Billing (library 8.x) for the one-time pack unlocks: one INAPP product per pack
- * ([ProductIds.forPack]) and [ProductIds.ALL_PACKS], which also covers packs added later. A
+ * ([ProductIds.forPack]), [ProductIds.ALL_PACKS], which also covers packs added later, and
+ * [ProductIds.AI_LIFETIME] for AI theme creation. A
  * product of a pack's former catalogue id ([ProductIds.allForPack]) still unlocks that pack.
- * AI creation ([PaidFeature.AI_CREATION]) is the SUBS product [ProductIds.AI_MONTHLY] or the
- * INAPP product [ProductIds.AI_LIFETIME]; the INAPP product [ProductIds.EVERYTHING] unlocks every
- * pack and every paid feature, including ones added later.
  *
  * Entitlements are recomputed from `queryPurchasesAsync` on every start, refresh and resume, so
  * a refunded purchase disappears. Only purchases in the PURCHASED state that pass verification
@@ -99,24 +96,6 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     /** Purchase token → products it was verified for, so a resume does not verify again. */
     private val verifiedTokens = HashMap<String, Set<String>>()
 
-    /**
-     * Subscription token → when it was verified ([SystemClock.elapsedRealtime]). A subscription can
-     * lose its entitlement while the app runs (account hold, pause, revoke), so its verdict only
-     * counts for [SUBSCRIPTION_REVERIFY_MS]; one-time products keep theirs for the whole run.
-     */
-    private val subscriptionVerifiedAt = HashMap<String, Long>()
-
-    /**
-     * The cached verdict for [purchase], or null when it must be verified (again). An expired
-     * subscription verdict stays in [verifiedTokens] as the fallback while the server cannot
-     * answer, so a subscriber is not locked out by an outage. Holds [lock].
-     */
-    private fun cachedVerdictLocked(purchase: Purchase): Set<String>? {
-        val products = verifiedTokens[purchase.purchaseToken] ?: return null
-        val at = subscriptionVerifiedAt[purchase.purchaseToken] ?: return products
-        return products.takeIf { SystemClock.elapsedRealtime() - at < SUBSCRIPTION_REVERIFY_MS }
-    }
-
     /** Product → [sequence] at which the purchase listener granted it in this run. */
     private val listenerGrants = HashMap<String, Long>()
     private var sequence = 0L
@@ -124,10 +103,6 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     /** Generation of the newest full purchase query started, and of the newest one applied. */
     private var queryGeneration = 0L
     private var appliedGeneration = 0L
-
-    /** True while the newest applied full check had no subscription answer. */
-    private var subscriptionsStale = false
-    private var subscriptionRetryScheduled = false
 
     /** False once the license server answered 404 for `/v1/verify-batch` (an older server). */
     private var batchSupported = true
@@ -192,18 +167,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             return
         }
         val productParams = BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(productDetails)
-        if (productDetails.productType == BillingClient.ProductType.SUBS) {
-            // A subscription must be bought through one of its offers: the base plan.
-            val token = basePlanOf(productDetails)?.offerToken
-            if (token.isNullOrBlank()) {
-                setError("This item isn't available right now. Try again in a moment.")
-                return
-            }
-            productParams.setOfferToken(token)
-        } else {
-            // A one-time product with purchase options carries an offer token; a plain product has none.
-            offerOf(productDetails)?.offerToken?.takeIf { it.isNotBlank() }?.let { productParams.setOfferToken(it) }
-        }
+        // A one-time product with purchase options carries an offer token; a plain product has none.
+        offerOf(productDetails)?.offerToken?.takeIf { it.isNotBlank() }?.let { productParams.setOfferToken(it) }
         val params = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(productParams.build()))
             .build()
@@ -290,15 +255,13 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         // (ProductIds.allForPack), so a pack bought before it was renamed still shows its price.
         val ids = synchronized(lock) { catalogueIds.flatMapTo(LinkedHashSet()) { ProductIds.allForPack(it) } }
         ids.addAll(ProductIds.ONE_TIME_EXTRAS)
-        val batches = ids.chunked(PRODUCTS_PER_QUERY).map { it to BillingClient.ProductType.INAPP } +
-            ProductIds.SUBSCRIPTIONS.toList().chunked(PRODUCTS_PER_QUERY).map { it to BillingClient.ProductType.SUBS }
-        batches.forEach { (chunk, type) ->
+        ids.chunked(PRODUCTS_PER_QUERY).forEach { chunk ->
             val params = QueryProductDetailsParams.newBuilder()
                 .setProductList(
                     chunk.map { id ->
                         QueryProductDetailsParams.Product.newBuilder()
                             .setProductId(id)
-                            .setProductType(type)
+                            .setProductType(BillingClient.ProductType.INAPP)
                             .build()
                     },
                 )
@@ -323,30 +286,16 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     private fun queryPurchases() {
         current.update { it.copy(checking = true) }
         val query = synchronized(lock) { FullQuery(generation = ++queryGeneration, since = sequence) }
-        val inapp = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
-        client.queryPurchasesAsync(inapp) { result, purchases ->
+        val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
+        client.queryPurchasesAsync(params) { result, purchases ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 Log.w(TAG, "queryPurchases failed: ${describe(result)}")
                 current.update { it.copy(checking = false, error = "Couldn't check your purchases. Try Restore purchases later.") }
                 if (result.responseCode == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED) connect()
                 return@queryPurchasesAsync
             }
-            val oneTime = purchases.toList()
-            // Subscriptions are a second query. When it fails (or the Play Store is too old for
-            // subscriptions) the one-time answer still applies and subscriptions keep their last state.
-            val subs = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()
-            val supported = client.isFeatureSupported(BillingClient.FeatureType.SUBSCRIPTIONS).responseCode ==
-                BillingClient.BillingResponseCode.OK
-            if (!supported) {
-                scope.launch { handlePurchases(oneTime, full = query.copy(subscriptionsKnown = false)) }
-                return@queryPurchasesAsync
-            }
-            client.queryPurchasesAsync(subs) { subsResult, subsPurchases ->
-                val known = subsResult.responseCode == BillingClient.BillingResponseCode.OK
-                if (!known) Log.w(TAG, "queryPurchases (subscriptions) failed: ${describe(subsResult)}")
-                val snapshot = if (known) oneTime + subsPurchases else oneTime
-                scope.launch { handlePurchases(snapshot, full = query.copy(subscriptionsKnown = known)) }
-            }
+            val snapshot = purchases.toList()
+            scope.launch { handlePurchases(snapshot, full = query) }
         }
     }
 
@@ -370,11 +319,10 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     }
 
     /**
-     * One full purchase check (one-time products, then subscriptions): [generation] grows with every
-     * check, [since] is the listener [sequence] when it started. [subscriptionsKnown] is false when
-     * the subscription query gave no answer; owned subscriptions are then kept as they were.
+     * One full `queryPurchasesAsync` call: [generation] grows with every call, [since] is the
+     * listener [sequence] when it started.
      */
-    private data class FullQuery(val generation: Long, val since: Long, val subscriptionsKnown: Boolean = true)
+    private class FullQuery(val generation: Long, val since: Long)
 
     /**
      * Verifies [purchases] and publishes the result. [full] is non-null for a full
@@ -412,12 +360,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 }
                 appliedGeneration = full.generation
                 listenerGrants.values.removeAll { it <= full.since }
-                val keptSubscriptions = if (full.subscriptionsKnown) emptySet() else owned.filterTo(HashSet()) { it in ProductIds.SUBSCRIPTIONS }
-                subscriptionsStale = !full.subscriptionsKnown
-                if (subscriptionsStale) scheduleSubscriptionRetryLocked()
                 owned.clear()
                 owned += granted
-                owned += keptSubscriptions
                 owned += listenerGrants.keys
                 pending.clear()
                 pending += pendingNow
@@ -450,16 +394,13 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
      * verification. [serverAnswers] holds the license server's answers ([verifyOnServer]).
      */
     private fun verify(purchase: Purchase, serverAnswers: Map<ServerKey, Boolean?>): Verdict {
-        synchronized(lock) { cachedVerdictLocked(purchase) }?.let { return Verdict(it) }
+        synchronized(lock) { verifiedTokens[purchase.purchaseToken] }?.let { return Verdict(it) }
         if (purchase.packageName != context.packageName) {
             Log.w(TAG, "Purchase for another package ignored")
             return Verdict(emptySet())
         }
         val serverUrl = BuildConfig.LICENSE_SERVER_URL.trim()
         val licenseKey = BuildConfig.PLAY_LICENSE_KEY.trim()
-        // An expired subscription verdict: the fallback while the server cannot answer.
-        val earlier = synchronized(lock) { verifiedTokens[purchase.purchaseToken] }.orEmpty()
-        var keptEarlier = false
         val products: Set<String> = when {
             serverUrl.isNotEmpty() -> {
                 val ok = HashSet<String>()
@@ -469,12 +410,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                         false -> Unit
                         null -> {
                             // The server could not say (offline, rate limited, store unreachable).
-                            // A subscription it verified earlier in this run keeps that answer.
                             // A Google-signed purchase still counts when this build has the key.
-                            if (productId in earlier) {
-                                ok += productId
-                                keptEarlier = true
-                            } else if (licenseKey.isNotEmpty() && PurchaseSignature.verify(licenseKey, purchase.originalJson, purchase.signature)) {
+                            if (licenseKey.isNotEmpty() && PurchaseSignature.verify(licenseKey, purchase.originalJson, purchase.signature)) {
                                 Log.w(TAG, "License server unavailable: purchase granted on its Play signature")
                                 ok += productId
                             } else {
@@ -483,13 +420,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                         }
                     }
                 }
-                if (ok.isEmpty()) {
-                    synchronized(lock) {
-                        verifiedTokens.remove(purchase.purchaseToken)
-                        subscriptionVerifiedAt.remove(purchase.purchaseToken)
-                    }
-                    return Verdict(emptySet(), "Your purchase couldn't be verified.")
-                }
+                if (ok.isEmpty()) return Verdict(emptySet(), "Your purchase couldn't be verified.")
                 ok
             }
             licenseKey.isNotEmpty() -> {
@@ -508,15 +439,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 return Verdict(emptySet(), UNVERIFIABLE)
             }
         }
-        synchronized(lock) {
-            verifiedTokens[purchase.purchaseToken] = products
-            // Every subscription verdict carries a time, or it would count for the whole run. One
-            // kept only from the earlier answer is stamped as expired, so the next check asks again.
-            if (purchase.products.any { it in ProductIds.SUBSCRIPTIONS }) {
-                val now = SystemClock.elapsedRealtime()
-                subscriptionVerifiedAt[purchase.purchaseToken] = if (keptEarlier) now - SUBSCRIPTION_REVERIFY_MS else now
-            }
-        }
+        synchronized(lock) { verifiedTokens[purchase.purchaseToken] = products }
         return Verdict(products)
     }
 
@@ -533,7 +456,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val keys = LinkedHashSet<ServerKey>()
         for (purchase in purchases) {
             if (purchase.packageName != context.packageName) continue
-            if (synchronized(lock) { cachedVerdictLocked(purchase) } != null) continue
+            if (synchronized(lock) { purchase.purchaseToken in verifiedTokens }) continue
             purchase.products.forEach { keys += ServerKey(purchase.purchaseToken, it) }
         }
         if (keys.isEmpty()) return emptyMap()
@@ -721,18 +644,14 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val ownedNow = owned.toSet()
         val pendingNow = pending.toSet()
         val packIds = catalogueIds.toSet()
-        val prices = details.mapNotNull { (id, d) -> priceOf(d)?.let { id to it } }.toMap()
-        val everything = ProductIds.EVERYTHING in ownedNow
-        val unlockAll = everything || ProductIds.ALL_PACKS in ownedNow
-        val stale = subscriptionsStale
+        val prices = details.mapNotNull { (id, d) -> offerOf(d)?.formattedPrice?.let { id to it } }.toMap()
+        val unlockAll = ProductIds.ALL_PACKS in ownedNow
         current.update {
             val isReady = it.ready || ready
             it.copy(
                 ready = isReady,
                 checking = if (checkingDone) false else it.checking,
                 unlockAll = unlockAll,
-                everything = everything,
-                subscriptionsStale = stale,
                 ownedProductIds = ownedNow,
                 ownedPackIds = packIds.filterTo(HashSet()) { id -> unlockAll || ProductIds.allForPack(id).any { it in ownedNow } },
                 pendingProductIds = pendingNow,
@@ -740,19 +659,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 error = error ?: if (clearError) baseError() else it.error,
             )
         }
-        // Without a subscription answer the hint keeps the subscriptions it had, so a subscriber
-        // on a cold start with a failed query still sees "checking" instead of the paywall.
-        if (current.value.ready) saveHint(if (stale) ownedNow + loadHint().filter { it in ProductIds.SUBSCRIPTIONS } else ownedNow)
-    }
-
-    /** One more full check [SUBSCRIPTION_RETRY_MS] after a subscription query gave no answer. Holds [lock]. */
-    private fun scheduleSubscriptionRetryLocked() {
-        if (subscriptionRetryScheduled) return
-        subscriptionRetryScheduled = true
-        main.postDelayed({
-            synchronized(lock) { subscriptionRetryScheduled = false }
-            if (client.isReady) queryPurchases() else connect()
-        }, SUBSCRIPTION_RETRY_MS)
+        if (current.value.ready) saveHint(ownedNow)
     }
 
     private fun loadHint(): Set<String> = runCatching { prefs.getStringSet(KEY_OWNED_HINT, null)?.toSet() }.getOrNull().orEmpty()
@@ -770,23 +677,6 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         return offers.firstOrNull { it.offerId.isNullOrEmpty() } ?: offers.firstOrNull() ?: product.oneTimePurchaseOfferDetails
     }
 
-    /** The base plan of a subscription (the offer without an offer id), else its first offer. */
-    private fun basePlanOf(product: ProductDetails): ProductDetails.SubscriptionOfferDetails? {
-        val offers = product.subscriptionOfferDetails.orEmpty()
-        return offers.firstOrNull { it.offerId == null } ?: offers.firstOrNull()
-    }
-
-    /**
-     * The price shown for [product]: the one-time price, or a subscription base plan's recurring
-     * price (its last pricing phase, after any free trial or intro price).
-     */
-    private fun priceOf(product: ProductDetails): String? =
-        if (product.productType == BillingClient.ProductType.SUBS) {
-            basePlanOf(product)?.pricingPhases?.pricingPhaseList?.lastOrNull()?.formattedPrice
-        } else {
-            offerOf(product)?.formattedPrice
-        }
-
     private fun describe(result: BillingResult): String = "code ${result.responseCode} ${result.debugMessage}"
 
     private companion object {
@@ -797,10 +687,6 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         const val INITIAL_RETRY_MS = 1_000L
         const val MAX_RETRY_MS = 5L * 60 * 1000
         const val PRODUCTS_PER_QUERY = 20
-        const val SUBSCRIPTION_RETRY_MS = 30_000L
-
-        /** How long a verified subscription counts before the license server is asked again. */
-        const val SUBSCRIPTION_REVERIFY_MS = 60 * 60 * 1000L
         const val TIMEOUT_MS = 10_000
         const val MAX_RESPONSE_BYTES = 64 * 1024
         const val HTTP_TOO_MANY_REQUESTS = 429

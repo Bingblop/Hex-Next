@@ -635,7 +635,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 _ui.update { if (it.entitlement == state) it else it.copy(entitlement = state) }
                 // A verified purchase moves its preview-only zip into files/packs, where an apply
                 // can use it (refreshPacks); the preview renders locked and unlocked packs alike.
-                if (old.ready != state.ready || old.unlockAll != state.unlockAll || old.everything != state.everything ||
+                if (old.ready != state.ready || old.unlockAll != state.unlockAll ||
                     old.ownedProductIds != state.ownedProductIds
                 ) {
                     refreshPacks()
@@ -1861,7 +1861,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     // ---- Pack unlocks ----
 
-    /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS], or an AI / everything product). */
+    /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS] or [ProductIds.AI_LIFETIME]). */
     fun unlock(activity: Activity, productId: String) {
         if (!entitlements.canPurchase) return
         entitlements.launchPurchase(activity, productId)
@@ -1923,13 +1923,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val newlyOwned = state.ownedProductIds - before.ownedProductIds
         val aiNow = state.unlocks(PaidFeature.AI_CREATION)
         when {
-            state.everything && !before.everything ->
-                postNotice(Notice("Everything unlocked, forever. Thank you!", isSuccess = true))
             state.unlockAll && !before.unlockAll -> postNotice(Notice("All packs unlocked. Thank you!", isSuccess = true))
             aiNow && !before.unlocks(PaidFeature.AI_CREATION) ->
                 postNotice(Notice("AI theme creation unlocked. Thank you!", isSuccess = true))
-            !aiNow && before.unlocks(PaidFeature.AI_CREATION) && ProductIds.AI_MONTHLY in before.ownedProductIds ->
-                postNotice(Notice("Your AI subscription has ended. Subscribe again to keep creating themes with AI"))
             newlyOwned.isNotEmpty() -> {
                 val names = newlyOwned.map { productId -> productName(productId) }
                 log(LogLine(LogLevel.OK, "Unlocked ${names.joinToString()}"))
@@ -1943,9 +1939,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun productName(productId: String): String {
         when (productId) {
             ProductIds.ALL_PACKS -> return "All packs"
-            ProductIds.AI_MONTHLY -> return "AI theme creation (monthly)"
-            ProductIds.AI_LIFETIME -> return "AI theme creation (forever)"
-            ProductIds.EVERYTHING -> return "Everything"
+            ProductIds.AI_LIFETIME -> return "AI theme creation"
         }
         val state = _ui.value
         // allForPack also matches a purchase made under a former product id, so the user sees
