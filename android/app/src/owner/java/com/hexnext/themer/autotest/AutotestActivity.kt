@@ -142,13 +142,17 @@ class AutotestActivity : ComponentActivity() {
                     done(cmd, report != null, report?.let { "${it.model} ${it.oneUiVersion}" } ?: "no report")
                 }
                 "apply" -> {
-                    main.awaitSpecLoaded()
+                    main.awaitReadyToApply()
+                    val asked = System.currentTimeMillis()
                     main.applyTheme()
                     awaitIdle { main.ui.value.busy }
-                    val report = main.ui.value.lastApply
+                    // An earlier report is not this apply's (Apply refused, or never started).
+                    val report = main.ui.value.lastApply?.takeIf { it.startedAt >= asked - 1_000 }
                     val ok = report?.success == true
+                    // What the Editor log showed (a refusal says why there).
+                    runCatching { File(outDir, "apply-ui-log.txt").writeText(main.log.value.joinToString("\n") { "${it.level} ${it.text}" }) }
                     if (ok && intent.getBooleanExtra("confirm", false)) main.confirmWorks()
-                    done(cmd, ok, report?.let { "status=${it.status} error=${it.error}" } ?: "no apply report")
+                    done(cmd, ok, report?.let { "status=${it.status} error=${it.error} pack=${main.ui.value.spec.simplePackId}" } ?: "no apply report (refused or not started; pack=${main.ui.value.spec.simplePackId})")
                 }
                 "remove" -> {
                     main.removeTheme()

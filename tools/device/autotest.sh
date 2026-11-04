@@ -272,6 +272,7 @@ save_app_state() {
   root "cat $(app_dir)/theme.json" >"$d/theme.json" 2>/dev/null
   root "cat $(app_dir)/applied-theme.json" >"$d/applied-theme.json" 2>/dev/null
   root "cat $(app_dir)/reports/apply-last.json" >"$d/apply-last.json" 2>/dev/null
+  root "cat $(app_dir)/autotest/apply-ui-log.txt" >"$d/apply-ui-log.txt" 2>/dev/null
   log=$(jq -r '.logFile // empty' "$d/apply-last.json" 2>/dev/null)
   case "$log" in /data/*) root "cat '$log'" >"$d/apply-log.txt" 2>/dev/null ;; esac
   find "$d" -type f -empty -delete 2>/dev/null

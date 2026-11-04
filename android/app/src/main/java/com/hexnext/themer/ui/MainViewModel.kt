@@ -1129,6 +1129,18 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         withContext(Dispatchers.IO) { awaitSpecLoadedBlocking() }
     }
 
+    /**
+     * Suspends until an apply right now would use the stored theme with its packs: the theme is
+     * loaded and the purchase state has answered (before that every catalogue pack counts as
+     * locked and Apply refuses it). Up to 20 s each.
+     */
+    suspend fun awaitReadyToApply() {
+        awaitSpecLoaded()
+        kotlinx.coroutines.withTimeoutOrNull(20_000) { _ui.first { it.entitlement.ready } }
+        // The startup safety check (or a Diagnostics task) makes Apply refuse until it is done.
+        kotlinx.coroutines.withTimeoutOrNull(120_000) { ServiceTasks.running.first { it == null } }
+    }
+
     private fun specToApply(): EngineThemeSpec {
         val state = _ui.value
         return state.spec.copy(source = state.spec.source.copy(seedArgb = state.seed))
