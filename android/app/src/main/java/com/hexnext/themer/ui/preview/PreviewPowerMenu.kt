@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -37,11 +36,11 @@ private val PowerOffGrey = Color(0xFF6B7079)
 private val RestartGreen = Color(0xFF1DB954)
 private val EmergencyRed = Color(0xFFE5302C)
 private val SidePill = Color(0xFF2A2A2D)
-private val Backdrop = listOf(Color(0xFF221733), Color(0xFF3A1D26), Color(0xFF4A2219))
+// The dimmed, blurred wallpaper behind it (device lab, lab-015: grey-blue top, near black middle, olive bottom).
+private val Backdrop = listOf(Color(0xFF414955), Color(0xFF1F2228), Color(0xFF22252A), Color(0xFF4B4B3B))
 
 /**
- * The One UI 9 power menu as the phone shows it: the blurred wallpaper, the lock note at the top,
- * a 2 × 2 grid of large round buttons (Power off grey, Restart green, Emergency call and Medical
+ * The One UI 9 power menu as the phone shows it: the dimmed blurred wallpaper, a 2 × 2 grid of large round buttons (Power off grey, Restart green, Emergency call and Medical
  * info red) with white labels, and the Side button settings pill at the bottom. One UI keeps its
  * own colours here whatever the theme, so nothing in it is tappable for editing.
  */
@@ -62,20 +61,17 @@ internal fun PreviewPowerMenu(
                 .padding(horizontal = 16.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
-            Spacer(Modifier.height(6.dp))
-            PText("For your security, your phone is locked.", Color.White, scope, size = 9.5.sp, weight = FontWeight.Medium, align = TextAlign.Center)
             Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
-                PowerButton("Power off", PowerOffGrey, scope) { GlyphIcon(Glyph.POWER, Color.White, Modifier.size(24.dp)) }
-                PowerButton("Restart", RestartGreen, scope) { Icon(Icons.Filled.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PowerButton("Power off", PowerOffGrey, scope) { GlyphIcon(Glyph.POWER, Color.White, Modifier.size(22.dp)) }
+                PowerButton("Restart", RestartGreen, scope) { Icon(Icons.Filled.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(23.dp)) }
             }
-            Spacer(Modifier.height(22.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
+            Spacer(Modifier.height(34.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PowerButton("Emergency call", EmergencyRed, scope) { IconWithBadge(Icons.Filled.Call, "SOS") }
                 PowerButton("Medical info", EmergencyRed, scope) { Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp)) }
             }
-            Spacer(Modifier.weight(1.4f))
+            Spacer(Modifier.weight(1.75f))
             Box(
                 Modifier
                     .clip(CircleShape)
@@ -91,7 +87,7 @@ internal fun PreviewPowerMenu(
 @Composable
 private fun PowerButton(label: String, color: Color, scope: PreviewScope, icon: @Composable () -> Unit) {
     Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { icon() }
+        Box(Modifier.size(42.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { icon() }
         Spacer(Modifier.height(5.dp))
         PText(label, Color.White, scope, size = 11.sp, weight = FontWeight.Medium, align = TextAlign.Center)
     }

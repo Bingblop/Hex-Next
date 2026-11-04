@@ -390,6 +390,19 @@ step_waitrestore() {
   root "logcat -d -s HexNextRestore" >>"$RES/restore.txt" 2>&1
 }
 
+# Resolved values of the job's "lookups" (["<package>:color/<name>", …]) as the phone sees them
+# now, with every overlay applied: lookup-1.txt, lookup-2.txt … one per call.
+step_lookup() {
+  local n=1 ref pkg
+  while [ -f "$RES/lookup-$n.txt" ]; do n=$((n + 1)); done
+  log "lookup $n"
+  jq -r '.lookups // [] | .[]' "$JOB" | while read -r ref; do
+    case "$ref" in *[!A-Za-z0-9._:/-]*|'') continue ;; esac
+    pkg=${ref%%:*}
+    printf '%s = %s\n' "$ref" "$(root "cmd overlay lookup $pkg $ref" 2>&1 | tr -d '\n')"
+  done >"$RES/lookup-$n.txt"
+}
+
 step_wait() { log "wait 180 s"; sleep 180; }
 
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
@@ -491,7 +504,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
