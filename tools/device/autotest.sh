@@ -117,13 +117,49 @@ ensure_network() {
 
 # push_lab: pushes the lab checkout, retrying with a network reset in between.
 push_lab() {
-  local try
-  for try in 1 2 3 4; do
+  local try tries=4
+  [ "$PHASE" = "reboot-" ] && tries=2   # a full reboot follows a failure there; do not wait long
+  for try in $(seq 1 $tries); do
     (cd "$LAB" && git pull -q --rebase && git push -q) 2>>"$HOME/.hexnext-lab-pull.err" && return 0
     ensure_network
     sleep $((try * 10))
   done
   return 1
+}
+
+# Unpushed results (a push that failed before a reboot): push them first, root or not.
+push_pending() {
+  [ -d "$LAB/.git" ] || return 0
+  local ahead; ahead=$(cd "$LAB" && git fetch -q 2>/dev/null; git rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
+  [ "${ahead:-0}" -gt 0 ] || return 0
+  log "pushing $ahead saved result commit(s)"
+  (cd "$LAB" && git stash -q -u 2>/dev/null; git pull -q --rebase && git push -q; r=$?; git stash pop -q 2>/dev/null; exit $r) \
+    && log "saved results pushed" || log "saved results not pushed yet"
+}
+
+# After a soft reboot the phone's networking can stay dead until a full reboot. When the results
+# cannot be pushed, reboot the phone; the results are committed and go out on the next start
+# (this runner pushes them before anything else, and a Termux:Boot script does it at boot).
+full_reboot() {
+  local boot="$HOME/.termux/boot" lab="$LAB"
+  mkdir -p "$boot"
+  cat >"$boot/hexnext-push.sh" <<BOOT
+#!/data/data/com.termux/files/usr/bin/sh
+# Hex Next device lab: push results saved before a full reboot, then remove this script.
+command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+i=0
+while [ \$i -lt 60 ]; do
+  curl -fsS -m 8 -o /dev/null https://api.github.com/zen 2>/dev/null && break
+  sleep 10; i=\$((i + 1))
+done
+cd "$lab" && git stash -q -u 2>/dev/null; git pull -q --rebase && git push -q && rm -f "\$0"
+git stash pop -q 2>/dev/null
+BOOT
+  chmod 700 "$boot/hexnext-push.sh"
+  log "full reboot to bring networking back; results go out on the next start"
+  sleep 3
+  root "svc power reboot || reboot"
+  exit 0
 }
 
 # ---- app hook -------------------------------------------------------------------------------
@@ -457,7 +493,12 @@ run_job() {
     --arg oneui "$(getprop ro.build.version.oneui)" --argjson secs $(( $(date +%s) - started )) \
     '{id:$id, ok:($failed==""), failed:$failed, model:$model, oneui:$oneui, seconds:$secs}' >"$RES/status.json"
   ( cd "$LAB" && git add -A "results/$id" && git commit -qm "Results for $id" ) >/dev/null 2>&1
-  push_lab && log "job $id pushed" || log "job $id: push failed; results kept in $RES"
+  if push_lab; then log "job $id pushed"
+  else
+    log "job $id: push failed; results kept in $RES"
+    # Only after this job's own soft reboot (that is what breaks networking until a reboot).
+    [ "$PHASE" = "reboot-" ] && full_reboot
+  fi
 }
 
 pending_jobs() {
@@ -525,6 +566,7 @@ self_update() {
 }
 
 need jq jq; need gh gh; need git git
+push_pending
 su -c true >/dev/null 2>&1 || { echo "root (su) is required"; exit 1; }
 # Earlier runners turned Wi-Fi sign-in (captive portal) detection off around soft reboots: put the
 # saved value back once and remove their helper.
