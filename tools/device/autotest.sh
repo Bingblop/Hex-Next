@@ -260,6 +260,21 @@ step_apply() {
   hook apply --ez confirm "$confirm" >>"$RES/hook.jsonl"
   # Samsung re-enables its theme overlays ~20 s after a change and the app re-asserts after that.
   sleep 30
+  save_app_state "apply"
+}
+
+# The app's own record of what it applied: the stored theme, the restore copy, the apply report and
+# its log (apply-<n>/).
+save_app_state() {
+  local n=1 d log
+  while [ -d "$RES/$1-$n" ]; do n=$((n + 1)); done
+  d="$RES/$1-$n"; mkdir -p "$d"
+  root "cat $(app_dir)/theme.json" >"$d/theme.json" 2>/dev/null
+  root "cat $(app_dir)/applied-theme.json" >"$d/applied-theme.json" 2>/dev/null
+  root "cat $(app_dir)/reports/apply-last.json" >"$d/apply-last.json" 2>/dev/null
+  log=$(jq -r '.logFile // empty' "$d/apply-last.json" 2>/dev/null)
+  case "$log" in /data/*) root "cat '$log'" >"$d/apply-log.txt" 2>/dev/null ;; esac
+  find "$d" -type f -empty -delete 2>/dev/null
 }
 
 # Samsung's palette overlays and the live system palette, for the compiler's shade reference.
@@ -386,6 +401,7 @@ step_waitrestore() {
   done
   n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
   log "restore: $n Hex Next overlays after ${waited}s"
+  save_app_state "restore"
   echo "$n overlays after ${waited}s" >"$RES/restore.txt"
   root "logcat -d -s HexNextRestore" >>"$RES/restore.txt" 2>&1
 }
