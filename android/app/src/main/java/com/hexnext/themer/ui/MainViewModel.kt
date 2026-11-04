@@ -572,8 +572,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
-            val stored = themeStore.load()
+            val stored = runCatching { themeStore.load() }.getOrElse { _ui.value.spec }
             _ui.update { it.copy(spec = stored) }
+            specLoaded.countDown()
             refreshPreview()
             val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
             if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
@@ -799,6 +800,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     private fun applyUnlockedTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
+        // An apply right after start (the device lab hook, a quick tap) must not take the default
+        // theme for the stored one: lab-016/017 applied "Hex Next (default)" without its pack.
+        awaitSpecLoadedBlocking()
         // The theme being applied is on disk too before anything changes on the phone.
         flushSpecSave()
         val spec = specToApply()
@@ -1113,6 +1117,18 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun specToPreview(): EngineThemeSpec = PackAccess.specForPreview(specToApply())
 
     /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
+    /** Counted down once `theme.json` is in [UiState.spec]. */
+    private val specLoaded = java.util.concurrent.CountDownLatch(1)
+
+    private fun awaitSpecLoadedBlocking() {
+        specLoaded.await(20, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    /** Suspends until the stored theme is loaded (up to 20 s). */
+    suspend fun awaitSpecLoaded() {
+        withContext(Dispatchers.IO) { awaitSpecLoadedBlocking() }
+    }
+
     private fun specToApply(): EngineThemeSpec {
         val state = _ui.value
         return state.spec.copy(source = state.spec.source.copy(seedArgb = state.seed))

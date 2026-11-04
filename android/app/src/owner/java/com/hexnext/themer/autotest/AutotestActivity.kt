@@ -142,6 +142,7 @@ class AutotestActivity : ComponentActivity() {
                     done(cmd, report != null, report?.let { "${it.model} ${it.oneUiVersion}" } ?: "no report")
                 }
                 "apply" -> {
+                    main.awaitSpecLoaded()
                     main.applyTheme()
                     awaitIdle { main.ui.value.busy }
                     val report = main.ui.value.lastApply
