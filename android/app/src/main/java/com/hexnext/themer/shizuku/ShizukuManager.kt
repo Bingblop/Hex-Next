@@ -3,7 +3,9 @@ package com.hexnext.themer.shizuku
 import android.content.ComponentName
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.Process
 import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.IThemeService
@@ -102,8 +104,32 @@ object ShizukuManager {
         return null
     }
 
+    /**
+     * Right after Shizuku (re)starts, it hands out its binder before it has attached this app as
+     * a client, and every call then throws IllegalStateException("Not an attached client")
+     * (device lab, lab-013: the app crashed in Application.onCreate after a soft reboot). Such a
+     * moment is never fatal: keep the previous state and look again shortly.
+     */
+    private val retry = Handler(Looper.getMainLooper())
+    private var retries = 0
+
     fun refresh() {
-        _state.value = when {
+        val next = runCatching { readState() }.getOrElse {
+            if (retries < MAX_RETRIES) {
+                retries++
+                retry.postDelayed({ refresh() }, RETRY_MS)
+            }
+            return
+        }
+        retries = 0
+        _state.value = next
+    }
+
+    private const val MAX_RETRIES = 40
+    private const val RETRY_MS = 500L
+
+    private fun readState(): ShizukuState {
+        return when {
             Shizuku.pingBinder() -> {
                 when {
                     Shizuku.isPreV11() -> ShizukuState.TooOld
