@@ -42,7 +42,8 @@ private val Backdrop = listOf(Color(0xFF414955), Color(0xFF1F2228), Color(0xFF22
 /**
  * The One UI 9 power menu as the phone shows it: the dimmed blurred wallpaper, a 2 × 2 grid of large round buttons (Power off grey, Restart green, Emergency call and Medical
  * info red) with white labels, and the Side button settings pill at the bottom. One UI keeps its
- * own colours here whatever the theme, so nothing in it is tappable for editing.
+ * own colours here whatever the theme, so nothing in it is tappable for editing; a pack's power
+ * menu art (or art synthesised in its style) replaces the stock buttons.
  */
 @Composable
 internal fun PreviewPowerMenu(
@@ -63,13 +64,13 @@ internal fun PreviewPowerMenu(
         ) {
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PowerButton("Power off", PowerOffGrey, scope) { GlyphIcon(Glyph.POWER, Color.White, Modifier.size(22.dp)) }
-                PowerButton("Restart", RestartGreen, scope) { Icon(Icons.Filled.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(23.dp)) }
+                PowerButton("Power off", PowerOffGrey, scope, "tw_ic_do_poweroff") { GlyphIcon(Glyph.POWER, Color.White, Modifier.size(22.dp)) }
+                PowerButton("Restart", RestartGreen, scope, "tw_ic_do_restart") { Icon(Icons.Filled.Refresh, contentDescription = null, tint = Color.White, modifier = Modifier.size(23.dp)) }
             }
             Spacer(Modifier.height(34.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PowerButton("Emergency call", EmergencyRed, scope) { IconWithBadge(Icons.Filled.Call, "SOS") }
-                PowerButton("Medical info", EmergencyRed, scope) { Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp)) }
+                PowerButton("Emergency call", EmergencyRed, scope, "tw_ic_do_emergencysos") { IconWithBadge(Icons.Filled.Call, "SOS") }
+                PowerButton("Medical info", EmergencyRed, scope, "tw_ic_do_medicalinfo") { Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp)) }
             }
             Spacer(Modifier.weight(1.75f))
             Box(
@@ -85,9 +86,15 @@ internal fun PreviewPowerMenu(
 }
 
 @Composable
-private fun PowerButton(label: String, color: Color, scope: PreviewScope, icon: @Composable () -> Unit) {
+private fun PowerButton(label: String, color: Color, scope: PreviewScope, drawable: String, icon: @Composable () -> Unit) {
     Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(42.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { icon() }
+        val art = scope.device.powerIcons[drawable]
+        if (art != null) {
+            // The pack's drawable replaces the whole stock button (badge and glyph), as on the phone.
+            androidx.compose.foundation.Image(art, contentDescription = null, modifier = Modifier.size(42.dp))
+        } else {
+            Box(Modifier.size(42.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { icon() }
+        }
         Spacer(Modifier.height(5.dp))
         PText(label, Color.White, scope, size = 11.sp, weight = FontWeight.Medium, align = TextAlign.Center)
     }

@@ -203,4 +203,6 @@ data class DeviceColors(
     val keyboard: ResourceColors = ResourceColors(),
     /** The key art Samsung Keyboard gets (`key_bg`, a nine-patch with its guides), or null. */
     val keyboardKey: ImageBitmap? = null,
+    /** Pack art for the power menu buttons by drawable name (`tw_ic_do_poweroff` …); missing ones stay stock. */
+    val powerIcons: Map<String, ImageBitmap> = emptyMap(),
 )

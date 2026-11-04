@@ -256,6 +256,15 @@ public object ThemeCompiler {
         Regex("qs_|quick|tile|panel|notification|status_bar|statusbar|navigation|nav_bar|volume|power|lock|keyguard|brightness", RegexOption.IGNORE_CASE)
 
     private const val SYSTEMUI = "com.android.systemui"
+
+    /** Power menu icons that a pack's Power off / Restart art can stand in for, in that order. */
+    private val POWER_MENU_REFERENCES = listOf("drawable/tw_ic_do_poweroff", "drawable/tw_ic_do_restart")
+
+    /** Power menu buttons drawn in the pack's style when it has no art for them → `hx_glyph_*` key. */
+    private val POWER_MENU_GLYPHS = linkedMapOf(
+        "drawable/tw_ic_do_emergencysos" to "emergency_sos",
+        "drawable/tw_ic_do_medicalinfo" to "medical_info",
+    )
     private const val SETTINGS = "com.android.settings"
     private const val MYFILES = "com.sec.android.app.myfiles"
     private const val SETTINGS_ICONS = "settings_icons"
@@ -882,6 +891,7 @@ public object ThemeCompiler {
             customJobs(spec.customIcons, CustomAssets.CATEGORY_ICON, jobs, overridden)
             customJobs(spec.customBackgrounds, CustomAssets.CATEGORY_BACKGROUND, jobs, overridden)
             if (pkg == SETTINGS && spec.synthesizeMissingIcons) synthesisJobs(jobs, overridden)
+            if (pkg == SYSTEMUI && spec.synthesizeMissingIcons) powerMenuSynthesisJobs(jobs, overridden)
             if (spec.builtInIcons) {
                 for (j in IconColors.builtInJobs(spec, pkg, table, rules, jobs.keys.toSet(), overridden, resolved())) {
                     jobs.putIfAbsent(j.resourceName to j.configuration, j)
@@ -973,6 +983,36 @@ public object ThemeCompiler {
                     event(
                         LogLevel.INFO, pkg, "icon synthesised",
                         mapOf("row" to row, "reference" to reference.resourceName, "configuration" to config),
+                    )
+                }
+            }
+        }
+
+        /**
+         * Power menu buttons the pack draws no art for (Emergency call, Medical info): drawn in the
+         * pack's style from its Power off icon (Restart when Power off is missing) of the same
+         * configuration, so the menu never mixes pack art with the stock red badges.
+         */
+        private fun powerMenuSynthesisJobs(jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>, overridden: Set<String>) {
+            val blocked = !rules.quickSettings.drawablesAllowed
+            val packJobs = jobs.values.filter { it.custom == null && it.synthesis == null && it.badge == null && !it.ninePatch }
+            for ((config, group) in packJobs.groupBy { it.configuration }) {
+                val reference = POWER_MENU_REFERENCES.firstNotNullOfOrNull { ref -> group.firstOrNull { it.resourceName == "$pkg:$ref" } }
+                    ?: continue
+                for ((typeName, glyph) in POWER_MENU_GLYPHS) {
+                    val resourceName = "$pkg:$typeName"
+                    if (resourceName in overridden || (resourceName to config) in jobs) continue
+                    if (blocked && !rules.quickSettings.allowsOutside(typeName)) continue
+                    if (table.find(typeName) == null) continue
+                    jobs[resourceName to config] = PlannedDrawableJob(
+                        resourceName, config, CompositePlan(emptyList()), ninePatch = false,
+                        source = reference.source.copy(resourceName = typeName.substringAfter('/')),
+                        elementId = reference.elementId,
+                        synthesis = IconSynthesis(glyph, reference),
+                    )
+                    event(
+                        LogLevel.INFO, pkg, "icon synthesised",
+                        mapOf("row" to glyph, "reference" to reference.resourceName, "configuration" to config),
                     )
                 }
             }

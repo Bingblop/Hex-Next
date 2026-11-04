@@ -189,6 +189,9 @@ class ThemePreviewer(context: Context) {
         var keyboardKey: Bitmap? = null
         val keyboardTarget = compiled.target(KEYBOARD)
         val keyJob = keyboardTarget?.let { bestJobs(it, setOf("key_bg"), night)["key_bg"] }
+        // Power menu buttons: pack art (or art synthesised in its style) replaces the stock round badges.
+        val powerJobs = compiled.target(SYSTEM_UI)?.let { bestJobs(it, POWER_MENU_ICONS.toSet(), night) }.orEmpty()
+        val powerIcons = HashMap<String, Bitmap>()
         var failed = 0
         val customRoot = CustomAssetStore.rootDir(appContext)
         DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
@@ -217,6 +220,7 @@ class ThemePreviewer(context: Context) {
             }
             // The pack's key art, as Samsung Keyboard draws it under every key (lab-024).
             if (keyJob != null) keyboardKey = bitmapOf(keyJob)
+            for ((name, job) in powerJobs) bitmapOf(job)?.let { powerIcons[name] = it }
             if (backgroundJob != null) {
                 checkCancelled()
                 background = backgroundBitmap(renderer, backgroundJob, customRoot)
@@ -236,6 +240,7 @@ class ThemePreviewer(context: Context) {
             myFiles = colorsOf(myFilesTarget),
             keyboard = colorsOf(keyboardTarget),
             keyboardKey = keyboardKey?.asImageBitmap(),
+            powerIcons = powerIcons.mapValues { it.value.asImageBitmap() },
         )
         return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle, deviceColors)
     }
@@ -562,6 +567,9 @@ class ThemePreviewer(context: Context) {
         private const val SYSTEM_UI = "com.android.systemui"
         private const val KEYBOARD = "com.samsung.android.honeyboard"
         private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI, KEYBOARD)
+
+        /** System UI power menu drawables, in grid order: Power off, Restart, Emergency call, Medical info. */
+        val POWER_MENU_ICONS = listOf("tw_ic_do_poweroff", "tw_ic_do_restart", "tw_ic_do_emergencysos", "tw_ic_do_medicalinfo")
         private const val ACCENT_COLOR = "sec_widget_round_and_bgcolor"
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"

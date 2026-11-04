@@ -183,6 +183,7 @@ class IconSynthesizer(context: Context) {
         val shapeH = maxY - minY + 1
         val shapeSize = min(shapeW, shapeH).toFloat()
         val halfDiagonal = sqrt((shapeW * shapeW + shapeH * shapeH).toFloat()) / 2f
+        outlineAnalysis(pixels, shape, w, h, minX, minY, maxX, maxY, cx, cy, shapeSize)?.let { return it }
 
         // Radius of every pixel, in bins of 1 px, relative to the bounding-box centre.
         val radius = FloatArray(n)
@@ -254,6 +255,66 @@ class IconSynthesizer(context: Context) {
             shapeSize * DEFAULT_GLYPH_FRACTION
         }
         return Analysis(background, glyphColor, cx, cy, glyphSize)
+    }
+
+    /**
+     * An outline icon (a frame such as a ring or hexagon line, its middle see-through, the glyph
+     * floating inside, as in pack power menu art): the frame is every shape pixel connected to the
+     * bounding box edge, the glyph everything else. The glyph is erased to transparent and its
+     * colour and size are kept. Null when the middle of the shape is mostly opaque (a filled
+     * badge, handled by the radius analysis) or nothing inside is separate from the frame.
+     */
+    private fun outlineAnalysis(
+        pixels: IntArray, shape: BooleanArray, w: Int, h: Int,
+        minX: Int, minY: Int, maxX: Int, maxY: Int, cx: Float, cy: Float, shapeSize: Float,
+    ): Analysis? {
+        val n = w * h
+        val probe = shapeSize * OUTLINE_PROBE
+        var inside = 0
+        var opaque = 0
+        for (i in 0 until n) {
+            val dx = (i % w) + 0.5f - cx
+            val dy = (i / w) + 0.5f - cy
+            if (dx * dx + dy * dy > probe * probe) continue
+            inside++
+            if (shape[i]) opaque++
+        }
+        if (inside == 0 || opaque >= inside * OUTLINE_MAX_FILL) return null
+
+        // Flood the frame from every shape pixel on the bounding box edge (4-neighbour).
+        val frame = BooleanArray(n)
+        val stack = IntList(256)
+        fun seed(i: Int) { if (shape[i] && !frame[i]) { frame[i] = true; stack.add(i) } }
+        for (x in minX..maxX) { seed(minY * w + x); seed(maxY * w + x) }
+        for (y in minY..maxY) { seed(y * w + minX); seed(y * w + maxX) }
+        while (!stack.isEmpty()) {
+            val i = stack.pop()
+            val x = i % w
+            val y = i / w
+            if (x > 0) seed(i - 1)
+            if (x < w - 1) seed(i + 1)
+            if (y > 0) seed(i - w)
+            if (y < h - 1) seed(i + w)
+        }
+        val glyphPixels = IntList(64)
+        var gMinX = w; var gMinY = h; var gMaxX = -1; var gMaxY = -1
+        val background = pixels.copyOf()
+        for (i in 0 until n) {
+            if (!shape[i] || frame[i]) continue
+            glyphPixels.add(pixels[i])
+            background[i] = 0
+            val x = i % w; val y = i / w
+            if (x < gMinX) gMinX = x
+            if (x > gMaxX) gMaxX = x
+            if (y < gMinY) gMinY = y
+            if (y > gMaxY) gMaxY = y
+        }
+        if (glyphPixels.size < 8) return null
+        val glyphSize = max(gMaxX - gMinX + 1, gMaxY - gMinY + 1).toFloat() / OUTLINE_GLYPH_ART
+        return Analysis(
+            background, opaque(medianColor(glyphPixels)), cx, cy,
+            glyphSize.coerceIn(shapeSize * MIN_OUTLINE_GLYPH, shapeSize * MAX_GLYPH_SIZE),
+        )
     }
 
     /**
@@ -336,6 +397,8 @@ class IconSynthesizer(context: Context) {
         }
 
         fun isEmpty(): Boolean = size == 0
+
+        fun pop(): Int = data[--size]
     }
 
     private fun opaque(color: Int): Int = color or (0xFF shl 24)
@@ -354,6 +417,16 @@ class IconSynthesizer(context: Context) {
         private const val MIN_GLYPH_SIZE = 0.40f
         private const val MAX_GLYPH_SIZE = 0.62f
         private const val DEFAULT_GLYPH_FRACTION = 0.52f
+
+        /** Outline icons: radius (× shape size) of the middle probed for see-through pixels. */
+        private const val OUTLINE_PROBE = 0.22f
+
+        /** Outline icons: the middle is see-through when less than this share of it is opaque. */
+        private const val OUTLINE_MAX_FILL = 0.5f
+
+        /** Outline icons: the glyph art fills about this share of its 24 dp box. */
+        private const val OUTLINE_GLYPH_ART = 0.75f
+        private const val MIN_OUTLINE_GLYPH = 0.30f
 
         /** Transparent margin around a built-in badge, as a fraction of its size per side. */
         private const val BADGE_INSET = 0.04f
@@ -394,6 +467,9 @@ class IconSynthesizer(context: Context) {
             "modes" to R.drawable.hx_glyph_modes,
             "software_update" to R.drawable.hx_glyph_software_update,
             "tips" to R.drawable.hx_glyph_tips,
+            // Power menu buttons (ThemeCompiler's power menu synthesis).
+            "emergency_sos" to R.drawable.hx_glyph_emergency_sos,
+            "medical_info" to R.drawable.hx_glyph_medical_info,
             // My Files categories (built-in icons only; IconColors names them `myfiles_<category>`).
             "myfiles_images" to R.drawable.hx_glyph_myfiles_images,
             "myfiles_videos" to R.drawable.hx_glyph_myfiles_videos,
