@@ -176,7 +176,9 @@ capture_real() {
     power)    root "cmd statusbar expand-settings"; sleep 2
               if tap_desc 'Power[^"]*|Power off[^"]*|Power menu'; then sleep 2; shot "$MODE-real-power"
               else log "power: no power button found in the quick panel"; fi
-              root "input keyevent KEYCODE_BACK" ;;
+              # The power menu is a system dialog: back twice and close system dialogs, or it
+              # stays over the preview hook that follows.
+              root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" >/dev/null 2>&1 ;;
     myfiles)  root "monkey -p com.sec.android.app.myfiles -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$MODE-real-myfiles" ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$MODE-real-dialer" ;;
   esac
@@ -227,6 +229,11 @@ step_collect() {
   gh api "repos/$APP_REPO/contents/tools/device/collect.sh?ref=$TRUSTED_REF" --jq .content | base64 -d >"$RES/.collect.sh" || return 1
   PKG=$PKG sh "$RES/.collect.sh" "$RES" >"$RES/collect-run.txt" 2>&1
   rm -f "$RES/.collect.sh"
+  # Samsung's SemWT mappings (the scan's dumps and the ones the app remembers), for the bundled
+  # One UI fallback used when a phone has no palette theme.
+  mkdir -p "$RES/semwt"
+  root "cd $(app_dir) && tar -cf - scan/semwt semwt-known 2>/dev/null" | tar -xf - -C "$RES/semwt" 2>/dev/null
+  root "cmd overlay list --user 0 | grep -i semwt" >"$RES/semwt/overlays.txt" 2>&1
 }
 
 # ---- jobs -----------------------------------------------------------------------------------

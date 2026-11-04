@@ -56,9 +56,15 @@ private val DashboardGroups: List<List<SettingsRow>> = listOf(
     listOf(SettingsRow("About phone", 0xFF3DA5F4), SettingsRow("Developer options", 0xFFFF4F8B)),
 )
 
-/** The significant words of a label, for matching a rendered icon to its dashboard row. */
+/** The significant words of a label or resource name, for matching an icon to its row. */
 private fun words(label: String): Set<String> =
-    label.lowercase().split(' ', '_', '-').filter { it.length > 3 && it != "settings" }.toSet()
+    label.lowercase().split(' ', '_', '-').filter { it.length > 3 && it !in IgnoredWords }.toSet()
+
+private val IgnoredWords = setOf("settings", "and", "sec_ic", "icon")
+
+/** Whether two word sets share a word, allowing plurals and short forms ("wallpaper"/"wallpapers"). */
+private fun overlaps(a: Set<String>, b: Set<String>): Boolean =
+    a.any { x -> b.any { y -> x.startsWith(y) || y.startsWith(x) } }
 
 /**
  * Each dashboard row with the theme's rendered icon for it (matched by label), else a default
@@ -70,7 +76,7 @@ private fun dashboard(icons: List<PreviewIcon>): List<List<PreviewIcon>> {
         group.map { row ->
             val want = words(row.title)
             val match = pool.firstOrNull { it.label.equals(row.title, ignoreCase = true) }
-                ?: pool.firstOrNull { want.isNotEmpty() && words(it.label).any { w -> w in want } }
+                ?: pool.firstOrNull { want.isNotEmpty() && (overlaps(words(it.label), want) || overlaps(words(it.key), want)) }
             if (match != null) {
                 pool.remove(match)
                 match.copy(label = row.title)
@@ -111,14 +117,15 @@ internal fun PreviewSettings(state: StudioPreviewState, scope: PreviewScope, mod
                 weight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(54.dp))
-            AccountRow(scope, background)
-            for (group in groups) {
+            groups.forEachIndexed { g, group ->
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .fill(ColorGroup.SURFACE, scope, cardShape)
                         .padding(vertical = 2.dp),
                 ) {
+                    // One UI 9 opens the first card with the Samsung account row.
+                    if (g == 0) AccountRow(scope, surface)
                     group.forEachIndexed { i, icon ->
                         key(icon.key) {
                             SettingsRowItem(icon, surface, state.iconsLoading, scope, divider = i < group.lastIndex)

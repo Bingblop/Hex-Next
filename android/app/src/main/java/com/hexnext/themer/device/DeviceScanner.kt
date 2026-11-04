@@ -416,23 +416,52 @@ class DeviceScanner(context: Context) {
             }
         }
 
+        // Remember every good mapping outside the scan dir (scans replace that dir), and fall back
+        // to the remembered one when the overlay is gone now: Samsung deletes its SemWT overlays
+        // when the colour palette is turned off or the wallpaper changes, and Hex Next itself
+        // keeps them disabled while a theme is on. Without this, a later scan maps nothing and
+        // the theme shrinks to the few resources the rules name directly (device lab, lab-003).
+        val known = File(File(filesDir, KNOWN_SEMWT_DIR), "${sanitize(target)}.txt")
+        var cached: OverlayDump? = null
+        if (source == SemWtStatus.SOURCE_DUMP) {
+            runCatching { known.parentFile?.mkdirs(); dumpFile.copyTo(known, overwrite = true) }
+                .onFailure { problems.add("remember mapping: ${it.message}") }
+        } else if (source == SemWtStatus.SOURCE_NONE && known.isFile) {
+            runCatching {
+                val text = known.readText()
+                cached = OverlayDump.parseAll(text).firstOrNull { it.overlayId == overlayId }?.takeIf { it.entries.isNotEmpty() }
+                cached?.let { old ->
+                    dumpFile.writeText(text)
+                    mappingFile.writeText(mappingJson(old).toString(2))
+                    source = SemWtStatus.SOURCE_CACHED
+                    resourceCount = old.entries.size
+                    valueCount = old.entries.size + old.entries.count { it.nightValue != null }
+                    dumpError = null
+                    problems.add("$overlayId is not on the phone now; used the mapping remembered from an earlier scan")
+                }
+            }.onFailure { problems.add("remembered mapping: ${it.message}") }
+        }
+
         // A dump failure only counts as an error when the .frro fallback did not cover it.
         dumpError?.let { problems.add(0, if (source == SemWtStatus.SOURCE_FRRO) "$it; used the copied .frro" else it) }
 
+        // A remembered mapping stands in for the dump: found (so the target is themed), never
+        // enabled (the live overlay list decides what the apply disables).
+        val shown = dump?.takeIf { it.entries.isNotEmpty() } ?: cached ?: dump
         return SemWtStatus(
             target = target,
             overlayId = overlayId,
-            found = dump != null,
-            owner = dump?.packageName,
-            state = dump?.state,
-            enabled = dump?.isEnabled ?: false,
-            priority = dump?.priority,
-            targetOverlayable = dump?.targetOverlayable,
-            frroPath = dump?.baseCodePath?.ifBlank { null },
+            found = shown != null,
+            owner = shown?.packageName,
+            state = shown?.state,
+            enabled = if (cached != null) false else dump?.isEnabled ?: false,
+            priority = shown?.priority,
+            targetOverlayable = shown?.targetOverlayable,
+            frroPath = if (cached != null) null else dump?.baseCodePath?.ifBlank { null },
             source = source,
             resourceCount = resourceCount,
             valueCount = valueCount,
-            missingCount = dump?.missing?.size ?: 0,
+            missingCount = shown?.missing?.size ?: 0,
             dumpPath = dumpFile.takeIf { it.isFile }?.absolutePath,
             mappingPath = mappingFile.takeIf { it.isFile }?.absolutePath,
             error = problems.takeIf { it.isNotEmpty() }?.joinToString("; "),
@@ -552,6 +581,9 @@ class DeviceScanner(context: Context) {
         private const val SCAN_DIR = "scan"
         /** A scan in progress writes here; it becomes [SCAN_DIR] only when the scan finished. */
         private const val SCAN_STAGING_DIR = "scan.new"
+
+        /** Last good SemWT dump per target; outlives scans (see [scanSemWt]). */
+        const val KNOWN_SEMWT_DIR = "semwt-known"
         /** The previous [SCAN_DIR] while the finished scan is swapped in. */
         private const val SCAN_OLD_DIR = "scan.old"
         private val SWAP_LOCK = Any()

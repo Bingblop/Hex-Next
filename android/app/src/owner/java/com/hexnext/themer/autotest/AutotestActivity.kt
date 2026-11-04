@@ -91,6 +91,9 @@ class AutotestActivity : ComponentActivity() {
         main.setPreviewDark(dark)
         main.refreshPreview()
         enableEdgeToEdge()
+        // The preview screens draw their own status row: hide the real bars so they do not overlap.
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            .hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         val settingsStore = AppSettingsStore.get(this)
         setContent {
             val settings by settingsStore.settings.collectAsStateWithLifecycle()
