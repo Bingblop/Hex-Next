@@ -467,6 +467,23 @@ step_wait() { log "wait 180 s"; sleep 180; }
 
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
 
+# The apps in the job's "bare" list with their Hex overlay switched off (bare-<mode>-real-app-<pkg>),
+# to tell the app's own look from the theme's. The overlays are switched back on afterwards.
+step_bare() {
+  local pkg ov list="" caps=""
+  for pkg in $(jq -r '.bare // [] | .[]' "$JOB"); do
+    case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    ov="com.android.shell:HexNext_$(echo "$pkg" | tr . _)"
+    root "cmd overlay disable --user 0 $ov" >>"$RES/bare.txt" 2>&1 && list="$list $ov"
+    caps="$caps app:$pkg"
+  done
+  [ -n "$caps" ] || return 0
+  log "bare:$caps"
+  sleep 2
+  PHASE="bare-"; step_capture "$caps"; PHASE=""
+  for ov in $list; do root "cmd overlay enable --user 0 $ov" >>"$RES/bare.txt" 2>&1; done
+}
+
 # capture_real <what>: drives One UI to the screen and screenshots it.
 capture_real() {
   case "$1" in
@@ -533,7 +550,7 @@ capture_preview() {
 
 step_capture() {
   local orig captures modes
-  captures=$(jq -r '(.captures // ["settings","qs","shade","power","myfiles"]) | join(" ")' "$JOB")
+  captures=${1:-$(jq -r '(.captures // ["settings","qs","shade","power","myfiles"]) | join(" ")' "$JOB")}
   modes=$(jq -r '(.modes // ["dark"]) | join(" ")' "$JOB")
   orig=$(root "cmd uimode night" | sed 's/.*: //')
   case "$orig" in yes|no|auto) ;; *) orig=auto ;; esac
@@ -579,7 +596,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
