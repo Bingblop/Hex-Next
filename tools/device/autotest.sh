@@ -286,6 +286,10 @@ capture_real() {
               if tap_text 'Force stop'; then sleep 2; shot "$PHASE$MODE-real-dialog"; tap_text 'Cancel' || root "input keyevent KEYCODE_BACK"; fi
               root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
               if tap_desc 'More options'; then sleep 2; shot "$PHASE$MODE-real-popup"; root "input keyevent KEYCODE_BACK"; fi ;;
+    keyboard) # Samsung Keyboard over a text field (Settings search), then closed.
+              root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
+              if tap_desc 'Search[^"]*' || tap_text 'Search'; then sleep 3; shot "$PHASE$MODE-real-keyboard"; fi
+              root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK" ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
   esac
   home
@@ -295,7 +299,7 @@ capture_preview() {
   local tab try
   case "$1" in
     settings) tab=SETTINGS ;; qs) tab=QUICK_PANEL ;; shade) tab=NOTIFICATIONS ;;
-    power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; *) return 0 ;;
+    power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; keyboard) tab=KEYBOARD ;; *) return 0 ;;
   esac
   local dark=true; [ "$MODE" = light ] && dark=false
   # The hook's activity can lose the race with a closing panel: retry once, and only screenshot
