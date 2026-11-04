@@ -23,6 +23,14 @@
   "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
   "quickSettings": {
     "layout": "oneui9",
+    "outsideDrawables": [
+      "drawable/ic_global_actions_power_off",
+      "drawable/ic_global_actions_restart",
+      "drawable/ic_global_actions_emergency",
+      "drawable/ic_global_actions_lockdown",
+      "drawable/ic_deviceoption_poweroff",
+      "drawable/ic_deviceoption_restart"
+    ],
     "colours": [],
     "extraColours": [
       "open_theme_noti_header_color",
@@ -106,6 +114,10 @@
     "drawable/sec_ic_settings_help": "drawable/sec_ic_settings_user_manual"
   },
   "drawableCopies": {
+    "drawable/tw_ic_do_poweroff": ["drawable/ic_global_actions_power_off", "drawable/ic_deviceoption_poweroff"],
+    "drawable/tw_ic_do_restart": ["drawable/ic_global_actions_restart", "drawable/ic_deviceoption_restart"],
+    "drawable/tw_ic_do_emergencymode": ["drawable/ic_global_actions_emergency"],
+    "drawable/tw_ic_do_lockdown": ["drawable/ic_global_actions_lockdown"],
     "drawable/dialog_": [
       "drawable/sesl_dialog_background",
       "drawable/dialog_background_material",
