@@ -106,14 +106,15 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
      */
     private val subscriptionVerifiedAt = HashMap<String, Long>()
 
-    /** The cached verdict for [purchase], or null when it must be verified (again). Holds [lock]. */
+    /**
+     * The cached verdict for [purchase], or null when it must be verified (again). An expired
+     * subscription verdict stays in [verifiedTokens] as the fallback while the server cannot
+     * answer, so a subscriber is not locked out by an outage. Holds [lock].
+     */
     private fun cachedVerdictLocked(purchase: Purchase): Set<String>? {
         val products = verifiedTokens[purchase.purchaseToken] ?: return null
         val at = subscriptionVerifiedAt[purchase.purchaseToken] ?: return products
-        if (SystemClock.elapsedRealtime() - at < SUBSCRIPTION_REVERIFY_MS) return products
-        verifiedTokens.remove(purchase.purchaseToken)
-        subscriptionVerifiedAt.remove(purchase.purchaseToken)
-        return null
+        return products.takeIf { SystemClock.elapsedRealtime() - at < SUBSCRIPTION_REVERIFY_MS }
     }
 
     /** Product → [sequence] at which the purchase listener granted it in this run. */
@@ -456,6 +457,9 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         }
         val serverUrl = BuildConfig.LICENSE_SERVER_URL.trim()
         val licenseKey = BuildConfig.PLAY_LICENSE_KEY.trim()
+        // An expired subscription verdict: the fallback while the server cannot answer.
+        val earlier = synchronized(lock) { verifiedTokens[purchase.purchaseToken] }.orEmpty()
+        var keptEarlier = false
         val products: Set<String> = when {
             serverUrl.isNotEmpty() -> {
                 val ok = HashSet<String>()
@@ -465,8 +469,12 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                         false -> Unit
                         null -> {
                             // The server could not say (offline, rate limited, store unreachable).
+                            // A subscription it verified earlier in this run keeps that answer.
                             // A Google-signed purchase still counts when this build has the key.
-                            if (licenseKey.isNotEmpty() && PurchaseSignature.verify(licenseKey, purchase.originalJson, purchase.signature)) {
+                            if (productId in earlier) {
+                                ok += productId
+                                keptEarlier = true
+                            } else if (licenseKey.isNotEmpty() && PurchaseSignature.verify(licenseKey, purchase.originalJson, purchase.signature)) {
                                 Log.w(TAG, "License server unavailable: purchase granted on its Play signature")
                                 ok += productId
                             } else {
@@ -475,7 +483,13 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                         }
                     }
                 }
-                if (ok.isEmpty()) return Verdict(emptySet(), "Your purchase couldn't be verified.")
+                if (ok.isEmpty()) {
+                    synchronized(lock) {
+                        verifiedTokens.remove(purchase.purchaseToken)
+                        subscriptionVerifiedAt.remove(purchase.purchaseToken)
+                    }
+                    return Verdict(emptySet(), "Your purchase couldn't be verified.")
+                }
                 ok
             }
             licenseKey.isNotEmpty() -> {
@@ -496,7 +510,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         }
         synchronized(lock) {
             verifiedTokens[purchase.purchaseToken] = products
-            if (purchase.products.any { it in ProductIds.SUBSCRIPTIONS }) {
+            // A verdict kept only from the earlier answer stays expired, so the next check asks again.
+            if (purchase.products.any { it in ProductIds.SUBSCRIPTIONS } && !keptEarlier) {
                 subscriptionVerifiedAt[purchase.purchaseToken] = SystemClock.elapsedRealtime()
             }
         }
