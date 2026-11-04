@@ -320,6 +320,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
      * publications keep the order of the updates.
      */
     private suspend fun handlePurchases(purchases: List<Purchase>, full: FullQuery?) {
+        val appliedAtStart = synchronized(lock) { appliedGeneration }
         val serverAnswers = verifyOnServer(purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED })
         val granted = HashSet<String>()
         val pendingNow = HashSet<String>()
@@ -347,10 +348,13 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                     return
                 }
                 appliedGeneration = full.generation
-                // Every product Play listed, pending or unverified included: a listener grant the
+                // Every product Play listed as purchased, verified or not: a listener grant the
                 // snapshot lists is not missing from it, so it is not rechecked and dropped when
-                // the server is briefly unavailable. Refunded purchases leave the list entirely.
-                val listed = purchases.flatMapTo(HashSet()) { it.products }
+                // the server is briefly unavailable. A stale PENDING entry does not confirm a
+                // grant (the purchase may have completed and been refunded since), so it gets a
+                // recheck. Refunded purchases leave the list entirely.
+                val listed = purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
+                    .flatMapTo(HashSet()) { it.products }
                 val kept = listenerGrants.applySnapshot(full.since, listed)
                 owned.clear()
                 owned += granted
@@ -363,6 +367,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 owned += granted
                 pending -= granted
                 pending += pendingNow
+                // A full answer applied while this grant was verifying may not list it.
+                recheck = granted.isNotEmpty() && appliedGeneration != appliedAtStart
             }
             pending -= owned
             // Still checking while a newer full query has not answered yet.

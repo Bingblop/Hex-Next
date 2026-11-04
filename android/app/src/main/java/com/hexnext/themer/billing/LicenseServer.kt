@@ -65,13 +65,18 @@ object LicenseServer {
     fun bodyVerdict(body: String, requestedProductId: String): Boolean? {
         val fields = parseFlatObject(body) ?: return null
         val valid = fields["valid"] as? Boolean ?: return null
-        return itemVerdict(valid, fields["productId"] as? String, fields["reason"] as? String, requestedProductId)
+        // The server always names the product of a yes and the reason for a no; a reply missing
+        // the one its verdict needs is not the documented answer, so it is unknown.
+        val productId = fields["productId"] as? String
+        val reason = fields["reason"] as? String
+        if (valid && productId == null || !valid && reason == null) return null
+        return itemVerdict(valid, productId, reason, requestedProductId)
     }
 
     /**
      * Strictly parses one flat JSON object whose values are strings, booleans, numbers or null.
      * Returns null for anything else: nesting, trailing garbage, a duplicate key, a bad escape.
-     * Numbers are kept as their text; only `valid`, `productId` and `reason` are read.
+     * Numbers are kept as [JsonNumber], never as strings; only `valid`, `productId` and `reason` are read.
      */
     internal fun parseFlatObject(body: String): Map<String, Any?>? {
         val p = FlatParser(body)
@@ -116,10 +121,10 @@ object LicenseServer {
             require(s.startsWith(word, i)); i += word.length; return v
         }
 
-        private fun number(): String {
+        private fun number(): JsonNumber {
             val m = NUMBER.find(s, i)?.takeIf { it.range.first == i } ?: throw IllegalArgumentException()
             i += m.value.length
-            return m.value
+            return JsonNumber(m.value)
         }
 
         private fun string(): String {
@@ -137,7 +142,7 @@ object LicenseServer {
                         'r' -> sb.append('\r')
                         't' -> sb.append('\t')
                         'u' -> {
-                            require(i + 4 <= s.length)
+                            require(i + 4 <= s.length && s.substring(i, i + 4).all { it in HEX })
                             sb.append(s.substring(i, i + 4).toInt(16).toChar()); i += 4
                         }
                         else -> throw IllegalArgumentException()
@@ -154,5 +159,9 @@ object LicenseServer {
         private fun expect(c: Char) { require(next() == c) }
     }
 
+    /** A JSON number, kept as its text so it can never pass for a string field. */
+    internal data class JsonNumber(val text: String)
+
+    private const val HEX = "0123456789abcdefABCDEF"
     private val NUMBER = Regex("""-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?""")
 }

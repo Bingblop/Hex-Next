@@ -89,4 +89,15 @@ class LicenseServerTest {
     fun wellFormedBodiesWithEscapesAndNumbersParse() {
         assertEquals(true, LicenseServer.bodyVerdict(" { \"valid\" : true , \"productId\" : \"pack_\\u006eeon\", \"n\": -1.5e3, \"z\": null } ", "pack_neon"))
     }
+
+    @Test
+    fun repliesMissingWhatTheirVerdictNeedsAreUnknown() {
+        for (body in listOf(
+            """{"valid":false}""",
+            """{"valid":true}""",
+            """{"valid":true,"productId":123}""",
+            """{"valid":false,"reason":7}""",
+            """{"valid":true,"productId":"pack_\u+06eeon"}""",
+        )) assertNull(body, LicenseServer.bodyVerdict(body, "pack_neon"))
+    }
 }
