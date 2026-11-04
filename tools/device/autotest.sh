@@ -100,6 +100,12 @@ ensure_network() {
   local at; at=$(cat "$HOME/.hexnext-softreboot-at" 2>/dev/null || echo 0)
   if [ $(( $(date +%s) - at )) -gt 3600 ]; then sleep 20; online; return; fi
   local round
+  if root "[ -f /data/local/tmp/hexnext-wifi.sh ]"; then
+    root "settings put global captive_portal_mode 0" >/dev/null 2>&1
+    log "no connection; answering the Wi-Fi sign-in prompt"
+    root "sh /data/local/tmp/hexnext-wifi.sh" >/dev/null 2>&1
+    online && { log "connection back"; return 0; }
+  fi
   for round in 1 2; do
     log "no connection; resetting networking (round $round)"
     root "cmd connectivity airplane-mode enable; sleep 4; cmd connectivity airplane-mode disable" >/dev/null 2>&1
@@ -125,8 +131,9 @@ wifi_fix_script() {
 # After a soft reboot this phone marks Wi-Fi as a captive portal: a "Sign in to network"
 # notification appears and Wi-Fi only carries traffic after you open it, tap the three dots and
 # pick "Use network as is". This script does those taps by itself, and as a first line of
-# defence the runner turns captive portal detection off just before the soft reboot (saved
-# value is put back here once the connection works).
+# defence the runner turns captive portal detection off just before the soft reboot and keeps it
+# off while it runs (turning it back on right after boot dropped Wi-Fi again in lab-012). The
+# saved value is put back when the watcher stops (`sh hexnext-wifi.sh restore`).
 #
 # Log: /data/local/tmp/hexnext-wifi.log
 
@@ -136,7 +143,11 @@ UI=/data/local/tmp/hexnext-wifi-ui.xml
 
 say() { echo "$(date +%H:%M:%S) $*" >>"$LOG"; }
 
-online() { ping -c 1 -W 3 api.github.com >/dev/null 2>&1; }
+online() {
+  ping -c 1 -W 3 api.github.com >/dev/null 2>&1 || return 1
+  sleep 10
+  ping -c 1 -W 3 api.github.com >/dev/null 2>&1
+}
 
 dump() { uiautomator dump "$UI" >/dev/null 2>&1 && cat "$UI"; }
 
@@ -150,6 +161,7 @@ tap_match() {
 }
 
 restore_mode() {
+  [ "$1" = "now" ] || return 0   # the runner keeps detection off while it is running
   [ -f "$SAVED" ] || return 0
   v=$(cat "$SAVED")
   if [ "$v" = "null" ] || [ -z "$v" ]; then settings delete global captive_portal_mode >/dev/null 2>&1
@@ -182,11 +194,12 @@ open_notification() {
   say "opened the Wi-Fi notification"
 }
 
+if [ "$1" = "restore" ]; then restore_mode now; exit 0; fi
 say "start"
 round=0
 while [ $round -lt 6 ]; do
   round=$((round + 1))
-  if online; then say "online"; restore_mode; rm -f "$UI"; exit 0; fi
+  if online; then say "online"; restore_mode "$1"; rm -f "$UI"; exit 0; fi
   sleep 10
   online && continue
   input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
@@ -421,12 +434,12 @@ step_waitrestore() {
     [ "$n" -gt 0 ] && break
     sleep 10; waited=$((waited + 10))
   done
-  # The overlays appear one app at a time: let the restore finish.
-  local last=-1
-  while [ $waited -lt 900 ] && [ "$n" != "$last" ]; do
-    last=$n; sleep 30; waited=$((waited + 30))
-    n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
+  # The overlays appear one app at a time (about 4 s each): wait for the app's finish line.
+  while [ $waited -lt 900 ]; do
+    root "logcat -d -s HexNextRestore" 2>/dev/null | grep -q 'Restore finished' && break
+    sleep 10; waited=$((waited + 10))
   done
+  n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
   log "restore: $n Hex Next overlays after ${waited}s"
   echo "$n overlays after ${waited}s" >"$RES/restore.txt"
   root "logcat -d -s HexNextRestore" >>"$RES/restore.txt" 2>&1
@@ -634,6 +647,7 @@ case "${1:-watch}" in
     # A soft reboot that has not been resumed yet (the watcher was started by hand first).
     [ -f "$HOME/.hexnext-resume" ] && exec bash "$0" resume
     log "watching $LAB_REPO every ${POLL}s (Ctrl-C to stop)"
+    trap 'su -c "[ -f /data/local/tmp/hexnext-wifi.sh ] && sh /data/local/tmp/hexnext-wifi.sh restore" >/dev/null 2>&1; exit 0' INT TERM
     while true; do
       self_update "$@"
       online || ensure_network
