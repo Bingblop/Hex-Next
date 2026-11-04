@@ -207,6 +207,35 @@ restart_shizuku() {
   return 1
 }
 
+# Starts the Shizuku server as system (UID 1000) through root: first its own starter under
+# su 1000, then (the starter accepts only root and shell) app_process with the manager APK, the way
+# the starter launches it. Writes shizuku-1000.txt; fails, and the job stops, unless the running
+# server's uid is 1000. Step "shizuku" puts the usual root server back.
+step_shizuku1000() {
+  local apk dir lib out="$RES/shizuku-1000.txt" try uid
+  apk=$(root "pm path moe.shizuku.privileged.api" | sed -n 's/^package://p' | head -1)
+  [ -n "$apk" ] || { log "shizuku1000: Shizuku is not installed"; return 1; }
+  dir="${apk%/base.apk}"; lib=""
+  for abi in arm64 arm64-v8a; do root "test -x $dir/lib/$abi/libshizuku.so" && lib="$dir/lib/$abi/libshizuku.so" && break; done
+  server_uid() { root "ps -A -o UID,NAME" 2>/dev/null | awk '$2 ~ /shizuku_server/ {print $1; exit}'; }
+  for try in starter app_process; do
+    root "pkill -f shizuku_server" >/dev/null 2>&1; sleep 2
+    echo "== $try" >>"$out"
+    case "$try" in
+      starter) [ -n "$lib" ] || continue
+               root "su 1000 -c '$lib'" >>"$out" 2>&1 ;;
+      app_process)
+               root "su 1000 -c 'CLASSPATH=$apk setsid app_process -Djava.class.path=$apk /system/bin --nice-name=shizuku_server moe.shizuku.server.ShizukuService </dev/null >/dev/null 2>&1 &'" >>"$out" 2>&1 ;;
+    esac
+    sleep 6
+    uid=$(server_uid); echo "server uid: ${uid:-none}" >>"$out"
+    if [ "$uid" = 1000 ]; then log "shizuku1000: server running as UID 1000 ($try)"; return 0; fi
+  done
+  log "shizuku1000: could not start Shizuku as UID 1000 (see shizuku-1000.txt); putting the root server back"
+  restart_shizuku
+  return 1
+}
+
 # ---- steps ----------------------------------------------------------------------------------
 step_install() {
   local run_id want info branch concl aid got zip="$HOME/hexnext-apk/owner.zip"
@@ -706,10 +735,12 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
+    # Without a UID 1000 server the rest of a UID 1000 job would only repeat the root tests.
+    case " $failed " in *" shizuku1000 "*) log "stopping: no UID 1000 server"; break ;; esac
   done
   # Never leave Galaxy Themes Service components off after a job, whatever happened.
   [ -f "$HOME/.hexnext-undo" ] && step_undo

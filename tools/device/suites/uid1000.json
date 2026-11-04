@@ -1,7 +1,8 @@
 {
-  "about": "Hex Next with Shizuku running as system (UID 1000): clears the root-made overlays, applies, checks the look, removes and applies again, then soft-reboots to see whether system-owned (android) overlays survive where shell-owned ones do not. Start Shizuku as UID 1000 first; the job never restarts it.",
+  "about": "Hex Next with Shizuku started as system (UID 1000) by the runner: clears the root-made overlays, applies, checks the look, removes and applies again, then soft-reboots to see whether system-owned (android) overlays survive; restores as UID 1000 and puts the root server back.",
   "steps": [
     "install",
+    "shizuku1000",
     "overlaystate",
     "remove",
     "overlaystate",
@@ -18,8 +19,10 @@
     "softreboot",
     "overlaystate",
     "bootlog",
+    "shizuku1000",
     "waitrestore",
-    "overlaystate"
+    "overlaystate",
+    "shizuku"
   ],
   "confirm": true,
   "modes": [
@@ -28,8 +31,7 @@
   ],
   "captures": [
     "settings",
-    "power",
-    "keyboard"
+    "power"
   ],
   "lookups": [
     "com.android.settings:color/sesl_round_and_bgcolor_light",
