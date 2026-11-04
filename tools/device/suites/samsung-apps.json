@@ -28,7 +28,7 @@
     "app:com.samsung.android.app.contacts",
     "app:com.samsung.android.email.provider",
     "app:com.samsung.android.app.notes",
-    "app:com.samsung.android.lool",
+    "app:com.samsung.android.lool/com.samsung.android.sm.score.ui.ScoreBoardActivity",
     "app:com.sec.android.app.voicenote",
     "app:com.sec.android.app.music",
     "app:com.sec.android.gallery3d",
