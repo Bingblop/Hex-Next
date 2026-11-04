@@ -72,8 +72,41 @@ object ThemeRestorer {
             // Nothing here may take the app down: a restore that throws is only logged.
             runCatching {
                 ShizukuManager.state.filter { it is ShizukuState.Ready && Capability.of(it) == Capability.ROOT }.first()
-                restoreIfNeeded(app)
+                if (needsRestore(app)) startInForeground(app)
             }.onFailure { Log.w(TAG, "Restore failed", it) }
+        }
+    }
+
+    /** The cheap checks before the foreground service starts: the restore itself checks again. */
+    private suspend fun needsRestore(app: Context): Boolean {
+        if (!appliedFile(app).isFile) return false
+        val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getInt(KEY_FAILURES, 0) >= MAX_FAILURES) return false
+        if (ApplyGuard(app).safeModeActive() || OtherBuild.isInstalled(app)) return false
+        val service = ShizukuManager.service()
+        val list = ExecOutput.fullText(service, service.exec("cmd overlay list --user 0"))
+        return list.lines().none { it.contains(":HexNext_") }
+    }
+
+    /**
+     * The restore runs in [RestoreService] so Android does not freeze the process halfway. A
+     * background app may not start a foreground service itself; the root shell always may.
+     */
+    private suspend fun startInForeground(app: Context) {
+        val direct = runCatching { app.startForegroundService(RestoreService.intent(app)) }
+        if (direct.isSuccess) {
+            Log.i(TAG, "Restore runs in the foreground service")
+            return
+        }
+        Log.i(TAG, "Starting the restore service through the root shell (${direct.exceptionOrNull()?.javaClass?.simpleName})")
+        val service = ShizukuManager.service()
+        val out = ExecOutput.fullText(
+            service,
+            service.exec("am start-foreground-service --user 0 -n ${app.packageName}/${RestoreService::class.java.name}"),
+        )
+        if (out.contains("Error", ignoreCase = true)) {
+            Log.w(TAG, "Root start of the restore service failed: ${out.trim()}; restoring without it")
+            restoreIfNeeded(app)
         }
     }
 
