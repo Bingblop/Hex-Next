@@ -251,7 +251,7 @@ step_overlaystate() {
   local d="$RES/overlaystate-$n"; mkdir -p "$d"
   log "overlay state $n"
   {
-    date; echo "uptime: $(cut -d' ' -f1 /proc/uptime)"; getprop sys.boot_completed
+    date; echo "uptime: $(root "cut -d' ' -f1 /proc/uptime")"; getprop sys.boot_completed
     echo "system_server: $(root "pidof system_server")"
   } >"$d/when.txt" 2>&1
   root "ls -la /data/resource-cache/" >"$d/resource-cache.txt" 2>&1
