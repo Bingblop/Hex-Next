@@ -76,4 +76,12 @@ class PaidFeatureTest {
         }
         assertFalse(ready.copy(pendingProductIds = setOf(ProductIds.AI_MONTHLY)).isPending("willemite"))
     }
+
+    @Test
+    fun staleSubscriptionsDoNotTrustOneTimeHints() {
+        for (id in listOf(ProductIds.AI_LIFETIME, ProductIds.EVERYTHING)) {
+            val state = EntitlementState(ready = true, subscriptionsStale = true, cachedProductIds = setOf(id))
+            assertFalse(id, state.looksUnlocked(PaidFeature.AI_CREATION))
+        }
+    }
 }

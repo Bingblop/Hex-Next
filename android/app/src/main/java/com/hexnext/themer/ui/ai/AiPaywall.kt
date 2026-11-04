@@ -75,6 +75,7 @@ internal fun AiPaywall(what: String, state: EntitlementState, modifier: Modifier
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text("Checking your purchases…", style = MaterialTheme.typography.bodySmall)
             }
+            TextButton(onClick = { entitlements.refresh() }) { Text("Check again") }
             return@Column
         }
         Text(

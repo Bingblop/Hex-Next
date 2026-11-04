@@ -84,7 +84,9 @@ data class EntitlementState(
 
     /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
     fun looksUnlocked(feature: PaidFeature): Boolean = unlocks(feature) ||
-        ((!ready || subscriptionsStale) && (ProductIds.EVERYTHING in cachedProductIds || feature.productIds.any { it in cachedProductIds }))
+        (!ready && (ProductIds.EVERYTHING in cachedProductIds || feature.productIds.any { it in cachedProductIds })) ||
+        // The one-time products were answered; only subscriptions may still be unknown.
+        (subscriptionsStale && feature.productIds.any { it in ProductIds.SUBSCRIPTIONS && it in cachedProductIds })
 
     fun isPending(feature: PaidFeature): Boolean =
         ProductIds.EVERYTHING in pendingProductIds || feature.productIds.any { it in pendingProductIds }
