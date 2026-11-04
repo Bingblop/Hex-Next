@@ -185,7 +185,7 @@ step_dumps() {
   root "cmd overlay list --user 0" >"$RES/dumps/overlay-list.txt" 2>&1
   # Every colour name each scanned app ships (small text lists), to find what paints dialogs.
   mkdir -p "$RES/dumps/names"
-  root "cd $(app_dir)/scan && for d in */; do [ -f \"\$d/names-color.txt\" ] && cp \"\$d/names-color.txt\" \"/data/local/tmp/hexnext-names-\${d%/}.txt\"; done; true"
+  root "cd $(app_dir)/scan && for d in */; do for t in color drawable; do [ -f \"\$d/names-\$t.txt\" ] && cp \"\$d/names-\$t.txt\" \"/data/local/tmp/hexnext-names-\${d%/}-\$t.txt\"; done; done; true"
   root "cd /data/local/tmp && tar -cf - hexnext-names-*.txt 2>/dev/null; rm -f hexnext-names-*.txt" | tar -xf - -C "$RES/dumps/names" 2>/dev/null
   root "settings get secure theme_customization_overlay_packages" >"$RES/dumps/theme_customization.txt" 2>&1
   local shade
