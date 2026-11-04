@@ -49,6 +49,8 @@ import com.hexnext.themer.ai.AiProviders
 import com.hexnext.themer.ai.TextProvider
 import com.hexnext.themer.ai.ThemeSuggester
 import com.hexnext.themer.ai.ThemeSuggestion
+import com.hexnext.themer.billing.PackEntitlements
+import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.theme.toHex
 import com.hexnext.themer.ui.SectionCard
@@ -61,7 +63,9 @@ import kotlinx.coroutines.launch
  * Apply.
  *
  * Without an AI key the card folds to one quiet row that leads to the key screen, so the colour
- * controls under it stay the first thing a new user sees.
+ * controls under it stay the first thing a new user sees. AI creation is paid
+ * ([PaidFeature.AI_CREATION]): until it is unlocked the card shows [AiPaywall] instead of the
+ * prompt, and [DescribeThemeModel.generate] checks the entitlement again before any request.
  *
  * Host contract: [onApply] receives the suggestion and the spec from
  * [ThemeSuggester.toThemeSpec]; the host must put the spec into the editor **and** push
@@ -83,6 +87,8 @@ fun DescribeThemeCard(
 ) {
     val keys = rememberAiKeyStore()
     val configured by keys.configured.collectAsStateWithLifecycle()
+    val entitlements = rememberEntitlements()
+    val access = rememberEntitlementState()
     // The request and its result live in a ViewModel, not in the item: the main screen is a
     // LazyColumn, which disposes this card when it scrolls away, and that must neither cancel
     // a paid request nor drop the suggestion.
@@ -105,7 +111,15 @@ fun DescribeThemeCard(
 
     fun generate() {
         val chosen = provider ?: return
-        model.generate(keys, chosen, description)
+        model.generate(entitlements, keys, chosen, description)
+    }
+
+    if (!access.unlocks(PaidFeature.AI_CREATION)) {
+        SectionCard("Describe your theme") {
+            Text("Turn a sentence into a palette", style = MaterialTheme.typography.titleSmall)
+            AiPaywall(what = "Describe your theme", state = access)
+        }
+        return
     }
 
     if (providers.isEmpty()) {
@@ -206,9 +220,17 @@ internal class DescribeThemeModel : ViewModel() {
     /** The spec the last Apply put into the editor; null until then and after a new generation. */
     var appliedSpec by mutableStateOf<ThemeSpec?>(null)
 
-    /** Asks [provider] for a theme from [description]; ignored while a request is running. */
-    fun generate(keys: AiKeyStore, provider: TextProvider, description: String) {
+    /**
+     * Asks [provider] for a theme from [description]; ignored while a request is running, and
+     * refused unless [entitlements] unlocks [PaidFeature.AI_CREATION] at this moment (a lapsed
+     * subscription must not keep generating from a screen that was open before it lapsed).
+     */
+    fun generate(entitlements: PackEntitlements, keys: AiKeyStore, provider: TextProvider, description: String) {
         if (working) return
+        if (!entitlements.state.value.unlocks(PaidFeature.AI_CREATION)) {
+            error = "AI theme creation is locked. Subscribe or unlock it to generate."
+            return
+        }
         working = true
         error = null
         appliedSpec = null

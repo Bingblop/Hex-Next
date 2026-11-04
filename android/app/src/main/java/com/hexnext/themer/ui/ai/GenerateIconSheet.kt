@@ -71,6 +71,8 @@ import com.hexnext.themer.ai.IconProvider
 import com.hexnext.themer.ai.IconRequest
 import com.hexnext.themer.ai.IconStyle
 import com.hexnext.themer.ai.ProviderKind
+import com.hexnext.themer.billing.PackEntitlements
+import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.theme.CustomAssetStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -106,6 +108,8 @@ fun GenerateIconSheet(
     val context = LocalContext.current
     val keys = rememberAiKeyStore()
     val configured by keys.configured.collectAsStateWithLifecycle()
+    val entitlements = rememberEntitlements()
+    val access = rememberEntitlementState()
     val scope = rememberCoroutineScope()
     // The request and its results live in a ViewModel: rotating, folding or unfolding the phone
     // or a dark-mode switch recreates the activity, the host reopens the sheet, and a paid request
@@ -145,7 +149,7 @@ fun GenerateIconSheet(
             count = state.count,
             paletteHint = if (state.style == IconStyle.MATCH_PACK) paletteHint else emptyList(),
         )
-        state.generate(keys, chosen, request)
+        state.generate(entitlements, keys, chosen, request)
     }
 
     /** Stores [icon] (or, with [file], the gallery file read on IO) as a custom icon and reports it. */
@@ -190,7 +194,9 @@ fun GenerateIconSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            if (providers.isEmpty()) {
+            if (!access.unlocks(PaidFeature.AI_CREATION)) {
+                AiPaywall(what = "AI icon generation", state = access)
+            } else if (providers.isEmpty()) {
                 NoProviderNotice(openProviders)
             } else {
                 OutlinedTextField(
@@ -339,8 +345,13 @@ internal class GenerateIconState : ViewModel() {
     var galleryVersion by mutableIntStateOf(0)
 
     /** Runs [request] on [provider] in [viewModelScope]; ignored while something is running. */
-    fun generate(keys: AiKeyStore, provider: IconProvider, request: IconRequest) {
+    fun generate(entitlements: PackEntitlements, keys: AiKeyStore, provider: IconProvider, request: IconRequest) {
         if (busy) return
+        // Checked again at request time: the subscription may have lapsed while the sheet was open.
+        if (!entitlements.state.value.unlocks(PaidFeature.AI_CREATION)) {
+            error = "AI theme creation is locked. Subscribe or unlock it to generate."
+            return
+        }
         busy = true
         error = null
         results.clear()
