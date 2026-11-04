@@ -129,8 +129,13 @@ step_install() {
   local run_id want info branch concl aid got zip="$HOME/hexnext-apk/owner.zip"
   run_id=$(jq -r '.run_id // empty' "$JOB"); want=$(jq -r '.artifact_sha256 // empty' "$JOB")
   [ -n "$run_id" ] && [ -n "$want" ] || { log "install: job has no run_id/artifact_sha256"; return 1; }
-  info=$(gh api "repos/$APP_REPO/actions/runs/$run_id" --jq '.head_branch + " " + .conclusion' 2>>"$RES/runner.log") \
-    || { log "install: cannot read run $run_id (token needs Actions: read on $APP_REPO)"; return 1; }
+  # Retried: a flaky connection is far more likely than a token problem.
+  local try
+  for try in 1 2 3 4 5; do
+    info=$(gh api "repos/$APP_REPO/actions/runs/$run_id" --jq '.head_branch + " " + .conclusion' 2>>"$RES/runner.log") && break
+    log "install: cannot reach GitHub (try $try of 5)"; info=""; sleep $((try * 10))
+  done
+  [ -n "$info" ] || { log "install: cannot read run $run_id (no connection, or the token needs Actions: read on $APP_REPO)"; return 1; }
   set -- $info; branch=$1; concl=${2:-}
   [ "$concl" = success ] || { log "install: run $run_id is '$concl'"; return 1; }
   rm -rf "$HOME/hexnext-apk"; mkdir -p "$HOME/hexnext-apk"
