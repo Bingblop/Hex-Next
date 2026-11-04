@@ -302,7 +302,7 @@
     },
     "systemui": {
       "exact": {
-        "qs_tile_active": ["qs_tile_round_background_on", "qs_tile_round_background_on_stroke", "subscreen_qs_tile_round_background_on"],
+        "qs_tile_active": ["qs_tile_round_background_on", "qs_tile_round_background_on_stroke", "subscreen_qs_tile_round_background_on", "soundcraft_volume_progress_color_control", "tw_progress_color_control_activated"],
         "qs_tile_inactive": ["qs_tile_round_background_dim", "qs_tile_round_background_off", "qs_tile_round_background_off_stroke", "subscreen_qs_tile_round_background_dim", "subscreen_qs_tile_round_background_off", "qs_edit_tile_round_background_available"],
         "qs_panel_bg": ["qs_tile_container_bg", "sec_panel_background_color", "sec_panel_background_color_tablet", "open_theme_qp_bg_color", "sec_brightness_mirror_background_color", "sec_qs_detail_bg_color", "qs_detail_background_color", "sec_qs_detailed_container_background", "qs_edit_panel_available_background_color"],
         "qs_tile_icon_on": ["qs_tile_icon_on_dim_tint_color", "subscreen_qs_tile_icon_on_color", "animated_brightness_sun_icon_color", "qs_edit_panel_active_tile_icon_color"],

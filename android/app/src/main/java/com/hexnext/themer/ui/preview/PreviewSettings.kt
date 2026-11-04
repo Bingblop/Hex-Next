@@ -107,12 +107,13 @@ internal fun PreviewSettings(state: StudioPreviewState, scope: PreviewScope, mod
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Spacer(Modifier.height(64.dp))
-            GroupText(
+            // The title is painted by the SESL action bar title colour (lab-004/005), not the
+            // accent: show what the theme writes there, else the accent before a scan.
+            PText(
                 "Settings",
-                ColorGroup.ACCENT,
-                background,
+                readableOn(scope.settings("sesl_action_bar_text_color_title_light", scope.text(background, ColorGroup.ACCENT)), background),
                 scope,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                Modifier.align(Alignment.CenterHorizontally).themed(ColorGroup.ACCENT, scope),
                 size = 26.sp,
                 weight = FontWeight.SemiBold,
             )

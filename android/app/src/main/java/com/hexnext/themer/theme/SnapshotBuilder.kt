@@ -205,8 +205,13 @@ class SnapshotBuilder(context: Context) {
          * scan-time colours. [scanDir] is the dir the scan is writing (its staging dir, swapped
          * into `files/scan` when the scan finishes); by default `files/scan` itself.
          */
-        fun saveSystemShades(context: Context, scanDir: File = File(context.filesDir, "scan")): Map<String, Int> {
-            val shades = readSystemShades(context)
+        fun saveSystemShades(
+            context: Context,
+            scanDir: File = File(context.filesDir, "scan"),
+            preferred: Map<String, Int> = emptyMap(),
+        ): Map<String, Int> {
+            // [preferred] (Samsung's own palette) wins; the live colours fill any shade it lacks.
+            val shades = readSystemShades(context) + preferred
             runCatching {
                 val file = File(scanDir, SHADES_FILE)
                 file.parentFile?.mkdirs()

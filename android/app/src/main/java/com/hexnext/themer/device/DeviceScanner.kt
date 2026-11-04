@@ -123,7 +123,12 @@ class DeviceScanner(context: Context) {
         }
 
         progress("Reading system colours…")
-        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext, scanDir) }.getOrElse {
+        // Samsung's own palette (SemWT_MonetPalette) is what its per-app SemWT colours are made
+        // from. The live palette is not: once a theme is on it is the theme's (HexNext_android
+        // overrides android:color/system_*), so inference against it matched nothing and the
+        // wallpaper's colours were copied verbatim (lab-004/005). Live colours fill any gap.
+        val samsungPalette = runCatching { readSamsungPalette(service, errors) }.getOrDefault(emptyMap())
+        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext, scanDir, samsungPalette) }.getOrElse {
             errors.add("system shades: ${it.message}")
             emptyMap()
         }
@@ -357,6 +362,30 @@ class DeviceScanner(context: Context) {
     }
 
     /**
+     * The 65 `system_*` colours of Samsung's `android:SemWT_MonetPalette` (enabled or not; a
+     * disabled fabricated overlay still dumps its mapping), keyed `system_accent1_500`. Remembered
+     * in [KNOWN_SEMWT_DIR] like the per-app dumps, and read from there when the overlay is gone.
+     * Empty when neither has it.
+     */
+    private fun readSamsungPalette(service: IThemeService, errors: MutableList<String>): Map<String, Int> {
+        val known = File(File(filesDir, KNOWN_SEMWT_DIR), "$MONET_PALETTE_OVERLAY.txt")
+        fun parse(text: String): Map<String, Int> =
+            OverlayDump.parseAll(text).firstOrNull { it.overlayId == MONET_PALETTE_ID }?.entries.orEmpty()
+                .filter { it.type == "color" && it.name.startsWith("system_") }
+                .mapNotNull { e -> e.defaultColor?.let { e.name to it } }
+                .toMap()
+        val live = runCatching { ExecOutput.fullText(service, service.exec("cmd overlay dump $MONET_PALETTE_ID")) }
+            .onFailure { errors.add("palette dump: ${it.message}") }
+            .getOrNull()
+        val fromLive = live?.let(::parse).orEmpty()
+        if (fromLive.size >= MIN_PALETTE_SHADES) {
+            runCatching { known.parentFile?.mkdirs(); known.writeText(live!!) }
+            return fromLive
+        }
+        return if (known.isFile) runCatching { parse(known.readText()) }.getOrDefault(emptyMap()) else emptyMap()
+    }
+
+    /**
      * Runs `cmd overlay dump android:SemWT_<target>` and parses it with [OverlayDump]. Saves the
      * raw output to `<outDir>/<target>.txt` and the parsed resources to `<outDir>/<target>.json`.
      * When the dump has no mapping (no idmap, missing target, dump failed), falls back to the
@@ -584,6 +613,12 @@ class DeviceScanner(context: Context) {
 
         /** Last good SemWT dump per target; outlives scans (see [scanSemWt]). */
         const val KNOWN_SEMWT_DIR = "semwt-known"
+
+        private const val MONET_PALETTE_OVERLAY = "SemWT_MonetPalette"
+        private const val MONET_PALETTE_ID = "android:$MONET_PALETTE_OVERLAY"
+
+        /** A palette dump with fewer shades than this is treated as missing (a full one has 65). */
+        private const val MIN_PALETTE_SHADES = 40
         /** The previous [SCAN_DIR] while the finished scan is swapped in. */
         private const val SCAN_OLD_DIR = "scan.old"
         private val SWAP_LOCK = Any()
