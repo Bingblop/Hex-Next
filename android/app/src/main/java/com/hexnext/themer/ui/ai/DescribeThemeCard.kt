@@ -25,6 +25,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,24 +59,29 @@ import com.hexnext.themer.ui.SectionCard
 import kotlinx.coroutines.launch
 
 /**
- * "Describe your theme": a text field and Generate, then the proposed palette as swatches with
- * "Apply to editor". Applying only changes the editor (seed, secondary and tertiary accents,
- * light/dark adjustments, pack and name); the phone changes when the user presses the normal
- * Apply.
+ * "Describe your theme": a description and Generate, then a chat. Every answer goes straight into
+ * the editor (seed, secondary and tertiary accents, light/dark adjustments, pack and name), so
+ * [livePreview] shows it at once: one phone with a tab per overlay. Under it the conversation and
+ * the message box for the next change ("warmer", "less green"), each answer reworking the current
+ * theme. Under that the result and Apply theme, the same apply as the bottom bar. Undo AI
+ * changes puts back the editor as it was before the chat.
  *
  * Without an AI key the card folds to one quiet row that leads to the key screen, so the colour
  * controls under it stay the first thing a new user sees. AI creation is paid
  * ([PaidFeature.AI_CREATION]): until it is unlocked the card shows [AiPaywall] instead of the
- * prompt, and [DescribeThemeModel.generate] checks the entitlement again before any request.
+ * prompt, and [DescribeThemeModel] checks the entitlement again before any request.
  *
- * Host contract: [onApply] receives the suggestion and the spec from
- * [ThemeSuggester.toThemeSpec]; the host must put the spec into the editor **and** push
- * `spec.source.seedArgb` to the seed preference (`MainViewModel.setSeed`), because the apply path
- * reads the seed from there.
+ * Host contract: [onApply] and [onRestore] receive a spec the host must put into the editor
+ * **and** whose `source.seedArgb` it must push to the seed preference (`MainViewModel.setSeed`),
+ * because the apply path reads the seed from there.
  *
- * @param packs installed packs, for the pack-style match.
- * @param spec the editor's current theme, the base the suggestion is mapped onto.
- * @param busy true while the host is applying or importing; disables Apply.
+ * @param packs unlocked packs only, for the pack-style match: the AI can never pick a locked one.
+ * @param spec the editor's current theme, the base each answer is mapped onto.
+ * @param busy true while the host is applying or importing; disables Apply theme.
+ * @param livePreview the phone preview with its tabs, shown inside the card while a chat is open;
+ *   null where the host shows the phone beside the card already.
+ * @param onApplyTheme applies the editor's theme to the phone.
+ * @param canApplyTheme false without root or Shizuku, or while a locked pack is in the theme.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -84,6 +91,10 @@ fun DescribeThemeCard(
     busy: Boolean,
     onApply: (ThemeSuggestion, ThemeSpec) -> Unit,
     onOpenProviders: () -> Unit,
+    onRestore: (ThemeSpec) -> Unit = {},
+    livePreview: (@Composable () -> Unit)? = null,
+    onApplyTheme: (() -> Unit)? = null,
+    canApplyTheme: Boolean = false,
 ) {
     val keys = rememberAiKeyStore()
     val configured by keys.configured.collectAsStateWithLifecycle()
@@ -116,6 +127,7 @@ fun DescribeThemeCard(
 
     if (!access.unlocks(PaidFeature.AI_CREATION)) {
         SectionCard("Describe your theme") {
+            if (suggestion != null) livePreview?.invoke()
             Text("Turn a sentence into a palette", style = MaterialTheme.typography.titleSmall)
             AiPaywall(what = "Describe your theme", state = access)
         }
@@ -124,6 +136,7 @@ fun DescribeThemeCard(
 
     if (providers.isEmpty()) {
         SectionCard("Describe your theme") {
+            if (suggestion != null) livePreview?.invoke()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -150,22 +163,36 @@ fun DescribeThemeCard(
         return
     }
 
+    // Live preview: every new answer goes straight into the editor, so the phone preview shows
+    // it at once; the phone itself changes only on Apply theme. Each answer is put in once.
+    LaunchedEffect(suggestion) {
+        val s = suggestion ?: return@LaunchedEffect
+        if (model.previewed === s) return@LaunchedEffect
+        model.previewed = s
+        if (model.baseSpec == null) model.baseSpec = spec
+        val newSpec = ThemeSuggester.toThemeSpec(s, spec, packs)
+        model.appliedSpec = newSpec
+        onApply(s, newSpec)
+    }
+
     SectionCard("Describe your theme") {
-        Text(
-            "Describe it in a sentence, such as \"warm sunset, cosy, dark\". You get colours, and maybe a pack and a name, in the editor. The phone changes only when you tap Apply theme.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it.take(300) },
-            label = { Text("Theme") },
-            placeholder = { Text("Deep ocean at night, calm, a little neon") },
-            minLines = 2,
-            maxLines = 4,
-            enabled = !working,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (suggestion == null) {
+            Text(
+                "Describe it in a sentence, such as \"warm sunset, cosy, dark\". The result shows in the live preview right away, and you can keep chatting to fine-tune it. The phone changes only when you tap Apply theme.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it.take(300) },
+                label = { Text("Theme") },
+                placeholder = { Text("Deep ocean at night, calm, a little neon") },
+                minLines = 2,
+                maxLines = 4,
+                enabled = !working,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Provider", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             ProviderPicker(
@@ -176,67 +203,207 @@ fun DescribeThemeCard(
                 onSelect = { providerId = it },
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { generate() }, enabled = provider != null && description.isNotBlank() && !working) {
-                Text(if (suggestion == null) "Generate" else "Generate again")
+        if (suggestion == null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = { generate() }, enabled = provider != null && description.isNotBlank() && !working) { Text("Generate") }
+                if (working) WorkingLabel()
             }
-            if (working) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("Working…", style = MaterialTheme.typography.bodySmall)
-            }
-            Spacer(Modifier.weight(1f))
         }
-        error?.let { message ->
-            ErrorText(message)
-            if (!working) OutlinedButton(onClick = { generate() }, enabled = provider != null && description.isNotBlank()) { Text("Retry") }
-        }
+        if (suggestion == null) ErrorBlock(error, working, model.lastRequest != null, provider != null) { provider?.let { model.retry(entitlements, keys, it) } }
         suggestion?.let { s ->
+            // One phone with a tab per overlay, then the chat under it, then the result and Apply.
+            livePreview?.invoke()
+            ChatHistory(model.turns)
+            OutlinedTextField(
+                value = model.draft,
+                onValueChange = { model.draft = it.take(300) },
+                label = { Text("Message the AI") },
+                placeholder = { Text("Warmer, less green, make it darker…") },
+                minLines = 1,
+                maxLines = 3,
+                enabled = !working,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { provider?.let { model.refine(entitlements, keys, it) } },
+                    enabled = provider != null && model.draft.isNotBlank() && !working,
+                ) { Text("Send") }
+                if (working) WorkingLabel()
+            }
+            ErrorBlock(error, working, model.lastRequest != null, provider != null) { provider?.let { model.retry(entitlements, keys, it) } }
             SuggestionPreview(
                 suggestion = s,
                 packName = ThemeSuggester.matchPack(s.packStyle, packs)?.name,
                 applied = applied,
                 enabled = !busy && !working,
-                onApply = {
+                canApplyTheme = onApplyTheme != null && canApplyTheme,
+                onUseAgain = {
                     val newSpec = ThemeSuggester.toThemeSpec(s, spec, packs)
                     model.appliedSpec = newSpec
                     onApply(s, newSpec)
                 },
+                onApplyTheme = { onApplyTheme?.invoke() },
             )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    onClick = {
+                        model.baseSpec?.let(onRestore)
+                        model.reset()
+                    },
+                    enabled = !working,
+                ) { Text("Undo AI changes") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { model.reset() }, enabled = !working) { Text("New theme") }
+            }
+        }
+    }
+}
+
+/** The last request's error with Retry, if there is one. */
+@Composable
+private fun ErrorBlock(error: String?, working: Boolean, canRetry: Boolean, hasProvider: Boolean, onRetry: () -> Unit) {
+    val message = error ?: return
+    ErrorText(message)
+    if (!working && canRetry) {
+        OutlinedButton(onClick = onRetry, enabled = hasProvider) { Text("Retry") }
+    }
+}
+
+@Composable
+private fun WorkingLabel() {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        Text("Working…", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** The messages sent in this session, oldest first, with the theme each one produced. */
+@Composable
+private fun ChatHistory(turns: List<DescribeThemeModel.Turn>) {
+    if (turns.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        turns.forEach { turn ->
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(turn.text, style = MaterialTheme.typography.bodyMedium)
+                turn.result?.let {
+                    Text("→ $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
     }
 }
 
 /**
- * The Describe card's request and result. Scoped to the screen's ViewModel owner so they outlive
- * the LazyColumn item: scrolling the card away keeps the request running and its answer shown.
+ * The Describe card's chat: the first description, every fine-tune message after it, and the
+ * newest theme. Scoped to the screen's ViewModel owner so it outlives the LazyColumn item:
+ * scrolling the card away keeps the request running and the conversation shown.
  */
 internal class DescribeThemeModel : ViewModel() {
+    /** One message and the theme name it produced (null while running or after a failure). */
+    data class Turn(val text: String, val result: String? = null)
+
     var working by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
         private set
     var suggestion by mutableStateOf<ThemeSuggestion?>(null)
         private set
-    /** The spec the last Apply put into the editor; null until then and after a new generation. */
+    val turns = mutableStateListOf<Turn>()
+    /** The fine-tune field; kept here so it survives the card scrolling away. */
+    var draft by mutableStateOf("")
+    /** The spec the last automatic or manual apply put into the editor. */
     var appliedSpec by mutableStateOf<ThemeSpec?>(null)
+    /** The editor's spec before this chat changed it, for "Undo AI changes". */
+    var baseSpec by mutableStateOf<ThemeSpec?>(null)
+    /** The suggestion already put into the live preview. */
+    var previewed: ThemeSuggestion? = null
+    /** The last message sent, for Retry: null for the first description, else the fine-tune text. */
+    var lastRequest: Request? = null
+        private set
+
+    sealed interface Request {
+        data class First(val description: String) : Request
+        data class Refine(val text: String) : Request
+    }
+
+    /** True while there is a chat to show (a theme, or the first request running). */
+    val active: Boolean get() = suggestion != null || working
+
+    /** Starts a new chat from [description]; ignored while a request runs, refused while locked. */
+    fun generate(entitlements: PackEntitlements, keys: AiKeyStore, provider: TextProvider, description: String) {
+        if (working || !allowed(entitlements)) return
+        turns.clear()
+        turns.add(Turn(description.trim()))
+        run(Request.First(description)) { ThemeSuggester.suggest(keys, provider, description) }
+    }
+
+    /** Sends [draft] as a change to the current theme. */
+    fun refine(entitlements: PackEntitlements, keys: AiKeyStore, provider: TextProvider) {
+        val current = suggestion ?: return
+        val text = draft.trim()
+        if (working || text.isEmpty() || !allowed(entitlements)) return
+        val original = turns.firstOrNull()?.text.orEmpty()
+        val earlier = turns.drop(1).map { it.text }
+        turns.add(Turn(text))
+        draft = ""
+        run(Request.Refine(text)) { ThemeSuggester.refine(keys, provider, original, earlier, current, text) }
+    }
+
+    /** Sends the last request again after a failure. */
+    fun retry(entitlements: PackEntitlements, keys: AiKeyStore, provider: TextProvider) {
+        if (working || !allowed(entitlements)) return
+        when (val last = lastRequest) {
+            is Request.First -> run(last) { ThemeSuggester.suggest(keys, provider, last.description) }
+            is Request.Refine -> {
+                val current = suggestion ?: return
+                val original = turns.firstOrNull()?.text.orEmpty()
+                val earlier = turns.drop(1).dropLast(1).map { it.text }
+                run(last) { ThemeSuggester.refine(keys, provider, original, earlier, current, last.text) }
+            }
+            null -> Unit
+        }
+    }
+
+    /** Ends the chat; the editor keeps what it has unless the caller restored [baseSpec]. */
+    fun reset() {
+        if (working) return
+        turns.clear()
+        suggestion = null
+        error = null
+        draft = ""
+        appliedSpec = null
+        baseSpec = null
+        previewed = null
+        lastRequest = null
+    }
 
     /**
-     * Asks [provider] for a theme from [description]; ignored while a request is running, and
-     * refused unless [entitlements] unlocks [PaidFeature.AI_CREATION] at this moment (a lapsed
+     * Refused unless [entitlements] unlocks [PaidFeature.AI_CREATION] at this moment (a lapsed
      * subscription must not keep generating from a screen that was open before it lapsed).
      */
-    fun generate(entitlements: PackEntitlements, keys: AiKeyStore, provider: TextProvider, description: String) {
-        if (working) return
-        if (!entitlements.state.value.unlocks(PaidFeature.AI_CREATION)) {
-            error = "AI theme creation is locked. Subscribe or unlock it to generate."
-            return
-        }
+    private fun allowed(entitlements: PackEntitlements): Boolean {
+        if (entitlements.state.value.unlocks(PaidFeature.AI_CREATION)) return true
+        error = "AI theme creation is locked. Subscribe or unlock it to generate."
+        return false
+    }
+
+    private fun run(request: Request, call: suspend () -> ThemeSuggestion) {
         working = true
         error = null
-        appliedSpec = null
+        lastRequest = request
         viewModelScope.launch {
             try {
-                suggestion = ThemeSuggester.suggest(keys, provider, description)
+                val result = call()
+                suggestion = result
+                val i = turns.lastIndex
+                if (i >= 0) turns[i] = turns[i].copy(result = result.name)
             } catch (t: Exception) {
                 error = describeFailure(t)
             } finally {
@@ -246,7 +413,10 @@ internal class DescribeThemeModel : ViewModel() {
     }
 }
 
-/** Name, note, seed and accent swatches, mode and pack pills, and the Apply button. */
+/**
+ * Name, note, seed and accent swatches, mode and pack pills, and Apply theme, which puts what the
+ * live preview shows on the phone (the same apply as the bar at the bottom).
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SuggestionPreview(
@@ -254,7 +424,9 @@ private fun SuggestionPreview(
     packName: String?,
     applied: Boolean,
     enabled: Boolean,
-    onApply: () -> Unit,
+    canApplyTheme: Boolean,
+    onUseAgain: () -> Unit,
+    onApplyTheme: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(suggestion.name, style = MaterialTheme.typography.titleSmall)
@@ -292,16 +464,21 @@ private fun SuggestionPreview(
             modeLabel(suggestion.mode)?.let { InfoPill(it) }
             InfoPill(if (packName != null) "Pack: $packName" else "Pack: keep current")
         }
-        // Never disabled once applied: re-applying is free and puts the suggestion back after
-        // later edits (the accent picker, for one, changes the seed outside the spec).
-        Button(onClick = onApply, enabled = enabled) { Text(if (applied) "Apply again" else "Apply to editor") }
-        if (applied) {
-            Text(
-                "Applied to the editor. Tap Apply theme at the bottom to put it on the phone.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // The editor holds this theme already, so Apply theme applies exactly what the preview shows.
+            Button(onClick = onApplyTheme, enabled = enabled && applied && canApplyTheme) { Text("Apply theme") }
+            // Changed in the editor since (a colour picked by hand, another pack): put the AI theme back.
+            if (!applied) OutlinedButton(onClick = onUseAgain, enabled = enabled) { Text("Use AI theme again") }
         }
+        Text(
+            when {
+                !applied -> "You changed the theme in the editor since. Apply theme at the bottom applies your changes, or put the AI theme back first."
+                !canApplyTheme -> "Connect root or Shizuku to apply. The preview above already shows the result."
+                else -> "Apply theme puts exactly what the preview shows on your phone."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

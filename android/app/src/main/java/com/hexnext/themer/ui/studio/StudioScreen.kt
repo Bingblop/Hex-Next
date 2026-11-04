@@ -433,7 +433,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             },
                         ) {
                             when (destination) {
-                                Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide)
+                                Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide, canApply = connected && previewOnlyPack == null)
                                 Destination.SKINS -> SkinsPage(
                                     viewModel = viewModel,
                                     ui = ui,
