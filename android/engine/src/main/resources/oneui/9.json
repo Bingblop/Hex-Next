@@ -24,6 +24,14 @@
   "quickSettings": {
     "layout": "oneui9",
     "outsideDrawables": [
+      "drawable/tw_ic_do_poweroff",
+      "drawable/tw_ic_do_restart",
+      "drawable/tw_ic_do_emergencymode",
+      "drawable/tw_ic_do_emergencysos",
+      "drawable/tw_ic_do_medicalinfo",
+      "drawable/tw_ic_do_lockdown",
+      "drawable/tw_ic_do_safemode",
+      "drawable/tw_ic_do_mobiledata",
       "drawable/ic_global_actions_power_off",
       "drawable/ic_global_actions_restart",
       "drawable/ic_global_actions_emergency",
