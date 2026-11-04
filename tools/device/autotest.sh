@@ -163,6 +163,20 @@ step_apply() {
   sleep 30
 }
 
+# Samsung's palette overlays and the live system palette, for the compiler's shade reference.
+step_dumps() {
+  log "dumps"
+  mkdir -p "$RES/dumps"
+  for id in android:SemWT_G_MonetPalette android:SemWT_MonetPalette android:SemWT_android; do
+    root "cmd overlay dump $id" >"$RES/dumps/${id#android:}.txt" 2>&1
+  done
+  root "cmd overlay list --user 0" >"$RES/dumps/overlay-list.txt" 2>&1
+  root "settings get secure theme_customization_overlay_packages" >"$RES/dumps/theme_customization.txt" 2>&1
+  for n in system_accent1_100 system_accent1_200 system_accent1_500 system_accent1_600 system_neutral1_900; do
+    root "cmd overlay lookup android android:color/$n" >>"$RES/dumps/lookups.txt" 2>&1
+  done
+}
+
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
 
 # capture_real <what>: drives One UI to the screen and screenshots it.
@@ -247,7 +261,7 @@ run_job() {
   local steps; steps=$(jq -r '(.steps // ["scan","apply","capture","collect"]) | join(" ")' "$JOB")
   local failed=""
   for s in $steps; do
-    case "$s" in install|theme|scan|apply|remove|capture|collect) "step_$s" || failed="$failed $s" ;; esac
+    case "$s" in install|theme|scan|apply|remove|capture|collect|dumps) "step_$s" || failed="$failed $s" ;; esac
     [ "$s" = install ] && [ -n "$failed" ] && break
   done
   jq -n --arg id "$id" --arg failed "${failed# }" --arg model "$(getprop ro.product.model)" \
