@@ -9,6 +9,7 @@ unchanged on One UI 7, 8 and 9: a resource a phone does not have is reported as 
 | `smoke` | Apply the stored theme; every preview next to the phone, light and dark | no |
 | `keyboard` | Samsung Keyboard colours and pack key art | no |
 | `dialogs-power` | Pack dialog, popup and power menu art | no |
+| `samsung-apps` | A pack theme on every themed Samsung app, power menu (incl. generated icons), keyboard, dialogs; Google app tables | no |
 | `statusbar` | Pack status bar icons (selects a pack with indicator art) | no |
 | `restore` | The theme comes back by itself after a soft reboot | yes |
 

@@ -480,6 +480,13 @@ capture_real() {
               if tap_desc 'Search[^"]*' || tap_text 'Search'; then sleep 3; shot "$PHASE$MODE-real-keyboard"; fi
               root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK" ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
+    app:*)    # Any installed app by package (app:com.sec.android.app.sbrowser): its launcher screen.
+              local pkg="${1#app:}"
+              if root "pm path $pkg" 2>/dev/null | grep -q package:; then
+                root "monkey -p $pkg -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 4
+                shot "$PHASE$MODE-real-app-$pkg"
+                root "am force-stop $pkg" >/dev/null 2>&1
+              else log "capture: $pkg not installed"; fi ;;
   esac
   home
 }
