@@ -69,8 +69,11 @@ object ThemeRestorer {
         watching = true
         val app = context.applicationContext
         scope.launch {
-            ShizukuManager.state.filter { it is ShizukuState.Ready && Capability.of(it) == Capability.ROOT }.first()
-            runCatching { restoreIfNeeded(app) }.onFailure { Log.w(TAG, "Restore failed", it) }
+            // Nothing here may take the app down: a restore that throws is only logged.
+            runCatching {
+                ShizukuManager.state.filter { it is ShizukuState.Ready && Capability.of(it) == Capability.ROOT }.first()
+                restoreIfNeeded(app)
+            }.onFailure { Log.w(TAG, "Restore failed", it) }
         }
     }
 

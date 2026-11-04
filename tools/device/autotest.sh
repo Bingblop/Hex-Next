@@ -552,6 +552,9 @@ run_job() {
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
   done
+  # Any app crash during the job: the app's own record and the system crash log.
+  root "cat $(app_dir)/last-crash.txt" >"$RES/app-crash.txt" 2>/dev/null; [ -s "$RES/app-crash.txt" ] || rm -f "$RES/app-crash.txt"
+  root "logcat -d -b crash" >"$RES/crash-log.txt" 2>/dev/null; [ -s "$RES/crash-log.txt" ] || rm -f "$RES/crash-log.txt"
   jq -n --arg id "$id" --arg failed "${failed# }" --arg model "$(getprop ro.product.model)" \
     --arg oneui "$(getprop ro.build.version.oneui)" --argjson secs $(( $(date +%s) - started )) \
     '{id:$id, ok:($failed==""), failed:$failed, model:$model, oneui:$oneui, seconds:$secs}' >"$RES/status.json"
