@@ -1,5 +1,5 @@
 {
-  "about": "Apply a pack theme, then every themed Samsung app, the power menu, dialogs and keyboard next to the previews, light and dark; collects Google app resource tables.",
+  "about": "Apply a pack theme, then every themed Samsung app, the power menu (generated icons), dialogs and keyboard next to the previews, light and dark; Google apps as they look today; resource tables and compiled XML of Google and new Samsung apps.",
   "steps": [
     "install",
     "pack",
@@ -31,15 +31,29 @@
     "app:com.samsung.android.lool",
     "app:com.sec.android.app.voicenote",
     "app:com.sec.android.app.music",
-    "app:com.sec.android.gallery3d"
+    "app:com.sec.android.gallery3d",
+    "app:com.google.android.gm",
+    "app:com.google.android.googlequicksearchbox",
+    "app:com.android.chrome",
+    "app:com.google.android.apps.messaging",
+    "app:com.google.android.calendar",
+    "app:com.google.android.deskclock",
+    "app:com.google.android.calculator",
+    "app:com.google.android.apps.docs",
+    "app:com.google.android.keep"
   ],
   "arsc": [
+    "com.google.android.gm",
+    "com.google.android.googlequicksearchbox",
+    "com.android.chrome",
     "com.google.android.apps.messaging",
     "com.google.android.calendar",
     "com.google.android.deskclock",
     "com.google.android.calculator",
     "com.google.android.apps.docs",
     "com.google.android.keep",
+    "com.google.android.inputmethod.latin",
+    "com.samsung.android.honeyboard",
     "com.sec.android.app.sbrowser",
     "com.samsung.android.email.provider",
     "com.sec.android.app.music",

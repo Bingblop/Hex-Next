@@ -432,10 +432,22 @@ step_arsc() {
   mkdir -p "$RES/arsc"
   jq -r '.arsc // [] | .[]' "$JOB" | while read -r pkg; do
     case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    # base.apk, or the app's only APK when it is not split (Samsung Keyboard's is named after it).
     apk=$(root "pm path $pkg" | sed -n 's/^package://p' | grep -m1 'base.apk')
+    [ -n "$apk" ] || apk=$(root "pm path $pkg" | sed -n 's/^package://p' | head -1)
     [ -n "$apk" ] || { log "arsc: $pkg not installed"; continue; }
     root "cat '$apk'" >"$HOME/.hexnext-arsc.apk" 2>/dev/null
     unzip -p "$HOME/.hexnext-arsc.apk" resources.arsc 2>/dev/null | gzip -9 >"$RES/arsc/$pkg.arsc.gz"
+    # The compiled XML too (manifest, colour selectors, layouts, drawables), so the lab host can
+    # read what a FAB or widget is tinted with (aapt2 dump xmltree). No images.
+    local xdir="$HOME/.hexnext-arsc-xml"
+    rm -rf "$xdir"; mkdir -p "$xdir"
+    unzip -Z1 "$HOME/.hexnext-arsc.apk" 2>/dev/null | grep -E '^(AndroidManifest\.xml|res/.*\.xml)$' >"$xdir.list"
+    if [ -s "$xdir.list" ]; then
+      (cd "$xdir" && tr '\n' '\0' <"$xdir.list" | xargs -0 unzip -q -o "$HOME/.hexnext-arsc.apk" 2>/dev/null)
+      tar -czf "$RES/arsc/$pkg.xml.tgz" -C "$xdir" . 2>/dev/null
+    fi
+    rm -rf "$xdir" "$xdir.list"
     root "dumpsys package $pkg" 2>/dev/null | grep -m3 -E 'versionName|versionCode' >"$RES/arsc/$pkg.version.txt"
     rm -f "$HOME/.hexnext-arsc.apk"
     log "arsc: $pkg $(du -k "$RES/arsc/$pkg.arsc.gz" | cut -f1) KB"
