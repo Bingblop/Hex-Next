@@ -435,8 +435,15 @@ step_waitrestore() {
     sleep 10; waited=$((waited + 10))
   done
   # The overlays appear one app at a time (about 4 s each): wait for the app's finish line.
+  # Stops early when the app crashed, or when the overlay count has not moved for 90 s (a manual
+  # apply finished, or the restore stopped without its finish line).
+  local last=-1 still=0
   while [ $waited -lt 900 ]; do
     root "logcat -d -s HexNextRestore" 2>/dev/null | grep -q 'Restore finished' && break
+    if root "logcat -d -b crash" 2>/dev/null | grep -q "Process: $PKG"; then log "restore: Hex Next crashed"; break; fi
+    n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
+    if [ "$n" = "$last" ]; then still=$((still + 10)); else still=0; last=$n; fi
+    [ $still -ge 90 ] && { log "restore: overlay count steady at $n"; break; }
     sleep 10; waited=$((waited + 10))
   done
   n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
