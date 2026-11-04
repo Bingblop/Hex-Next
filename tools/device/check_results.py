@@ -99,8 +99,9 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
             verdict(f"{name} themed", all(themed), values[-1][:90])
     if "service_uid" in expect:
         want = str(expect["service_uid"])
-        logs = " ".join(f.read_text(errors="replace") for f in res.glob("*-[0-9]*/apply-log.txt"))
-        logs += " ".join(f.read_text(errors="replace") for f in res.glob("*-[0-9]*/apply-ui-log.txt"))
+        # Apply logs only: a remove-N copy can still hold the lines of an older (root) apply.
+        logs = " ".join(f.read_text(errors="replace") for f in res.glob("apply-[0-9]*/apply-log.txt"))
+        logs += " ".join(f.read_text(errors="replace") for f in res.glob("apply-[0-9]*/apply-ui-log.txt"))
         seen = sorted(set(re.findall(r"\[UID (\d+)\]", logs)))
         verdict(f"theme service ran as UID {want}", seen == [want], "seen " + (", ".join(seen) or "none"))
     if expect.get("remove_clean"):
@@ -116,6 +117,16 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
                 left = listing.read_text(errors="replace").count(":HexNext") if listing.exists() else -1
                 verdict(f"remove left no Hex overlays (overlay state {n})", left == 0,
                         "no overlay list" if left < 0 else f"{left} left")
+    if expect.get("survives_softreboot"):
+        # The first overlay state after the soft reboot, before anything could restore the theme.
+        steps = job.get("steps", [])
+        if "softreboot" in steps:
+            n = steps[: steps.index("softreboot")].count("overlaystate") + 1
+            listing = res / f"overlaystate-{n}" / "overlay-list.txt"
+            before = res / f"overlaystate-{n - 1}" / "overlay-list.txt"
+            have = listing.read_text(errors="replace").count(":HexNext_") if listing.exists() else -1
+            had = before.read_text(errors="replace").count(":HexNext_") if before.exists() else -1
+            verdict("Hex overlays survived the soft reboot", have > 0 and have == had, f"{had} before, {have} after")
     lines.extend(mode_warnings(res))
     return ok, lines
 

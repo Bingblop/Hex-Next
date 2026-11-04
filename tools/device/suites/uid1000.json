@@ -47,7 +47,8 @@
     "overridden": [
       "com.android.systemui:drawable/tw_ic_do_poweroff",
       "com.samsung.android.honeyboard:color/keyboard_background_dark"
-    ]
+    ],
+    "survives_softreboot": true
   },
   "keep_shizuku": true
 }
