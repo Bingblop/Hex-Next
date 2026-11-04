@@ -375,6 +375,32 @@ step_overlaystate() {
   root "pidof moe.shizuku.privileged.api shizuku_server; ps -A | grep -i shizuku" >"$d/shizuku.txt" 2>&1
 }
 
+# Each package in the job's "pkginfo" list: its full package dump (components, intent filters,
+# enabled state), its scheduled jobs and alarms (pkginfo/<pkg>.txt). Read-only.
+step_pkginfo() {
+  local pkg; mkdir -p "$RES/pkginfo"
+  for pkg in $(jq -r '.pkginfo // [] | .[]' "$JOB"); do
+    case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    {
+      echo "== dumpsys package"; root "dumpsys package $pkg"
+      echo "== jobs"; root "dumpsys jobscheduler" | grep -A6 "$pkg" | head -300
+      echo "== alarms"; root "dumpsys alarm" | grep -B2 -A4 "$pkg" | head -200
+      echo "== disabled components"; root "pm list packages -d" | grep "$pkg"
+      root "cat /data/system/users/0/package-restrictions.xml" 2>/dev/null | grep -A40 "name=\"$pkg\"" | head -60
+    } >"$RES/pkginfo/$pkg.txt" 2>&1
+  done
+}
+
+# Everything the system and Samsung's theme apps logged about overlays and themes since the
+# buffers began (a soft reboot keeps them): bootlog-<n>.txt.
+step_bootlog() {
+  local n=1; while [ -f "$RES/bootlog-$n.txt" ]; do n=$((n + 1)); done
+  log "boot log $n"
+  root "logcat -d -v threadtime -b main -b system -b events -b crash" 2>/dev/null \
+    | grep -iE 'themecenter|thememanager|colortheme|ThemeManager|OverlayManager|OMS|fabricat|frro|idmap|HexNext|SemWT|resource-cache' \
+    | tail -6000 >"$RES/bootlog-$n.txt"
+}
+
 # A minimal fabricated overlay made with Android's own shell command (owner com.android.shell,
 # never rewritten): shows whether any shell-owned fabricated overlay survives a soft reboot.
 step_fabtest() {
@@ -601,7 +627,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break

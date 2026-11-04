@@ -1,0 +1,24 @@
+{
+  "about": "Read-only: who removes fabricated overlays at boot. Galaxy Themes Service's components, jobs and manifest, a shell-made probe overlay, and the overlay/theme log before and after a soft reboot.",
+  "steps": [
+    "pkginfo",
+    "arsc",
+    "fabtest",
+    "overlaystate",
+    "bootlog",
+    "softreboot",
+    "overlaystate",
+    "bootlog",
+    "pkginfo"
+  ],
+  "pkginfo": [
+    "com.samsung.android.themecenter",
+    "com.samsung.android.themestore"
+  ],
+  "arsc": [
+    "com.samsung.android.themecenter"
+  ],
+  "expect": {
+    "no_crash": true
+  }
+}
