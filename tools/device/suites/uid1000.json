@@ -1,5 +1,5 @@
 {
-  "about": "Hex Next with Shizuku running as system (UID 1000): clears the root-made overlays, applies, checks the look, removes and applies again. Start Shizuku as UID 1000 first; the job never restarts it.",
+  "about": "Hex Next with Shizuku running as system (UID 1000): clears the root-made overlays, applies, checks the look, removes and applies again, then soft-reboots to see whether system-owned (android) overlays survive where shell-owned ones do not. Start Shizuku as UID 1000 first; the job never restarts it.",
   "steps": [
     "install",
     "overlaystate",
@@ -13,6 +13,12 @@
     "remove",
     "overlaystate",
     "apply",
+    "overlaystate",
+    "bootlog",
+    "softreboot",
+    "overlaystate",
+    "bootlog",
+    "waitrestore",
     "overlaystate"
   ],
   "confirm": true,
