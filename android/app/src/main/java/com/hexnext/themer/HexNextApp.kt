@@ -19,7 +19,7 @@ class HexNextApp : Application() {
         super.onCreate()
         recordCrashes()
         runCatching {
-            ShizukuManager.init()
+            ShizukuManager.init(this)
             ThemeRestorer.watch(this)
         }.onFailure { Log.w("HexNextApp", "Restore watch did not start", it) }
     }

@@ -206,9 +206,17 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
+    /**
+     * Disables and unregisters overlay [name] of this service's owner, or of the owner given as
+     * `owner:name` (`com.android.shell` or `android` only): a system-mode apply clears the copies
+     * an earlier root or Shizuku apply made under the shell, so no app carries two Hex overlays.
+     */
     override fun removeOverlay(name: String): Bundle {
         return try {
-            val owner = activeOwnerPackage()
+            val owner = if (':' in name) name.substringBefore(':') else activeOwnerPackage()
+            val name = name.substringAfter(':')
+            if (owner != SHELL_OWNER && owner != SYSTEM_OWNER) return result(-1, "Not a Hex Next owner: $owner")
+            if (!OVERLAY_NAME.matches(name)) return result(-1, "Not a Hex Next overlay name: $name")
             val id = "$owner:$name"
             shell("cmd overlay disable --user current $id")
             if (isPrivilegedUid()) {

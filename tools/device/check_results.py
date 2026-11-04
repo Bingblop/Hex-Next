@@ -97,6 +97,10 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
             # so an overridden colour is a literal where Samsung's own is often a reference (@… ->).
             themed = [("HexNext_" in v) or (":color/" in name and "->" not in v and "frro" not in v) for v in values]
             verdict(f"{name} themed", all(themed), values[-1][:90])
+    for line in (res / "hook.jsonl").read_text(errors="replace").splitlines() if (res / "hook.jsonl").exists() else []:
+        if '"cmd":"scan"' in line and "mode=" in line:
+            lines.append("- info: connection " + line.split("mode=", 1)[1].split('"', 1)[0])
+            break
     if "service_uid" in expect:
         want = str(expect["service_uid"])
         # Apply logs only: a remove-N copy can still hold the lines of an older (root) apply.
