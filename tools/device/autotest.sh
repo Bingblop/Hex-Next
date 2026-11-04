@@ -115,6 +115,95 @@ ensure_network() {
   return 1
 }
 
+# Root script run first thing after a soft reboot: answers the Wi-Fi "Sign in to network" prompt
+# (notification -> three dots -> Use network as is) and puts captive portal detection back.
+wifi_fix_script() {
+  cat <<'WIFI'
+#!/system/bin/sh
+# Hex Next device lab: runs as root right after a soft reboot, before Termux starts again.
+#
+# After a soft reboot this phone marks Wi-Fi as a captive portal: a "Sign in to network"
+# notification appears and Wi-Fi only carries traffic after you open it, tap the three dots and
+# pick "Use network as is". This script does those taps by itself, and as a first line of
+# defence the runner turns captive portal detection off just before the soft reboot (saved
+# value is put back here once the connection works).
+#
+# Log: /data/local/tmp/hexnext-wifi.log
+
+LOG=/data/local/tmp/hexnext-wifi.log
+SAVED=/data/local/tmp/hexnext-captive-mode
+UI=/data/local/tmp/hexnext-wifi-ui.xml
+
+say() { echo "$(date +%H:%M:%S) $*" >>"$LOG"; }
+
+online() { ping -c 1 -W 3 api.github.com >/dev/null 2>&1; }
+
+dump() { uiautomator dump "$UI" >/dev/null 2>&1 && cat "$UI"; }
+
+# tap_match <attr> <regex>: taps the centre of the first node whose attr matches (case-insensitive).
+tap_match() {
+  b=$(dump | tr '>' '\n' | grep -iE "$1=\"($2)\"" | head -1 \
+    | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p')
+  [ -n "$b" ] || return 1
+  set -- $b
+  input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))
+}
+
+restore_mode() {
+  [ -f "$SAVED" ] || return 0
+  v=$(cat "$SAVED")
+  if [ "$v" = "null" ] || [ -z "$v" ]; then settings delete global captive_portal_mode >/dev/null 2>&1
+  else settings put global captive_portal_mode "$v"; fi
+  rm -f "$SAVED"
+  say "captive portal detection restored ($v)"
+}
+
+# The sign-in screen: overflow menu, then "Use network as is" (wording differs a little by build).
+use_as_is() {
+  i=0
+  while [ $i -lt 8 ]; do
+    sleep 2; i=$((i + 1))
+    if tap_match content-desc 'More options|More|Options'; then
+      sleep 2
+      if tap_match text 'Use (this )?network as is|Use as is|Use this network'; then
+        say "picked use network as is"; return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+# Open the Wi-Fi sign-in notification from the shade.
+open_notification() {
+  cmd statusbar expand-notifications >/dev/null 2>&1
+  sleep 2
+  tap_match text '(Sign in|Tap to sign in|Connect)[^"]*|[^"]*(sign in to|sign-in|captive)[^"]*|Wi-?Fi network[^"]*|[^"]*has no internet[^"]*' \
+    || { cmd statusbar collapse >/dev/null 2>&1; return 1; }
+  say "opened the Wi-Fi notification"
+}
+
+say "start"
+round=0
+while [ $round -lt 6 ]; do
+  round=$((round + 1))
+  if online; then say "online"; restore_mode; rm -f "$UI"; exit 0; fi
+  sleep 10
+  online && continue
+  input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+  if open_notification; then
+    use_as_is || say "could not find use network as is (round $round)"
+    input keyevent KEYCODE_HOME >/dev/null 2>&1
+  else
+    say "no Wi-Fi notification yet (round $round)"
+  fi
+  sleep 8
+done
+say "still offline; leaving it to the runner's network reset"
+rm -f "$UI"
+exit 1
+WIFI
+}
+
 # push_lab: pushes the lab checkout, retrying with a network reset in between.
 push_lab() {
   local try
@@ -263,6 +352,10 @@ step_softreboot() {
   log "soft reboot; remaining steps: $rest (unlock the phone when it comes back)"
   ( cd "$LAB" && git add -A "results/$(jq -r .id "$JOB")" && git commit -qm "Before soft reboot" >/dev/null 2>&1 )
   local me; me=$(readlink -f "$0" 2>/dev/null || echo "$0")
+  # Wi-Fi comes back as a "captive portal" after a soft reboot: turn detection off for the reboot
+  # (wifi-fix puts the saved value back once online) and install the tap-through fallback.
+  root "[ -f /data/local/tmp/hexnext-captive-mode ] || { settings get global captive_portal_mode > /data/local/tmp/hexnext-captive-mode; }; settings put global captive_portal_mode 0; rm -f /data/local/tmp/hexnext-wifi.log"
+  wifi_fix_script | su -c "cat > /data/local/tmp/hexnext-wifi.sh && chmod 700 /data/local/tmp/hexnext-wifi.sh"
   cat <<HELPER | su -c "cat > $helper && chmod 700 $helper"
 #!/system/bin/sh
 sleep 3
@@ -274,7 +367,9 @@ while [ \$i -lt 900 ]; do
   dumpsys window | grep -qE 'mDreamingLockscreen=true|isKeyguardShowing=true|mShowingLockscreen=true' && continue
   break
 done
-sleep 15
+sleep 5
+sh /data/local/tmp/hexnext-wifi.sh
+sleep 5
 am start-foreground-service --user 0 -n com.termux/com.termux.app.RunCommandService -a com.termux.RUN_COMMAND \
   --es com.termux.RUN_COMMAND_PATH /data/data/com.termux/files/usr/bin/bash \
   --esa com.termux.RUN_COMMAND_ARGUMENTS "$me,resume" \
@@ -428,6 +523,10 @@ run_job() {
   case "$id" in ''|*[!A-Za-z0-9._-]*) log "skipping job with bad id: $JOB"; return ;; esac
   RES="$LAB/results/$id"; mkdir -p "$RES/shots" "$RES/ui"
   log "job $id"
+  if [ "$PHASE" = "reboot-" ]; then
+    root "cat /data/local/tmp/hexnext-wifi.log" >"$RES/wifi-fix.txt" 2>/dev/null
+    root "cat /data/local/tmp/hexnext-softreboot.log" >"$RES/softreboot-helper.txt" 2>/dev/null
+  fi
   local started; started=$(date +%s)
   local steps; steps=${2:-$(jq -r '(.steps // ["scan","apply","capture","collect"]) | join(" ")' "$JOB")}
   local failed="" s rest
