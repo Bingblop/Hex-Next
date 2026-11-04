@@ -164,10 +164,22 @@ class AutotestActivity : ComponentActivity() {
         }
     }
 
-    /** Waits for a task to start (up to 5 s) and then to finish (up to 15 min). */
+    /**
+     * Waits for a task to start (up to 5 s) and then to finish (up to 15 min). Every 5 s it notes
+     * which task holds the service in autotest/progress.txt (the lab collects it).
+     */
     private suspend fun awaitIdle(busy: () -> Boolean) {
         withTimeoutOrNull(5_000) { while (!busy() && ServiceTasks.running.value == null) delay(100) }
-        withTimeoutOrNull(15 * 60_000) { while (busy() || ServiceTasks.running.value != null) delay(250) }
+        val progress = File(outDir, "progress.txt").apply { writeText("") }
+        var tick = 0
+        withTimeoutOrNull(15 * 60_000) {
+            while (busy() || ServiceTasks.running.value != null) {
+                if (tick++ % 20 == 0) runCatching {
+                    progress.appendText("${System.currentTimeMillis()} busy=${busy()} task=${ServiceTasks.running.value}\n")
+                }
+                delay(250)
+            }
+        }
     }
 
     private fun done(cmd: String, ok: Boolean, detail: String) {

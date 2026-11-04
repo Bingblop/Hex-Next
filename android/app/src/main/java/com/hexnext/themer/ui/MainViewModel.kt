@@ -252,6 +252,12 @@ data class CatalogueState(
 )
 
 class MainViewModel(app: Application, private val savedState: SavedStateHandle) : AndroidViewModel(app) {
+    /**
+     * Counted down once `theme.json` is in [UiState.spec]. Declared first: the init block's load
+     * runs on IO and may finish before later properties exist (lab-018: NullPointerException).
+     */
+    private val specLoaded = java.util.concurrent.CountDownLatch(1)
+
 
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
     private val guard = ApplyGuard(app)
@@ -1117,9 +1123,6 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun specToPreview(): EngineThemeSpec = PackAccess.specForPreview(specToApply())
 
     /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
-    /** Counted down once `theme.json` is in [UiState.spec]. */
-    private val specLoaded = java.util.concurrent.CountDownLatch(1)
-
     private fun awaitSpecLoadedBlocking() {
         specLoaded.await(20, java.util.concurrent.TimeUnit.SECONDS)
     }

@@ -273,6 +273,8 @@ save_app_state() {
   root "cat $(app_dir)/applied-theme.json" >"$d/applied-theme.json" 2>/dev/null
   root "cat $(app_dir)/reports/apply-last.json" >"$d/apply-last.json" 2>/dev/null
   root "cat $(app_dir)/autotest/apply-ui-log.txt" >"$d/apply-ui-log.txt" 2>/dev/null
+  root "cat $(app_dir)/autotest/progress.txt" >"$d/progress.txt" 2>/dev/null
+  root "logcat -d -v time" 2>/dev/null | grep -iE "hexnext|AndroidRuntime|ActivityManager.*$PKG" | tail -3000 >"$d/app-logcat.txt"
   log=$(jq -r '.logFile // empty' "$d/apply-last.json" 2>/dev/null)
   case "$log" in /data/*) root "cat '$log'" >"$d/apply-log.txt" 2>/dev/null ;; esac
   find "$d" -type f -empty -delete 2>/dev/null
@@ -397,7 +399,8 @@ step_waitrestore() {
     if root "logcat -d -b crash -T '$since'" 2>/dev/null | grep -q "Process: $PKG"; then log "restore: Hex Next crashed"; break; fi
     n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
     if [ "$n" = "$last" ]; then still=$((still + 10)); else still=0; last=$n; fi
-    [ $still -ge 90 ] && { log "restore: overlay count steady at $n"; break; }
+    # One app with many pack drawables can take a few minutes on its own.
+    [ $still -ge 240 ] && { log "restore: overlay count steady at $n"; break; }
     sleep 10; waited=$((waited + 10))
   done
   n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
