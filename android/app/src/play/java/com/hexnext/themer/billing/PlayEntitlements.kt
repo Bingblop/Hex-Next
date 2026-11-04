@@ -510,9 +510,11 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         }
         synchronized(lock) {
             verifiedTokens[purchase.purchaseToken] = products
-            // A verdict kept only from the earlier answer stays expired, so the next check asks again.
-            if (purchase.products.any { it in ProductIds.SUBSCRIPTIONS } && !keptEarlier) {
-                subscriptionVerifiedAt[purchase.purchaseToken] = SystemClock.elapsedRealtime()
+            // Every subscription verdict carries a time, or it would count for the whole run. One
+            // kept only from the earlier answer is stamped as expired, so the next check asks again.
+            if (purchase.products.any { it in ProductIds.SUBSCRIPTIONS }) {
+                val now = SystemClock.elapsedRealtime()
+                subscriptionVerifiedAt[purchase.purchaseToken] = if (keptEarlier) now - SUBSCRIPTION_REVERIFY_MS else now
             }
         }
         return Verdict(products)
