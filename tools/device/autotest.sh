@@ -89,6 +89,43 @@ tap_text() {
   root "input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))"
 }
 
+# ---- network ------------------------------------------------------------------------------
+online() { curl -fsS -m 8 -o /dev/null https://api.github.com/zen 2>/dev/null; }
+
+# A soft reboot can leave Wi-Fi and mobile data dead until a full reboot: when GitHub is not
+# reachable, reset networking as root (airplane mode on/off, Wi-Fi off/on) and wait for it.
+ensure_network() {
+  online && return 0
+  # Only right after a soft reboot: an ordinary bad signal must never toggle airplane mode.
+  local at; at=$(cat "$HOME/.hexnext-softreboot-at" 2>/dev/null || echo 0)
+  if [ $(( $(date +%s) - at )) -gt 3600 ]; then sleep 20; online; return; fi
+  local round
+  for round in 1 2; do
+    log "no connection; resetting networking (round $round)"
+    root "cmd connectivity airplane-mode enable; sleep 4; cmd connectivity airplane-mode disable" >/dev/null 2>&1
+    sleep 8
+    root "svc wifi disable; sleep 3; svc wifi enable" >/dev/null 2>&1
+    local waited=0
+    while [ $waited -lt 60 ]; do
+      sleep 5; waited=$((waited + 5))
+      online && { log "connection back"; return 0; }
+    done
+  done
+  log "still no connection"
+  return 1
+}
+
+# push_lab: pushes the lab checkout, retrying with a network reset in between.
+push_lab() {
+  local try
+  for try in 1 2 3 4; do
+    (cd "$LAB" && git pull -q --rebase && git push -q) 2>>"$HOME/.hexnext-lab-pull.err" && return 0
+    ensure_network
+    sleep $((try * 10))
+  done
+  return 1
+}
+
 # ---- app hook -------------------------------------------------------------------------------
 # hook <cmd> [am extras...]: starts the owner build's test hook and waits for its .done file.
 hook() {
@@ -222,6 +259,7 @@ step_softreboot() {
   mkdir -p "$HOME/.termux"
   grep -q '^allow-external-apps *= *true' "$props" 2>/dev/null || echo 'allow-external-apps = true' >>"$props"
   printf '%s\n%s\n' "$JOB" "$rest" >"$HOME/.hexnext-resume"
+  date +%s >"$HOME/.hexnext-softreboot-at"
   log "soft reboot; remaining steps: $rest (unlock the phone when it comes back)"
   ( cd "$LAB" && git add -A "results/$(jq -r .id "$JOB")" && git commit -qm "Before soft reboot" >/dev/null 2>&1 )
   local me; me=$(readlink -f "$0" 2>/dev/null || echo "$0")
@@ -405,8 +443,8 @@ run_job() {
   jq -n --arg id "$id" --arg failed "${failed# }" --arg model "$(getprop ro.product.model)" \
     --arg oneui "$(getprop ro.build.version.oneui)" --argjson secs $(( $(date +%s) - started )) \
     '{id:$id, ok:($failed==""), failed:$failed, model:$model, oneui:$oneui, seconds:$secs}' >"$RES/status.json"
-  ( cd "$LAB" && git add -A "results/$id" && git commit -qm "Results for $id" && git push -q ) \
-    && log "job $id pushed" || log "job $id: push failed; results kept in $RES"
+  ( cd "$LAB" && git add -A "results/$id" && git commit -qm "Results for $id" ) >/dev/null 2>&1
+  push_lab && log "job $id pushed" || log "job $id: push failed; results kept in $RES"
 }
 
 pending_jobs() {
@@ -487,6 +525,7 @@ case "${1:-watch}" in
       job=$(sed -n 1p "$HOME/.hexnext-resume"); rest=$(sed -n 2p "$HOME/.hexnext-resume")
       rm -f "$HOME/.hexnext-resume"
       PHASE="reboot-"; log "resuming after soft reboot: $rest"
+      ensure_network
       [ -f "$job" ] && run_job "$job" "$rest"
       PHASE=""
     fi
@@ -498,6 +537,7 @@ case "${1:-watch}" in
     log "watching $LAB_REPO every ${POLL}s (Ctrl-C to stop)"
     while true; do
       self_update "$@"
+      online || ensure_network
       sync_lab
       for j in $(pending_jobs); do run_job "$j"; done
       sleep "$POLL"
