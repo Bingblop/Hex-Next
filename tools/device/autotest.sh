@@ -442,6 +442,15 @@ step_arsc() {
   done
 }
 
+# Selects the job's "pack" (a catalogue id, downloaded when missing) for the next apply.
+step_pack() {
+  local id; id=$(jq -r '.pack // empty' "$JOB")
+  case "$id" in ''|*[!a-z0-9_-]*) log "pack: no valid pack id"; return 1 ;; esac
+  log "pack $id"
+  hook pack --es id "$id" >>"$RES/hook.jsonl"
+  tail -1 "$RES/hook.jsonl" | grep -q '"ok":true'
+}
+
 step_wait() { log "wait 180 s"; sleep 180; }
 
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
@@ -543,7 +552,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break

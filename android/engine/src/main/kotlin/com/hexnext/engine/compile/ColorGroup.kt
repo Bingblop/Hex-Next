@@ -72,7 +72,9 @@ public enum class ColorGroup(
     KEYBOARD_KEY("keyboard_key", "Keyboard keys", "Samsung Keyboard key caps", ColorGroupSection.APPS, PaletteRole.NEUTRAL1, 10, 800),
     KEYBOARD_FUNCTION_KEY(
         "keyboard_function_key", "Keyboard special keys", "Backspace, Enter, Shift and symbols keys",
-        ColorGroupSection.APPS, PaletteRole.NEUTRAL2, 100, 900,
+        // Night 700: a shade of its own between the backdrop and the letter keys (lab-022: at 900
+        // the special keys were the backdrop's colour and looked like no keys at all).
+        ColorGroupSection.APPS, PaletteRole.NEUTRAL2, 200, 700,
     ),
     KEYBOARD_LABEL(
         "keyboard_label", "Keyboard letters", "Letters, numbers and symbols on the keys",

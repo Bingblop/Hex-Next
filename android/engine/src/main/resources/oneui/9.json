@@ -124,6 +124,11 @@
     "drawable/sec_ic_settings_help": "drawable/sec_ic_settings_user_manual"
   },
   "drawableCopies": {
+    "drawable/textinput_qwerty_btn": ["drawable/key_bg", "drawable/normal_key_background_image_open_theme", "drawable/number_key_background_image_open_theme"],
+    "drawable/textinput_qwerty_btn_light": ["drawable/function_key_background_image_open_theme"],
+    "drawable/textinput_qwerty_btn_pressed": ["drawable/key_pressed_background_image_open_theme"],
+    "drawable/0bg": ["drawable/keyboard_background_image", "drawable/keyboard_background_image_open_theme"],
+    "drawable/0preview_bg": ["drawable/preview_bg", "drawable/preview_bubble_background_image_open_theme"],
     "drawable/tw_ic_do_poweroff": ["drawable/ic_global_actions_power_off", "drawable/ic_deviceoption_poweroff"],
     "drawable/tw_ic_do_restart": ["drawable/ic_global_actions_restart", "drawable/ic_deviceoption_restart"],
     "drawable/tw_ic_do_emergencymode": ["drawable/ic_global_actions_emergency"],

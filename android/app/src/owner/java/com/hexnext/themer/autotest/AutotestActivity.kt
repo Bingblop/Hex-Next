@@ -77,10 +77,40 @@ class AutotestActivity : ComponentActivity() {
         when (cmd) {
             "preview" -> showPreview()
             "scan", "apply", "remove" -> runServiceCommand(cmd)
+            "pack" -> selectPack(intent.getStringExtra("id").orEmpty())
             else -> {
                 done("unknown", false, "unknown cmd '$cmd'")
                 finish()
             }
+        }
+    }
+
+    /**
+     * `pack` (`id`): selects pack [id] for the next apply, downloading it from the catalogue first
+     * when it is not on the phone, as the Skins gallery does. Writes `autotest/pack.done`.
+     */
+    private fun selectPack(id: String) {
+        lifecycleScope.launch {
+            main.awaitReadyToApply()
+            if (main.ui.value.packs.none { it.id == id }) {
+                main.loadCatalogue()
+                val entry = withTimeoutOrNull(60_000) {
+                    main.ui.first { !it.catalogue.loading && (it.catalogue.entries.isNotEmpty() || it.catalogue.error != null) }
+                }?.catalogue?.entries?.firstOrNull { it.id == id }
+                if (entry == null) {
+                    done("pack", false, "pack $id not in the catalogue (${main.ui.value.catalogue.error})")
+                    finish()
+                    return@launch
+                }
+                main.downloadPack(entry, selectWhenDone = true)
+                withTimeoutOrNull(5 * 60_000) { main.ui.first { id !in it.catalogue.downloading && !it.busy && it.packs.any { p -> p.id == id } } }
+                delay(500)
+            }
+            main.selectPack(id)
+            delay(1_500)
+            val ok = main.ui.value.spec.simplePackId == id
+            done("pack", ok, "selected=${main.ui.value.spec.simplePackId}")
+            finish()
         }
     }
 
