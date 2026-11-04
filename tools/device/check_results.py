@@ -97,6 +97,25 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
             # so an overridden colour is a literal where Samsung's own is often a reference (@… ->).
             themed = [("HexNext_" in v) or (":color/" in name and "->" not in v and "frro" not in v) for v in values]
             verdict(f"{name} themed", all(themed), values[-1][:90])
+    if "service_uid" in expect:
+        want = str(expect["service_uid"])
+        logs = " ".join(f.read_text(errors="replace") for f in res.glob("*-[0-9]*/apply-log.txt"))
+        logs += " ".join(f.read_text(errors="replace") for f in res.glob("*-[0-9]*/apply-ui-log.txt"))
+        seen = sorted(set(re.findall(r"\[UID (\d+)\]", logs)))
+        verdict(f"theme service ran as UID {want}", seen == [want], "seen " + (", ".join(seen) or "none"))
+    if expect.get("remove_clean"):
+        # Every overlaystate taken right after a remove: no Hex overlay of any owner left.
+        steps = job.get("steps", [])
+        n = 0
+        for i, step in enumerate(steps):
+            if step != "overlaystate":
+                continue
+            n += 1
+            if i > 0 and steps[i - 1] == "remove":
+                listing = res / f"overlaystate-{n}" / "overlay-list.txt"
+                left = listing.read_text(errors="replace").count(":HexNext") if listing.exists() else -1
+                verdict(f"remove left no Hex overlays (overlay state {n})", left == 0,
+                        "no overlay list" if left < 0 else f"{left} left")
     lines.extend(mode_warnings(res))
     return ok, lines
 

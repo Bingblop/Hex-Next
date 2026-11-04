@@ -1,0 +1,45 @@
+{
+  "about": "Hex Next with Shizuku running as system (UID 1000): clears the root-made overlays, applies, checks the look, removes and applies again. Start Shizuku as UID 1000 first; the job never restarts it.",
+  "steps": [
+    "install",
+    "overlaystate",
+    "remove",
+    "overlaystate",
+    "scan",
+    "apply",
+    "overlaystate",
+    "lookup",
+    "capture",
+    "remove",
+    "overlaystate",
+    "apply",
+    "overlaystate"
+  ],
+  "confirm": true,
+  "modes": [
+    "dark",
+    "light"
+  ],
+  "captures": [
+    "settings",
+    "power",
+    "keyboard"
+  ],
+  "lookups": [
+    "com.android.settings:color/sesl_round_and_bgcolor_light",
+    "com.android.systemui:drawable/tw_ic_do_poweroff",
+    "com.samsung.android.honeyboard:color/keyboard_background_dark",
+    "android:color/system_accent1_600"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "no_crash": true,
+    "service_uid": 1000,
+    "remove_clean": true,
+    "overridden": [
+      "com.android.systemui:drawable/tw_ic_do_poweroff",
+      "com.samsung.android.honeyboard:color/keyboard_background_dark"
+    ]
+  },
+  "keep_shizuku": true
+}

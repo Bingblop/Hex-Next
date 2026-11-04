@@ -241,7 +241,9 @@ step_install() {
   su -c "pm install -r -S $size" <"$apk" >"$RES/install.txt" 2>&1
   grep -q Success "$RES/install.txt" || { log "install failed: $(tail -1 "$RES/install.txt")"; return 1; }
   root "dumpsys package $PKG | grep -E 'versionName|versionCode|lastUpdateTime' | head -3" >>"$RES/install.txt"
-  restart_shizuku
+  # A job that tests Shizuku as another uid (system, 1000) keeps the server the user started.
+  if [ "$(jq -r '.keep_shizuku // false' "$JOB")" = true ]; then log "install: keeping the running Shizuku"
+  else restart_shizuku; fi
 }
 
 step_theme() {
@@ -364,6 +366,9 @@ step_overlaystate() {
   } >"$d/when.txt" 2>&1
   root "ls -la /data/resource-cache/" >"$d/resource-cache.txt" 2>&1
   root "cmd overlay list --user 0" >"$d/overlay-list.txt" 2>&1
+  # Which uid Shizuku's server runs as (0 root, 1000 system, 2000 shell) and who owns our overlays.
+  root "ps -A -o USER,UID,PID,NAME" 2>/dev/null | grep -i shizuku >"$d/shizuku-uid.txt"
+  grep -oE '[a-z.]+:HexNext[A-Za-z_]*' "$d/overlay-list.txt" | cut -d: -f1 | sort | uniq -c >"$d/owners.txt"
   root "grep -c . /data/system/overlays.xml; grep -iE 'fabricated|HexNext|SemWT' /data/system/overlays.xml | head -200" >"$d/overlays-xml.txt" 2>&1
   root "logcat -d -b main -b system -b crash | grep -iE 'overlay|idmap|fabricat|frro' | tail -400" >"$d/logcat-overlay.txt" 2>&1
   root "settings get secure theme_customization_overlay_packages" >"$d/theme_customization.txt" 2>&1
@@ -465,7 +470,7 @@ step_pack() {
 
 step_wait() { log "wait 180 s"; sleep 180; }
 
-step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
+step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; sleep 10; save_app_state "remove"; }
 
 # The apps in the job's "bare" list with their Hex overlay switched off (bare-<mode>-real-app-<pkg>),
 # to tell the app's own look from the theme's. The overlays are switched back on afterwards.
