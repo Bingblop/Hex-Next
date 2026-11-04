@@ -87,7 +87,7 @@ internal fun PreviewPowerMenu(
 
 @Composable
 private fun PowerButton(label: String, color: Color, scope: PreviewScope, drawable: String, icon: @Composable () -> Unit) {
-    Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.width(104.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         val art = scope.device.powerIcons[drawable]
         if (art != null) {
             // The pack's drawable replaces the whole stock button (badge and glyph), as on the phone.
@@ -96,7 +96,7 @@ private fun PowerButton(label: String, color: Color, scope: PreviewScope, drawab
             Box(Modifier.size(42.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { icon() }
         }
         Spacer(Modifier.height(5.dp))
-        PText(label, Color.White, scope, size = 11.sp, weight = FontWeight.Medium, align = TextAlign.Center)
+        PText(label, Color.White, scope, size = 9.5.sp, weight = FontWeight.Medium, align = TextAlign.Center)
     }
 }
 
