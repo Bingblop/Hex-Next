@@ -185,6 +185,16 @@ describe("interpretSubscription", () => {
     }
   });
 
+  it("keeps a grace-period subscription whose line item still has the old billing date", () => {
+    expect(
+      interpretSubscription(
+        { subscriptionState: "SUBSCRIPTION_STATE_IN_GRACE_PERIOD", latestOrderId: "GPA.2", lineItems: line("2026-11-02T00:00:00Z") },
+        "ai_monthly",
+        now,
+      ),
+    ).toEqual({ valid: true, productId: "ai_monthly", orderId: "GPA.2" });
+  });
+
   it("rejects expired, on-hold, pending and mismatched subscriptions", () => {
     expect(
       interpretSubscription(

@@ -61,4 +61,19 @@ class PaidFeatureTest {
         assertTrue(state.isPending(PaidFeature.AI_CREATION))
         assertFalse(state.unlocks(PaidFeature.AI_CREATION))
     }
+
+    @Test
+    fun staleSubscriptionsKeepTheHintAfterTheStoreAnswered() {
+        val state = EntitlementState(ready = true, subscriptionsStale = true, cachedProductIds = setOf(ProductIds.AI_MONTHLY))
+        assertTrue(state.looksUnlocked(PaidFeature.AI_CREATION))
+        assertFalse(state.unlocks(PaidFeature.AI_CREATION))
+    }
+
+    @Test
+    fun pendingEverythingOrAllPacksMarksEveryPackPending() {
+        for (id in listOf(ProductIds.EVERYTHING, ProductIds.ALL_PACKS)) {
+            assertTrue(id, ready.copy(pendingProductIds = setOf(id)).isPending("willemite"))
+        }
+        assertFalse(ready.copy(pendingProductIds = setOf(ProductIds.AI_MONTHLY)).isPending("willemite"))
+    }
 }

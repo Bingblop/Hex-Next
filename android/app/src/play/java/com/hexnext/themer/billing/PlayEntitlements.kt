@@ -106,6 +106,10 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     private var queryGeneration = 0L
     private var appliedGeneration = 0L
 
+    /** True while the newest applied full check had no subscription answer. */
+    private var subscriptionsStale = false
+    private var subscriptionRetryScheduled = false
+
     /** False once the license server answered 404 for `/v1/verify-batch` (an older server). */
     private var batchSupported = true
 
@@ -390,6 +394,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 appliedGeneration = full.generation
                 listenerGrants.values.removeAll { it <= full.since }
                 val keptSubscriptions = if (full.subscriptionsKnown) emptySet() else owned.filterTo(HashSet()) { it in ProductIds.SUBSCRIPTIONS }
+                subscriptionsStale = !full.subscriptionsKnown
+                if (subscriptionsStale) scheduleSubscriptionRetryLocked()
                 owned.clear()
                 owned += granted
                 owned += keptSubscriptions
@@ -678,6 +684,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val prices = details.mapNotNull { (id, d) -> priceOf(d)?.let { id to it } }.toMap()
         val everything = ProductIds.EVERYTHING in ownedNow
         val unlockAll = everything || ProductIds.ALL_PACKS in ownedNow
+        val stale = subscriptionsStale
         current.update {
             val isReady = it.ready || ready
             it.copy(
@@ -685,6 +692,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 checking = if (checkingDone) false else it.checking,
                 unlockAll = unlockAll,
                 everything = everything,
+                subscriptionsStale = stale,
                 ownedProductIds = ownedNow,
                 ownedPackIds = packIds.filterTo(HashSet()) { id -> unlockAll || ProductIds.allForPack(id).any { it in ownedNow } },
                 pendingProductIds = pendingNow,
@@ -692,7 +700,19 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 error = error ?: if (clearError) baseError() else it.error,
             )
         }
-        if (current.value.ready) saveHint(ownedNow)
+        // Without a subscription answer the hint keeps the subscriptions it had, so a subscriber
+        // on a cold start with a failed query still sees "checking" instead of the paywall.
+        if (current.value.ready) saveHint(if (stale) ownedNow + loadHint().filter { it in ProductIds.SUBSCRIPTIONS } else ownedNow)
+    }
+
+    /** One more full check [SUBSCRIPTION_RETRY_MS] after a subscription query gave no answer. Holds [lock]. */
+    private fun scheduleSubscriptionRetryLocked() {
+        if (subscriptionRetryScheduled) return
+        subscriptionRetryScheduled = true
+        main.postDelayed({
+            synchronized(lock) { subscriptionRetryScheduled = false }
+            if (client.isReady) queryPurchases() else connect()
+        }, SUBSCRIPTION_RETRY_MS)
     }
 
     private fun loadHint(): Set<String> = runCatching { prefs.getStringSet(KEY_OWNED_HINT, null)?.toSet() }.getOrNull().orEmpty()
@@ -737,6 +757,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         const val INITIAL_RETRY_MS = 1_000L
         const val MAX_RETRY_MS = 5L * 60 * 1000
         const val PRODUCTS_PER_QUERY = 20
+        const val SUBSCRIPTION_RETRY_MS = 30_000L
         const val TIMEOUT_MS = 10_000
         const val MAX_RESPONSE_BYTES = 64 * 1024
         const val HTTP_TOO_MANY_REQUESTS = 429

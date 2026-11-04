@@ -137,6 +137,12 @@ export function interpretSubscription(
   if (!ENTITLED_STATES.has(state)) {
     return { valid: false, reason: "subscription_inactive" };
   }
+  // ACTIVE and IN_GRACE_PERIOD are entitled whatever expiryTime says: during a grace period the
+  // line item can still carry the unextended billing date, already in the past. A CANCELED
+  // subscription stays paid only until its expiryTime.
+  if (state !== "SUBSCRIPTION_STATE_CANCELED") {
+    return { valid: true, productId, orderId: purchase.latestOrderId ?? "" };
+  }
   const expiry = item.expiryTime ? Date.parse(item.expiryTime) : NaN;
   if (!Number.isFinite(expiry) || expiry <= nowMs) {
     return { valid: false, reason: "subscription_expired" };

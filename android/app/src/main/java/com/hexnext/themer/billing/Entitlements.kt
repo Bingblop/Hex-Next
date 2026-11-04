@@ -54,6 +54,11 @@ data class EntitlementState(
      * including packs added later, and every [PaidFeature], including features added later.
      */
     val everything: Boolean = false,
+    /**
+     * True while the last subscription query gave no answer: subscriptions may be owned but are
+     * not known, so [looksUnlocked] still trusts [cachedProductIds] for them.
+     */
+    val subscriptionsStale: Boolean = false,
     /** Product ids whose payment is still pending; they are not unlocked. */
     val pendingProductIds: Set<String> = emptySet(),
     /**
@@ -79,12 +84,14 @@ data class EntitlementState(
 
     /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
     fun looksUnlocked(feature: PaidFeature): Boolean = unlocks(feature) ||
-        (!ready && (ProductIds.EVERYTHING in cachedProductIds || feature.productIds.any { it in cachedProductIds }))
+        ((!ready || subscriptionsStale) && (ProductIds.EVERYTHING in cachedProductIds || feature.productIds.any { it in cachedProductIds }))
 
     fun isPending(feature: PaidFeature): Boolean =
         ProductIds.EVERYTHING in pendingProductIds || feature.productIds.any { it in pendingProductIds }
 
-    fun isPending(packId: String): Boolean = ProductIds.allForPack(packId).any { it in pendingProductIds }
+    /** A pending purchase of the pack itself, or of a product that will cover it (all packs, everything). */
+    fun isPending(packId: String): Boolean = ProductIds.ALL_PACKS in pendingProductIds ||
+        ProductIds.EVERYTHING in pendingProductIds || ProductIds.allForPack(packId).any { it in pendingProductIds }
 
     /**
      * The store's formatted price of pack [packId], or null while it is unknown: the current
