@@ -1016,7 +1016,7 @@ public object ThemeCompiler {
                 val plan = ResourceMapper.map(table, semwt, ThemeRequest(drawables = request))
                 if (!element.anyTarget) plan.skipped.mapTo(skipped) { Skipped("$pkg:${it.name}", it.reason) }
                 for (pd in plan.drawableEntries) {
-                    if (qsBlocked && pd.resourceName.substringAfter(':') !in rules.quickSettings.outsideDrawables) {
+                    if (qsBlocked && !rules.quickSettings.allowsOutside(pd.resourceName.substringAfter(':'))) {
                         skipped += Skipped(pd.resourceName, REASON_QS_POLICY)
                         continue
                     }

@@ -43,6 +43,15 @@ class OneUiRulesTest {
     }
 
     @Test
+    fun `One UI 9 builds power menu and status bar icons outside the Quick panel policy`() {
+        val qs = OneUiRules.load(9).quickSettings
+        assertTrue(qs.allowsOutside("drawable/tw_ic_do_poweroff"))
+        assertTrue(qs.allowsOutside("drawable/sec_ic_wifi_signal_3"))
+        assertTrue(qs.allowsOutside("drawable/stat_sys_data_bluetooth"))
+        assertFalse(qs.allowsOutside("drawable/sec_quick_panel_tile_bg"))
+    }
+
+    @Test
     fun `every bundled version has a colours-only Quick Settings policy for its own layout`() {
         for (major in 7..9) {
             val qs = OneUiRules.load(major).quickSettings

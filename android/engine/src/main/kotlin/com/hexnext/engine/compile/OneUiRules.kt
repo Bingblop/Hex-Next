@@ -24,9 +24,9 @@ import kotlinx.serialization.json.Json
  *   behaviour (Samsung's value copied verbatim, reported as [ThemeCompiler.REASON_QS_POLICY]).
  * @property drawablesAllowed true lets packs build System UI drawables for elements that are
  *   not [QuickSettingsPolicy.COLOURS_ONLY]. Every bundled version keeps it false.
- * @property outsideDrawables System UI drawables (`drawable/ic_global_actions_power_off`) built even
- *   when [drawablesAllowed] is off: screens outside the Quick panel (the power menu) whose
- *   drawables do not touch its layout.
+ * @property outsideDrawables System UI drawables (`drawable/tw_ic_do_poweroff`, or a prefix ending
+ *   in `*` such as `drawable/sec_ic_wifi_signal_*`) built even when [drawablesAllowed] is off:
+ *   the power menu and status bar icons, which do not touch the Quick panel layout.
  * @property filterColours false switches the colour filter off entirely (every recoloured
  *   System UI colour is kept). Meant for tests and experiments, not bundled rule files.
  * @property values [ShapeControls] id → the candidate resources behind that shape control
@@ -51,6 +51,11 @@ public data class QuickSettingsRules(
      * [values] control or listed in [valueNames].
      */
     public fun allowsValue(name: String): Boolean = name in allowedValueNames
+
+    /** True when System UI drawable [name] (`drawable/x`) is one of [outsideDrawables]. */
+    public fun allowsOutside(name: String): Boolean = outsideDrawables.any {
+        if (it.endsWith("*")) name.startsWith(it.dropLast(1)) else name == it
+    }
 
     /** The [values] control whose candidates include [name], or null. */
     public fun valueRuleFor(name: String): Pair<String, ValueRule>? =

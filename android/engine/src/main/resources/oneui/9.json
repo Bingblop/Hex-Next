@@ -24,6 +24,8 @@
   "quickSettings": {
     "layout": "oneui9",
     "outsideDrawables": [
+      "drawable/sec_ic_wifi_signal_*",
+      "drawable/stat_sys_*",
       "drawable/tw_ic_do_poweroff",
       "drawable/tw_ic_do_restart",
       "drawable/tw_ic_do_emergencymode",
