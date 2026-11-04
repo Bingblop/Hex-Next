@@ -130,6 +130,7 @@ fun DescribeThemeCard(
             if (suggestion != null) livePreview?.invoke()
             Text("Turn a sentence into a palette", style = MaterialTheme.typography.titleSmall)
             AiPaywall(what = "Describe your theme", state = access)
+            ChatExitRow(model, onRestore)
         }
         return
     }
@@ -159,6 +160,7 @@ fun DescribeThemeCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            ChatExitRow(model, onRestore)
         }
         return
     }
@@ -257,6 +259,26 @@ fun DescribeThemeCard(
                 TextButton(onClick = { model.reset() }, enabled = !working) { Text("New theme") }
             }
         }
+    }
+}
+
+/**
+ * Undo AI changes and New theme, kept even when the chat itself is hidden (AI locked again, the
+ * key removed): the editor still holds the AI's theme, and the user must be able to undo it.
+ */
+@Composable
+private fun ChatExitRow(model: DescribeThemeModel, onRestore: (ThemeSpec) -> Unit) {
+    if (model.suggestion == null) return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TextButton(
+            onClick = {
+                model.baseSpec?.let(onRestore)
+                model.reset()
+            },
+            enabled = !model.working && model.baseSpec != null,
+        ) { Text("Undo AI changes") }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { model.reset() }, enabled = !model.working) { Text("Keep this theme") }
     }
 }
 

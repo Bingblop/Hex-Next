@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
@@ -97,6 +98,23 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
 
     /** Purchase token → products it was verified for, so a resume does not verify again. */
     private val verifiedTokens = HashMap<String, Set<String>>()
+
+    /**
+     * Subscription token → when it was verified ([SystemClock.elapsedRealtime]). A subscription can
+     * lose its entitlement while the app runs (account hold, pause, revoke), so its verdict only
+     * counts for [SUBSCRIPTION_REVERIFY_MS]; one-time products keep theirs for the whole run.
+     */
+    private val subscriptionVerifiedAt = HashMap<String, Long>()
+
+    /** The cached verdict for [purchase], or null when it must be verified (again). Holds [lock]. */
+    private fun cachedVerdictLocked(purchase: Purchase): Set<String>? {
+        val products = verifiedTokens[purchase.purchaseToken] ?: return null
+        val at = subscriptionVerifiedAt[purchase.purchaseToken] ?: return products
+        if (SystemClock.elapsedRealtime() - at < SUBSCRIPTION_REVERIFY_MS) return products
+        verifiedTokens.remove(purchase.purchaseToken)
+        subscriptionVerifiedAt.remove(purchase.purchaseToken)
+        return null
+    }
 
     /** Product → [sequence] at which the purchase listener granted it in this run. */
     private val listenerGrants = HashMap<String, Long>()
@@ -431,7 +449,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
      * verification. [serverAnswers] holds the license server's answers ([verifyOnServer]).
      */
     private fun verify(purchase: Purchase, serverAnswers: Map<ServerKey, Boolean?>): Verdict {
-        synchronized(lock) { verifiedTokens[purchase.purchaseToken] }?.let { return Verdict(it) }
+        synchronized(lock) { cachedVerdictLocked(purchase) }?.let { return Verdict(it) }
         if (purchase.packageName != context.packageName) {
             Log.w(TAG, "Purchase for another package ignored")
             return Verdict(emptySet())
@@ -476,7 +494,12 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 return Verdict(emptySet(), UNVERIFIABLE)
             }
         }
-        synchronized(lock) { verifiedTokens[purchase.purchaseToken] = products }
+        synchronized(lock) {
+            verifiedTokens[purchase.purchaseToken] = products
+            if (purchase.products.any { it in ProductIds.SUBSCRIPTIONS }) {
+                subscriptionVerifiedAt[purchase.purchaseToken] = SystemClock.elapsedRealtime()
+            }
+        }
         return Verdict(products)
     }
 
@@ -493,7 +516,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val keys = LinkedHashSet<ServerKey>()
         for (purchase in purchases) {
             if (purchase.packageName != context.packageName) continue
-            if (synchronized(lock) { purchase.purchaseToken in verifiedTokens }) continue
+            if (synchronized(lock) { cachedVerdictLocked(purchase) } != null) continue
             purchase.products.forEach { keys += ServerKey(purchase.purchaseToken, it) }
         }
         if (keys.isEmpty()) return emptyMap()
@@ -758,6 +781,9 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         const val MAX_RETRY_MS = 5L * 60 * 1000
         const val PRODUCTS_PER_QUERY = 20
         const val SUBSCRIPTION_RETRY_MS = 30_000L
+
+        /** How long a verified subscription counts before the license server is asked again. */
+        const val SUBSCRIPTION_REVERIFY_MS = 60 * 60 * 1000L
         const val TIMEOUT_MS = 10_000
         const val MAX_RESPONSE_BYTES = 64 * 1024
         const val HTTP_TOO_MANY_REQUESTS = 429
