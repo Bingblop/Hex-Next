@@ -819,7 +819,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     /**
      * One Play purchase for [locked]: $0.99 for a single pack, then $1.00 more per extra pack.
-     * Ten or more, or no free bundle slot, buys every pack instead. The packs named on a bundle
+     * Twenty or more (the unlock-all price), or no free bundle slot, buys every pack instead. The packs named on a bundle
      * purchase stay unlocked for good.
      */
     private fun purchaseLockedPacks(activity: Activity, locked: Set<String>) {

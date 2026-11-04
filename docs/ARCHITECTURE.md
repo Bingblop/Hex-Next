@@ -126,11 +126,12 @@ Release signing applies to both. Gradle tasks carry the flavor: `testPlayDebugUn
 
 Every theme pack is a one-time Play purchase (product id `pack_<id>`, the pack id lowercased with
 anything outside `[a-z0-9._]` turned into `_`, created in Play at $0.99), plus `all_packs` at
-$9.99, which also covers packs added later. A theme that applies several locked packs is one
-purchase: $0.99 for the first and $1.00 more for each extra (`packs_2` at $1.99 through `packs_9`
-at $8.99, each with slots `packs_N_2` … `packs_N_4` so the same size can be bought again). Ten or
+$19.99, which also covers packs added later. A theme that applies several locked packs is one
+purchase: $0.99 for the first and $1.00 more for each extra (`packs_2` at $1.99 through `packs_19`
+at $18.99, each with slots `packs_N_2` … `packs_N_4` so the same size can be bought again). Twenty or
 more locked packs, or no free slot, buys `all_packs`. The pack ids travel on the purchase
-(`BundleGrant`) and stay unlocked after a reinstall; a refund locks them again. The UI shows
+(`BundleGrant`: comma-separated names, or a `~` hex bitset when the names do not fit the two
+64-character Play fields) and stay unlocked after a reinstall; a refund locks them again. The UI shows
 Play's formatted price once it has arrived, and these amounts until then. Free features (default
 theme, custom colours, icons, fonts, backgrounds) are never gated.
 
@@ -182,7 +183,7 @@ locks before Play answers; it never unlocks a download or an apply.
 `MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI. A locked pack can be
 downloaded, selected (simple or per part) and fully previewed, but never built or applied:
 `applyTheme` opens Play billing for the locked packs the theme uses (one pack at $0.99, a bundle
-for several, `all_packs` from ten) and does not build until those purchases are owned. A pack is
+for several, `all_packs` from twenty) and does not build until those purchases are owned. A pack is
 paid when its id is in `PaidPacks` or in `OfficialPacks` (`hexnext_packs.xml`: every id seen in a
 fetched catalogue, including the default catalogue read once at start-up in the Play build, and
 every pack downloaded from one), so a pack added to the catalogue after the APK shipped is paid
@@ -196,7 +197,8 @@ artwork is physically absent at build time even if a gate regressed; it moves in
 once the store confirms the purchase (the cached purchase hint is never enough). Preview zips are
 excluded from backups and pruned after 7 days unused. Packs sit in one menu on Skins. A pack that is not downloaded yet has a download icon in that
 menu, including locked packs. After download a locked pack shows a lock, and tapping it buys that
-pack. "Unlock all packs" sits above the menu while any catalogue pack is still locked.
+pack. An installed pack also has an uninstall icon; confirming it deletes the pack file from this
+phone. "Unlock all packs" sits above the menu while any catalogue pack is still locked ($19.99).
 
 ## Overlay delivery
 

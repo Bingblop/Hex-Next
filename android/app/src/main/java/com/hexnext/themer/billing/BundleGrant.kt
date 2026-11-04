@@ -1,23 +1,103 @@
 package com.hexnext.themer.billing
 
 import com.hexnext.engine.pack.PackIdAliases
+import java.math.BigInteger
 
 /**
  * The pack ids a bundle purchase unlocks, carried on the Play purchase itself
  * (`obfuscatedProfileId` and `obfuscatedAccountId`, 64 characters each) so a reinstall still
- * knows which packs were bought. Ids are the current catalogue ids ([PackIdAliases]), sorted,
- * joined with commas and split across the two fields. A former id is stored as its current id.
+ * knows which packs were bought. Ids are the current catalogue ids ([PackIdAliases]). A former
+ * id is stored as its current id. Names that fit are written sorted and comma-separated. A larger
+ * set (a 19-pack bundle does not fit as names) is a bitset over [ORDER]: `~` plus hex. [ORDER] is
+ * append-only. A new catalogue pack is added at the end; reordering or removing an entry would
+ * point an old purchase at the wrong pack.
  */
 object BundleGrant {
     const val MAX_FIELD = 64
 
+    /**
+     * Catalogue pack ids in the order their bits were assigned. Append a new id. Do not sort,
+     * insert, or remove.
+     */
+    val ORDER: List<String> = listOf(
+        "agate",
+        "ametrine",
+        "apatite",
+        "axinite",
+        "bixbite",
+        "calcite",
+        "carnelian",
+        "cerussite",
+        "charoite",
+        "chrysocolla",
+        "citrine",
+        "cordierite",
+        "covellite",
+        "diopside",
+        "ekanite",
+        "epidote",
+        "erythrite",
+        "euclase",
+        "fayalite",
+        "fuchsite",
+        "garnet",
+        "idocrase",
+        "indicolite",
+        "iolite",
+        "kornerupine",
+        "kunzite",
+        "kyanite",
+        "larimar",
+        "lazulite",
+        "lepidolite",
+        "morganite",
+        "okenite",
+        "olivine",
+        "pectolite",
+        "peridot",
+        "scolecite",
+        "sodalite",
+        "topaz",
+        "variscite",
+        "wavellite",
+        "willemite",
+        "xenotime",
+        "zircon",
+        "zoisite",
+    )
+
+    private val indexOf: Map<String, Int> = ORDER.withIndex().associate { it.value to it.index }
+    private const val BITSET_MARK = "~"
+
     /** The two Play fields for [packIds]. Either may be empty. */
     data class Fields(val profile: String, val account: String)
 
-    /** Encodes [packIds] into [Fields]. Ids that do not fit in the two fields are dropped from the end. */
+    /**
+     * Encodes [packIds] into [Fields]. Names are used when they fit in the two fields. Otherwise
+     * a bitset of the ids that are in [ORDER] is used, so a large bundle does not drop packs.
+     */
     fun fields(packIds: Collection<String>): Fields {
-        val joined = packIds.map { PackIdAliases.current(it) }.filter { it.isNotBlank() }.distinct().sorted().joinToString(",")
-        if (joined.isEmpty()) return Fields("", "")
+        val ids = packIds.map { PackIdAliases.current(it) }.filter { it.isNotBlank() }.distinct().sorted()
+        if (ids.isEmpty()) return Fields("", "")
+        val named = namedFields(ids.joinToString(","))
+        if (decode(named.profile, named.account) == ids.toSet()) return named
+        val known = ids.filter { it in indexOf }
+        if (known.isEmpty()) return named
+        return bitsetFields(known)
+    }
+
+    /** Pack ids written by [fields], as current ids. Blank and odd tokens are ignored. */
+    fun decode(profile: String?, account: String?): Set<String> {
+        val combined = listOfNotNull(profile, account).joinToString("").trim()
+        if (combined.startsWith(BITSET_MARK)) return decodeBitset(combined)
+        val raw = listOfNotNull(profile, account).flatMap { it.split(',') }
+        return raw.map { it.trim() }
+            .filter { token -> token.isNotEmpty() && token.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' } }
+            .map { PackIdAliases.current(it) }
+            .toSet()
+    }
+
+    private fun namedFields(joined: String): Fields {
         if (joined.length <= MAX_FIELD) return Fields(joined, "")
         val cut = splitAt(joined, MAX_FIELD)
         val profile = joined.substring(0, cut).trimEnd(',')
@@ -26,13 +106,19 @@ object BundleGrant {
         return Fields(profile, rest)
     }
 
-    /** Pack ids written by [fields], as current ids. Blank and odd tokens are ignored. */
-    fun decode(profile: String?, account: String?): Set<String> {
-        val raw = listOfNotNull(profile, account).flatMap { it.split(',') }
-        return raw.map { it.trim() }
-            .filter { token -> token.isNotEmpty() && token.all { it.isLetterOrDigit() || it == '-' || it == '_' || it == '.' } }
-            .map { PackIdAliases.current(it) }
-            .toSet()
+    private fun bitsetFields(ids: Collection<String>): Fields {
+        var bits = BigInteger.ZERO
+        ids.forEach { id -> indexOf[id]?.let { bits = bits.setBit(it) } }
+        val body = BITSET_MARK + bits.toString(16)
+        if (body.length <= MAX_FIELD) return Fields(body, "")
+        return Fields(body.substring(0, MAX_FIELD), body.substring(MAX_FIELD).take(MAX_FIELD))
+    }
+
+    private fun decodeBitset(combined: String): Set<String> {
+        val hex = combined.removePrefix(BITSET_MARK).filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
+        if (hex.isEmpty()) return emptySet()
+        val bits = BigInteger(hex, 16)
+        return ORDER.filterIndexedTo(LinkedHashSet()) { index, _ -> bits.testBit(index) }
     }
 
     /**

@@ -10,8 +10,8 @@ import com.hexnext.engine.pack.PackIdAliases
  * One pack is [ProductIds.forPack] at [SINGLE_LABEL]. Every pack, including packs added later,
  * is [ProductIds.ALL_PACKS] at [ALL_LABEL]. A theme that applies several locked packs is one
  * purchase: [SINGLE_CENTS] for the first pack and [STEP_CENTS] for each further pack
- * ($0.99, $1.99, $2.99, …). From [ALL_FROM] packs that sum reaches [ALL_LABEL], so Apply buys
- * [ProductIds.ALL_PACKS] instead. Each bundle size has [SLOTS] products so the same size can be
+ * ($0.99, $1.99, $2.99, …). From [ALL_FROM] packs that sum reaches [ALL_LABEL] ($19.99), so Apply
+ * buys [ProductIds.ALL_PACKS] instead. Each bundle size has [SLOTS] products so the same size can be
  * bought again for a different set of packs; a purchase is not consumed, and the pack ids travel
  * with it ([BundleGrant]), so those packs stay unlocked after a reinstall.
  */
@@ -19,7 +19,7 @@ object PackPricing {
     const val SINGLE_CENTS = 99
     const val STEP_CENTS = 100
     const val SINGLE_LABEL = "$0.99"
-    const val ALL_LABEL = "$9.99"
+    const val ALL_LABEL = "$19.99"
 
     /** How many times one bundle size can be bought. */
     const val SLOTS = 4
@@ -28,7 +28,7 @@ object PackPricing {
      * A bundle of this many locked packs costs the same as [ALL_LABEL], so Apply buys
      * [ProductIds.ALL_PACKS] and every pack unlocks.
      */
-    const val ALL_FROM = 10
+    const val ALL_FROM = 20
 
     /** Cents for [count] locked packs, before the [ALL_FROM] cap. */
     fun cents(count: Int): Int {

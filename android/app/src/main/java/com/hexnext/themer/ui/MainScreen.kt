@@ -829,6 +829,7 @@ internal fun PackCard(
             onDownload = onDownload,
             onPreview = onPreviewCatalogue ?: onDownload,
             onUnlock = onUnlock,
+            onUninstall = { confirmDelete = it },
         )
         val chosen = selectedPack
         if (chosen != null) {

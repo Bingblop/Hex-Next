@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +50,7 @@ import com.hexnext.themer.theme.InstalledPack
  * Every extra pack in one menu, instead of a row per pack. A pack that is not on the phone yet
  * has a download icon (locked packs included, so they can be previewed). Once it is downloaded
  * and still locked, that icon becomes a lock; tapping the lock opens Play billing for the pack.
+ * An installed pack also has an uninstall icon, which asks before deleting the pack file.
  * Tapping the name selects the pack, downloading it first when it is not on the phone.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +65,7 @@ internal fun PackPicker(
     onDownload: (CatalogueEntry) -> Unit,
     onPreview: (CatalogueEntry) -> Unit,
     onUnlock: (String) -> Unit,
+    onUninstall: (String) -> Unit,
 ) {
     val tap = rememberHapticTap()
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -196,35 +199,50 @@ internal fun PackPicker(
                                 maxLines = 1,
                             )
                         }
-                        when {
-                            progress != null -> LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.width(56.dp).padding(end = 12.dp),
-                            )
-                            !row.onPhone && row.entry != null -> IconButton(
-                                onClick = {
-                                    tap()
-                                    onDownload(row.entry)
-                                },
-                                enabled = !busy,
-                                modifier = Modifier.semantics { contentDescription = "Download ${row.name}" },
-                            ) {
-                                Icon(painterResource(R.drawable.hx_glyph_myfiles_downloads), contentDescription = null)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            when {
+                                progress != null -> LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.width(56.dp).padding(end = 12.dp),
+                                )
+                                !row.onPhone && row.entry != null -> IconButton(
+                                    onClick = {
+                                        tap()
+                                        onDownload(row.entry)
+                                    },
+                                    enabled = !busy,
+                                    modifier = Modifier.semantics { contentDescription = "Download ${row.name}" },
+                                ) {
+                                    Icon(painterResource(R.drawable.hx_glyph_myfiles_downloads), contentDescription = null)
+                                }
+                                row.onPhone && row.locked && locks.canPurchase -> IconButton(
+                                    onClick = {
+                                        tap()
+                                        onUnlock(ProductIds.forPack(row.id))
+                                    },
+                                    enabled = !busy && !locks.pending(row.id),
+                                    modifier = Modifier.semantics {
+                                        contentDescription = "Unlock ${row.name} for ${locks.singlePrice(row.id)}"
+                                    },
+                                ) {
+                                    if (locks.pending(row.id)) {
+                                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Icon(Icons.Outlined.Lock, contentDescription = null)
+                                    }
+                                }
                             }
-                            row.onPhone && row.locked && locks.canPurchase -> IconButton(
-                                onClick = {
-                                    tap()
-                                    onUnlock(ProductIds.forPack(row.id))
-                                },
-                                enabled = !busy && !locks.pending(row.id),
-                                modifier = Modifier.semantics {
-                                    contentDescription = "Unlock ${row.name} for ${locks.singlePrice(row.id)}"
-                                },
-                            ) {
-                                if (locks.pending(row.id)) {
-                                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Icon(Icons.Outlined.Lock, contentDescription = null)
+                            if (row.onPhone && progress == null) {
+                                IconButton(
+                                    onClick = {
+                                        tap()
+                                        expanded = false
+                                        onUninstall(row.installed?.id ?: row.id)
+                                    },
+                                    enabled = !busy,
+                                    modifier = Modifier.semantics { contentDescription = "Uninstall ${row.name}" },
+                                ) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = null)
                                 }
                             }
                         }

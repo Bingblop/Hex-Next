@@ -33,6 +33,28 @@ class BundleGrantTest {
     }
 
     @Test
+    fun nineteenPacksRoundTripWhenTheNamesDoNotFit() {
+        val ids = listOf(
+            "ametrine", "carnelian", "cerussite", "charoite", "chrysocolla", "cordierite",
+            "covellite", "diopside", "erythrite", "fayalite", "indicolite", "kornerupine",
+            "lepidolite", "morganite", "pectolite", "scolecite", "variscite", "wavellite", "willemite",
+        )
+        val fields = BundleGrant.fields(ids)
+        assertTrue(fields.profile.startsWith("~"))
+        assertTrue(fields.profile.length <= BundleGrant.MAX_FIELD)
+        assertTrue(fields.account.length <= BundleGrant.MAX_FIELD)
+        assertEquals(ids.toSet(), BundleGrant.decode(fields.profile, fields.account))
+    }
+
+    @Test
+    fun theBitOrderCoversEveryCataloguePackAndStaysAppendOnly() {
+        assertEquals(PaidPacks.IDS, BundleGrant.ORDER.toSet())
+        assertEquals(BundleGrant.ORDER.distinct(), BundleGrant.ORDER)
+        assertEquals("agate", BundleGrant.ORDER.first())
+        assertEquals("zoisite", BundleGrant.ORDER.last())
+    }
+
+    @Test
     fun oddTokensAreIgnored() {
         assertEquals(setOf("iolite"), BundleGrant.decode("iolite,not a pack", " "))
         assertEquals(emptySet<String>(), BundleGrant.limit(emptyList(), 2))

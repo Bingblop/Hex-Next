@@ -14,12 +14,13 @@ class PackPricingTest {
         assertEquals("$0.99", PackPricing.label(1))
         assertEquals("$1.99", PackPricing.label(2))
         assertEquals("$2.99", PackPricing.label(3))
-        assertEquals("$9.99", PackPricing.ALL_LABEL)
+        assertEquals("$19.99", PackPricing.ALL_LABEL)
     }
 
     @Test
-    fun tenPacksCostTheSameAsUnlockingEveryPack() {
-        assertEquals(999, PackPricing.cents(PackPricing.ALL_FROM))
+    fun twentyPacksCostTheSameAsUnlockingEveryPack() {
+        assertEquals("$18.99", PackPricing.label(19))
+        assertEquals(1999, PackPricing.cents(PackPricing.ALL_FROM))
         assertEquals(
             PackPricing.ALL_LABEL,
             PackPricing.labelForOffer(PackPricing.ALL_FROM, emptyMap(), null),
@@ -32,7 +33,9 @@ class PackPricingTest {
         assertEquals(2, PackPricing.countOf("packs_2"))
         assertEquals(3, PackPricing.countOf("packs_3_4"))
         assertNull(PackPricing.countOf("pack_iolite"))
-        assertNull(PackPricing.countOf("packs_10"))
+        assertEquals(10, PackPricing.countOf("packs_10"))
+        assertEquals(19, PackPricing.countOf("packs_19"))
+        assertNull(PackPricing.countOf("packs_20"))
         assertNull(PackPricing.countOf("packs_2_5"))
     }
 
