@@ -3,6 +3,8 @@
 
     <!-- BootReceiver records each boot id for the boot-loop safe mode (safety/ApplyGuard). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Only for "Theme restored" after a restart (theme/RestoreNotice); never required. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Theme pack catalogue downloads (theme/PackStore). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -19,6 +21,7 @@
     <!-- dataExtractionRules keeps the encrypted AI provider keys and the device-specific
          scan, reports, packs and apply-guard state out of backups and transfers. -->
     <application
+        android:name=".HexNextApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:largeHeap="true"

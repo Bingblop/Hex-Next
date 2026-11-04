@@ -814,8 +814,10 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         // and its banner back on every start. A safe mode that tripped during this apply is kept.
         val endsSafeMode = report.success && guard.safeModeAt.let { it == 0L || it < report.startedAt }
         if (endsSafeMode && guard.safeModeActive()) guard.dismissSafeMode()
-        // A theme that applied is backed up to the chosen folder (no-op without one).
+        // A theme that applied is remembered, so it comes back by itself after a restart
+        // ([com.hexnext.themer.theme.ThemeRestorer]), and backed up to the chosen folder.
         if (report.success) {
+            com.hexnext.themer.theme.ThemeRestorer.rememberApplied(getApplication(), spec)
             val backup = com.hexnext.themer.theme.AutoBackup.get(getApplication())
             if (backup.state.value.folder != null) {
                 val ok = backup.backUp { out -> com.hexnext.themer.theme.ThemeBackup.write(getApplication(), spec, appSettings.exportJson(), out) }
@@ -1915,6 +1917,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         // The saved report would otherwise come back as "Applied to N apps" on the next start
         // (and in Diagnostics) although nothing is applied any more.
         if (ok) runCatching { ThemeApplier.reportFile(getApplication<Application>()).delete() }
+        if (ok) com.hexnext.themer.theme.ThemeRestorer.forget(getApplication())
         // A failed remove keeps the report (overlays may still be on), so the card keeps its line.
         _ui.update { it.copy(lastApply = if (ok) null else it.lastApply, applyUnconfirmed = !guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
         if (ok) {

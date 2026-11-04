@@ -276,6 +276,29 @@ step_fabtest() {
   root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/fabtest.txt" 2>&1
 }
 
+step_shizuku() { restart_shizuku; }
+
+# Waits (up to 10 min) for Hex Next to put its overlays back by itself after a restart
+# (ThemeRestorer), logging how long it took.
+step_waitrestore() {
+  local waited=0 n=0
+  log "waiting for Hex Next to restore the theme"
+  while [ $waited -lt 600 ]; do
+    n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
+    [ "$n" -gt 0 ] && break
+    sleep 10; waited=$((waited + 10))
+  done
+  # The overlays appear one app at a time: let the restore finish.
+  local last=-1
+  while [ $waited -lt 900 ] && [ "$n" != "$last" ]; do
+    last=$n; sleep 30; waited=$((waited + 30))
+    n=$(root "cmd overlay list --user 0" | grep -c ':HexNext_')
+  done
+  log "restore: $n Hex Next overlays after ${waited}s"
+  echo "$n overlays after ${waited}s" >"$RES/restore.txt"
+  root "logcat -d -s HexNextRestore" >>"$RES/restore.txt" 2>&1
+}
+
 step_wait() { log "wait 180 s"; sleep 180; }
 
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
@@ -374,7 +397,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
