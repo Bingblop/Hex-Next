@@ -97,7 +97,27 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
             # so an overridden colour is a literal where Samsung's own is often a reference (@… ->).
             themed = [("HexNext_" in v) or (":color/" in name and "->" not in v and "frro" not in v) for v in values]
             verdict(f"{name} themed", all(themed), values[-1][:90])
+    lines.extend(mode_warnings(res))
     return ok, lines
+
+
+def mode_warnings(res: Path) -> list[str]:
+    """Apps whose light-mode screenshot is still dark: set to Dark in their own settings rather than
+    following the system, so their light previews cannot be compared. Warnings, not failures."""
+    try:
+        from PIL import Image, ImageStat
+    except ImportError:
+        return []
+    out = []
+    for light in sorted((res / "shots").glob("light-real-app-*.jpg")):
+        dark = light.with_name(light.name.replace("light-", "dark-", 1))
+        if not dark.exists():
+            continue
+        lum = [ImageStat.Stat(Image.open(f).convert("L")).mean[0] for f in (light, dark)]
+        if lum[0] < 90 and lum[0] - lum[1] < 25:
+            pkg = light.stem.removeprefix("light-real-app-")
+            out.append(f"- warn: {pkg} stays dark in light mode (its own theme setting is not System default?)")
+    return out
 
 
 def main() -> int:
