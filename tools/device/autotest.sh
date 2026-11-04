@@ -423,6 +423,24 @@ step_lookup() {
   done >"$RES/lookup-$n.txt"
 }
 
+# The resource table of each app in the job's "arsc" list (gzipped, arsc/<pkg>.arsc.gz), to see
+# which colours and drawables an app outside the targets (Gmail, Gboard) exposes. Split APKs: the
+# base APK only.
+step_arsc() {
+  local pkg apk
+  mkdir -p "$RES/arsc"
+  jq -r '.arsc // [] | .[]' "$JOB" | while read -r pkg; do
+    case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    apk=$(root "pm path $pkg" | sed -n 's/^package://p' | grep -m1 'base.apk')
+    [ -n "$apk" ] || { log "arsc: $pkg not installed"; continue; }
+    root "cat '$apk'" >"$HOME/.hexnext-arsc.apk" 2>/dev/null
+    unzip -p "$HOME/.hexnext-arsc.apk" resources.arsc 2>/dev/null | gzip -9 >"$RES/arsc/$pkg.arsc.gz"
+    root "dumpsys package $pkg" 2>/dev/null | grep -m3 -E 'versionName|versionCode' >"$RES/arsc/$pkg.version.txt"
+    rm -f "$HOME/.hexnext-arsc.apk"
+    log "arsc: $pkg $(du -k "$RES/arsc/$pkg.arsc.gz" | cut -f1) KB"
+  done
+}
+
 step_wait() { log "wait 180 s"; sleep 180; }
 
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
@@ -524,7 +542,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
