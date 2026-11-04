@@ -21,7 +21,35 @@
     "com.samsung.android.app.reminder"
   ],
   "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
+  "drawableCopies": {
+    "drawable/textinput_qwerty_btn": ["drawable/key_bg", "drawable/normal_key_background_image_open_theme", "drawable/number_key_background_image_open_theme"],
+    "drawable/textinput_qwerty_btn_light": ["drawable/function_key_background_image_open_theme"],
+    "drawable/textinput_qwerty_btn_pressed": ["drawable/key_pressed_background_image_open_theme"],
+    "drawable/0bg": ["drawable/keyboard_background_image", "drawable/keyboard_background_image_open_theme"],
+    "drawable/0preview_bg": ["drawable/preview_bg", "drawable/preview_bubble_background_image_open_theme"],
+    "drawable/tw_ic_do_poweroff": ["drawable/ic_global_actions_power_off", "drawable/ic_deviceoption_poweroff"],
+    "drawable/tw_ic_do_restart": ["drawable/ic_global_actions_restart", "drawable/ic_deviceoption_restart"],
+    "drawable/tw_ic_do_emergencymode": ["drawable/ic_global_actions_emergency"],
+    "drawable/tw_ic_do_lockdown": ["drawable/ic_global_actions_lockdown"],
+    "drawable/dialog_": [
+      "drawable/sesl_dialog_background",
+      "drawable/dialog_background_material",
+      "drawable/sec_dialog_background"
+    ],
+    "drawable/popup_": [
+      "drawable/sesl_menu_popup_background",
+      "drawable/sesl_menu_popup_background_dark",
+      "drawable/popup_background_material",
+      "drawable/sem_popup_background_material",
+      "drawable/sem_popup_background_material_dark",
+      "drawable/sem_list_popup_background_material",
+      "drawable/sem_list_popup_background_material_dark",
+      "drawable/sem_spinner_popup_background_material",
+      "drawable/sem_spinner_popup_background_material_dark"
+    ]
+  },
   "quickSettings": {
+    "outsideDrawables": ["drawable/sec_ic_wifi_signal_*", "drawable/stat_sys_*", "drawable/tw_ic_do_poweroff", "drawable/tw_ic_do_restart", "drawable/tw_ic_do_emergencymode", "drawable/tw_ic_do_emergencysos", "drawable/tw_ic_do_medicalinfo", "drawable/tw_ic_do_lockdown", "drawable/tw_ic_do_safemode", "drawable/tw_ic_do_mobiledata", "drawable/ic_global_actions_power_off", "drawable/ic_global_actions_restart", "drawable/ic_global_actions_emergency", "drawable/ic_global_actions_lockdown", "drawable/ic_deviceoption_poweroff", "drawable/ic_deviceoption_restart"],
     "layout": "oneui8",
     "colours": [],
     "drawablesAllowed": false
@@ -124,6 +152,12 @@
         "keyboard_bg": [
           "^(?!.*(text|label|symbol|icon|hint|(^|_)keys?(_|$)|btn|button|stroke)).*(background|(^|_)bg(_|$)|bgcolor|board|window|panel|toolbar|candidate)"
         ]
+      },
+      "exact": {
+        "keyboard_bg": ["keyboard_background", "keyboard_background_dark", "keyboard_background_light", "keyboard_background_dark_solid", "keyboard_background_light_solid", "keyboard_background_color_open_theme"],
+        "keyboard_key": ["text_key_background", "text_key_background_dark", "text_key_background_light", "text_key_background_dark_solid", "text_key_background_light_solid", "number_key_background_dark", "number_key_background_light", "normal_key_background_color_open_theme"],
+        "keyboard_function_key": ["function_key_background", "function_key_background_dark", "function_key_background_light", "function_key_background_dark_solid", "function_key_background_light_solid", "function_key_background_color_open_theme"],
+        "keyboard_label": ["text_key_main_label", "text_key_main_label_dark", "text_key_main_label_light", "text_key_main_label_dark_solid", "text_key_main_label_light_solid", "function_key_main_label", "function_key_main_label_dark", "function_key_main_label_light", "function_key_main_label_dark_solid", "function_key_main_label_light_solid", "text_key_secondary_label", "text_key_secondary_label_dark", "text_key_secondary_label_light", "text_key_secondary_label_dark_solid", "text_key_secondary_label_light_solid", "function_key_secondary_label", "function_key_secondary_label_dark", "function_key_secondary_label_light", "function_key_secondary_label_dark_solid", "function_key_secondary_label_light_solid"]
       },
       "remap": {
         "background": "keyboard_bg",

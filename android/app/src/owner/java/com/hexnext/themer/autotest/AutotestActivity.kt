@@ -172,12 +172,13 @@ class AutotestActivity : ComponentActivity() {
                     done(cmd, report != null, report?.let { "${it.model} ${it.oneUiVersion}" } ?: "no report")
                 }
                 "apply" -> {
-                    main.awaitReadyToApply()
                     val asked = System.currentTimeMillis()
+                    main.awaitReadyToApply()
                     main.applyTheme()
                     awaitIdle { main.ui.value.busy }
-                    // An earlier report is not this apply's (Apply refused, or never started).
-                    val report = main.ui.value.lastApply?.takeIf { it.startedAt >= asked - 1_000 }
+                    // The saved report, not the screen state (lab-020/022 read a stale one): an
+                    // apply that started before this command is not this apply's.
+                    val report = (savedReport() ?: main.ui.value.lastApply)?.takeIf { it.startedAt >= asked - 1_000 }
                     val ok = report?.success == true
                     // What the Editor log showed (a refusal says why there).
                     runCatching { File(outDir, "apply-ui-log.txt").writeText(main.log.value.joinToString("\n") { "${it.level} ${it.text}" }) }
@@ -211,6 +212,10 @@ class AutotestActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun savedReport(): com.hexnext.engine.compile.ApplyReport? = runCatching {
+        com.hexnext.engine.compile.ApplyReport.fromJson(com.hexnext.themer.theme.ThemeApplier.reportFile(this).readText())
+    }.getOrNull()
 
     private fun done(cmd: String, ok: Boolean, detail: String) {
         val json = JSONObject().put("cmd", cmd).put("ok", ok).put("detail", detail).put("at", System.currentTimeMillis())
