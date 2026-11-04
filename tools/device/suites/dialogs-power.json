@@ -1,0 +1,32 @@
+{
+  "about": "Pack dialog, popup and power menu art.",
+  "steps": [
+    "install",
+    "scan",
+    "apply",
+    "lookup",
+    "capture"
+  ],
+  "confirm": true,
+  "modes": [
+    "dark"
+  ],
+  "captures": [
+    "dialogs",
+    "power"
+  ],
+  "lookups": [
+    "com.android.settings:drawable/sesl_dialog_background",
+    "android:drawable/dialog_background_material",
+    "com.android.systemui:drawable/tw_ic_do_poweroff",
+    "com.android.systemui:drawable/tw_ic_do_restart"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "no_crash": true,
+    "overridden": [
+      "com.android.settings:drawable/sesl_dialog_background",
+      "com.android.systemui:drawable/tw_ic_do_poweroff"
+    ]
+  }
+}

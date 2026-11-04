@@ -55,6 +55,21 @@ import java.io.File
  *  - `remove`: turns the Hex Next theme off. Writes `autotest/remove.done`.
  * Each `.done` file is JSON with `ok` and `detail`; the runner deletes it before each command.
  */
+/**
+ * The running command outlives its screen: an apply that changes the framework overlay makes
+ * Android relaunch the activity (CONFIG_ASSETS_PATHS), which cancelled a lifecycleScope command and
+ * ran it again from the same intent, over and over (device lab, lab-019/023: 14-minute applies).
+ */
+private object AutotestWork {
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
+    var current: java.lang.ref.WeakReference<AutotestActivity>? = null
+    var job: kotlinx.coroutines.Job? = null
+
+    fun finishCurrent() {
+        current?.get()?.finish()
+    }
+}
+
 class AutotestActivity : ComponentActivity() {
 
     private val main: MainViewModel by viewModels()
@@ -74,6 +89,12 @@ class AutotestActivity : ComponentActivity() {
             return
         }
         ShizukuManager.init()
+        AutotestWork.current = java.lang.ref.WeakReference(this)
+        // Relaunched by a configuration change while the command still runs: only show it again.
+        if (savedInstanceState != null && AutotestWork.job?.isActive == true) {
+            if (cmd != "preview") showStatus(cmd)
+            return
+        }
         when (cmd) {
             "preview" -> showPreview()
             "scan", "apply", "remove" -> runServiceCommand(cmd)
@@ -90,7 +111,7 @@ class AutotestActivity : ComponentActivity() {
      * when it is not on the phone, as the Skins gallery does. Writes `autotest/pack.done`.
      */
     private fun selectPack(id: String) {
-        lifecycleScope.launch {
+        AutotestWork.job = AutotestWork.scope.launch {
             main.awaitReadyToApply()
             if (main.ui.value.packs.none { it.id == id }) {
                 main.loadCatalogue()
@@ -99,7 +120,7 @@ class AutotestActivity : ComponentActivity() {
                 }?.catalogue?.entries?.firstOrNull { it.id == id }
                 if (entry == null) {
                     done("pack", false, "pack $id not in the catalogue (${main.ui.value.catalogue.error})")
-                    finish()
+                    AutotestWork.finishCurrent()
                     return@launch
                 }
                 main.downloadPack(entry, selectWhenDone = true)
@@ -110,7 +131,7 @@ class AutotestActivity : ComponentActivity() {
             delay(1_500)
             val ok = main.ui.value.spec.simplePackId == id
             done("pack", ok, "selected=${main.ui.value.spec.simplePackId}")
-            finish()
+            AutotestWork.finishCurrent()
         }
     }
 
@@ -144,8 +165,8 @@ class AutotestActivity : ComponentActivity() {
         }
     }
 
-    private fun runServiceCommand(cmd: String) {
-        // A plain status screen, so the phone does not look frozen during a long scan or apply.
+    /** A plain status screen, so the phone does not look frozen during a long scan or apply. */
+    private fun showStatus(cmd: String) {
         setContent {
             Box(Modifier.fillMaxSize().background(Color(0xFF0B1220)), contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Text(
@@ -155,12 +176,16 @@ class AutotestActivity : ComponentActivity() {
                 )
             }
         }
-        lifecycleScope.launch {
+    }
+
+    private fun runServiceCommand(cmd: String) {
+        showStatus(cmd)
+        AutotestWork.job = AutotestWork.scope.launch {
             // Shizuku hands over its binder shortly after start; the startup safety check runs too.
             val ready = withTimeoutOrNull(60_000) { ShizukuManager.state.first { it is ShizukuState.Ready } }
             if (ready == null) {
                 done(cmd, false, "Shizuku not ready: ${ShizukuManager.state.value}")
-                finish()
+                AutotestWork.finishCurrent()
                 return@launch
             }
             withTimeoutOrNull(120_000) { ServiceTasks.running.first { it == null } }
@@ -172,12 +197,13 @@ class AutotestActivity : ComponentActivity() {
                     done(cmd, report != null, report?.let { "${it.model} ${it.oneUiVersion}" } ?: "no report")
                 }
                 "apply" -> {
-                    main.awaitReadyToApply()
                     val asked = System.currentTimeMillis()
+                    main.awaitReadyToApply()
                     main.applyTheme()
                     awaitIdle { main.ui.value.busy }
-                    // An earlier report is not this apply's (Apply refused, or never started).
-                    val report = main.ui.value.lastApply?.takeIf { it.startedAt >= asked - 1_000 }
+                    // The saved report, not the screen state (lab-020/022 read a stale one): an
+                    // apply that started before this command is not this apply's.
+                    val report = (savedReport() ?: main.ui.value.lastApply)?.takeIf { it.startedAt >= asked - 1_000 }
                     val ok = report?.success == true
                     // What the Editor log showed (a refusal says why there).
                     runCatching { File(outDir, "apply-ui-log.txt").writeText(main.log.value.joinToString("\n") { "${it.level} ${it.text}" }) }
@@ -190,7 +216,7 @@ class AutotestActivity : ComponentActivity() {
                     done(cmd, true, "removed")
                 }
             }
-            finish()
+            AutotestWork.finishCurrent()
         }
     }
 
@@ -211,6 +237,10 @@ class AutotestActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun savedReport(): com.hexnext.engine.compile.ApplyReport? = runCatching {
+        com.hexnext.engine.compile.ApplyReport.fromJson(com.hexnext.themer.theme.ThemeApplier.reportFile(this).readText())
+    }.getOrNull()
 
     private fun done(cmd: String, ok: Boolean, detail: String) {
         val json = JSONObject().put("cmd", cmd).put("ok", ok).put("detail", detail).put("at", System.currentTimeMillis())

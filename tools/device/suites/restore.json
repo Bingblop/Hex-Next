@@ -1,0 +1,33 @@
+{
+  "about": "Theme survives a soft reboot: Hex Next restores it by itself (needs a soft reboot; only when testing restore).",
+  "steps": [
+    "install",
+    "scan",
+    "apply",
+    "softreboot",
+    "shizuku",
+    "waitrestore",
+    "overlaystate",
+    "lookup",
+    "capture"
+  ],
+  "confirm": true,
+  "modes": [
+    "dark"
+  ],
+  "captures": [
+    "settings",
+    "qs"
+  ],
+  "lookups": [
+    "com.android.settings:drawable/sesl_dialog_background"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "restore_finished": true,
+    "no_crash": true,
+    "overridden": [
+      "com.android.settings:drawable/sesl_dialog_background"
+    ]
+  }
+}

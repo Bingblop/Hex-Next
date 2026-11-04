@@ -1,0 +1,32 @@
+{
+  "about": "Apply the stored theme and compare every preview with the phone, light and dark.",
+  "steps": [
+    "install",
+    "scan",
+    "apply",
+    "lookup",
+    "capture"
+  ],
+  "confirm": true,
+  "modes": [
+    "dark",
+    "light"
+  ],
+  "captures": [
+    "settings",
+    "qs",
+    "shade",
+    "power",
+    "myfiles",
+    "dialer",
+    "dialogs",
+    "keyboard"
+  ],
+  "lookups": [
+    "android:color/system_accent1_600"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "no_crash": true
+  }
+}
