@@ -365,7 +365,7 @@ internal fun StudioPage(
     preview: PreviewModel,
     onElementTap: (ColorGroup) -> Unit,
     wide: Boolean,
-    canApply: Boolean,
+    applyBlockedReason: String?,
 ) {
     // "Describe your theme" may only pick packs this install can apply.
     val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
@@ -403,7 +403,7 @@ internal fun StudioPage(
                 }
             } else null,
             onApplyTheme = viewModel::applyTheme,
-            canApplyTheme = canApply,
+            applyBlockedReason = applyBlockedReason,
         )
     }
     val listState = rememberLazyListState()

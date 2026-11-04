@@ -81,7 +81,8 @@ import kotlinx.coroutines.launch
  * @param livePreview the phone preview with its tabs, shown inside the card while a chat is open;
  *   null where the host shows the phone beside the card already.
  * @param onApplyTheme applies the editor's theme to the phone.
- * @param canApplyTheme false without root or Shizuku, or while a locked pack is in the theme.
+ * @param applyBlockedReason why Apply theme is off (no root or Shizuku, or a locked pack in the
+ *   theme), shown under the button; null when the theme can be applied.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -94,7 +95,7 @@ fun DescribeThemeCard(
     onRestore: (ThemeSpec) -> Unit = {},
     livePreview: (@Composable () -> Unit)? = null,
     onApplyTheme: (() -> Unit)? = null,
-    canApplyTheme: Boolean = false,
+    applyBlockedReason: String? = null,
 ) {
     val keys = rememberAiKeyStore()
     val configured by keys.configured.collectAsStateWithLifecycle()
@@ -239,7 +240,7 @@ fun DescribeThemeCard(
                 packName = ThemeSuggester.matchPack(s.packStyle, packs)?.name,
                 applied = applied,
                 enabled = !busy && !working,
-                canApplyTheme = onApplyTheme != null && canApplyTheme,
+                applyBlockedReason = if (onApplyTheme == null) "Use Apply theme at the bottom." else applyBlockedReason,
                 onUseAgain = {
                     val newSpec = ThemeSuggester.toThemeSpec(s, spec, packs)
                     model.appliedSpec = newSpec
@@ -446,7 +447,7 @@ private fun SuggestionPreview(
     packName: String?,
     applied: Boolean,
     enabled: Boolean,
-    canApplyTheme: Boolean,
+    applyBlockedReason: String?,
     onUseAgain: () -> Unit,
     onApplyTheme: () -> Unit,
 ) {
@@ -488,14 +489,14 @@ private fun SuggestionPreview(
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             // The editor holds this theme already, so Apply theme applies exactly what the preview shows.
-            Button(onClick = onApplyTheme, enabled = enabled && applied && canApplyTheme) { Text("Apply theme") }
+            Button(onClick = onApplyTheme, enabled = enabled && applied && applyBlockedReason == null) { Text("Apply theme") }
             // Changed in the editor since (a colour picked by hand, another pack): put the AI theme back.
             if (!applied) OutlinedButton(onClick = onUseAgain, enabled = enabled) { Text("Use AI theme again") }
         }
         Text(
             when {
                 !applied -> "You changed the theme in the editor since. Apply theme at the bottom applies your changes, or put the AI theme back first."
-                !canApplyTheme -> "Connect root or Shizuku to apply. The preview above already shows the result."
+                applyBlockedReason != null -> applyBlockedReason
                 else -> "Apply theme puts exactly what the preview shows on your phone."
             },
             style = MaterialTheme.typography.bodySmall,

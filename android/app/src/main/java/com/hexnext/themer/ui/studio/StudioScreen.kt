@@ -433,7 +433,14 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             },
                         ) {
                             when (destination) {
-                                Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide, canApply = connected && previewOnlyPack == null)
+                                Destination.STUDIO -> StudioPage(
+                                    viewModel, ui, previewModel, onElementTap, wide,
+                                    applyBlockedReason = when {
+                                        !connected -> "Connect root or Shizuku to apply. The preview above already shows the result."
+                                        previewOnlyPack != null -> "Unlock ${ui.packDisplayName(previewOnlyPack)} to apply this theme. The preview above already shows the result."
+                                        else -> null
+                                    },
+                                )
                                 Destination.SKINS -> SkinsPage(
                                     viewModel = viewModel,
                                     ui = ui,
