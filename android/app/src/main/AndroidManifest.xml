@@ -10,6 +10,8 @@
     <!-- The theme restore after a restart runs as a foreground service (theme/RestoreService). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Keeps the CPU on while the restore runs (theme/RestoreService). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Package visibility (targetSdk 30+): lets "Open Shizuku" find the Shizuku manager's
          launch intent instead of falling back to the download page. -->

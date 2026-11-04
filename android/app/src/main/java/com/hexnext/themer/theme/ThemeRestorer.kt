@@ -93,6 +93,7 @@ object ThemeRestorer {
      * background app may not start a foreground service itself; the root shell always may.
      */
     private suspend fun startInForeground(app: Context) {
+        keepAwake(app)
         val direct = runCatching { app.startForegroundService(RestoreService.intent(app)) }
         if (direct.isSuccess) {
             Log.i(TAG, "Restore runs in the foreground service")
@@ -108,6 +109,26 @@ object ThemeRestorer {
             Log.w(TAG, "Root start of the restore service failed: ${out.trim()}; restoring without it")
             restoreIfNeeded(app)
         }
+    }
+
+    /**
+     * Samsung's background freezer (Freecess) stopped a restore in its foreground service about
+     * 100 s in (device lab, lab-020: the log ends mid-app, no crash; it went on when the app was
+     * opened). Through root: battery-optimisation whitelist, the active standby bucket and
+     * background running allowed. Best effort; each command may be missing on a build.
+     */
+    private suspend fun keepAwake(app: Context) {
+        val pkg = app.packageName
+        runCatching {
+            val service = ShizukuManager.service()
+            ExecOutput.fullText(
+                service,
+                service.exec(
+                    "cmd deviceidle whitelist +$pkg; am set-standby-bucket $pkg active; " +
+                        "cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow; cmd appops set $pkg RUN_IN_BACKGROUND allow",
+                ),
+            )
+        }.onFailure { Log.w(TAG, "Could not exempt the restore from background limits", it) }
     }
 
     private fun bootCount(context: Context): Int =

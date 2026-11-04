@@ -40,9 +40,15 @@ class RestoreService : Service() {
             return START_NOT_STICKY
         }
         running = true
+        val wake = runCatching {
+            getSystemService(android.os.PowerManager::class.java)
+                ?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "HexNext:restore")
+                ?.apply { acquire(15 * 60_000L) }
+        }.getOrNull()
         scope.launch {
             runCatching { ThemeRestorer.restoreIfNeeded(applicationContext) }
                 .onFailure { Log.w(TAG, "Restore failed", it) }
+            runCatching { if (wake?.isHeld == true) wake.release() }
             running = false
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()

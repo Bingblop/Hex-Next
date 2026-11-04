@@ -274,7 +274,8 @@ save_app_state() {
   root "cat $(app_dir)/reports/apply-last.json" >"$d/apply-last.json" 2>/dev/null
   root "cat $(app_dir)/autotest/apply-ui-log.txt" >"$d/apply-ui-log.txt" 2>/dev/null
   root "cat $(app_dir)/autotest/progress.txt" >"$d/progress.txt" 2>/dev/null
-  root "logcat -d -v time" 2>/dev/null | grep -iE "hexnext|AndroidRuntime|ActivityManager.*$PKG" | tail -3000 >"$d/app-logcat.txt"
+  root "logcat -d -v time" 2>/dev/null | grep -iE "hexnext|AndroidRuntime|ActivityManager.*$PKG|Freecess.*$PKG|ActivityManager.*(kill|froze|freez)" \
+    | grep -v "OverlayManager" | tail -8000 >"$d/app-logcat.txt"
   log=$(jq -r '.logFile // empty' "$d/apply-last.json" 2>/dev/null)
   case "$log" in /data/*) root "cat '$log'" >"$d/apply-log.txt" 2>/dev/null ;; esac
   find "$d" -type f -empty -delete 2>/dev/null
