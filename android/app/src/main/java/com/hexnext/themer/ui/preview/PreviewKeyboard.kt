@@ -140,12 +140,12 @@ private fun KeyboardArea(scope: PreviewScope) {
         KeyRow { for (c in KeyRows[0]) Key(c.toString(), scope, Modifier.weight(1f)) }
         KeyRow(Modifier.padding(horizontal = 12.dp)) { for (c in KeyRows[1]) Key(c.toString(), scope, Modifier.weight(1f)) }
         KeyRow {
-            Key("⇧", scope, Modifier.weight(1.5f))
+            Key("⇧", scope, Modifier.weight(1.5f), special = true)
             for (c in KeyRows[2]) Key(c.toString(), scope, Modifier.weight(1f))
-            Key("⌫", scope, Modifier.weight(1.5f))
+            Key("⌫", scope, Modifier.weight(1.5f), special = true)
         }
         KeyRow {
-            Key("!#1", scope, Modifier.weight(1.5f), size = 10.sp)
+            Key("!#1", scope, Modifier.weight(1.5f), size = 10.sp, special = true)
             Key(",", scope, Modifier.weight(1f))
             Key("English (US)", scope, Modifier.weight(4f), size = 9.5.sp)
             Key(".", scope, Modifier.weight(1f))
@@ -160,15 +160,17 @@ private fun KeyRow(modifier: Modifier = Modifier, content: @Composable RowScope.
 }
 
 @Composable
-private fun Key(label: String, scope: PreviewScope, modifier: Modifier = Modifier, size: TextUnit = 13.sp) {
-    val cap = scope[ColorGroup.KEYBOARD_KEY]
+private fun Key(label: String, scope: PreviewScope, modifier: Modifier = Modifier, size: TextUnit = 13.sp, special: Boolean = false) {
+    // Letters and the special keys (Shift, Backspace, symbols, Enter) are separate groups, and the
+    // labels on both are the "Keyboard letters" group, as Samsung Keyboard draws them.
+    val group = if (special) ColorGroup.KEYBOARD_FUNCTION_KEY else ColorGroup.KEYBOARD_KEY
     Box(
         modifier
             .height(36.dp)
-            .fill(ColorGroup.KEYBOARD_KEY, scope, RoundedCornerShape(8.dp)),
+            .fill(group, scope, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        PText(label, scope.text(cap), scope, size = size, align = TextAlign.Center)
+        PText(label, scope[ColorGroup.KEYBOARD_LABEL], scope, size = size, align = TextAlign.Center)
     }
 }
 
@@ -177,10 +179,10 @@ private fun EnterKey(scope: PreviewScope, modifier: Modifier = Modifier) {
     Box(
         modifier
             .height(36.dp)
-            .fill(ColorGroup.ACCENT, scope, RoundedCornerShape(8.dp)),
+            .fill(ColorGroup.KEYBOARD_FUNCTION_KEY, scope, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Filled.Done, contentDescription = null, tint = scope.on(ColorGroup.ACCENT), modifier = Modifier.size(18.dp))
+        Icon(Icons.Filled.Done, contentDescription = null, tint = scope[ColorGroup.KEYBOARD_LABEL], modifier = Modifier.size(18.dp))
     }
 }
 

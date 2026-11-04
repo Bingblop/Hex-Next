@@ -318,6 +318,12 @@
           "^(?!.*(text|label|symbol|icon|hint|(^|_)keys?(_|$)|btn|button|stroke)).*(background|(^|_)bg(_|$)|bgcolor|board|window|panel|toolbar|candidate)"
         ]
       },
+      "exact": {
+        "keyboard_bg": ["keyboard_background", "keyboard_background_dark", "keyboard_background_light", "keyboard_background_dark_solid", "keyboard_background_light_solid", "keyboard_background_color_open_theme"],
+        "keyboard_key": ["text_key_background", "text_key_background_dark", "text_key_background_light", "text_key_background_dark_solid", "text_key_background_light_solid", "number_key_background_dark", "number_key_background_light", "normal_key_background_color_open_theme"],
+        "keyboard_function_key": ["function_key_background", "function_key_background_dark", "function_key_background_light", "function_key_background_dark_solid", "function_key_background_light_solid", "function_key_background_color_open_theme"],
+        "keyboard_label": ["text_key_main_label", "text_key_main_label_dark", "text_key_main_label_light", "text_key_main_label_dark_solid", "text_key_main_label_light_solid", "function_key_main_label", "function_key_main_label_dark", "function_key_main_label_light", "function_key_main_label_dark_solid", "function_key_main_label_light_solid", "text_key_secondary_label", "text_key_secondary_label_dark", "text_key_secondary_label_light", "text_key_secondary_label_dark_solid", "text_key_secondary_label_light_solid", "function_key_secondary_label", "function_key_secondary_label_dark", "function_key_secondary_label_light", "function_key_secondary_label_dark_solid", "function_key_secondary_label_light_solid"]
+      },
       "remap": {
         "background": "keyboard_bg",
         "surface": "keyboard_key"

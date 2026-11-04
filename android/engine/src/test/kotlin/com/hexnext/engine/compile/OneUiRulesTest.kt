@@ -136,7 +136,7 @@ class OneUiRulesTest {
             val rules = OneUiRules.load(major)
             // Every group except the app-specific ones and the ink groups drawn on another group
             // (reached by device-verified exact names only) has generic name rules.
-            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN) +
+            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.KEYBOARD_FUNCTION_KEY, ColorGroup.KEYBOARD_LABEL, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN) +
                 ColorGroup.ALL.filter { it.contrastOn != null }
             assertEquals(ColorGroup.ALL.filterNot { it in appOnly }.map { it.id }.toSet(), rules.colorGroups.keys, "One UI $major")
             val patterns = rules.colorGroups.values.flatten() + rules.colorGroupFamilies.values.flatMap { it.groups.values.flatten() }

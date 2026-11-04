@@ -432,11 +432,18 @@ public object ThemeCompiler {
      */
     internal class TableColor(val typeName: String, val literals: Map<String, Int>, val exclusive: Boolean)
 
-    /** Literal colours of [table] (see [TableColor]), in table order. */
-    internal fun tableColors(table: ResourceTable): List<TableColor> {
+    /**
+     * Literal colours of [table] (see [TableColor]), in table order. A colour named in
+     * [followReferences] (lowercase names) whose value is a reference to another colour of the
+     * table counts with the colour it points to: Samsung Keyboard's colours are such aliases
+     * (`text_key_background_dark` → `@color/…`), so no literal-only pass ever reached them
+     * (device lab, lab-021: every key colour stayed stock).
+     */
+    internal fun tableColors(table: ResourceTable, followReferences: Set<String> = emptySet()): List<TableColor> {
         val out = ArrayList<TableColor>()
         for (entry in table.entries) {
             if (entry.type != "color") continue
+            val follow = followReferences.isNotEmpty() && entry.key.substringAfter('/').lowercase() in followReferences
             val literals = LinkedHashMap<String, Int>(2)
             var exclusive = true
             for (v in entry.values) {
@@ -446,6 +453,7 @@ public object ThemeCompiler {
                     else -> null
                 }
                 val argb = (v.value as? ResourceValue.Color)?.argb
+                    ?: if (follow && config != null) resolveColour(table, v.value, config == "night") else null
                 if (config == null || argb == null) {
                     exclusive = false
                     continue
@@ -455,6 +463,26 @@ public object ThemeCompiler {
             if (literals.isNotEmpty()) out += TableColor(entry.key, literals, exclusive)
         }
         return out
+    }
+
+    /** The literal colour [value] stands for in [table], through up to four references. */
+    private fun resolveColour(table: ResourceTable, value: ResourceValue?, night: Boolean): Int? {
+        var current = value
+        repeat(4) {
+            when (val v = current) {
+                is ResourceValue.Color -> return v.argb
+                is ResourceValue.Reference -> {
+                    if (v.attr) return null
+                    val target = table.findById(v.id) ?: return null
+                    val values = target.values
+                    val pick = (if (night) values.firstOrNull { it.resConfig.isNight && it.config in NIGHT_QUALIFIERS } else null)
+                        ?: values.firstOrNull { it.config.isEmpty() } ?: return null
+                    current = pick.value
+                }
+                else -> return null
+            }
+        }
+        return (current as? ResourceValue.Color)?.argb
     }
 
     /**
@@ -552,7 +580,7 @@ public object ThemeCompiler {
         val exactNames = rules.exactColourNames(pkg)
         if (table != null && (anyGroupSet || exactNames.isNotEmpty())) {
             val known = values.keys.mapTo(HashSet()) { it.first }
-            for (c in tableColors(table)) {
+            for (c in tableColors(table, exactNames)) {
                 if (!c.exclusive || c.typeName in known) continue
                 val name = c.typeName.substringAfter('/')
                 if (!anyGroupSet && name.lowercase() !in exactNames) continue

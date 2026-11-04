@@ -183,6 +183,7 @@ public object ColorGroupMatcher {
         ColorGroup.BACKGROUND, ColorGroup.SURFACE, ColorGroup.DIALOG, ColorGroup.SWITCH, ColorGroup.BUTTON,
         ColorGroup.SLIDER, ColorGroup.QS_PANEL_BG, ColorGroup.QS_TILE_ACTIVE, ColorGroup.QS_TILE_INACTIVE,
         ColorGroup.NOTIFICATION_BG, ColorGroup.SYSTEM_BARS, ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY,
+        ColorGroup.KEYBOARD_FUNCTION_KEY,
         ColorGroup.DIALER, ColorGroup.LOCK_SCREEN,
     )
 
@@ -274,6 +275,7 @@ public object ColorGroupMatcher {
         ColorGroup.QS_TILE_INACTIVE to Tone.NEUTRAL,
         ColorGroup.KEYBOARD_BG to Tone.NEUTRAL,
         ColorGroup.KEYBOARD_KEY to Tone.NEUTRAL,
+        ColorGroup.KEYBOARD_FUNCTION_KEY to Tone.NEUTRAL,
     )
 
     private val TONE_FOLLOWING: Set<ColorGroup> = setOf(

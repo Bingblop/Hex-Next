@@ -70,6 +70,14 @@ public enum class ColorGroup(
     DIALOG("dialog", "Dialogs and popups", "Dialogs, popup menus and bottom sheets", ColorGroupSection.SYSTEM, PaletteRole.NEUTRAL1, 10, 800),
     KEYBOARD_BG("keyboard_bg", "Keyboard background", "Samsung Keyboard backdrop", ColorGroupSection.APPS, PaletteRole.NEUTRAL2, 50, 900),
     KEYBOARD_KEY("keyboard_key", "Keyboard keys", "Samsung Keyboard key caps", ColorGroupSection.APPS, PaletteRole.NEUTRAL1, 10, 800),
+    KEYBOARD_FUNCTION_KEY(
+        "keyboard_function_key", "Keyboard special keys", "Backspace, Enter, Shift and symbols keys",
+        ColorGroupSection.APPS, PaletteRole.NEUTRAL2, 100, 900,
+    ),
+    KEYBOARD_LABEL(
+        "keyboard_label", "Keyboard letters", "Letters, numbers and symbols on the keys",
+        ColorGroupSection.APPS, PaletteRole.NEUTRAL1, 900, 10, contrastOn = KEYBOARD_KEY,
+    ),
     DIALER("dialer", "Dialer and in-call", "Phone dialpad, call buttons and the in-call screen", ColorGroupSection.APPS, PaletteRole.ACCENT1, 600, 200),
     LOCK_SCREEN("lock_screen", "Lock screen and AOD clock", "Lock screen and Always On Display clock and text", ColorGroupSection.SYSTEM, PaletteRole.ACCENT1, 100, 100),
     SYSTEM_BARS("system_bars", "Navigation and status bar", "Navigation bar and status bar backgrounds", ColorGroupSection.SYSTEM, PaletteRole.NEUTRAL1, 50, 900),
