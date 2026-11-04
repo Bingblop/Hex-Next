@@ -267,6 +267,15 @@ step_overlaystate() {
   root "pidof moe.shizuku.privileged.api shizuku_server; ps -A | grep -i shizuku" >"$d/shizuku.txt" 2>&1
 }
 
+# A minimal fabricated overlay made with Android's own shell command (owner com.android.shell,
+# never rewritten): shows whether any shell-owned fabricated overlay survives a soft reboot.
+step_fabtest() {
+  log "fabricate probe overlay"
+  root "cmd overlay fabricate --target android --name HexNextProbe android:color/system_accent1_10 0x1c 0xffff00ff" >"$RES/fabtest.txt" 2>&1
+  root "cmd overlay enable --user 0 com.android.shell:HexNextProbe" >>"$RES/fabtest.txt" 2>&1
+  root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/fabtest.txt" 2>&1
+}
+
 step_wait() { log "wait 180 s"; sleep 180; }
 
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
@@ -365,7 +374,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
