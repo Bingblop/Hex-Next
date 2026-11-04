@@ -267,30 +267,40 @@ repair_lab() {
     cd "$LAB" || exit 1
     git rebase --abort >/dev/null 2>&1; git merge --abort >/dev/null 2>&1
     git add -A results >/dev/null 2>&1
-    git commit -qm "Results kept by the runner" >/dev/null 2>&1
+    git diff --cached --quiet || git commit -qm "Results kept by the runner" >/dev/null 2>&1
+    # Results must be committed before anything is set aside; they are never stashed.
+    [ -z "$(git status --porcelain -- results)" ] || exit 1
     # Anything else changed in the checkout (never ours to keep) is set aside so the pull can run.
-    git stash push -u -q -m "set aside by the runner" >/dev/null 2>&1
+    git stash push -u -q -m "set aside by the runner" -- . ':(exclude)results' >/dev/null 2>&1
     if git pull -q --rebase 2>>"$HOME/.hexnext-lab-pull.err"; then git push -q >/dev/null 2>&1; exit 0; fi
     git rebase --abort >/dev/null 2>&1
     local backup="$HOME/hexnext-lab-backup-$(date +%Y%m%d-%H%M%S)"
-    cp -r results "$backup" && git fetch -q origin && git reset -q --hard origin/HEAD 2>/dev/null || git reset -q --hard origin/main
-    cp -rn "$backup"/. results/ 2>/dev/null
-    git add -A results && git commit -qm "Results restored by the runner" >/dev/null 2>&1
-    git push -q >/dev/null 2>&1
+    # Reset only once the backup exists and the remote is reachable.
+    cp -r results "$backup" || exit 1
+    git fetch -q origin 2>>"$HOME/.hexnext-lab-pull.err" || exit 1
+    git reset -q --hard origin/HEAD 2>/dev/null || git reset -q --hard origin/main || exit 1
+    # The runner's captures win over the remote copies.
+    cp -r "$backup"/. results/ || exit 1
+    git add -A results && { git diff --cached --quiet || git commit -qm "Results restored by the runner" >/dev/null 2>&1; }
+    git push -q >/dev/null 2>&1 || exit 1
     echo "reset to the lab repo; results backed up in $backup"
-  ) && log "lab repaired" || log "lab repair failed; see $HOME/.hexnext-lab-pull.err"
+  ) && log "lab repaired" || log "lab repair failed; results left in place; see $HOME/.hexnext-lab-pull.err"
+}
+
+# Commits need an identity; use the signed-in account's no-reply address when git has none.
+lab_identity() {
+  (cd "$LAB" && git var GIT_AUTHOR_IDENT >/dev/null 2>&1) && return
+  local login uid
+  login=$(gh api user --jq .login 2>/dev/null); uid=$(gh api user --jq .id 2>/dev/null)
+  [ -n "$login" ] && (cd "$LAB" && git config --local user.name "$login" && git config --local user.email "$uid+$login@users.noreply.github.com")
 }
 
 sync_lab() {
   if [ -d "$LAB/.git" ]; then
+    lab_identity
     (cd "$LAB" && git pull -q --rebase 2>"$HOME/.hexnext-lab-pull.err") || repair_lab
   else gh repo clone "$LAB_REPO" "$LAB" -- -q || { log "cannot clone $LAB_REPO"; exit 1; }; fi
-  # Commits need an identity; use the signed-in account's no-reply address when git has none.
-  if ! (cd "$LAB" && git var GIT_AUTHOR_IDENT >/dev/null 2>&1); then
-    local login uid
-    login=$(gh api user --jq .login 2>/dev/null); uid=$(gh api user --jq .id 2>/dev/null)
-    [ -n "$login" ] && (cd "$LAB" && git config --local user.name "$login" && git config --local user.email "$uid+$login@users.noreply.github.com")
-  fi
+  lab_identity
 }
 
 # Re-runs itself when the branch has a newer runner (the watcher then never needs a re-download).
