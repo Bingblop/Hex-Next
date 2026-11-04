@@ -93,9 +93,17 @@ class DeviceScanner(context: Context) {
         progress("Copying SemWT .frro files…")
         val frroCopied = copyFrros(service, frroPaths, File(scanDir, "frro"), errors)
 
+        // Disabled SemWT overlays count too when a mapping for them is remembered: an apply
+        // disables every SemWT overlay it takes over, so a scan after it saw only the 19 base
+        // packages and the next apply themed 17 apps instead of 58 (lab-006).
+        val knownDir = File(filesDir, KNOWN_SEMWT_DIR)
         val semWtTargets = (
             basePackages.map { it.pkg } +
-                overlays.filter { it.isSamsungWallpaperTheme && it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) }
+                overlays.filter { it.isSamsungWallpaperTheme && it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) } +
+                overlays.filter { it.isSamsungWallpaperTheme && !it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) }
+                    .filter { File(knownDir, "${sanitize(it)}.txt").isFile } +
+                (knownDir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }?.map { it.name.removeSuffix(".txt") }.orEmpty()
+                    .filter { it.contains('.') && !it.startsWith("SemWT_") })
             ).distinct()
         val semWt = semWtTargets.map { target ->
             progress("Dumping ${OneUi9Facts.semWtOverlayId(target)}…")

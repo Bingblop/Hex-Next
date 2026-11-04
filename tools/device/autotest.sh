@@ -19,6 +19,7 @@
 # successful run of Bingblop/Hex-Next whose artifact digest matches the job, and pm only updates
 # the owner build in place when it carries the same release key.
 set -u
+PHASE=""   # "after-" for the captures taken after a System UI restart (step restartui)
 LAB_REPO="${LAB_REPO:-Bingblop/hexnext-device-lab}"
 APP_REPO=Bingblop/Hex-Next
 # The only ref scripts are downloaded from before they run as root. A job's own "ref" is
@@ -179,24 +180,72 @@ step_dumps() {
   done
 }
 
+# Restarts System UI (not a reboot: Termux and the runner keep running), waits for it, and
+# captures every screen again as after-<mode>-…, to show what only lands after a restart.
+step_restartui() {
+  log "restart System UI"
+  root "pkill -f com.android.systemui" >/dev/null 2>&1
+  local waited=0
+  while [ $waited -lt 60 ]; do
+    sleep 3; waited=$((waited + 3))
+    root "pidof com.android.systemui" >/dev/null 2>&1 && break
+  done
+  sleep 12
+  PHASE="after-"; step_capture; PHASE=""
+}
+
+# Soft reboot (framework only: the kernel, and so KernelSU root, stays). Termux dies with the
+# framework, so a root helper outside the app processes does the restart, waits for System UI
+# and for the phone to be unlocked, then relaunches this runner (Termux RunCommandService) with
+# `resume`, which runs the job's remaining steps with captures named reboot-<mode>-….
+step_softreboot() {
+  local rest="$1" props="$HOME/.termux/termux.properties" helper=/data/local/tmp/hexnext-softreboot.sh
+  mkdir -p "$HOME/.termux"
+  grep -q '^allow-external-apps *= *true' "$props" 2>/dev/null || echo 'allow-external-apps = true' >>"$props"
+  printf '%s\n%s\n' "$JOB" "$rest" >"$HOME/.hexnext-resume"
+  log "soft reboot; remaining steps: $rest (unlock the phone when it comes back)"
+  ( cd "$LAB" && git add -A "results/$(jq -r .id "$JOB")" && git commit -qm "Before soft reboot" >/dev/null 2>&1 )
+  local me; me=$(readlink -f "$0" 2>/dev/null || echo "$0")
+  cat <<HELPER | su -c "cat > $helper && chmod 700 $helper"
+#!/system/bin/sh
+sleep 3
+setprop ctl.restart zygote
+i=0
+while [ \$i -lt 900 ]; do
+  sleep 5; i=\$((i + 5))
+  pidof com.android.systemui >/dev/null || continue
+  dumpsys window | grep -qE 'mDreamingLockscreen=true|isKeyguardShowing=true|mShowingLockscreen=true' && continue
+  break
+done
+sleep 15
+am start-foreground-service --user 0 -n com.termux/com.termux.app.RunCommandService -a com.termux.RUN_COMMAND \
+  --es com.termux.RUN_COMMAND_PATH /data/data/com.termux/files/usr/bin/bash \
+  --esa com.termux.RUN_COMMAND_ARGUMENTS "$me,resume" \
+  --es com.termux.RUN_COMMAND_WORKDIR /data/data/com.termux/files/home \
+  --ez com.termux.RUN_COMMAND_BACKGROUND false
+HELPER
+  su -c "nohup setsid sh $helper >/data/local/tmp/hexnext-softreboot.log 2>&1 &"
+  exit 0
+}
+
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
 
 # capture_real <what>: drives One UI to the screen and screenshots it.
 capture_real() {
   case "$1" in
-    settings) root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3; shot "$MODE-real-settings"
-              root "input swipe 540 1800 540 600 300"; sleep 1; shot "$MODE-real-settings-2" ;;
-    qs)       root "cmd statusbar expand-settings"; sleep 2; shot "$MODE-real-qs" ;;
+    settings) root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-settings"
+              root "input swipe 540 1800 540 600 300"; sleep 1; shot "$PHASE$MODE-real-settings-2" ;;
+    qs)       root "cmd statusbar expand-settings"; sleep 2; shot "$PHASE$MODE-real-qs" ;;
     shade)    root "cmd notification post -S bigtext -t 'Hex Next test' hexnext_lab 'Checks the notification card colours against the preview.'" >/dev/null 2>&1
-              root "cmd statusbar expand-notifications"; sleep 2; shot "$MODE-real-shade" ;;
+              root "cmd statusbar expand-notifications"; sleep 2; shot "$PHASE$MODE-real-shade" ;;
     power)    root "cmd statusbar expand-settings"; sleep 2
-              if tap_desc 'Power[^"]*|Power off[^"]*|Power menu'; then sleep 2; shot "$MODE-real-power"
+              if tap_desc 'Power[^"]*|Power off[^"]*|Power menu'; then sleep 2; shot "$PHASE$MODE-real-power"
               else log "power: no power button found in the quick panel"; fi
               # The power menu is a system dialog: back twice and close system dialogs, or it
               # stays over the preview hook that follows.
               root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" >/dev/null 2>&1 ;;
-    myfiles)  root "monkey -p com.sec.android.app.myfiles -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$MODE-real-myfiles" ;;
-    dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$MODE-real-dialer" ;;
+    myfiles)  root "monkey -p com.sec.android.app.myfiles -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-myfiles" ;;
+    dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
   esac
   home
 }
@@ -213,7 +262,7 @@ capture_preview() {
   for try in 1 2; do
     if hook preview --es tab "$tab" --ez dark "$dark" >>"$RES/hook.jsonl" &&
       root "dumpsys activity activities | grep -E 'topResumedActivity|mResumedActivity'" | grep -q AutotestActivity; then
-      shot "$MODE-preview-$1"; break
+      shot "$PHASE$MODE-preview-$1"; break
     fi
     log "preview $1: the hook was not on screen (try $try)"
     home; root "am force-stop $PKG"; sleep 2
@@ -260,10 +309,15 @@ run_job() {
   RES="$LAB/results/$id"; mkdir -p "$RES/shots" "$RES/ui"
   log "job $id"
   local started; started=$(date +%s)
-  local steps; steps=$(jq -r '(.steps // ["scan","apply","capture","collect"]) | join(" ")' "$JOB")
-  local failed=""
-  for s in $steps; do
-    case "$s" in install|theme|scan|apply|remove|capture|collect|dumps) "step_$s" || failed="$failed $s" ;; esac
+  local steps; steps=${2:-$(jq -r '(.steps // ["scan","apply","capture","collect"]) | join(" ")' "$JOB")}
+  local failed="" s rest
+  set -- $steps
+  while [ $# -gt 0 ]; do
+    s=$1; shift
+    case "$s" in
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui) "step_$s" || failed="$failed $s" ;;
+      softreboot) step_softreboot "$*" ;;
+    esac
     [ "$s" = install ] && [ -n "$failed" ] && break
   done
   jq -n --arg id "$id" --arg failed "${failed# }" --arg model "$(getprop ro.product.model)" \
@@ -345,8 +399,20 @@ case "${1:-watch}" in
     tmp="$HOME/.hexnext-local-job.json"
     echo "{\"id\":\"local-$(date +%Y%m%d-%H%M%S)\"}" >"$tmp"
     run_job "$tmp" ;;
+  resume)
+    # Back from a soft reboot: finish the saved job, then keep watching.
+    if [ -f "$HOME/.hexnext-resume" ]; then
+      job=$(sed -n 1p "$HOME/.hexnext-resume"); rest=$(sed -n 2p "$HOME/.hexnext-resume")
+      rm -f "$HOME/.hexnext-resume"
+      PHASE="reboot-"; log "resuming after soft reboot: $rest"
+      [ -f "$job" ] && run_job "$job" "$rest"
+      PHASE=""
+    fi
+    exec bash "$0" watch ;;
   once)  sync_lab; for j in $(pending_jobs); do run_job "$j"; done ;;
   watch)
+    # A soft reboot that has not been resumed yet (the watcher was started by hand first).
+    [ -f "$HOME/.hexnext-resume" ] && exec bash "$0" resume
     log "watching $LAB_REPO every ${POLL}s (Ctrl-C to stop)"
     while true; do
       self_update "$@"
