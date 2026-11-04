@@ -100,6 +100,36 @@ class AppSettingsStore private constructor(context: Context) {
     fun setReduceMotion(enabled: Boolean) = update { it.copy(reduceMotion = enabled) }
     fun setOnboardingDone(done: Boolean) = update { it.copy(onboardingDone = done) }
 
+    /** The settings as JSON, for a backup ([com.hexnext.themer.theme.ThemeBackup]). */
+    fun exportJson(): String {
+        val s = _settings.value
+        return org.json.JSONObject()
+            .put(KEY_THEME_MODE, s.themeMode.name)
+            .put(KEY_PALETTE, s.palette.name)
+            .put(KEY_SEED, s.seedArgb)
+            .put(KEY_PURE_BLACK, s.pureBlack)
+            .put(KEY_CONTRAST, s.contrast.name)
+            .put(KEY_HAPTICS, s.haptics)
+            .put(KEY_REDUCE_MOTION, s.reduceMotion)
+            .toString()
+    }
+
+    /** Restores settings written by [exportJson]; unknown or missing values keep their current value. */
+    fun importJson(json: String) {
+        val o = runCatching { org.json.JSONObject(json) }.getOrNull() ?: return
+        update { s ->
+            s.copy(
+                themeMode = enumOrDefault(o.optString(KEY_THEME_MODE, null), s.themeMode),
+                palette = enumOrDefault(o.optString(KEY_PALETTE, null), s.palette),
+                seedArgb = (if (o.has(KEY_SEED)) o.optInt(KEY_SEED) else s.seedArgb) or 0xFF000000.toInt(),
+                pureBlack = o.optBoolean(KEY_PURE_BLACK, s.pureBlack),
+                contrast = enumOrDefault(o.optString(KEY_CONTRAST, null), s.contrast),
+                haptics = o.optBoolean(KEY_HAPTICS, s.haptics),
+                reduceMotion = o.optBoolean(KEY_REDUCE_MOTION, s.reduceMotion),
+            )
+        }
+    }
+
     private fun read(): AppSettings {
         val defaults = AppSettings()
         return AppSettings(

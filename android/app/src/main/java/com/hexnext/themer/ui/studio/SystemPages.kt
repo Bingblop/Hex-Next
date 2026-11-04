@@ -408,6 +408,17 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
     val ready = shizuku as? ShizukuState.Ready
 
     var pendingImport by remember { mutableStateOf<EngineThemeSpec?>(null) }
+    var pendingRestore by remember { mutableStateOf<com.hexnext.themer.theme.ThemeBackup.Contents?>(null) }
+    val autoBackup by viewModel.autoBackup.collectAsStateWithLifecycle()
+    val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(com.hexnext.themer.theme.ThemeBackup.MIME)) { uri ->
+        if (uri != null) viewModel.backUpTo(uri)
+    }
+    val backupOpener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.readBackup(uri) { pendingRestore = it }
+    }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.setBackupFolder(uri)
+    }
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     var logFilter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
     val nameCommit = remember { NameCommit() }
@@ -463,6 +474,51 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                         },
                         modifier = Modifier.heightIn(min = 48.dp),
                     ) { Text("Copy JSON") }
+                }
+            }
+        }
+
+        item(key = "backup") {
+            StudioCard(
+                title = "Backup and restore",
+                subtitle = "One file with your theme, imported icons, fonts and backgrounds, app settings, and what Hex Next learned about this phone. " +
+                    "AI keys and purchases are never included; packs download again.",
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    FilledTonalButton(
+                        onClick = {
+                            nameCommit.flush?.invoke()
+                            backupSaver.launch(com.hexnext.themer.theme.ThemeBackup.fileName())
+                        },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text("Back up") }
+                    OutlinedButton(
+                        onClick = { backupOpener.launch(arrayOf("*/*")) },
+                        enabled = !ui.serviceBusy,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text("Restore") }
+                }
+                val folder = autoBackup.folderName
+                Text(
+                    when {
+                        folder == null -> "Automatic backups are off. Choose a folder and Hex Next backs up there after every successful apply, keeping the last ${com.hexnext.themer.theme.AutoBackup.KEEP_DATED} days."
+                        autoBackup.lastAt > 0 -> "Automatic backups go to \"$folder\" after every apply. Last: ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(autoBackup.lastAt))}."
+                        else -> "Automatic backups go to \"$folder\" after every apply."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                autoBackup.lastError?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(if (folder == null) "Choose folder" else "Change folder")
+                    }
+                    if (folder != null) {
+                        TextButton(onClick = { viewModel.backUpNow() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Back up now") }
+                        TextButton(onClick = { viewModel.clearBackupFolder() }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Turn off") }
+                    }
                 }
             }
         }
@@ -570,6 +626,28 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                 viewModel.importTheme(spec)
             },
             onDismiss = { pendingImport = null },
+        )
+    }
+    pendingRestore?.let { backup ->
+        val sum = backup.summary
+        val date = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(sum.createdAt))
+        ConfirmDialog(
+            title = "Restore this backup?",
+            text = buildString {
+                append("\"${sum.themeName.ifBlank { "Untitled" }}\" from $date (${sum.model}) replaces the theme you are editing")
+                if (sum.assets > 0) append(", and brings back ${sum.assets} imported file${if (sum.assets == 1) "" else "s"}")
+                append(". ")
+                if (sum.learnedMaps > 0) {
+                    append(if (sum.samePhone) "What Hex Next learned about this phone comes back too. " else "It was made on another phone, so Hex Next scans this one instead of using its phone data. ")
+                }
+                append("Your phone keeps its look until you apply.")
+            },
+            confirmLabel = "Restore",
+            onConfirm = {
+                pendingRestore = null
+                viewModel.restoreBackup(backup)
+            },
+            onDismiss = { pendingRestore = null },
         )
     }
     if (confirmRemove) {

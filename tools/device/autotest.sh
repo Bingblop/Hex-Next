@@ -79,6 +79,16 @@ tap_desc() {
   root "input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))"
 }
 
+# tap_text <regex>: taps the centre of the first node whose text matches.
+tap_text() {
+  local xml bounds
+  xml=$(root "uiautomator dump /data/local/tmp/hexnext-ui.xml >/dev/null 2>&1 && cat /data/local/tmp/hexnext-ui.xml" 2>/dev/null)
+  bounds=$(printf '%s' "$xml" | tr '>' '\n' | grep -E " text=\"($1)\"" | head -1 | sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p')
+  [ -n "$bounds" ] || return 1
+  set -- $bounds
+  root "input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 ))"
+}
+
 # ---- app hook -------------------------------------------------------------------------------
 # hook <cmd> [am extras...]: starts the owner build's test hook and waits for its .done file.
 hook() {
@@ -173,6 +183,10 @@ step_dumps() {
     root "cmd overlay dump android:$overlay" >"$RES/dumps/$overlay.txt" 2>&1
   done
   root "cmd overlay list --user 0" >"$RES/dumps/overlay-list.txt" 2>&1
+  # Every colour name each scanned app ships (small text lists), to find what paints dialogs.
+  mkdir -p "$RES/dumps/names"
+  root "cd $(app_dir)/scan && for d in */; do [ -f \"\$d/names-color.txt\" ] && cp \"\$d/names-color.txt\" \"/data/local/tmp/hexnext-names-\${d%/}.txt\"; done; true"
+  root "cd /data/local/tmp && tar -cf - hexnext-names-*.txt 2>/dev/null; rm -f hexnext-names-*.txt" | tar -xf - -C "$RES/dumps/names" 2>/dev/null
   root "settings get secure theme_customization_overlay_packages" >"$RES/dumps/theme_customization.txt" 2>&1
   local shade
   for shade in system_accent1_100 system_accent1_200 system_accent1_500 system_accent1_600 system_neutral1_900; do
@@ -245,6 +259,11 @@ capture_real() {
               # stays over the preview hook that follows.
               root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" >/dev/null 2>&1 ;;
     myfiles)  root "monkey -p com.sec.android.app.myfiles -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-myfiles" ;;
+    dialogs)  # A Settings alert dialog (App info > Force stop, cancelled) and a popup menu.
+              root "am start -W -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.android.chrome" >/dev/null 2>&1; sleep 3
+              if tap_text 'Force stop'; then sleep 2; shot "$PHASE$MODE-real-dialog"; tap_text 'Cancel' || root "input keyevent KEYCODE_BACK"; fi
+              root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
+              if tap_desc 'More options'; then sleep 2; shot "$PHASE$MODE-real-popup"; root "input keyevent KEYCODE_BACK"; fi ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
   esac
   home

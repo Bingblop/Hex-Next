@@ -814,6 +814,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         // and its banner back on every start. A safe mode that tripped during this apply is kept.
         val endsSafeMode = report.success && guard.safeModeAt.let { it == 0L || it < report.startedAt }
         if (endsSafeMode && guard.safeModeActive()) guard.dismissSafeMode()
+        // A theme that applied is backed up to the chosen folder (no-op without one).
+        if (report.success) {
+            val backup = com.hexnext.themer.theme.AutoBackup.get(getApplication())
+            if (backup.state.value.folder != null) {
+                val ok = backup.backUp { out -> com.hexnext.themer.theme.ThemeBackup.write(getApplication(), spec, appSettings.exportJson(), out) }
+                if (!ok) log(LogLine(LogLevel.WARN, "Automatic backup failed: ${backup.state.value.lastError}"))
+            }
+        }
         _ui.update {
             it.copy(
                 lastApply = report,
@@ -996,6 +1004,85 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         } else {
             log(LogLine(LogLevel.WARN, "Imported theme uses locked pack ${locked.joinToString()}; preview only until it is unlocked"))
             postNotice(lockedNotice(locked.first(), "Theme imported. Unlock ${packName(locked.first())} to apply it"))
+        }
+    }
+
+    // ---- System > Tools: backup and restore ----
+
+    /** The automatic backup folder and the last backup ([com.hexnext.themer.theme.AutoBackup]). */
+    val autoBackup: StateFlow<com.hexnext.themer.theme.AutoBackup.State> =
+        com.hexnext.themer.theme.AutoBackup.get(app).state
+
+    /** Writes a full backup ([com.hexnext.themer.theme.ThemeBackup]) to [uri], on IO. */
+    fun backUpTo(uri: Uri) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val out = app.contentResolver.openOutputStream(uri, "wt") ?: error("The file could not be opened.")
+                    out.use { com.hexnext.themer.theme.ThemeBackup.write(app, spec, appSettings.exportJson(), it) }
+                }
+            }
+            result.fold(
+                onSuccess = { postNotice(Notice("Backup saved", isSuccess = true)) },
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Saving the backup failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice("Couldn't save the backup", isError = true))
+                },
+            )
+        }
+    }
+
+    /** Backs up to the automatic folder now. */
+    fun backUpNow() {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val ok = withContext(Dispatchers.IO) {
+                com.hexnext.themer.theme.AutoBackup.get(app).backUp { com.hexnext.themer.theme.ThemeBackup.write(app, spec, appSettings.exportJson(), it) }
+            }
+            postNotice(if (ok) Notice("Backup saved to your backup folder", isSuccess = true) else Notice("Couldn't save the backup", isError = true))
+        }
+    }
+
+    fun setBackupFolder(tree: Uri) {
+        com.hexnext.themer.theme.AutoBackup.get(getApplication()).setFolder(tree)
+        backUpNow()
+    }
+
+    fun clearBackupFolder() = com.hexnext.themer.theme.AutoBackup.get(getApplication()).clearFolder()
+
+    /** Reads a backup from [uri] on IO and hands it to [onRead]; nothing changes until [restoreBackup]. */
+    fun readBackup(uri: Uri, onRead: (com.hexnext.themer.theme.ThemeBackup.Contents) -> Unit) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val input = app.contentResolver.openInputStream(uri) ?: error("The file could not be opened.")
+                    input.use { com.hexnext.themer.theme.ThemeBackup.read(it) }
+                }
+            }
+            result.fold(
+                onSuccess = onRead,
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Reading the backup failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice(if (it is ThemeFormatException) it.message ?: "That file is not a Hex Next backup" else "That file is not a Hex Next backup", isError = true))
+                },
+            )
+        }
+    }
+
+    /** Restores a read backup: assets and learned maps, then settings and the theme. */
+    fun restoreBackup(contents: com.hexnext.themer.theme.ThemeBackup.Contents) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val written = withContext(Dispatchers.IO) { runCatching { com.hexnext.themer.theme.ThemeBackup.restoreFiles(app, contents) } }
+            written.onFailure { log(LogLine(LogLevel.ERROR, "Restoring backup files failed: ${it.message}")) }
+            contents.settingsJson?.let { appSettings.importJson(it) }
+            refreshAssets()
+            importTheme(contents.spec)
+            log(LogLine(LogLevel.INFO, "Backup restored: ${written.getOrDefault(0)} files, theme ${contents.spec.name}"))
         }
     }
 
