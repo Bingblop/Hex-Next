@@ -138,25 +138,34 @@ push_pending() {
 }
 
 # After a soft reboot the phone's networking can stay dead until a full reboot. When the results
-# cannot be pushed, reboot the phone; the results are committed and go out on the next start
-# (this runner pushes them before anything else, and a Termux:Boot script does it at boot).
+# cannot be pushed, reboot the phone. The results are committed; a one-shot root boot script
+# (KernelSU service.d, root comes back by itself at boot) starts this watcher again, which pushes
+# them before anything else, starts Shizuku and goes on with the queue. A Termux:Boot script is
+# left as a fallback; the watcher lock keeps it to one watcher.
 full_reboot() {
-  local boot="$HOME/.termux/boot" lab="$LAB"
-  mkdir -p "$boot"
-  cat >"$boot/hexnext-push.sh" <<BOOT
+  local me; me=$(readlink -f "$0" 2>/dev/null || echo "$0")
+  cat <<SVC | su -c "mkdir -p /data/adb/service.d && cat > /data/adb/service.d/hexnext-lab.sh && chmod 755 /data/adb/service.d/hexnext-lab.sh"
+#!/system/bin/sh
+# Hex Next device lab: start the Termux watcher once after a full reboot, then remove this script.
+rm -f "\$0"
+until [ "\$(getprop sys.boot_completed)" = 1 ]; do sleep 5; done
+sleep 90
+am start-foreground-service --user 0 -n com.termux/com.termux.app.RunCommandService -a com.termux.RUN_COMMAND \\
+  --es com.termux.RUN_COMMAND_PATH /data/data/com.termux/files/usr/bin/bash \\
+  --esa com.termux.RUN_COMMAND_ARGUMENTS "$me,watch" \\
+  --es com.termux.RUN_COMMAND_WORKDIR /data/data/com.termux/files/home \\
+  --ez com.termux.RUN_COMMAND_BACKGROUND false
+SVC
+  mkdir -p "$HOME/.termux/boot"
+  cat >"$HOME/.termux/boot/hexnext-lab.sh" <<BOOT
 #!/data/data/com.termux/files/usr/bin/sh
-# Hex Next device lab: push results saved before a full reboot, then remove this script.
-command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
-i=0
-while [ \$i -lt 60 ]; do
-  curl -fsS -m 8 -o /dev/null https://api.github.com/zen 2>/dev/null && break
-  sleep 10; i=\$((i + 1))
-done
-cd "$lab" && git stash -q -u 2>/dev/null; git pull -q --rebase && git push -q && rm -f "\$0"
-git stash pop -q 2>/dev/null
+# Hex Next device lab (fallback): start the watcher after a full reboot, then remove this script.
+rm -f "\$0"
+sleep 120
+exec bash "$me" watch
 BOOT
-  chmod 700 "$boot/hexnext-push.sh"
-  log "full reboot to bring networking back; results go out on the next start"
+  chmod 700 "$HOME/.termux/boot/hexnext-lab.sh"
+  log "full reboot to bring networking back; the watcher starts again by itself"
   sleep 3
   root "svc power reboot || reboot"
   exit 0
@@ -188,7 +197,8 @@ restart_shizuku() {
     lib="$dir/lib/$abi/libshizuku.so"
     if root "test -x $lib"; then
       log "restarting Shizuku as root"
-      root "$lib" >"$RES/shizuku-start.txt" 2>&1
+      if [ -n "${RES:-}" ] && [ -d "$RES" ]; then root "$lib" >"$RES/shizuku-start.txt" 2>&1
+      else root "$lib" >/dev/null 2>&1; fi
       sleep 5
       return 0
     fi
@@ -567,7 +577,13 @@ self_update() {
 
 need jq jq; need gh gh; need git git
 push_pending
-su -c true >/dev/null 2>&1 || { echo "root (su) is required"; exit 1; }
+# After a reboot root comes back by itself, but only after a while: wait up to 15 minutes for it.
+if ! su -c true >/dev/null 2>&1; then
+  echo "waiting for root (su) to come back"
+  w=0
+  while [ $w -lt 900 ] && ! su -c true >/dev/null 2>&1; do sleep 15; w=$((w + 15)); done
+  su -c true >/dev/null 2>&1 || { echo "root (su) is required"; exit 1; }
+fi
 # Earlier runners turned Wi-Fi sign-in (captive portal) detection off around soft reboots: put the
 # saved value back once and remove their helper.
 su -c 'f=/data/local/tmp/hexnext-captive-mode; if [ -f $f ]; then v=$(cat $f); if [ "$v" = null ] || [ -z "$v" ]; then settings delete global captive_portal_mode; else settings put global captive_portal_mode "$v"; fi; rm -f $f; fi; rm -f /data/local/tmp/hexnext-wifi.sh /data/local/tmp/hexnext-wifi.log /data/local/tmp/hexnext-wifi-ui.xml' >/dev/null 2>&1
@@ -592,6 +608,16 @@ case "${1:-watch}" in
   watch)
     # A soft reboot that has not been resumed yet (the watcher was started by hand first).
     [ -f "$HOME/.hexnext-resume" ] && exec bash "$0" resume
+    # One watcher at a time (a boot script may start a second one).
+    lock="$HOME/.hexnext-watch.pid"
+    if [ -f "$lock" ] && [ "$(cat "$lock")" != "$$" ] && kill -0 "$(cat "$lock")" 2>/dev/null \
+       && grep -q autotest "/proc/$(cat "$lock")/cmdline" 2>/dev/null; then
+      echo "another watcher is running (pid $(cat "$lock"))"; exit 0
+    fi
+    echo $$ >"$lock"
+    rm -f "$HOME/.termux/boot/hexnext-lab.sh"; su -c "rm -f /data/adb/service.d/hexnext-lab.sh" >/dev/null 2>&1
+    # Shizuku does not start by itself after a reboot.
+    if ! root "pidof shizuku_server" >/dev/null 2>&1; then restart_shizuku; fi
     log "watching $LAB_REPO every ${POLL}s (Ctrl-C to stop)"
     while true; do
       self_update "$@"
