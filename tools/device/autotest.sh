@@ -242,6 +242,28 @@ HELPER
   exit 0
 }
 
+# What Android's overlay manager holds right now: fabricated overlay files on disk, the overlay
+# list, Hex Next's and Samsung's entries, and the overlay/idmap lines of the log since boot.
+# Each call writes a new numbered snapshot (overlaystate-1, -2 …).
+step_overlaystate() {
+  local n=1
+  while [ -d "$RES/overlaystate-$n" ]; do n=$((n + 1)); done
+  local d="$RES/overlaystate-$n"; mkdir -p "$d"
+  log "overlay state $n"
+  {
+    date; echo "uptime: $(cut -d' ' -f1 /proc/uptime)"; getprop sys.boot_completed
+    echo "system_server: $(root "pidof system_server")"
+  } >"$d/when.txt" 2>&1
+  root "ls -la /data/resource-cache/" >"$d/resource-cache.txt" 2>&1
+  root "cmd overlay list --user 0" >"$d/overlay-list.txt" 2>&1
+  root "grep -c . /data/system/overlays.xml; grep -iE 'fabricated|HexNext|SemWT' /data/system/overlays.xml | head -200" >"$d/overlays-xml.txt" 2>&1
+  root "logcat -d -b main -b system -b crash | grep -iE 'overlay|idmap|fabricat|frro' | tail -400" >"$d/logcat-overlay.txt" 2>&1
+  root "settings get secure theme_customization_overlay_packages" >"$d/theme_customization.txt" 2>&1
+  root "pidof moe.shizuku.privileged.api shizuku_server; ps -A | grep -i shizuku" >"$d/shizuku.txt" 2>&1
+}
+
+step_wait() { log "wait 180 s"; sleep 180; }
+
 step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
 
 # capture_real <what>: drives One UI to the screen and screenshots it.
@@ -334,7 +356,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
