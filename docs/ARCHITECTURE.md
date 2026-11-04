@@ -127,7 +127,21 @@ Release signing applies to both. Gradle tasks carry the flavor: `testPlayDebugUn
 Every theme pack is a one-time Play purchase (product id `pack_<id>`, the pack id lowercased with
 anything outside `[a-z0-9._]` turned into `_`), plus `all_packs`, which also covers packs added
 later. Prices come from Play (formatted), never from the code. Free features (default theme,
-custom colours, icons, fonts, backgrounds, AI) are never gated.
+custom colours, icons, fonts, backgrounds) are never gated.
+
+AI theme creation ("Describe your theme" and AI icon generation, both with the user's own AI key)
+is the paid feature `PaidFeature.AI_CREATION`, unlocked by any of: `ai_monthly` (Play
+subscription, monthly base plan, $2.99), `ai_lifetime` (one-time, $29.99) or `everything`
+(one-time, $39.99). `everything` sets `EntitlementState.everything`, which unlocks every pack and
+every `PaidFeature`, including ones added later; a new paid feature only needs an enum entry and
+its UI gate. `all_packs` does not unlock AI. The gate is `ui/ai/AiPaywall.kt`: the Describe card
+and the icon sheet show the paywall instead of the prompt, and both request models re-check
+`unlocks(PaidFeature.AI_CREATION)` right before calling the provider. `PlayEntitlements` queries
+SUBS products and purchases next to INAPP (a failed SUBS query keeps the last subscription state),
+buys a subscription through its base-plan offer token, and shows the recurring price. The license
+server verifies `ai_monthly` with `purchases.subscriptionsv2` (active, grace period, or cancelled
+but still paid up to `expiryTime`). App settings → Purchases shows the AI status and, for a
+subscriber, "Manage subscription" (Play's subscriptions page).
 
 Shared code only sees `billing/Entitlements.kt` (`PackEntitlements`, `EntitlementState`,
 `ProductIds`) and calls `EntitlementsFactory.create(context)`, which each flavor defines in its

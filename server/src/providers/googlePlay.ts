@@ -25,6 +25,27 @@ interface ProductPurchase {
   productId?: string;
 }
 
+/**
+ * Products sold as auto-renewing subscriptions. They are checked with the subscriptionsv2 API;
+ * every other product id is a one-time product. Keep in sync with ProductIds in the app.
+ */
+export const SUBSCRIPTION_PRODUCTS: ReadonlySet<string> = new Set(["ai_monthly"]);
+
+/** The fields of Google's SubscriptionPurchaseV2 resource that are used here. */
+interface SubscriptionPurchaseV2 {
+  subscriptionState?: string;
+  latestOrderId?: string;
+  lineItems?: { productId?: string; expiryTime?: string }[];
+}
+
+/** States in which the subscriber keeps access until the line item's expiryTime. */
+const ENTITLED_STATES = new Set([
+  "SUBSCRIPTION_STATE_ACTIVE",
+  "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+  // Cancelled: auto-renew is off, but the paid period has not ended yet.
+  "SUBSCRIPTION_STATE_CANCELED",
+]);
+
 interface CachedToken {
   key: string;
   accessToken: string;
@@ -45,10 +66,13 @@ export const googlePlayProvider: PurchaseProvider = {
     const account = parseServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const accessToken = await getAccessToken(account);
 
-    const url =
-      `${API_BASE}/${encodeURIComponent(request.packageName)}` +
-      `/purchases/products/${encodeURIComponent(request.productId)}` +
-      `/tokens/${encodeURIComponent(request.purchaseToken)}`;
+    const subscription = SUBSCRIPTION_PRODUCTS.has(request.productId);
+    const url = subscription
+      ? `${API_BASE}/${encodeURIComponent(request.packageName)}` +
+        `/purchases/subscriptionsv2/tokens/${encodeURIComponent(request.purchaseToken)}`
+      : `${API_BASE}/${encodeURIComponent(request.packageName)}` +
+        `/purchases/products/${encodeURIComponent(request.productId)}` +
+        `/tokens/${encodeURIComponent(request.purchaseToken)}`;
 
     let response: Response;
     try {
@@ -67,6 +91,10 @@ export const googlePlayProvider: PurchaseProvider = {
       throw new ProviderUnavailableError(`Google Play API returned ${response.status}`);
     }
 
+    if (subscription) {
+      const purchase = (await response.json()) as SubscriptionPurchaseV2;
+      return interpretSubscription(purchase, request.productId, Date.now());
+    }
     const purchase = (await response.json()) as ProductPurchase;
     return interpretPurchase(purchase, request.productId);
   },
@@ -87,6 +115,39 @@ export function interpretPurchase(purchase: ProductPurchase, productId: string):
     default:
       return { valid: false, reason: "not_purchased" };
   }
+}
+
+/**
+ * Maps a SubscriptionPurchaseV2 to a verification result: valid while the subscription is in an
+ * entitled state and its line item for [productId] has not expired at [nowMs].
+ */
+export function interpretSubscription(
+  purchase: SubscriptionPurchaseV2,
+  productId: string,
+  nowMs: number,
+): VerifyResult {
+  const item = purchase.lineItems?.find((line) => line.productId === productId);
+  if (!item) {
+    return { valid: false, reason: "product_mismatch" };
+  }
+  const state = purchase.subscriptionState ?? "";
+  if (state === "SUBSCRIPTION_STATE_PENDING") {
+    return { valid: false, reason: "purchase_pending" };
+  }
+  if (!ENTITLED_STATES.has(state)) {
+    return { valid: false, reason: "subscription_inactive" };
+  }
+  // ACTIVE and IN_GRACE_PERIOD are entitled whatever expiryTime says: during a grace period the
+  // line item can still carry the unextended billing date, already in the past. A CANCELED
+  // subscription stays paid only until its expiryTime.
+  if (state !== "SUBSCRIPTION_STATE_CANCELED") {
+    return { valid: true, productId, orderId: purchase.latestOrderId ?? "" };
+  }
+  const expiry = item.expiryTime ? Date.parse(item.expiryTime) : NaN;
+  if (!Number.isFinite(expiry) || expiry <= nowMs) {
+    return { valid: false, reason: "subscription_expired" };
+  }
+  return { valid: true, productId, orderId: purchase.latestOrderId ?? "" };
 }
 
 function parseServiceAccount(json: string | undefined): ServiceAccount {

@@ -3,6 +3,7 @@ import {
   createSignedJwt,
   googlePlayProvider,
   interpretPurchase,
+  interpretSubscription,
   resetTokenCache,
 } from "../src/providers/googlePlay";
 import { ProviderUnavailableError, type Env } from "../src/providers/types";
@@ -125,6 +126,23 @@ describe("googlePlayProvider.verify", () => {
     );
   });
 
+  it("checks a subscription with the subscriptionsv2 API", async () => {
+    const urls = stubFetch(() =>
+      Response.json({
+        subscriptionState: "SUBSCRIPTION_STATE_ACTIVE",
+        latestOrderId: "GPA.7",
+        lineItems: [{ productId: "ai_monthly", expiryTime: "2999-01-01T00:00:00Z" }],
+      }),
+    );
+    expect(
+      await googlePlayProvider.verify({ ...request, productId: "ai_monthly" }, env),
+    ).toEqual({ valid: true, productId: "ai_monthly", orderId: "GPA.7" });
+    expect(urls[1]).toBe(
+      "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" +
+        "com.hexnext.themer/purchases/subscriptionsv2/tokens/tok%2Fen",
+    );
+  });
+
   it("treats 404 as an unknown purchase", async () => {
     stubFetch(() => new Response("", { status: 404 }));
     expect(await googlePlayProvider.verify(request, env)).toEqual({
@@ -144,5 +162,67 @@ describe("googlePlayProvider.verify", () => {
     await expect(
       googlePlayProvider.verify(request, { PACKAGE_NAME: "com.hexnext.themer" }),
     ).rejects.toBeInstanceOf(ProviderUnavailableError);
+  });
+});
+
+describe("interpretSubscription", () => {
+  const now = Date.parse("2026-11-04T00:00:00Z");
+  const line = (expiryTime: string) => [{ productId: "ai_monthly", expiryTime }];
+
+  it("accepts active, grace-period and cancelled-but-paid subscriptions", () => {
+    for (const state of [
+      "SUBSCRIPTION_STATE_ACTIVE",
+      "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+      "SUBSCRIPTION_STATE_CANCELED",
+    ]) {
+      expect(
+        interpretSubscription(
+          { subscriptionState: state, latestOrderId: "GPA.1", lineItems: line("2026-12-01T00:00:00Z") },
+          "ai_monthly",
+          now,
+        ),
+      ).toEqual({ valid: true, productId: "ai_monthly", orderId: "GPA.1" });
+    }
+  });
+
+  it("keeps a grace-period subscription whose line item still has the old billing date", () => {
+    expect(
+      interpretSubscription(
+        { subscriptionState: "SUBSCRIPTION_STATE_IN_GRACE_PERIOD", latestOrderId: "GPA.2", lineItems: line("2026-11-02T00:00:00Z") },
+        "ai_monthly",
+        now,
+      ),
+    ).toEqual({ valid: true, productId: "ai_monthly", orderId: "GPA.2" });
+  });
+
+  it("rejects expired, on-hold, pending and mismatched subscriptions", () => {
+    expect(
+      interpretSubscription(
+        { subscriptionState: "SUBSCRIPTION_STATE_CANCELED", lineItems: line("2026-11-01T00:00:00Z") },
+        "ai_monthly",
+        now,
+      ),
+    ).toEqual({ valid: false, reason: "subscription_expired" });
+    expect(
+      interpretSubscription(
+        { subscriptionState: "SUBSCRIPTION_STATE_ON_HOLD", lineItems: line("2026-12-01T00:00:00Z") },
+        "ai_monthly",
+        now,
+      ),
+    ).toEqual({ valid: false, reason: "subscription_inactive" });
+    expect(
+      interpretSubscription(
+        { subscriptionState: "SUBSCRIPTION_STATE_PENDING", lineItems: line("2026-12-01T00:00:00Z") },
+        "ai_monthly",
+        now,
+      ),
+    ).toEqual({ valid: false, reason: "purchase_pending" });
+    expect(
+      interpretSubscription(
+        { subscriptionState: "SUBSCRIPTION_STATE_ACTIVE", lineItems: [{ productId: "other", expiryTime: "2999-01-01T00:00:00Z" }] },
+        "ai_monthly",
+        now,
+      ),
+    ).toEqual({ valid: false, reason: "product_mismatch" });
   });
 });
