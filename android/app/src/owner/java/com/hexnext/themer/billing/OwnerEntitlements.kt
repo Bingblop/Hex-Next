@@ -5,9 +5,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** The owner build: every pack and paid feature, including later ones, is unlocked and nothing is sold. */
+/** The owner build: every pack, including packs added later, is unlocked and nothing is sold. */
 internal object OwnerEntitlements : PackEntitlements {
-    private val unlocked = MutableStateFlow(EntitlementState(ready = true, unlockAll = true, everything = true))
+    private val unlocked = MutableStateFlow(EntitlementState(ready = true, unlockAll = true))
 
     override val state: StateFlow<EntitlementState> = unlocked.asStateFlow()
 
