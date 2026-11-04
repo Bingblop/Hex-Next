@@ -337,7 +337,13 @@ setprop ctl.restart zygote
 i=0
 while [ \$i -lt 900 ]; do
   sleep 5; i=\$((i + 5))
-  pidof com.android.systemui >/dev/null || continue
+  if ! pidof com.android.systemui >/dev/null; then
+    # Not back after 4 minutes with Galaxy Themes Service parts off: switch them on again.
+    if [ \$i -ge 240 ] && [ -f /data/local/tmp/hexnext-undo ]; then
+      while read -r line; do [ -n "\$line" ] && sh -c "\$line"; done </data/local/tmp/hexnext-undo
+    fi
+    continue
+  fi
   dumpsys window | grep -qE 'mDreamingLockscreen=true|isKeyguardShowing=true|mShowingLockscreen=true' && continue
   break
 done
@@ -388,6 +394,73 @@ step_pkginfo() {
       echo "== disabled components"; root "pm list packages -d" | grep "$pkg"
       root "cat /data/system/users/0/package-restrictions.xml" 2>/dev/null | grep -A40 "name=\"$pkg\"" | head -60
     } >"$RES/pkginfo/$pkg.txt" 2>&1
+  done
+}
+
+# Galaxy Themes Service experiments, all undone by the same runner: compoff disables the job's
+# "components" (pkg/class) and suspend suspends its "suspend" packages (pm suspend, then a
+# force-stop); compon / unsuspend (or "undo") put everything back. Each change writes its undo
+# command to ~/.hexnext-undo, which run_job replays when a job ends with anything still changed,
+# and root keeps a copy for guards that work without Termux: the soft reboot helper replays it if
+# System UI is not back after 4 minutes, and a KernelSU boot script replays it on any full boot
+# until the undo has run. States are in components.txt.
+THEMES_PKGS="com.samsung.android.themecenter com.samsung.android.themestore"
+undo_add() {
+  printf '%s\n' "$1" >>"$HOME/.hexnext-undo"
+  root "cat > /data/local/tmp/hexnext-undo" <"$HOME/.hexnext-undo"
+  cat <<'GUARD' | su -c "mkdir -p /data/adb/service.d && cat > /data/adb/service.d/hexnext-undo.sh && chmod 755 /data/adb/service.d/hexnext-undo.sh"
+#!/system/bin/sh
+# Hex Next lab: put Galaxy Themes Service back after a boot (replays the lab's undo list).
+f=/data/local/tmp/hexnext-undo
+[ -f $f ] || exit 0
+i=0
+while [ $i -lt 600 ]; do
+  ok=1
+  while read -r line; do [ -n "$line" ] && { sh -c "$line" >/dev/null 2>&1 || ok=0; }; done <$f
+  [ $ok = 1 ] && { rm -f $f /data/adb/service.d/hexnext-undo.sh; exit 0; }
+  sleep 5; i=$((i + 5))
+done
+GUARD
+}
+step_compoff() {
+  local c
+  for c in $(jq -r '.components // [] | .[]' "$JOB"); do
+    case "$c" in *[!A-Za-z0-9._/\$]*|''|*/*/*) continue ;; esac
+    case "$c" in com.samsung.android.themecenter/*|com.samsung.android.themestore/*) ;;
+      *) log "compoff: $c is not a Galaxy Themes package; skipped"; continue ;; esac
+    { echo "== disable $c"; root "pm disable --user 0 '$c'"; } >>"$RES/components.txt" 2>&1
+    undo_add "pm enable --user 0 '$c'"
+  done
+  log "compoff: $(jq -r '.components // [] | join(" ")' "$JOB")"
+}
+step_suspend() {
+  local p
+  for p in $(jq -r '.suspend // [] | .[]' "$JOB"); do
+    case " $THEMES_PKGS " in *" $p "*) ;; *) log "suspend: $p is not a Galaxy Themes package; skipped"; continue ;; esac
+    { echo "== suspend $p"; root "pm suspend --user 0 $p && am force-stop $p"; } >>"$RES/components.txt" 2>&1
+    undo_add "pm unsuspend --user 0 $p"
+  done
+  log "suspend: $(jq -r '.suspend // [] | join(" ")' "$JOB")"
+}
+step_undo() {
+  [ -f "$HOME/.hexnext-undo" ] || return 0
+  local line
+  while read -r line; do
+    [ -n "$line" ] || continue
+    { echo "== $line"; root "$line"; } >>"$RES/components.txt" 2>&1
+  done <"$HOME/.hexnext-undo"
+  log "undo: $(tr '\n' ';' <"$HOME/.hexnext-undo")"
+  rm -f "$HOME/.hexnext-undo"
+  su -c "rm -f /data/local/tmp/hexnext-undo /data/adb/service.d/hexnext-undo.sh" >/dev/null 2>&1
+}
+step_compon() { step_undo; }
+step_unsuspend() { step_undo; }
+# State of the Galaxy Themes packages: suspended / disabled components (components.txt).
+step_themestate() {
+  local p
+  for p in $THEMES_PKGS; do
+    { echo "== $p"; root "dumpsys package $p" | grep -iE 'suspended|disabledComponents|enabledComponents|enabled=' | head -40
+      root "dumpsys package $p" | sed -n '/disabledComponents:/,/^ *[a-zA-Z]*:$/p' | head -40; } >>"$RES/components.txt" 2>&1
   done
 }
 
@@ -535,10 +608,16 @@ capture_real() {
               if tap_text 'Force stop'; then sleep 2; shot "$PHASE$MODE-real-dialog"; tap_text 'Cancel' || root "input keyevent KEYCODE_BACK"; fi
               root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
               if tap_desc 'More options'; then sleep 2; shot "$PHASE$MODE-real-popup"; root "input keyevent KEYCODE_BACK"; fi ;;
-    keyboard) # Samsung Keyboard over a text field (Settings search), then closed.
+    keyboard|gboard) # A keyboard over a text field (Settings search), then closed. "keyboard" is
+              # Samsung Keyboard, "gboard" is Gboard; the user's own keyboard is put back after.
+              local want=com.samsung.android.honeyboard/.service.HoneyBoardService name=keyboard ime
+              [ "$1" = gboard ] && want=com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME name=gboard
+              ime=$(root "settings get secure default_input_method")
+              if [ "$ime" != "$want" ]; then root "ime enable '$want' && ime set '$want'" >/dev/null 2>&1; sleep 1; fi
               root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
-              if tap_desc 'Search[^"]*' || tap_text 'Search'; then sleep 3; shot "$PHASE$MODE-real-keyboard"; fi
-              root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK" ;;
+              if tap_desc 'Search[^"]*' || tap_text 'Search'; then sleep 3; shot "$PHASE$MODE-real-$name"; fi
+              root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK"
+              if [ -n "$ime" ] && [ "$ime" != null ] && [ "$ime" != "$want" ]; then root "ime set '$ime'" >/dev/null 2>&1; fi ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
     app:*)    # Any installed app by package (app:com.sec.android.app.sbrowser): its launcher screen;
               # app:<pkg>/<activity> opens that screen (apps without a launcher entry, Device Care).
@@ -627,11 +706,13 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
   done
+  # Never leave Galaxy Themes Service components off after a job, whatever happened.
+  [ -f "$HOME/.hexnext-undo" ] && step_undo
   # Any app crash during the job: the app's own record and the system crash log.
   root "cat $(app_dir)/last-crash.txt" >"$RES/app-crash.txt" 2>/dev/null; [ -s "$RES/app-crash.txt" ] || rm -f "$RES/app-crash.txt"
   root "logcat -d -b crash" >"$RES/crash-log.txt" 2>/dev/null; [ -s "$RES/crash-log.txt" ] || rm -f "$RES/crash-log.txt"
