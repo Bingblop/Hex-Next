@@ -2,21 +2,26 @@ package com.hexnext.themer.theme
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import com.hexnext.engine.compile.CompiledTarget
 import com.hexnext.engine.compile.CompiledTheme
 import com.hexnext.engine.compile.CustomAssets
 import com.hexnext.engine.compile.Elements
+import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.OneUiRules
 import com.hexnext.engine.compile.PlannedDrawableJob
 import com.hexnext.engine.compile.ThemeCompiler
+import com.hexnext.themer.ui.studio.DeviceColors
+import com.hexnext.themer.ui.studio.ResourceColors
 import com.hexnext.engine.compile.ThemeSpec
 import com.hexnext.engine.map.PlannedColor
 import com.hexnext.engine.pack.DirectoryPackResolver
 import com.hexnext.themer.overlay.SettingsTestOverlay
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.CancellationException
 import java.lang.ref.SoftReference
 
 /**
@@ -27,7 +32,7 @@ import java.lang.ref.SoftReference
  * The last device scan is read with [SnapshotBuilder], restricted to `com.android.settings` and
  * `com.sec.android.app.myfiles` (only those two resource tables are read from disk) and compiled
  * with [ThemeCompiler] against the installed packs ([ThemeApplier.packsDir]); each icon's best
- * job (non-night, highest density) is rendered with [DrawableRenderer] and decoded into a
+ * job (in the requested day or night mode, highest density) is rendered with [DrawableRenderer] and decoded into a
  * [Bitmap]. At most [MAX_ICONS] + [MAX_MY_FILES] + 1 bitmaps are decoded per call.
  *
  * [slots] lists, from a full compile of the snapshot, every drawable a custom icon or background
@@ -37,9 +42,10 @@ import java.lang.ref.SoftReference
  * next call: the two-target and the full snapshot (soft references, keyed by
  * [SnapshotBuilder.scanStamp]), one [DirectoryPackResolver] per pack directory listing (the
  * resolver opens every pack zip once), and the rendered icons by job plus pack listing
- * ([ICON_CACHE_BYTES] of bitmaps). Rendering is serialised on one lock: a superseded render
- * that is still running finishes first, so bitmaps, zip handles and the compile never run on two
- * threads at once.
+ * ([ICON_CACHE_BYTES] of bitmaps), plus the one custom background, decoded at mockup width and
+ * kept apart so it never evicts the icons. Rendering is serialised on one lock, so bitmaps, zip
+ * handles and the compile never run on two threads at once; a superseded render stops at its next
+ * cancellation check (after the snapshot, after the compile, before each image) and frees the lock.
  *
  * Nothing here touches the device or Shizuku. Both calls block on file I/O and bitmap work, so
  * call them on `Dispatchers.Default` or `Dispatchers.IO`, never on the main thread. They never
@@ -60,7 +66,7 @@ class ThemePreviewer(context: Context) {
     private var fullSnapshot: SoftReference<SnapshotBuilder.Result>? = null
 
     private var packsStamp: String? = null
-    private var packResolver: DirectoryPackResolver? = null
+    private var packResolver: LayeredPackResolver? = null
 
     /** A rendered job and the file stamps its pixels depend on besides the pack listing. */
     private data class IconKey(val job: PlannedDrawableJob, val customStamp: String?)
@@ -68,6 +74,9 @@ class ThemePreviewer(context: Context) {
     private val iconCache = object : LruCache<IconKey, Bitmap>(ICON_CACHE_BYTES) {
         override fun sizeOf(key: IconKey, value: Bitmap): Int = value.byteCount.coerceAtLeast(1)
     }
+
+    /** The last preview background and the job it was rendered from (see [backgroundBitmap]). */
+    private var backgroundCache: Pair<IconKey, Bitmap>? = null
 
     /**
      * @property name resource name without type, e.g. `sec_ic_settings_connections`.
@@ -86,6 +95,9 @@ class ThemePreviewer(context: Context) {
      * @property fontFile absolute path of the chosen font's regular file, null for the system default.
      * @property fontName display name of the chosen font.
      * @property synthesised names (without type) of the [icons] the compiler generates in the pack's style.
+     * @property builtIn names (without type) of the [icons] and [myFiles] icons drawn from the app's
+     *   built-in art ([PlannedDrawableJob.badge]: no pack covers them and built-in icons are on).
+     * @property iconStyle the icon colour style the icons were rendered with.
      */
     data class Preview(
         val icons: List<PreviewIcon>,
@@ -96,6 +108,9 @@ class ThemePreviewer(context: Context) {
         val fontFile: String? = null,
         val fontName: String? = null,
         val synthesised: Set<String> = emptySet(),
+        val builtIn: Set<String> = emptySet(),
+        val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
+        val deviceColors: DeviceColors = DeviceColors(),
     )
 
     /**
@@ -114,13 +129,76 @@ class ThemePreviewer(context: Context) {
      */
     data class SlotCatalogue(val icons: List<IconSlot>, val backgrounds: List<BackgroundSlots.Slot>, val error: String? = null)
 
-    /** Previews [spec]; safe to call repeatedly and from any background thread. */
-    fun render(spec: ThemeSpec): Preview = synchronized(lock) {
+    /**
+     * Previews [spec] as the phone shows it in dark mode ([night] true) or light mode: night jobs
+     * are preferred for [night], day jobs otherwise, falling back to the other mode when a
+     * resource has no job in the wanted one (as the device falls back to the default
+     * configuration). Safe to call repeatedly and from any background thread.
+     */
+    fun render(spec: ThemeSpec, night: Boolean = false, cancelled: () -> Boolean = { false }): Preview = synchronized(lock) {
         try {
-            renderOrThrow(spec)
+            renderOrThrow(spec, night, cancelled)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Preview(emptyList(), null, "Could not render the preview: ${e.javaClass.simpleName}: ${e.message}", fontFile = fontFile(spec), fontName = spec.customFont?.displayName)
         }
+    }
+
+    /**
+     * Art one unlocked pack has for an icon slot.
+     *
+     * @property packId the pack.
+     * @property packName its display name.
+     * @property bitmap the slot rendered from that pack with the theme's icon style.
+     */
+    data class IconChoice(val packId: String, val packName: String, val bitmap: Bitmap)
+
+    /**
+     * What every unlocked (installed) pack draws for [slotKey] (`pkg:drawable/name`), each
+     * rendered as the theme would: the pack is swapped in for the whole theme, so each pack's own
+     * name mapping and the theme's icon style apply. Packs without art for the slot are left out.
+     * Empty without a scan or when the slot's app is not scanned.
+     */
+    fun iconChoices(spec: ThemeSpec, slotKey: String, night: Boolean = false): List<IconChoice> = synchronized(lock) {
+        try {
+            iconChoicesOrThrow(spec, slotKey, night)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun iconChoicesOrThrow(spec: ThemeSpec, slotKey: String, night: Boolean): List<IconChoice> {
+        val pkg = slotKey.substringBefore(':', "")
+        if (pkg.isEmpty()) return emptyList()
+        val built = snapshot(full = true) ?: return emptyList()
+        val target = built.snapshot.targets[pkg] ?: return emptyList()
+        val single = built.snapshot.copy(targets = mapOf(pkg to target))
+        val rules = OneUiRules.forProfile(single.oneUi)
+        val packs = packResolver()
+        val unlocked = com.hexnext.engine.pack.DirectoryPackResolver(File(appContext.filesDir, PackDirs.APPLY)).availableIds()
+        val customRoot = CustomAssetStore.rootDir(appContext)
+        val out = ArrayList<IconChoice>()
+        DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
+            for (id in unlocked) {
+                val pack = packs.pack(id) ?: continue
+                val one = spec.copy(
+                    mode = com.hexnext.engine.compile.ThemeMode.SIMPLE,
+                    simplePackId = id,
+                    customIcons = emptyMap(),
+                    customBackgrounds = emptyMap(),
+                    synthesizeMissingIcons = false,
+                )
+                val compiled = ThemeCompiler.compile(one, single, packs, rules).target(pkg) ?: continue
+                val jobs = compiled.drawables.filter { it.resourceName == slotKey && it.custom == null && it.synthesis == null }
+                val job = bestOf(jobs, night) ?: continue
+                val bitmap = cachedBitmap(renderer, job, customRoot) ?: continue
+                out += IconChoice(id, pack.name, bitmap)
+            }
+        }
+        return out
     }
 
     /** The slots of [spec] on this device; empty without a scan, empty with [SlotCatalogue.error] on failure. */
@@ -132,15 +210,21 @@ class ThemePreviewer(context: Context) {
         }
     }
 
-    private fun renderOrThrow(spec: ThemeSpec): Preview {
+    private fun renderOrThrow(spec: ThemeSpec, night: Boolean, cancelled: () -> Boolean): Preview {
+        fun checkCancelled() {
+            if (cancelled()) throw CancellationException("Preview render superseded")
+        }
+        checkCancelled()
         val fontFile = fontFile(spec)
         val fontName = spec.customFont?.displayName
         val built = snapshot(full = false)
             ?: return Preview(emptyList(), null, NOTE_NO_SCAN, fontFile = fontFile, fontName = fontName)
+        checkCancelled()
         // Built for the two preview targets only; equal to the full snapshot filtered to them.
         val restricted = built.snapshot
         val packs = packResolver()
         val compiled = ThemeCompiler.compile(spec, restricted, packs)
+        checkCancelled()
         val settings = compiled.target(TARGET)
         val myFilesTarget = compiled.target(MY_FILES)
         if (settings == null && myFilesTarget == null) {
@@ -148,19 +232,27 @@ class ThemePreviewer(context: Context) {
             return Preview(emptyList(), null, skippedNote(reason), fontFile = fontFile, fontName = fontName)
         }
 
-        val accent = settings?.let { accentOf(it) }
-        val rowJobs = settings?.let { bestJobs(it, SettingsTestOverlay.DASHBOARD_ROW_ICONS.toHashSet()) }.orEmpty()
-        val myFilesJobs = myFilesTarget?.let { myFilesJobs(it) }.orEmpty()
-        val backgroundJob = listOfNotNull(settings, myFilesTarget).firstNotNullOfOrNull { backgroundJob(spec, it) }
+        val accent = settings?.let { accentOf(it, night) }
+        val rowJobs = settings?.let { bestJobs(it, SettingsTestOverlay.DASHBOARD_ROW_ICONS.toHashSet(), night) }.orEmpty()
+        val myFilesJobs = myFilesTarget?.let { myFilesJobs(it, night) }.orEmpty()
+        val backgroundJob = listOfNotNull(settings, myFilesTarget).firstNotNullOfOrNull { backgroundJob(spec, it, night) }
 
         val icons = ArrayList<PreviewIcon>(MAX_ICONS)
         val myFiles = ArrayList<PreviewIcon>(MAX_MY_FILES)
         val synthesised = HashSet<String>()
+        val builtIn = HashSet<String>()
         var background: Bitmap? = null
+        var keyboardKey: Bitmap? = null
+        val keyboardTarget = compiled.target(KEYBOARD)
+        val keyJob = keyboardTarget?.let { bestJobs(it, setOf("key_bg"), night)["key_bg"] }
+        // Power menu buttons: pack art (or art synthesised in its style) replaces the stock round badges.
+        val powerJobs = compiled.target(SYSTEM_UI)?.let { bestJobs(it, POWER_MENU_ICONS.toSet(), night) }.orEmpty()
+        val powerIcons = HashMap<String, Bitmap>()
         var failed = 0
         val customRoot = CustomAssetStore.rootDir(appContext)
         DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
             fun bitmapOf(job: PlannedDrawableJob): Bitmap? {
+                checkCancelled()
                 val bitmap = cachedBitmap(renderer, job, customRoot)
                 if (bitmap == null) failed++
                 return bitmap
@@ -170,14 +262,26 @@ class ThemePreviewer(context: Context) {
                 val job = rowJobs[name] ?: continue
                 val bitmap = bitmapOf(job)
                 if (job.synthesis != null) synthesised += name
+                if (job.badge != null) builtIn += name
                 icons += PreviewIcon(name, labelFor(name), bitmap)
             }
             for (job in myFilesJobs) {
                 if (myFiles.size >= MAX_MY_FILES) break
                 val name = job.resourceName.substringAfter('/')
-                myFiles += PreviewIcon(name, BackgroundSlots.humanise(name), bitmapOf(job))
+                val label = myFilesLabel(name)
+                // "home_category_image" and "home_category_images" are the same tile.
+                if (myFiles.any { it.label == label }) continue
+                if (job.badge != null) builtIn += name
+                myFiles += PreviewIcon(name, label, bitmapOf(job))
             }
-            if (backgroundJob != null) background = bitmapOf(backgroundJob)
+            // The pack's key art, as Samsung Keyboard draws it under every key (lab-024).
+            if (keyJob != null) keyboardKey = bitmapOf(keyJob)
+            for ((name, job) in powerJobs) bitmapOf(job)?.let { powerIcons[name] = it }
+            if (backgroundJob != null) {
+                checkCancelled()
+                background = backgroundBitmap(renderer, backgroundJob, customRoot)
+                if (background == null) failed++
+            }
         }
         val note = when {
             failed == 1 -> "1 image could not be rendered."
@@ -186,7 +290,16 @@ class ThemePreviewer(context: Context) {
             icons.isEmpty() -> skippedNote(compiled.skippedTargets.firstOrNull { it.name == TARGET }?.reason)
             else -> null
         }
-        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised)
+        val deviceColors = DeviceColors(
+            systemUi = colorsOf(compiled.target(SYSTEM_UI)),
+            settings = colorsOf(settings),
+            myFiles = colorsOf(myFilesTarget),
+            keyboard = colorsOf(keyboardTarget),
+            apps = APP_PREVIEW_PACKAGES.mapNotNull { pkg -> compiled.target(pkg)?.let { pkg to colorsOf(it) } }.toMap(),
+            keyboardKey = keyboardKey?.asImageBitmap(),
+            powerIcons = powerIcons.mapValues { it.value.asImageBitmap() },
+        )
+        return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle, deviceColors)
     }
 
     private fun slotsOrThrow(spec: ThemeSpec): SlotCatalogue {
@@ -233,7 +346,7 @@ class ThemePreviewer(context: Context) {
                 val name = key.substringAfter('/')
                 val element = Elements.byId(job.elementId)
                 val group = element?.label ?: job.elementId
-                val label = if (element == null || element.anyTarget) "${BackgroundSlots.humanise(name)} · ${target.packageName}" else BackgroundSlots.humanise(name)
+                val label = if (element == null || element.anyTarget) "${BackgroundSlots.humanise(name)} · ${appLabel(target.packageName)}" else BackgroundSlots.humanise(name)
                 byElement.getOrPut(group) { ArrayList() } += IconSlot(key, label, group)
             }
         }
@@ -244,6 +357,20 @@ class ThemePreviewer(context: Context) {
             if (Elements.ALL.none { it.label == group }) icons += list.sortedBy { it.label }
         }
         return SlotCatalogue(icons, backgrounds)
+    }
+
+    /**
+     * The installed app's name for [pkg] (users do not know package names), else its last
+     * package segment, capitalised.
+     */
+    private fun appLabel(pkg: String): String = when (pkg) {
+        "android" -> "Android framework"
+        "com.android.systemui" -> "System UI"
+        else -> runCatching {
+            val pm = appContext.packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() && it != pkg }
+            ?: pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
     }
 
     // ---- caches -----------------------------------------------------------------------------
@@ -274,15 +401,20 @@ class ThemePreviewer(context: Context) {
      * every pack zip on its first lookup and caches the result for its lifetime, so it is kept
      * until a zip is added, replaced or removed; the rendered icons are dropped with it.
      */
-    private fun packResolver(): DirectoryPackResolver {
-        val dir = ThemeApplier.packsDir(appContext)
-        val stamp = dir.listFiles { f -> f.isFile }.orEmpty()
-            .sortedBy { it.name }
-            .joinToString("\n") { "${it.name}|${it.length()}|${it.lastModified()}" }
+    private fun packResolver(): LayeredPackResolver {
+        // Installed packs and locked packs downloaded for the preview only (PackDirs.forPreview):
+        // rendered in memory here, never built into an overlay.
+        val dirs = PackDirs.forPreview(appContext.filesDir)
+        val stamp = dirs.joinToString("\n--\n") { dir ->
+            dir.listFiles { f -> f.isFile }.orEmpty()
+                .sortedBy { it.name }
+                .joinToString("\n") { "${it.name}|${it.length()}|${it.lastModified()}" }
+        }
         packResolver?.takeIf { stamp == packsStamp }?.let { return it }
         packsStamp = stamp
         iconCache.evictAll()
-        return DirectoryPackResolver(dir).also { packResolver = it }
+        backgroundCache = null
+        return LayeredPackResolver.over(dirs).also { packResolver = it }
     }
 
     /**
@@ -302,6 +434,25 @@ class ThemePreviewer(context: Context) {
             return null
         }
         iconCache.put(key, bitmap)
+        return bitmap
+    }
+
+    /**
+     * The custom background of [job], decoded down to about the mockup's width ([BACKGROUND_PX])
+     * and kept in its own one-entry cache: a full-resolution background is 15 to 20 MB and would
+     * push nearly every icon out of [iconCache].
+     */
+    private fun backgroundBitmap(renderer: DrawableRenderer, job: PlannedDrawableJob, customRoot: File): Bitmap? {
+        val key = IconKey(job, customStamp(job, customRoot))
+        backgroundCache?.takeIf { it.first == key }?.let { return it.second }
+        val bitmap = try {
+            decodeScaled(renderer.render(job).png, BACKGROUND_PX)
+        } catch (e: Exception) {
+            return null
+        } catch (e: OutOfMemoryError) {
+            return null
+        }
+        backgroundCache = key to bitmap
         return bitmap
     }
 
@@ -334,66 +485,96 @@ class ThemePreviewer(context: Context) {
         return ordered.toList()
     }
 
-    /** Icon name → the job to render: non-night with the highest density, else any non-night, else any. */
-    private fun bestJobs(target: CompiledTarget, wanted: Set<String>): Map<String, PlannedDrawableJob> {
+    /** Icon name → the job to render: see [bestOf]. */
+    private fun bestJobs(target: CompiledTarget, wanted: Set<String>, night: Boolean): Map<String, PlannedDrawableJob> {
         val byName = target.drawables
             .filter { it.resourceName.substringAfter('/') in wanted }
             .groupBy { it.resourceName.substringAfter('/') }
         val best = LinkedHashMap<String, PlannedDrawableJob>()
         for ((name, candidates) in byName) {
-            best[name] = bestOf(candidates) ?: continue
+            best[name] = bestOf(candidates, night) ?: continue
         }
         return best
     }
 
-    private fun bestOf(candidates: List<PlannedDrawableJob>): PlannedDrawableJob? {
-        val day = candidates.filterNot { isNight(it.configuration) }
-        // A pack with only night variants still gets a preview, from its night job.
-        val pool = if (day.isNotEmpty()) day else candidates
-        return pool.maxByOrNull { densityRank(it.configuration) }
-    }
 
     /**
-     * The first [MAX_MY_FILES] My Files icon jobs (element `my_files_icons`, or custom icons of the
-     * target), best configuration each; custom icons first, since the compiler appends them after
-     * the pack's own jobs and a pack with 8 or more icons would otherwise hide them.
+     * The first [MAX_MY_FILES] My Files category tile jobs (`home_category_*` drawables of element
+     * `my_files_icons`, or custom icons of the target), best configuration each; custom icons
+     * first, since the compiler appends them after the pack's own jobs and a pack with 8 or more
+     * icons would otherwise hide them. Other My Files drawables (file types, menu glyphs) are not
+     * tiles of the category grid, so they are left out.
      */
-    private fun myFilesJobs(target: CompiledTarget): List<PlannedDrawableJob> {
+    private fun myFilesJobs(target: CompiledTarget, night: Boolean): List<PlannedDrawableJob> {
         val grouped = target.drawables
             .filter { (it.elementId == MY_FILES_ICONS_ELEMENT || it.custom != null) && it.source.category != CustomAssets.CATEGORY_BACKGROUND }
+            .filter { it.resourceName.substringAfter('/').startsWith(MY_FILES_CATEGORY_PREFIX) }
             .groupBy { it.resourceName }
             .entries
             .sortedByDescending { (_, candidates) -> candidates.any { it.custom != null } }
         val out = ArrayList<PlannedDrawableJob>()
         for ((_, candidates) in grouped) {
             if (out.size >= MAX_MY_FILES) break
-            out += bestOf(candidates) ?: continue
+            out += bestOf(candidates, night) ?: continue
         }
         return out
     }
 
     /**
      * The job of the first custom background of [target] in the spec that the compiler kept
-     * (non-night, best density), or null. A key the compiler skipped (not in the target any
+     * (wanted mode, best density), or null. A key the compiler skipped (not in the target any
      * more) does not hide a later one; a key the rules renamed is found by its category.
      */
-    private fun backgroundJob(spec: ThemeSpec, target: CompiledTarget): PlannedDrawableJob? {
+    private fun backgroundJob(spec: ThemeSpec, target: CompiledTarget, night: Boolean): PlannedDrawableJob? {
         val keys = spec.customBackgrounds.keys.filter { it.startsWith(target.packageName + ":") }
         if (keys.isEmpty()) return null
         val custom = target.drawables.filter { it.custom != null && it.source.category == CustomAssets.CATEGORY_BACKGROUND }
         for (key in keys) {
-            bestOf(custom.filter { it.resourceName == key })?.let { return it }
+            bestOf(custom.filter { it.resourceName == key }, night)?.let { return it }
         }
         val first = custom.firstOrNull()?.resourceName ?: return null
-        return bestOf(custom.filter { it.resourceName == first })
+        return bestOf(custom.filter { it.resourceName == first }, night)
     }
 
-    private fun accentOf(target: CompiledTarget): Int? {
+    /**
+     * The colours [target] will really write, by resource name: the default configuration and
+     * the night one. Other qualifiers (land, sw600dp …) are left out; the phone preview is a
+     * portrait phone.
+     */
+    private fun colorsOf(target: CompiledTarget?): ResourceColors {
+        if (target == null) return ResourceColors()
+        val day = HashMap<String, Int>()
+        val night = HashMap<String, Int>()
+        for (c in target.colors) {
+            val name = c.resourceName.substringAfter('/')
+            when {
+                c.configuration.isEmpty() -> day[name] = c.argb
+                c.configuration == "night" || c.configuration.startsWith("night-v") -> night[name] = c.argb
+            }
+        }
+        return ResourceColors(day, night)
+    }
+
+    private fun accentOf(target: CompiledTarget, night: Boolean): Int? {
         val accent = target.colors.filter { it.resourceName.substringAfter('/') == ACCENT_COLOR }
-        val chosen: PlannedColor? = accent.firstOrNull { !isNight(it.configuration) }
+        val chosen: PlannedColor? = accent.firstOrNull { isNight(it.configuration) == night }
             ?: accent.firstOrNull()
             ?: target.colors.firstOrNull()
         return chosen?.argb
+    }
+
+    /** Decodes [png] with a power-of-two sample size so its width stays at or above [targetWidth]. */
+    private fun decodeScaled(png: ByteArray, targetWidth: Int): Bitmap {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(png, 0, png.size, bounds)
+        var sample = 1
+        while (bounds.outWidth > 0 && bounds.outWidth / (sample * 2) >= targetWidth) sample *= 2
+        val options = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+            inScaled = false
+            inSampleSize = sample
+        }
+        return BitmapFactory.decodeByteArray(png, 0, png.size, options) ?: throw IOException("cannot decode PNG")
     }
 
     private fun decode(png: ByteArray): Bitmap {
@@ -412,7 +593,7 @@ class ThemePreviewer(context: Context) {
     }
 
     /** Why Settings gets no row icons: no pack chosen for them, pack not installed, or a pack without them. */
-    private fun noIconsNote(spec: ThemeSpec, packs: DirectoryPackResolver): String {
+    private fun noIconsNote(spec: ThemeSpec, packs: LayeredPackResolver): String {
         val packId = spec.packFor(ICONS_ELEMENT)
         return when {
             packId == null || !spec.isElementEnabled(ICONS_ELEMENT) -> NOTE_NO_ICON_PACK
@@ -428,19 +609,39 @@ class ThemePreviewer(context: Context) {
     }
 
     companion object {
+        /**
+         * The job of the wanted mode ([night] or day) with the highest density; when there is none in
+         * that mode, the best job of the other one (a day-only pack still shows in dark mode, as the
+         * phone falls back to it, and a night-only pack still gets a preview in light mode).
+         */
+        internal fun bestOf(candidates: List<PlannedDrawableJob>, night: Boolean = false): PlannedDrawableJob? {
+            val wanted = candidates.filter { isNight(it.configuration) == night }
+            val pool = if (wanted.isNotEmpty()) wanted else candidates
+            return pool.maxByOrNull { densityRank(it.configuration) }
+        }
         private const val TARGET = "com.android.settings"
         private const val MY_FILES = "com.sec.android.app.myfiles"
-        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES)
+        private const val SYSTEM_UI = "com.android.systemui"
+        private const val KEYBOARD = "com.samsung.android.honeyboard"
+        /** Apps with a Studio tab ([com.hexnext.themer.ui.studio.PreviewTab.packageName]): their planned colours paint the mockups. */
+        val APP_PREVIEW_PACKAGES: Set<String> = com.hexnext.themer.ui.studio.PreviewTab.entries.mapNotNullTo(LinkedHashSet()) { it.packageName } - setOf(MY_FILES, KEYBOARD)
+        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI, KEYBOARD) + APP_PREVIEW_PACKAGES
+
+        /** System UI power menu drawables, in grid order: Power off, Restart, Emergency call, Medical info. */
+        val POWER_MENU_ICONS = listOf("tw_ic_do_poweroff", "tw_ic_do_restart", "tw_ic_do_emergencysos", "tw_ic_do_medicalinfo")
         private const val ACCENT_COLOR = "sec_widget_round_and_bgcolor"
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"
         private const val MY_FILES_ICONS_ELEMENT = "my_files_icons"
-        private const val MAX_ICONS = 8
+        private const val MAX_ICONS = 12
         private const val MAX_MY_FILES = 8
         private const val NAME_PREFIX = "sec_ic_settings_"
 
         /** Rendered preview bitmaps kept between renders: ~300 Settings icons, or a few backgrounds. */
         private const val ICON_CACHE_BYTES = 24 * 1024 * 1024
+
+        /** Width the preview background is decoded to: the mockup draws it about 300 dp wide. */
+        private const val BACKGROUND_PX = 540
 
         const val GROUP_SETTINGS: String = "Settings"
         const val GROUP_MY_FILES: String = "My Files"
@@ -496,6 +697,29 @@ class ThemePreviewer(context: Context) {
             }
             return 0
         }
+
+        private const val MY_FILES_CATEGORY_PREFIX = "home_category_"
+
+        /**
+         * One UI labels of the My Files categories, keyed by the name after `home_category_`. The
+         * same words as the default tiles of the preview grid, so a rendered tile replaces its
+         * default instead of appearing next to it.
+         */
+        private val MY_FILES_LABELS: Map<String, String> = mapOf(
+            "image" to "Images",
+            "images" to "Images",
+            "video" to "Videos",
+            "videos" to "Videos",
+            "audio" to "Audio files",
+            "documents" to "Documents",
+            "download" to "Downloads",
+            "apk" to "APK files",
+            "compressed" to "Compressed",
+        )
+
+        /** "home_category_image" → "Images"; unknown names are derived. */
+        internal fun myFilesLabel(name: String): String =
+            MY_FILES_LABELS[name.removePrefix(MY_FILES_CATEGORY_PREFIX)] ?: BackgroundSlots.humanise(name)
 
         /** "sec_ic_settings_cloud_and_account" → "Accounts and backup"; unknown names are derived. */
         internal fun labelFor(name: String): String {

@@ -133,6 +133,15 @@ async function verifyAll(
   requests: VerifyRequest[],
   env: Env,
 ): Promise<BatchItemResult[]> {
+  if (provider.prepareBatch) {
+    try {
+      await provider.prepareBatch(env);
+    } catch (error) {
+      const reason = error instanceof ProviderUnavailableError ? "provider_unavailable" : "internal_error";
+      console.error(`${provider.name}: batch preparation failed`);
+      return requests.map((req) => ({ valid: false, reason, productId: req.productId }));
+    }
+  }
   const results: BatchItemResult[] = new Array(requests.length);
   let failures = 0;
   for (let start = 0; start < requests.length; start += BATCH_CONCURRENCY) {

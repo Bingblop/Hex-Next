@@ -254,10 +254,19 @@ public object PackReader {
     }
 }
 
-/** One layer to draw: [layerPath] is a zip entry; [tintArgb] null means draw untinted. */
+/**
+ * One layer to draw: [layerPath] is a zip entry; [tintArgb] null means draw untinted.
+ *
+ * @property slot the palette slot the layer's tint named (`xx1`, `lxy3` …), null for fixed and
+ *   untinted layers; lets icon styles find the accent layers. Does not change pixels.
+ * @property gradientEndArgb when set, the layer is tinted with a top-left → bottom-right linear
+ *   gradient from [tintArgb] to this colour instead of a flat tint.
+ */
 public data class CompositeStep(
     val layerPath: String,
     val tintArgb: Int?,
+    val slot: String? = null,
+    val gradientEndArgb: Int? = null,
 ) {
     /** True for compiled/9-patch sources (`.9.png`). */
     public val isNinePatch: Boolean get() = layerPath.endsWith(".9.png")
@@ -312,7 +321,10 @@ public object LayerPlanner {
             .sortedWith(compareBy<PackLayer>({ rank(PASS_ORDER, it.pass) }, { it.pass }, { rank(STAGE_ORDER, it.stage) }, { it.stage }))
             .mapNotNull { layer ->
                 val path = layerFile(layer, resourceName, entryNames) ?: return@mapNotNull null
-                CompositeStep(path, tintFor(layer.tint, pack, palette, night, unresolved))
+                CompositeStep(
+                    path, tintFor(layer.tint, pack, palette, night, unresolved),
+                    slot = layer.tint.slot.takeIf { layer.tint.kind == Tint.SLOT },
+                )
             }
         return CompositePlan(steps, unresolved.toList())
     }

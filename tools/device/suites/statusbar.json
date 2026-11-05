@@ -1,0 +1,28 @@
+{
+  "about": "Pack status bar icons (packs with indicator art, e.g. kunzite).",
+  "steps": [
+    "install",
+    "pack",
+    "scan",
+    "apply",
+    "lookup",
+    "capture"
+  ],
+  "pack": "kunzite",
+  "confirm": true,
+  "modes": [
+    "dark"
+  ],
+  "captures": [
+    "qs",
+    "shade"
+  ],
+  "lookups": [
+    "com.android.systemui:drawable/sec_ic_wifi_signal_4",
+    "com.android.systemui:drawable/stat_sys_wifi_signal_4"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "no_crash": true
+  }
+}

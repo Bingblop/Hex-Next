@@ -72,4 +72,17 @@ interface IThemeService {
             in String[] colorNames, in int[] colors, in String[] colorConfigs,
             in String[] drawableNames, in String[] drawableConfigs,
             in ParcelFileDescriptor[] drawableFds, in boolean[] ninePatch) = 16;
+
+    // Registers (or replaces) a fabricated overlay of raw typed values (Res_value dataTypes 0x04
+    // float, 0x05 dimension, 0x10/0x11 integer, 0x12 boolean), one per names[i] in configs[i]
+    // ("" or null for the default configuration; configs may be null), enabled and raised. The
+    // name must start with "HexNextValues_". Empty names unregisters it. Privileged only (code 3).
+    // Extra keys as applyOverlay: "resourceCount", "skipped", "millis", "lookup".
+    Bundle applyValueOverlay(String name, String target, in String[] names, in int[] dataTypes,
+            in int[] data, in String[] configs) = 17;
+
+    // startStabilityMonitor whose first trip disables only overlays named firstPrefix* (must start
+    // with "HexNext", [A-Za-z0-9_]+) and writes values_rollback.json; a second trip in a fresh
+    // window disables every HexNext* overlay and writes safe_mode.json.
+    Bundle startStabilityMonitorStaged(int seconds, String firstPrefix) = 18;
 }

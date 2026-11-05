@@ -64,8 +64,8 @@ android {
         // Public FabricatedOverlay / OverlayManagerTransaction APIs for One UI 7/8/9.0 (Android 14–16 / SDK 36).
         minSdk = 35
         targetSdk = 36
-        versionCode = 220
-        versionName = "2.2.0"
+        versionCode = 230
+        versionName = "2.3.0"
 
         // English-only release configuration
         resourceConfigurations += listOf("en")

@@ -112,7 +112,7 @@ class CustomAssetStore(context: Context) {
             // Icons are rendered at most [CustomSizing.MAX_ICON_PX] on the longer side, and
             // files/custom/icons stays in cloud backup, so a full-size photo would only eat the
             // 25 MB Auto Backup quota. Store icons already shrunk to that size.
-            val argb = if (kind == Kind.ICON) shrinkIcon(converted) else converted
+            val argb = if (kind == Kind.ICON) shrinkIcon(fitIcon(converted)) else converted
             if (argb !== converted && converted !== bitmap) converted.recycle()
             val png = ByteArrayOutputStream(argb.byteCount / 4 + 1024).also { out ->
                 if (!argb.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("The image could not be encoded as PNG.")
@@ -125,6 +125,21 @@ class CustomAssetStore(context: Context) {
         } finally {
             bitmap.recycle()
         }
+    }
+
+    /**
+     * Stores [bitmap] (pack art picked for one slot) as a custom icon named [displayName],
+     * shrunk like an imported icon.
+     */
+    fun saveIcon(bitmap: Bitmap, displayName: String): Asset {
+        val argb = shrinkIcon(if (bitmap.config == Bitmap.Config.ARGB_8888) bitmap else bitmap.copy(Bitmap.Config.ARGB_8888, false)
+            ?: throw IOException("The icon could not be converted to ARGB."))
+        val png = ByteArrayOutputStream(argb.byteCount / 4 + 1024).also { out ->
+            if (!argb.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("The icon could not be encoded as PNG.")
+        }.toByteArray()
+        val fileName = "${sanitizeStem(displayName)}-${sha256Hex8(png)}.png"
+        val file = store(Kind.ICON, fileName, png, displayName)
+        return Asset(Kind.ICON, file.name, displayName, argb.width, argb.height, file.length())
     }
 
     /**
@@ -217,6 +232,35 @@ class CustomAssetStore(context: Context) {
      * [bitmap] scaled down uniformly so its longer side is at most [CustomSizing.MAX_ICON_PX];
      * [bitmap] itself when it already fits. Never upscales.
      */
+    /**
+     * An imported icon cropped to its visible pixels (transparent margins would shrink the art in
+     * its slot). Fails with a readable message when nothing is visible or the art is too small.
+     */
+    private fun fitIcon(bitmap: Bitmap): Bitmap {
+        val w = bitmap.width
+        val h = bitmap.height
+        val row = IntArray(w)
+        var top = -1; var bottom = -1; var left = w; var right = -1
+        for (y in 0 until h) {
+            bitmap.getPixels(row, 0, w, 0, y, w, 1)
+            var any = false
+            for (x in 0 until w) {
+                if (row[x] ushr 24 > VISIBLE_ALPHA) {
+                    any = true
+                    if (x < left) left = x
+                    if (x > right) right = x
+                }
+            }
+            if (any) { if (top < 0) top = y; bottom = y }
+        }
+        if (top < 0) throw IOException("The image is fully transparent, so there is nothing to show.")
+        val cw = right - left + 1
+        val ch = bottom - top + 1
+        if (maxOf(cw, ch) < MIN_ICON_PX) throw IOException("The icon is only ${cw}×${ch} pixels; use one at least ${MIN_ICON_PX} pixels wide or tall.")
+        if (cw == w && ch == h) return bitmap
+        return Bitmap.createBitmap(bitmap, left, top, cw, ch)
+    }
+
     private fun shrinkIcon(bitmap: Bitmap): Bitmap {
         val longer = maxOf(bitmap.width, bitmap.height)
         if (longer <= CustomSizing.MAX_ICON_PX) return bitmap
@@ -311,6 +355,8 @@ class CustomAssetStore(context: Context) {
     companion object {
         private const val MIB = 1024L * 1024L
         private const val MAX_IMAGE_BYTES = 25L * MIB
+        private const val MIN_ICON_PX = 24
+        private const val VISIBLE_ALPHA = 8
         private const val MAX_FONT_BYTES = 64L * MIB
         private const val MAX_DIMENSION = 4096
         private const val MAX_STEM = 40

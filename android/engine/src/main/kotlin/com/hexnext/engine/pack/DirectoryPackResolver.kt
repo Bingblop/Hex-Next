@@ -9,8 +9,9 @@ import java.io.File
  * A pack is found by id in this order: the `file` of its entry in `index.json` (when the
  * directory holds one, see `tools/hex_pack_builder.py`), `<id>.zip`, `<id>.hexnext`, then any
  * `*.zip` / `*.hexnext` whose `pack.json` declares that id. Parsed packs and zip listings are
- * cached for the lifetime of the resolver; unreadable zips resolve to null and are listed in
- * [errors] so an apply never fails because one pack is broken.
+ * cached for the lifetime of the resolver. A zip that still declares a former id of a pack
+ * ([PackIdAliases]) also resolves under that pack's current id. Unreadable zips resolve to null
+ * and are listed in [errors] so an apply never fails because one pack is broken.
  */
 public class DirectoryPackResolver(private val dir: File) : PackResolver {
     private val cache = HashMap<String, Loaded?>()
@@ -33,13 +34,17 @@ public class DirectoryPackResolver(private val dir: File) : PackResolver {
     public fun availableIds(): List<String> = (indexFiles().keys + scan().keys).distinct().sorted()
 
     private fun load(id: String): Loaded? = cache.getOrPut(id) {
-        val candidates = listOfNotNull(
-            indexFiles()[id],
-            File(dir, "$id.zip"),
-            File(dir, "$id.$EXTENSION"),
-            scan()[id],
-        ).distinct().filter { it.isFile }
-        candidates.firstNotNullOfOrNull { file -> read(file)?.takeIf { it.pack.id == id } }
+        // A zip whose migration to its current id has not finished yet still declares a former
+        // id ([PackIdAliases]) and may still sit under the former file name: it serves its
+        // current id too, re-labelled so the compiled theme only ever names the current id.
+        val names = listOf(id) + PackIdAliases.formerIdsOf(id).takeIf { PackIdAliases.current(id) == id }.orEmpty()
+        val candidates = names.flatMap { name ->
+            listOfNotNull(indexFiles()[name], File(dir, "$name.zip"), File(dir, "$name.$EXTENSION"), scan()[name])
+        }.distinct().filter { it.isFile }
+        val readable = candidates.mapNotNull { read(it) }
+        readable.firstOrNull { it.pack.id == id }
+            ?: readable.firstOrNull { PackIdAliases.current(it.pack.id) == id }
+                ?.let { Loaded(it.file, it.pack.copy(id = id), it.entries) }
     }
 
     private fun read(file: File): Loaded? = try {

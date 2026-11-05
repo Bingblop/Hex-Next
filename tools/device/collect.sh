@@ -7,7 +7,14 @@
 set -u
 OUT_DIR="${1:-$PWD}"
 OUT="$OUT_DIR/hexnext-collect.txt"
-PKG=com.hexnext.themer
+# The owner build (com.hexnext.themer.owner) wins when it is installed; set PKG to override.
+if [ -z "${PKG:-}" ]; then
+  if su -c "pm path com.hexnext.themer.owner" 2>/dev/null | grep -q '^package:'; then
+    PKG=com.hexnext.themer.owner
+  else
+    PKG=com.hexnext.themer
+  fi
+fi
 APP=/data/data/$PKG/files
 
 root() { su -c "$1" 2>&1; }
@@ -21,6 +28,7 @@ run "App version" "dumpsys package $PKG | grep -E 'versionName|versionCode|lastU
 run "App files" "ls -laR $APP 2>/dev/null | head -200"
 
 # The apply report (progressive; status started/running/finished/aborted).
+run "theme.json (the chosen packs and options)" "cat $APP/theme.json 2>/dev/null || echo '(none)'"
 run "apply-last.json" "cat $APP/reports/apply-last.json 2>/dev/null || echo '(none)'"
 
 # Build logs: the newest three, in full.
@@ -42,6 +50,28 @@ run "Hex Next overlays (user current)" "cmd overlay list --user current | grep -
 run "Settings colour lookup" "cmd overlay lookup --user current com.android.settings com.android.settings:color/sec_widget_round_and_bgcolor"
 run "Hex Next frro files" "ls -laZ /data/resource-cache/ | grep -i hexnext"
 run "Hex Next idmap files" "ls -la /data/resource-cache/ | grep -i hexnext | grep -i idmap"
+
+# Quick Settings (System UI): Samsung's SemWT values, the app's colour names, the last request,
+# the build-log policy line, and what the Quick panel resources resolve to now.
+run "System UI SemWT dump" "cat $APP/scan/semwt/com.android.systemui.txt 2>/dev/null || echo '(none; re-run the scan)'"
+run "System UI SemWT mapping" "cat $APP/scan/semwt/com.android.systemui.json 2>/dev/null || echo '(none)'"
+root "cat $APP/scan/com.android.systemui/names-color.txt 2>/dev/null" >"$OUT_DIR/hexnext-systemui-colors.txt"
+run "System UI colour names (count; full list in hexnext-systemui-colors.txt)" "wc -l $APP/scan/com.android.systemui/names-color.txt 2>/dev/null || echo '(none)'"
+# Sizes, numbers and switches of System UI and the framework (scan from build 0a56d8f on), one
+# file for all: "<pkg> <type> name<TAB>config<TAB>value" lines.
+: >"$OUT_DIR/hexnext-values.txt"
+for pkg in com.android.systemui android; do
+  for type in dimen integer bool; do
+    root "awk 1 $APP/scan/$pkg/names-$type.txt 2>/dev/null" | sed "s|^|$pkg $type |" >>"$OUT_DIR/hexnext-values.txt"
+  done
+done
+run "System UI and framework values (count; full list in hexnext-values.txt)" "wc -l $OUT_DIR/hexnext-values.txt"
+run "System UI request" "cat $APP/requests/com.android.systemui.json 2>/dev/null || echo '(none)'"
+run "Quick Settings build-log lines (newest log)" "f=\$(ls -t $APP/logs/*.jsonl 2>/dev/null | head -1); [ -n \"\$f\" ] && grep -E 'Quick Settings: |\"target\":\"com.android.systemui\"' \"\$f\" | tail -40"
+for name in qs_tile_round_background_on qs_tile_round_background_dim qs_tile_container_bg qs_tile_label qs_tile_sub_label qs_tile_icon_off_tint_color; do
+  printf '$ cmd overlay lookup --user current com.android.systemui com.android.systemui:color/%s\n' "$name" >>"$OUT"
+  root "cmd overlay lookup --user current com.android.systemui com.android.systemui:color/$name" >>"$OUT"
+done
 
 # Which drawables the test overlay claims to override, and whether lookups resolve to frro:/ paths.
 section "Drawable lookups from the newest build log"

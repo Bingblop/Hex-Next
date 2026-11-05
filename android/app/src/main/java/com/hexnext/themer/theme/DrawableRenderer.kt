@@ -2,14 +2,21 @@ package com.hexnext.themer.theme
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
 import android.graphics.Canvas
+import android.graphics.ComposeShader
+import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
+import android.graphics.Shader
 import com.hexnext.engine.compile.CustomAssets
+import com.hexnext.engine.compile.IconBadge
 import com.hexnext.engine.compile.IconSynthesis
 import com.hexnext.engine.compile.PlannedDrawableJob
+import com.hexnext.engine.pack.CompositeStep
 import com.hexnext.engine.frro.NinePatch
 import com.hexnext.engine.frro.NinePatchException
 import com.hexnext.engine.pack.DirectoryPackResolver
@@ -30,7 +37,9 @@ import java.util.zip.ZipFile
  *
  * Layers are drawn bottom first onto a canvas the size of the first layer; later layers are
  * scaled to it. A tinted layer is drawn through a `MULTIPLY` colour filter, so the greyscale
- * shading of the pack PNG survives and the tint's alpha scales the layer's alpha.
+ * shading of the pack PNG survives and the tint's alpha scales the layer's alpha. A step with
+ * [CompositeStep.gradientEndArgb] is tinted the same way with a top-left → bottom-right linear
+ * gradient instead (a `ComposeShader` of the layer and the gradient in `MULTIPLY`).
  *
  * Nine-patches are compiled here, the way aapt2 does at build time: the composite keeps the
  * 1 px marker border of the first `.9.png` layer untinted, the border is read into a
@@ -49,7 +58,9 @@ import java.util.zip.ZipFile
  * imported PNG under `customDir/<icons|backgrounds>/<file>`, fitted into the slot's size by
  * [CustomSizing]; a job with [PlannedDrawableJob.synthesis] renders its reference pack icon
  * through the normal path and hands it to [IconSynthesizer] to draw the missing glyph in the
- * pack's style. Both need the optional constructor arguments; without them such a job throws.
+ * pack's style. A job with [PlannedDrawableJob.badge] is a built-in icon drawn from scratch by
+ * [IconSynthesizer.drawBadge] at the slot size from [CustomSizing.iconSize]. These need the
+ * optional constructor arguments; without them such a job throws.
  *
  * Performance notes: pack zips are opened once per renderer and kept until [close]; layers are
  * decoded straight from the zip stream (no intermediate byte array) except where the bytes are
@@ -59,10 +70,14 @@ import java.util.zip.ZipFile
  * serves one thread at a time (an apply or a preview), never two concurrently.
  */
 class DrawableRenderer(
-    private val packs: DirectoryPackResolver,
+    private val packs: LayeredPackResolver,
     private val customDir: File? = null,
     private val synthesizer: IconSynthesizer? = null,
 ) : Closeable {
+
+    /** An apply: packs from one directory ([ThemeApplier.packsDir]) only. */
+    constructor(packs: DirectoryPackResolver, customDir: File? = null, synthesizer: IconSynthesizer? = null) :
+        this(LayeredPackResolver(packs), customDir, synthesizer)
 
     /**
      * [png] to fabricate. [ninePatch] asks the service to fabricate it as a 9-patch SOURCE
@@ -86,10 +101,11 @@ class DrawableRenderer(
     fun render(job: PlannedDrawableJob): Rendered {
         job.custom?.let { return renderCustom(job, it) }
         job.synthesis?.let { return renderSynthesis(job, it) }
+        job.badge?.let { return renderBadge(job, it) }
         val steps = job.plan.steps
         if (steps.isEmpty()) throw IOException("no layers for ${job.resourceName}")
         val zip = zip(job.source.packId)
-        if (steps.size == 1 && steps[0].tintArgb == null) {
+        if (steps.size == 1 && steps[0].tintArgb == null && steps[0].gradientEndArgb == null) {
             val bytes = read(zip, steps[0].layerPath)
             if (!job.ninePatch) return Rendered(bytes, ninePatch = false)
             return compileSingle(bytes, steps[0].layerPath)
@@ -98,7 +114,7 @@ class DrawableRenderer(
         val decoded = ArrayList<Bitmap>(steps.size)
         try {
             for (step in steps) decoded.add(decodeEntry(zip, step.layerPath))
-            val out = composite(decoded, steps.map { it.tintArgb })
+            val out = composite(decoded, steps)
             try {
                 val width = out.width
                 val height = out.height
@@ -138,10 +154,12 @@ class DrawableRenderer(
 
     /**
      * Draws [layers] bottom first onto a new ARGB bitmap the size of the first layer, each
-     * through the MULTIPLY filter of its entry in [tints] (null = untinted). The caller owns
-     * the result and still owns [layers].
+     * through the MULTIPLY filter of the tint of its entry in [steps] (null = untinted), or, when
+     * the step has a [CompositeStep.gradientEndArgb], through a MULTIPLY linear gradient from the
+     * tint (top left) to that colour (bottom right). The caller owns the result and still owns
+     * [layers].
      */
-    private fun composite(layers: List<Bitmap>, tints: List<Int?>): Bitmap {
+    private fun composite(layers: List<Bitmap>, steps: List<CompositeStep>): Bitmap {
         val base = layers[0]
         val width = base.width
         val height = base.height
@@ -150,15 +168,56 @@ class DrawableRenderer(
             val canvas = Canvas(out)
             val dst = Rect(0, 0, width, height)
             for (i in layers.indices) {
-                val tint = tints[i]
-                layerPaint.colorFilter = if (tint != null) PorterDuffColorFilter(tint, PorterDuff.Mode.MULTIPLY) else null
-                canvas.drawBitmap(layers[i], null, dst, layerPaint)
+                val layer = layers[i]
+                val tint = steps[i].tintArgb
+                val end = steps[i].gradientEndArgb
+                if (tint != null && end != null) {
+                    layerPaint.colorFilter = null
+                    layerPaint.shader = gradientShader(layer, width, height, tint, end)
+                    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), layerPaint)
+                    layerPaint.shader = null
+                } else {
+                    layerPaint.colorFilter = if (tint != null) PorterDuffColorFilter(tint, PorterDuff.Mode.MULTIPLY) else null
+                    canvas.drawBitmap(layer, null, dst, layerPaint)
+                }
             }
-            layerPaint.colorFilter = null
             return out
         } catch (t: Throwable) {
             out.recycle()
             throw t
+        } finally {
+            layerPaint.colorFilter = null
+            layerPaint.shader = null
+        }
+    }
+
+    /**
+     * [layer] scaled to [width]x[height], multiplied by a linear gradient from [start] at the top
+     * left to [end] at the bottom right: the gradient counterpart of the MULTIPLY colour filter
+     * (the layer's greyscale shading and alpha survive, the gradient's alpha scales the alpha).
+     */
+    private fun gradientShader(layer: Bitmap, width: Int, height: Int, start: Int, end: Int): Shader {
+        val bitmapShader = BitmapShader(layer, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+        val matrix = Matrix()
+        matrix.setScale(width.toFloat() / layer.width, height.toFloat() / layer.height)
+        bitmapShader.setLocalMatrix(matrix)
+        val gradient = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), start, end, Shader.TileMode.CLAMP)
+        return ComposeShader(bitmapShader, gradient, PorterDuff.Mode.MULTIPLY)
+    }
+
+    /**
+     * A built-in icon: a squircle badge with the app's glyph, drawn at the slot size of the
+     * resource family ([CustomSizing.iconSize]: 46 dp for Settings rows, 40 dp for My Files
+     * categories, times the configuration's density).
+     */
+    private fun renderBadge(job: PlannedDrawableJob, badge: IconBadge): Rendered {
+        val synth = synthesizer ?: throw IOException("no synthesizer for the built-in icon ${job.resourceName}")
+        val size = CustomSizing.iconSize(job.resourceName, job.configuration, BADGE_FALLBACK_PX, BADGE_FALLBACK_PX)
+        val out = synth.drawBadge(badge.glyph, badge.fillArgb, badge.fillEndArgb, badge.glyphArgb, maxOf(size.width, size.height))
+        try {
+            return Rendered(encode(out), ninePatch = false)
+        } finally {
+            out.recycle()
         }
     }
 
@@ -251,15 +310,15 @@ class DrawableRenderer(
      */
     private fun referenceBitmap(reference: PlannedDrawableJob): Bitmap {
         val steps = reference.plan.steps
-        if (reference.custom != null || reference.synthesis != null || reference.ninePatch || steps.isEmpty()) {
+        if (reference.custom != null || reference.synthesis != null || reference.badge != null || reference.ninePatch || steps.isEmpty()) {
             return decode(render(reference).png, reference.resourceName)
         }
         val zip = zip(reference.source.packId)
-        if (steps.size == 1 && steps[0].tintArgb == null) return decodeEntry(zip, steps[0].layerPath)
+        if (steps.size == 1 && steps[0].tintArgb == null && steps[0].gradientEndArgb == null) return decodeEntry(zip, steps[0].layerPath)
         val decoded = ArrayList<Bitmap>(steps.size)
         try {
             for (step in steps) decoded.add(decodeEntry(zip, step.layerPath))
-            return composite(decoded, steps.map { it.tintArgb })
+            return composite(decoded, steps)
         } finally {
             decoded.forEach { it.recycle() }
         }
@@ -446,6 +505,9 @@ class DrawableRenderer(
          * icons and panels well below this; the cap keeps a crafted PNG header from an OOM.
          */
         const val MAX_LAYER_PIXELS = 4096L * 4096L
+
+        /** Built-in badge size when the resource is not a known icon family (never for real jobs). */
+        const val BADGE_FALLBACK_PX = 144
 
         /** Initial PNG buffer: a 144 px ARGB icon encodes well under this. */
         const val PNG_BUFFER_BYTES = 128 * 1024

@@ -38,20 +38,7 @@ public object RoleInference {
      * Nearest shade of [reference] (system keys → colour; missing keys are skipped) to [observed].
      * Returns `null` when [reference] has none of the 65 keys.
      */
-    public fun infer(observed: Int, reference: Map<String, Int>): InferredColor? {
-        val lab = ColorMath.lab(observed)
-        var best: InferredColor? = null
-        for (role in PaletteRole.SHADE_ROLES) {
-            ShadeScale.SHADES.forEachIndexed { i, shade ->
-                val ref = reference[ShadeScale.key(role, shade)] ?: return@forEachIndexed
-                val d = ColorMath.deltaE76(lab, ColorMath.lab(ref))
-                if (best == null || d < best!!.deltaE) {
-                    best = InferredColor(role, i, ColorMath.alpha(observed), d)
-                }
-            }
-        }
-        return best
-    }
+    public fun infer(observed: Int, reference: Map<String, Int>): InferredColor? = ShadeReference(reference).infer(observed)
 
     /**
      * The [resolved] theme's colour for the role/shade [observed] matches in [reference], carrying
@@ -63,10 +50,53 @@ public object RoleInference {
         resolved: ResolvedTheme,
         isDark: Boolean,
         maxDeltaE: Double = DEFAULT_MAX_DELTA_E,
-    ): Int? {
-        val match = infer(observed, reference) ?: return null
-        if (match.deltaE > maxDeltaE) return null
+    ): Int? = recolor(infer(observed, reference), resolved, isDark, maxDeltaE)
+
+    /** [recolor] for a colour whose nearest shade [match] is already known (see [ShadeReference]). */
+    internal fun recolor(match: InferredColor?, resolved: ResolvedTheme, isDark: Boolean, maxDeltaE: Double = DEFAULT_MAX_DELTA_E): Int? {
+        if (match == null || match.deltaE > maxDeltaE) return null
         val target = resolved.scheme(isDark).shades[match.key] ?: return null
         return ColorMath.withAlpha(target, match.alpha)
+    }
+}
+
+/**
+ * A reference palette (system keys → colour) with every shade's CIELAB value computed once, so
+ * matching thousands of colours against it does not convert the same 65 shades every time.
+ * [infer] gives exactly [RoleInference.infer]'s result, ties included.
+ */
+internal class ShadeReference(reference: Map<String, Int>) {
+    private val roles = ArrayList<PaletteRole>(ShadeScale.ALL_KEYS.size)
+    private val indices = ArrayList<Int>(ShadeScale.ALL_KEYS.size)
+    private val labs = ArrayList<DoubleArray>(ShadeScale.ALL_KEYS.size)
+
+    init {
+        for (role in PaletteRole.SHADE_ROLES) {
+            ShadeScale.SHADES.forEachIndexed { i, shade ->
+                val ref = reference[ShadeScale.key(role, shade)] ?: return@forEachIndexed
+                roles += role
+                indices += i
+                labs += ColorMath.lab(ref)
+            }
+        }
+    }
+
+    /** True when the reference has none of the 65 keys (every [infer] is then null). */
+    val isEmpty: Boolean get() = labs.isEmpty()
+
+    /** Nearest shade to [observed] (RGB only; ties go to the first shade in canonical order). */
+    fun infer(observed: Int): InferredColor? {
+        if (labs.isEmpty()) return null
+        val lab = ColorMath.lab(observed)
+        var bestIndex = -1
+        var bestDistance = 0.0
+        for (k in labs.indices) {
+            val d = ColorMath.deltaE76(lab, labs[k])
+            if (bestIndex < 0 || d < bestDistance) {
+                bestIndex = k
+                bestDistance = d
+            }
+        }
+        return InferredColor(roles[bestIndex], indices[bestIndex], ColorMath.alpha(observed), bestDistance)
     }
 }

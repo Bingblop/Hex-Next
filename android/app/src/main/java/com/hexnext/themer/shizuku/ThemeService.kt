@@ -14,14 +14,13 @@ import android.system.Os
 import android.system.OsConstants
 import android.util.TypedValue
 import androidx.annotation.Keep
+import com.hexnext.engine.compile.ValuePlanner
+import com.hexnext.engine.compile.ValueTypes
 import com.hexnext.engine.device.OverlayList
 import com.hexnext.engine.device.RaiseNeed
 import com.hexnext.engine.device.SemWtPlanner
-import com.hexnext.engine.frro.FrroBinary
-import com.hexnext.engine.frro.FrroColor
 import com.hexnext.engine.frro.FrroFormat
 import com.hexnext.engine.frro.FrroReader
-import com.hexnext.engine.frro.FrroSpec
 import com.hexnext.engine.frro.FrroWriter
 import com.hexnext.themer.IThemeService
 import org.json.JSONArray
@@ -207,9 +206,17 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
+    /**
+     * Disables and unregisters overlay [name] of this service's owner, or of the owner given as
+     * `owner:name` (`com.android.shell` or `android` only): a system-mode apply clears the copies
+     * an earlier root or Shizuku apply made under the shell, so no app carries two Hex overlays.
+     */
     override fun removeOverlay(name: String): Bundle {
         return try {
-            val owner = activeOwnerPackage()
+            val owner = if (':' in name) name.substringBefore(':') else activeOwnerPackage()
+            val name = name.substringAfter(':')
+            if (owner != SHELL_OWNER && owner != SYSTEM_OWNER) return result(-1, "Not a Hex Next owner: $owner")
+            if (!OVERLAY_NAME.matches(name)) return result(-1, "Not a Hex Next overlay name: $name")
             val id = "$owner:$name"
             shell("cmd overlay disable --user current $id")
             if (isPrivilegedUid()) {
@@ -511,6 +518,167 @@ class ThemeService() : IThemeService.Stub() {
         drawableFds: Array<ParcelFileDescriptor?>?,
         ninePatch: BooleanArray?,
     ): Bundle = applyOverlayInternal(name, target, colorNames, colors, colorConfigs, drawableNames, drawableConfigs, drawableFds, ninePatch)
+
+    /**
+     * Registers (or replaces) `HexNextValues_<target>`: one fabricated overlay of raw typed values
+     * (dimensions, integers, booleans, floats; [ValueTypes.ALLOWED]), enabled and raised. A
+     * separate overlay from the colours so a System UI crash rollback can drop the sizes alone.
+     * Root only (code 3 otherwise, nothing touched). No values unregisters the overlay. System UI
+     * is not restarted: OverlayManager's configuration change makes it reload.
+     */
+    override fun applyValueOverlay(
+        name: String?,
+        target: String?,
+        names: Array<String?>?,
+        dataTypes: IntArray?,
+        data: IntArray?,
+        configs: Array<String?>?,
+    ): Bundle {
+        val started = SystemClock.elapsedRealtime()
+        val skipped = JSONArray()
+        fun finish(bundle: Bundle, count: Int, lookup: String): Bundle = bundle.apply {
+            putInt(KEY_RESOURCE_COUNT, count)
+            putString(KEY_SKIPPED, skipped.toString())
+            putLong(KEY_MILLIS, SystemClock.elapsedRealtime() - started)
+            putString(KEY_LOOKUP, lookup)
+        }
+        return try {
+            if (name == null || target == null || !OVERLAY_NAME.matches(name) || !PACKAGE_NAME.matches(target) ||
+                !name.startsWith(VALUES_PREFIX)
+            ) {
+                return finish(result(-1, "Invalid value overlay name or target package"), 0, "")
+            }
+            val n = names.orEmpty()
+            val types = dataTypes ?: IntArray(0)
+            val values = data ?: IntArray(0)
+            if (n.size != types.size || n.size != values.size || (configs != null && configs.size != n.size)) {
+                return finish(result(-1, "names, dataTypes, data and configs differ in length"), 0, "")
+            }
+            if (!isPrivilegedUid()) {
+                return finish(
+                    result(3, "Sizes need the privileged service (Shizuku running as root, uid 0/1000); this service runs as uid ${Process.myUid()}."),
+                    0, "",
+                )
+            }
+            if (n.isEmpty()) return finish(removeOverlay(name), 0, "")
+
+            val owner = activeOwnerPackage()
+            val id = "$owner:$name"
+            val log = StringBuilder()
+            log.appendLine("[UID ${Process.myUid()}] $id -> $target: ${n.size} values")
+            // FabricatedOverlay.setResourceValue only takes integer types (0x10..0x1f) and throws
+            // "dataType is out of range of [16, 31]" for dimensions and floats (seen on One UI 9).
+            // Those are registered as plain integers first and given their real type by a root
+            // rewrite of the .frro before the overlay is ever enabled, so System UI never reads a
+            // size typed as an integer. An earlier registration is dropped just before registering
+            // for the same reason: replacing an enabled overlay would make the placeholders live.
+            val overlay = newOverlay(name, target, owner)
+            var committed = 0
+            var first: String? = null
+            val retype = ArrayList<RetypedValue>()
+            n.forEachIndexed { i, res ->
+                val config = configs?.getOrNull(i)?.takeIf { it.isNotBlank() }
+                when {
+                    res == null -> Unit
+                    !RESOURCE_NAME.matches(res) -> skip(skipped, res, "invalid resource name")
+                    config != null && !CONFIG_NAME.matches(config) -> skip(skipped, res, "invalid configuration $config")
+                    types[i] !in ValueTypes.ALLOWED -> skip(skipped, res, "data type 0x%02x is not a size, number or switch".format(types[i]))
+                    else -> try {
+                        val qualifiedName = qualified(res, target)
+                        val direct = types[i] in FIRST_INT_TYPE..LAST_INT_TYPE
+                        overlay.setResourceValue(qualifiedName, if (direct) types[i] else TypedValue.TYPE_INT_DEC, values[i], config)
+                        if (!direct) retype.add(RetypedValue(qualifiedName, types[i], values[i], config.orEmpty()))
+                        committed++
+                        if (config == null && first == null) first = qualifiedName
+                    } catch (t: Throwable) {
+                        skip(skipped, res, describe(t))
+                    }
+                }
+            }
+            if (committed == 0) return finish(result(4, log.append("No value could be set; the previous sizes were left as they were.").toString()), 0, "")
+            if (retype.isNotEmpty()) {
+                val dropped = removeOverlay(name)
+                log.appendLine("Dropped the previous registration first (code ${dropped.getInt(KEY_CODE)}).")
+                if (overlayEnabled(id) != false) {
+                    return finish(
+                        result(4, log.append("$id could not be confirmed disabled, so no size was registered: ${dropped.getString(KEY_OUTPUT)}").toString()),
+                        0, "",
+                    )
+                }
+            }
+            val register = OverlayManagerTransaction.newInstance()
+            register.registerFabricatedOverlay(overlay)
+            commit(register)
+            log.appendLine("Committed $committed values through OverlayManager.")
+            if (retype.isNotEmpty()) {
+                try {
+                    retypeByRewrite(id, name, target, owner, retype, log)
+                } catch (t: Throwable) {
+                    // Never enable placeholders: an integer where System UI expects a size crashes it.
+                    val dropped = removeOverlay(name)
+                    log.appendLine("Unregistered the placeholders (code ${dropped.getInt(KEY_CODE)}; enabled now: ${overlayEnabled(id)}).")
+                    retype.forEach { skip(skipped, it.resource, "size rewrite failed: ${describe(t)}") }
+                    return finish(result(4, log.append("Size rewrite failed (${describe(t)}); nothing was enabled.").toString()), 0, "")
+                }
+            }
+            val top = enableOnTop(id, name, target, owner)
+            if (top.code == 0) {
+                log.appendLine(top.log)
+                pruneStaleAfterEnable(id, owner, name, null, log)
+            } else {
+                log.appendLine("Enable failed: ${top.log}")
+            }
+            finish(result(top.code, log.toString()), if (top.code == 0) committed else 0, lookup(target, first))
+        } catch (t: Throwable) {
+            finish(result(-1, describe(t)), 0, "")
+        }
+    }
+
+    /** Whether [id] is enabled now: null when `cmd overlay list` cannot tell; false when absent or disabled. */
+    private fun overlayEnabled(id: String): Boolean? {
+        val list = shell("cmd overlay list --user current")
+        if (list.getInt(KEY_CODE) != 0) return null
+        val lines = parseOverlayList(list.getString(KEY_OUTPUT).orEmpty())
+        if (lines.isEmpty()) return null
+        return lines.any { it.overlayId == id && it.enabled }
+    }
+
+    /** A value registered as an integer placeholder that the root rewrite gives its real [dataType]. */
+    private data class RetypedValue(val resource: String, val dataType: Int, val data: Int, val config: String)
+
+    /**
+     * Rewrites the just-registered (still disabled) value overlay's `.frro` as root so each
+     * [values] entry carries its real data type, then checks the file reads back with those
+     * types. Throws on any failure; the caller then unregisters the overlay.
+     */
+    private fun retypeByRewrite(id: String, name: String, target: String, owner: String, values: List<RetypedValue>, log: StringBuilder) {
+        val path = findFrroPath(id, owner, name, log) ?: error("no registered .frro found for $id under $RESOURCE_CACHE")
+        val meta = try {
+            fileMeta(path).let { if (it.label == null) it.copy(label = RESOURCE_CACHE_LABEL) else it }
+        } catch (t: Throwable) {
+            log.appendLine("stat $path failed (${describe(t)}); using the One UI 9 defaults.")
+            DEFAULT_FRRO_META
+        }
+        val original = File(path).readBytes()
+        val current = FrroReader.read(original)
+        check(current.packageName == owner && current.name == name && current.targetPackage == target) {
+            "$path belongs to ${current.packageName}:${current.name} -> ${current.targetPackage}, not $id -> $target"
+        }
+        val writer = FrroWriter.from(current, original)
+        values.forEach { writer.setResourceValue(it.resource, it.dataType, it.data, it.config) }
+        val bytes = writer.toByteArray(path)
+        val built = FrroReader.read(bytes)
+        val wrong = values.filter { v ->
+            built.entries.none { e ->
+                e.resourceName == v.resource && e.configuration.orEmpty() == v.config && e.dataType == v.dataType && e.data == v.data
+            }
+        }
+        check(built.crcMatchesProto && wrong.isEmpty() && built.entries.size == current.entries.size) {
+            "rewrite read-back failed (${wrong.size} values with the wrong type, ${built.entries.size}/${current.entries.size} entries)"
+        }
+        replaceFile(path, bytes, meta, log)
+        log.appendLine("Gave ${values.size} sizes their real type in $path (crc 0x%08x).".format(built.crc))
+    }
 
     private fun applyOverlayInternal(
         name: String?,
@@ -854,28 +1022,27 @@ class ThemeService() : IThemeService.Stub() {
         check(current.packageName == owner && current.name == name && current.targetPackage == target) {
             "$path belongs to ${current.packageName}:${current.name} -> ${current.targetPackage}, not $id -> $target"
         }
-        val foreign = current.entries.filter { it.dataType != FrroFormat.TYPE_INT_COLOR_ARGB8 }
-        check(foreign.isEmpty()) { "$path holds ${foreign.size} non-colour values (${foreign.first().resourceName})" }
         if (current.entries.size != colors.size) {
-            log.appendLine("Note: the registered file holds ${current.entries.size} colours, ${colors.size} were committed.")
+            log.appendLine("Note: the registered file holds ${current.entries.size} values, ${colors.size} colours were committed.")
         }
 
-        // Colours exactly as OverlayManager wrote them, plus the PNG payloads.
-        val spec = FrroSpec(
-            ownerPackage = owner,
-            overlayName = name,
-            targetPackage = target,
-            targetOverlayable = current.targetOverlayable,
-            colors = current.entries.map { FrroColor(it.resourceName, it.data, it.configuration) },
-            binaries = pngs.map { FrroBinary(it.resource, it.bytes, false, it.input.config) },
-        )
-        val bytes = FrroWriter.write(spec, path)
+        // Every entry exactly as OverlayManager wrote it (colours and any other typed value, so a
+        // file that also holds dimensions or booleans is never truncated to its colours), plus the
+        // PNG payloads. Version 3 is needed for file values.
+        val previousBinaries = current.entries.count { it.binaryOffset != null }
+        val writer = FrroWriter.from(current, original, version = maxOf(current.version, FrroFormat.CURRENT_VERSION))
+        pngs.forEach { writer.setBinary(it.resource, it.bytes, false, it.input.config.orEmpty()) }
+        val bytes = writer.toByteArray(path)
         val built = FrroReader.read(bytes)
-        check(built.crcMatchesProto && built.entries.count { it.binaryOffset != null } == pngs.size) {
-            "FrroWriter output failed its own read-back"
-        }
+        val kept = current.entries.count { it.binaryOffset == null }
+        check(
+            built.crcMatchesProto &&
+                built.entries.count { it.binaryOffset != null } >= pngs.size &&
+                built.entries.count { it.binaryOffset == null } >= kept - pngs.size
+        ) { "FrroWriter output failed its own read-back" }
+        val nonColour = current.entries.count { it.binaryOffset == null && it.dataType != FrroFormat.TYPE_INT_COLOR_ARGB8 }
         log.appendLine(
-            "Built ${bytes.size} bytes: ${spec.colors.size} colours + ${pngs.size} PNGs " +
+            "Built ${bytes.size} bytes: $kept kept values ($nonColour non-colour, $previousBinaries earlier files) + ${pngs.size} PNGs " +
                 "(${pngs.sumOf { it.bytes.size }} payload bytes), crc 0x%08x".format(built.crc)
         )
 
@@ -1257,7 +1424,21 @@ class ThemeService() : IThemeService.Stub() {
         }
     }
 
-    override fun startStabilityMonitor(seconds: Int): Bundle {
+    override fun startStabilityMonitor(seconds: Int): Bundle = startMonitor(seconds, null)
+
+    /**
+     * [startStabilityMonitor] in staged mode: a first trip disables only the overlays whose name
+     * starts with [firstPrefix] (`[A-Za-z0-9_]+`) and writes `values_rollback.json`; only a
+     * second trip in a fresh window disables every HexNext overlay (see [MonitorScript]).
+     */
+    override fun startStabilityMonitorStaged(seconds: Int, firstPrefix: String?): Bundle {
+        if (firstPrefix == null || !MonitorScript.PREFIX.matches(firstPrefix) || !firstPrefix.startsWith(HEX_PREFIX)) {
+            return result(-1, "Invalid monitor prefix")
+        }
+        return startMonitor(seconds, firstPrefix)
+    }
+
+    private fun startMonitor(seconds: Int, firstPrefix: String?): Bundle {
         return try {
             val window = seconds.coerceIn(10, 1800)
             // A previous monitor gets TERM; give it a second to write its final status first.
@@ -1267,9 +1448,10 @@ class ThemeService() : IThemeService.Stub() {
             // (`sh -c '<text>' monitor.sh <seconds>`), never the copy in the shell-owned state
             // directory, which any uid 2000 process could swap before `sh` reads it.
             writeRootFile(File(MonitorScript.PATH), MonitorScript.text)
-            val script = inlineScript(MonitorScript.text, MonitorScript.PATH.substringAfterLast('/'), window.toString())
+            val args = listOfNotNull(window.toString(), firstPrefix).toTypedArray()
+            val script = inlineScript(MonitorScript.text, MonitorScript.PATH.substringAfterLast('/'), *args)
             val launch = shell(
-                settle + "rm -f ${MonitorScript.SAFE_MODE_FILE} ${MonitorScript.PID_FILE}; " +
+                settle + "rm -f ${MonitorScript.SAFE_MODE_FILE} ${MonitorScript.VALUES_ROLLBACK_FILE} ${MonitorScript.PID_FILE}; " +
                     "if command -v setsid >/dev/null 2>&1; then " +
                     "nohup setsid $script >/dev/null 2>&1 & " +
                     "else nohup $script >/dev/null 2>&1 & fi"
@@ -1288,7 +1470,8 @@ class ThemeService() : IThemeService.Stub() {
             if (pidValue == null) {
                 result(MONITOR_PID_MISSING, "Monitor launched but ${MonitorScript.PID_FILE} is missing: $pid")
             } else {
-                result(0, "Stability monitor pid $pidValue watching system_server + SystemUI for $window s").apply {
+                val staged = firstPrefix?.let { " (staged: $it first)" }.orEmpty()
+                result(0, "Stability monitor pid $pidValue watching system_server + SystemUI for $window s$staged").apply {
                     putInt("pid", pidValue)
                     putInt("seconds", window)
                 }
@@ -1685,6 +1868,9 @@ class ThemeService() : IThemeService.Stub() {
         private const val MODE_FILE = 420
         const val HEX_PREFIX = "HexNext"
 
+        /** Name prefix of the value (size) overlays, [ValuePlanner.OVERLAY_PREFIX]. */
+        const val VALUES_PREFIX = ValuePlanner.OVERLAY_PREFIX
+
         /** Read-only partitions whose APKs survive a per-user uninstall. */
         val SYSTEM_PARTITIONS = listOf("/system/", "/product/", "/system_ext/", "/vendor/")
 
@@ -1695,6 +1881,9 @@ class ThemeService() : IThemeService.Stub() {
         /** Where idmap2d keeps fabricated overlays and their idmaps. */
         private const val RESOURCE_CACHE = "/data/resource-cache"
         private const val RESOURCE_CACHE_LABEL = "u:object_r:resourcecache_data_file:s0"
+        /** FabricatedOverlay.setResourceValue accepts only these (TypedValue.TYPE_FIRST_INT..TYPE_LAST_INT). */
+        private const val FIRST_INT_TYPE = 0x10
+        private const val LAST_INT_TYPE = 0x1f
         private const val TMP_SUFFIX = ".hexnext.tmp"
 
         /**

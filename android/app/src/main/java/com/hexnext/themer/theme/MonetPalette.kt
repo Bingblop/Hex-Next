@@ -55,8 +55,8 @@ enum class ToneGroup(val resourcePrefix: String, val label: String) {
 }
 
 /**
- * Settings dashboard icon tint styles extracted from Niferpitou (`project.vivid.ui.plugin.niferpitou`
- * `assets/anaconda_tints/once/base/lxx1/settingsicon-*` and `assets/extra.preferences`).
+ * Settings dashboard icon tint styles: the `settingsicon-<id>` layer folders a pack may carry
+ * (`settingsicon-<id>_frameless` without the squircle frame).
  */
 enum class SettingsIconStyle(
     val id: String,
@@ -64,11 +64,11 @@ enum class SettingsIconStyle(
     val assetFolder: String,
     val framelessFolder: String,
 ) {
-    STYLE_1SETT("1sett", "Primary Tint (1sett)", "settingsicon-1sett", "settingsicon-1sett_frameless"),
-    STYLE_2SETT("2sett", "Secondary Tint (2sett)", "settingsicon-2sett", "settingsicon-2sett_frameless"),
-    STYLE_3SETT("3sett", "OG Multi-Tone (3sett)", "settingsicon-3sett", "settingsicon-3sett_frameless"),
-    STYLE_ALT_1SETT("alt_1sett", "Duotone Primary+Accent (alt_1sett)", "settingsicon-alt_1sett", "settingsicon-alt_1sett_frameless"),
-    STYLE_ALT_2SETT("alt_2sett", "Duotone Accent+Primary (alt_2sett)", "settingsicon-alt_2sett", "settingsicon-alt_2sett_frameless");
+    STYLE_1SETT("1sett", "Primary tint", "settingsicon-1sett", "settingsicon-1sett_frameless"),
+    STYLE_2SETT("2sett", "Secondary tint", "settingsicon-2sett", "settingsicon-2sett_frameless"),
+    STYLE_3SETT("3sett", "Multi-tone", "settingsicon-3sett", "settingsicon-3sett_frameless"),
+    STYLE_ALT_1SETT("alt_1sett", "Duotone, primary and accent", "settingsicon-alt_1sett", "settingsicon-alt_1sett_frameless"),
+    STYLE_ALT_2SETT("alt_2sett", "Duotone, accent and primary", "settingsicon-alt_2sett", "settingsicon-alt_2sett_frameless");
 
     companion object {
         fun fromId(id: String?): SettingsIconStyle =
@@ -81,7 +81,7 @@ data class ThemeSpec(
     val style: PaletteStyle,
     /** Paints dark-theme backgrounds pure black, for AMOLED screens. */
     val pureBlack: Boolean,
-    /** Niferpitou 26 SecSettings dashboard icon style (`1sett`, `2sett`, `3sett`, `alt_1sett`, `alt_2sett`). */
+    /** Settings dashboard icon style (`1sett`, `2sett`, `3sett`, `alt_1sett`, `alt_2sett`). */
     val settingsIconStyle: SettingsIconStyle = SettingsIconStyle.STYLE_1SETT,
     /** Removes dashboard icon squircle frame (`settframe` -> `settingsicon-*_frameless`). */
     val framelessIcons: Boolean = false,
@@ -89,7 +89,7 @@ data class ThemeSpec(
     val largeSettingsIcons: Boolean = false,
     /** Masks Samsung Account email address in top SecSettings header (`hidemail`). */
     val hideAccountEmail: Boolean = false,
-    /** Displays Terpsichora custom graphic header inside About Phone (`uselogo`). */
+    /** Displays a custom graphic header inside About Phone (`uselogo`). */
     val useAboutLogo: Boolean = true,
     /** Renders subtle 1dp list dividers between preference rows (`uidivider`). */
     val showListDividers: Boolean = true,

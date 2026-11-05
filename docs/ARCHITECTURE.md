@@ -127,7 +127,18 @@ Release signing applies to both. Gradle tasks carry the flavor: `testPlayDebugUn
 Every theme pack is a one-time Play purchase (product id `pack_<id>`, the pack id lowercased with
 anything outside `[a-z0-9._]` turned into `_`), plus `all_packs`, which also covers packs added
 later. Prices come from Play (formatted), never from the code. Free features (default theme,
-custom colours, icons, fonts, backgrounds, AI) are never gated.
+custom colours, icons, fonts, backgrounds) are never gated.
+
+AI theme creation ("Describe your theme" and AI icon generation, both with the user's own AI key)
+is the paid feature `PaidFeature.AI_CREATION`, unlocked forever by the one-time product
+`ai_lifetime` ($4.99). There is no subscription. `all_packs` ($19.99, every current and future
+pack) does not unlock AI, and `ai_lifetime` unlocks no pack. A new paid feature only needs an enum
+entry (with its product id) and its UI gate. The gate is `ui/ai/AiPaywall.kt`: the Describe card
+and the icon sheet show the paywall instead of the prompt, and both request models re-check
+`unlocks(PaidFeature.AI_CREATION)` right before calling the provider, so a refund takes effect at
+once. `PlayEntitlements` loads `ProductIds.ONE_TIME_EXTRAS` (`all_packs`, `ai_lifetime`) next to
+the pack ids, and the license server verifies `ai_lifetime` like any other one-time product.
+App settings → Purchases shows the AI status. The owner build sets `EntitlementState.allFeatures`.
 
 Shared code only sees `billing/Entitlements.kt` (`PackEntitlements`, `EntitlementState`,
 `ProductIds`) and calls `EntitlementsFactory.create(context)`, which each flavor defines in its
@@ -161,16 +172,21 @@ show as pending and unlock nothing. A purchase is verified before it is granted 
 `hexnext_billing.xml` caches the owned product ids only as a hint so the pack list does not flash
 locks before Play answers; it never unlocks a download or an apply.
 
-`MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI: a locked pack cannot be
-downloaded, selected (simple or per part) or applied, and `applyTheme` refuses a theme that uses
-one (a pack imported from a file, a refunded pack, a pick from "Describe your theme"). A pack is
+`MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI. A locked pack can be
+downloaded, selected (simple or per part) and fully previewed, but never built or applied:
+`applyTheme` refuses a theme that uses one (a pack imported from a file, a refunded pack, a pick from "Describe your theme"). A pack is
 paid when its id is in `PaidPacks` or in `OfficialPacks` (`hexnext_packs.xml`: every id seen in a
 fetched catalogue, including the default catalogue read once at start-up in the Play build, and
 every pack downloaded from one), so a pack added to the catalogue after the APK shipped is paid
 too; only an imported pack whose id is in neither is free. An imported paid pack is unlocked only
 when its id is. A theme uses a pack only through an enabled part that resolves to it
 (`ThemeSpec.packFor`), so an unused default pack does not block an apply. Test packs bundled under `assets/packs/` count as unlocked
-in debuggable builds only. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
+in debuggable builds only. The live preview renders the theme as it is, locked packs included, so a
+user can see a pack before buying it. A locked pack downloads into `files/packs-preview`, which the
+previewer reads (`LayeredPackResolver`: installed packs first) but the applier never does, so its
+artwork is physically absent at build time even if a gate regressed; it moves into `files/packs`
+once the store confirms the purchase (the cached purchase hint is never enough). Preview zips are
+excluded from backups and pruned after 7 days unused. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
 packs" sits in the Theme pack card and the "Get packs" dialog.
 
 ## Overlay delivery

@@ -11,9 +11,20 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.hexnext.engine.compile.ApplyReport
+import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.engine.compile.ColorGroupMatcher
+import com.hexnext.engine.compile.ColorPin
+import com.hexnext.engine.compile.GroupCount
+import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.LiveOption
 import com.hexnext.engine.compile.CustomFont
+import com.hexnext.engine.compile.OneUiRules
+import com.hexnext.engine.compile.ThemeExport
+import com.hexnext.engine.compile.ThemeFormatException
 import com.hexnext.engine.compile.ThemeMode
+import com.hexnext.engine.compile.ValueControl
+import com.hexnext.engine.compile.ValuePlanner
+import com.hexnext.engine.compile.ValueSetting
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import com.hexnext.engine.compile.withCustomBackground
 import com.hexnext.engine.compile.withCustomIcon
@@ -21,14 +32,21 @@ import com.hexnext.engine.compile.withElementEnabled
 import com.hexnext.engine.compile.withElementPack
 import com.hexnext.engine.compile.withFont
 import com.hexnext.engine.compile.withOption
+import com.hexnext.engine.compile.withAllGroupsAuto
+import com.hexnext.engine.compile.withGroupColor
 import com.hexnext.engine.compile.withSynthesizeMissingIcons
 import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.palette.PaletteStyle
+import com.hexnext.engine.palette.ThemeAdjustments
+import com.hexnext.engine.palette.ThemeResolver
+import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.EntitlementsProvider
 import com.hexnext.themer.billing.OfficialPacks
 import com.hexnext.themer.billing.PackAccess
 import com.hexnext.themer.billing.ProductIds
+import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
@@ -40,37 +58,59 @@ import com.hexnext.themer.theme.BackgroundSlots
 import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.theme.CatalogueEntry
 import com.hexnext.themer.theme.CustomAssetStore
+import com.hexnext.themer.theme.FontInstaller
 import com.hexnext.themer.theme.InstalledPack
+import com.hexnext.themer.theme.InstalledPacks
 import com.hexnext.themer.theme.LogLevel
 import com.hexnext.themer.theme.LogLine
+import com.hexnext.themer.theme.MonetSeed
 import com.hexnext.themer.theme.PackStore
 import com.hexnext.themer.theme.SemWtController
+import com.hexnext.themer.theme.SnapshotBuilder
+import com.hexnext.themer.theme.StyledIconPreview
 import com.hexnext.themer.theme.ThemeApplier
 import com.hexnext.themer.theme.ThemePreviewer
 import com.hexnext.themer.theme.ThemeStore
 import com.hexnext.themer.theme.formatOneUi
 import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.studio.PreviewIcon
+import com.hexnext.themer.ui.studio.QsShapes
+import com.hexnext.themer.ui.studio.StudioPreviewState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.lang.ref.WeakReference
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.WeakHashMap
 
 /** The full-screen destinations of the app; [MainViewModel.screen] holds the current one. */
-enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING }
+enum class Screen { MAIN, SETTINGS, DIAGNOSTICS, AI_PROVIDERS, ONBOARDING, RESOURCES }
 
 /** What a [Notice] offers to do besides dismissing itself. */
-enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE, CONFIRM_WORKS }
+enum class NoticeAction { OPEN_DIAGNOSTICS, REQUEST_PERMISSION, RETRY_APPLY, RETRY_REMOVE, CONFIRM_WORKS, UNLOCK_PACK }
 
 /**
  * One transient message for the snackbar: the outcome of an apply, remove or import, with an
@@ -84,6 +124,8 @@ data class Notice(
     val isError: Boolean = false,
     /** True for a confirmed success (success haptic). */
     val isSuccess: Boolean = false,
+    /** The pack [NoticeAction.UNLOCK_PACK] starts the purchase of. */
+    val packId: String? = null,
     /** Distinguishes two identical notices in a row so each one shows. */
     val id: Long = System.nanoTime(),
 )
@@ -100,7 +142,6 @@ data class UiState(
     /** The pending snackbar message; null once shown (see [MainViewModel.consumeNotice]). */
     val notice: Notice? = null,
     val oneUiVersion: String? = null,
-    val log: List<LogLine> = emptyList(),
     /** Non-null while the "Hex Next overlays were turned off after repeated restarts" banner shows. */
     val safeModeBanner: String? = null,
     /** True when safe mode could not turn the overlays off: the banner then points to Diagnostics instead. */
@@ -120,8 +161,13 @@ data class UiState(
     val applyProtectionExpired: Boolean = false,
     /** True when the editor asked for a phone scan; Diagnostics starts it and clears the flag. */
     val scanRequested: Boolean = false,
-    /** Pack zips in `files/packs` that could be read. */
+    /**
+     * Pack zips that could be read: `files/packs`, plus locked catalogue packs downloaded into
+     * `files/packs-preview` for the preview only (their ids are in [previewOnlyPackIds]).
+     */
     val packs: List<InstalledPack> = emptyList(),
+    /** Packs of [packs] that sit in the preview-only directory: shown and previewed, never built. */
+    val previewOnlyPackIds: Set<String> = emptySet(),
     /** Pack zips that could not be read: file name → message. */
     val packErrors: Map<String, String> = emptyMap(),
     /** The stored theme (`files/theme.json`) without the seed; [EngineThemeSpec.default] until loaded. */
@@ -164,6 +210,18 @@ data class UiState(
 
     /** [isPackUnlocked], or the cached purchase hint while the store has not answered: for display only. */
     fun packLooksUnlocked(id: String): Boolean = PackAccess.looksUnlocked(entitlement, id, bundledPackIds, officialPackIds)
+
+    /**
+     * The packs the current theme uses that are not unlocked: the preview shows them, Apply
+     * refuses them. For display only (the cached hint); Apply checks [isPackUnlocked].
+     */
+    fun previewOnlyPacksInTheme(): Set<String> = PackAccess.lockedPacksIn(spec) { packLooksUnlocked(it) }
+
+    /** The display name of pack [id] from the installed packs or the catalogue; the id capitalised otherwise. */
+    fun packDisplayName(id: String): String =
+        packs.firstOrNull { it.id == id }?.name
+            ?: catalogue.entries.firstOrNull { it.id == id }?.name
+            ?: id.replaceFirstChar { it.titlecase() }
 }
 
 /** The "Preview" card: Settings dashboard icons of the theme to apply, from [ThemePreviewer]. */
@@ -177,6 +235,12 @@ data class PreviewState(
     val fontFile: String? = null,
     val fontName: String? = null,
     val synthesised: Set<String> = emptySet(),
+    /** Names of the icons drawn from the app's built-in art (no pack covers them). */
+    val builtIn: Set<String> = emptySet(),
+    /** The mode [icons] and [myFiles] were rendered for: true for the night jobs, false for the day jobs. */
+    val night: Boolean = true,
+    /** The colours the compile plans for the mockup's targets ([ThemePreviewer.Preview.deviceColors]). */
+    val deviceColors: com.hexnext.themer.ui.studio.DeviceColors = com.hexnext.themer.ui.studio.DeviceColors(),
 )
 
 /** The "Get packs" dialog: catalogue URL, its entries and the downloads in flight (id → 0..1). */
@@ -189,12 +253,25 @@ data class CatalogueState(
 )
 
 class MainViewModel(app: Application, private val savedState: SavedStateHandle) : AndroidViewModel(app) {
+    /**
+     * Counted down once `theme.json` is in [UiState.spec]. Declared first: the init block's load
+     * runs on IO and may finish before later properties exist (lab-018: NullPointerException).
+     */
+    private val specLoaded = java.util.concurrent.CountDownLatch(1)
+
 
     private val prefs = app.getSharedPreferences("hexnext", Context.MODE_PRIVATE)
     private val guard = ApplyGuard(app)
     private val applier = ThemeApplier(app)
     private val themeStore = ThemeStore(app)
     private val packStore = PackStore(app)
+
+    /**
+     * Locked catalogue packs downloaded so they can be browsed and previewed before purchase
+     * ([ThemeApplier.previewPacksDir]). The applier never reads this directory; a zip moves to
+     * [packStore] once its purchase is verified ([refreshPacks]).
+     */
+    private val previewPackStore = PackStore(app) { ThemeApplier.previewPacksDir(it) }
     private val previewer = ThemePreviewer(app)
     private val assets = CustomAssetStore(app)
     private val appSettings = AppSettingsStore.get(app)
@@ -219,8 +296,136 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     val shizuku: StateFlow<ShizukuState> = ShizukuManager.state
 
+    /**
+     * The editor's on-screen build log, kept out of [UiState]: an apply logs many lines, and each
+     * one would otherwise recompose every screen that reads [ui] (and the phone preview with it).
+     */
+    private val _log = MutableStateFlow<List<LogLine>>(emptyList())
+    val log: StateFlow<List<LogLine>> = _log.asStateFlow()
+
+    /** The newest log line's text, for the Apply bar's progress line; null with an empty log. */
+    val lastLogLine: StateFlow<String?> = _log.map { it.lastOrNull()?.text }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Spec saves, conflated: each committed edit asks for one, and the writer saves the latest
+     * spec once the edits pause ([SAVE_DEBOUNCE_MS]), so quick taps do not queue fsync'd writes.
+     */
+    private val saveRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val savePending = AtomicBoolean(false)
+
     private val _ui = MutableStateFlow(initialState())
     val ui: StateFlow<UiState> = _ui.asStateFlow()
+
+    // ---- Studio live preview ----
+
+    /** The spec a drag is showing (live colours only, never saved); null when nothing is dragged. */
+    private val draft = MutableStateFlow<EngineThemeSpec?>(null)
+
+    /** The primary seed a drag is showing; null when nothing is dragged (the seed lives outside the spec). */
+    private val draftSeed = MutableStateFlow<Int?>(null)
+    private val _edits = MutableStateFlow(0)
+
+    /** Counts committed user edits (spec changes and the seed); the preview peek opens in full on a new one. */
+    val edits: StateFlow<Int> = _edits.asStateFlow()
+
+    /** The group the Studio is editing; the phone preview outlines its elements. */
+    private val highlight = MutableStateFlow<ColorGroup?>(null)
+
+    /**
+     * Whether the Studio mockup shows dark mode (its default) or light mode; icons are rendered
+     * from the night or day jobs to match, since Apply colours them differently per mode.
+     */
+    private val previewNight = MutableStateFlow(true)
+
+    /** Built-in badge icons for the preview when the compile preview has none (no scan, no pack icons). */
+    private val styledIcons = StyledIconPreview(app)
+
+    /**
+     * Compose wrappers of the preview bitmaps, by bitmap identity, so an unchanged icon stays equal.
+     * The values are weak too: a wrapper holds its bitmap strongly, so a strong value would keep its
+     * own weak key reachable and no entry would ever be dropped.
+     */
+    private val imageCache: MutableMap<Bitmap, WeakReference<ImageBitmap>> = Collections.synchronizedMap(WeakHashMap())
+
+    /**
+     * The icon half of [studioPreview]: rendered from the debounced compile preview, or built-in
+     * badges in the current icon style when it has none. Keyed on the committed spec (never the
+     * draft), so a slider drag never re-renders icons.
+     */
+    private val iconPart: StateFlow<StudioIcons> = _ui
+        // Only the fields icons depend on, so unrelated UiState changes (busy, notices) stop here.
+        .map { IconSource(it.preview, it.spec, it.seed) }
+        .distinctUntilChanged()
+        .map {
+            IconInputs(
+                it.preview, it.spec.iconStyle, it.spec.source.copy(seedArgb = it.seed), it.spec.darkAdjustments, it.spec.lightAdjustments,
+                settingsBuiltIn = drawsBuiltInIcons(it.spec, SETTINGS_ICONS_ELEMENT),
+                myFilesBuiltIn = drawsBuiltInIcons(it.spec, MY_FILES_ICONS_ELEMENT),
+                // The mode of the last render, not the toggle: until the new mode's render lands the
+                // bitmaps are the old mode's, and the label and built-in badges must match them.
+                night = it.preview.night,
+            )
+        }
+        .distinctUntilChanged()
+        .conflate()
+        .map { studioIcons(it) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudioIcons(loading = true))
+
+    /**
+     * Everything the Studio's phone mockup draws: the colours of the draft (or the stored spec) with
+     * the primary seed, recomputed on every edit without a scan or a compile, plus the icons,
+     * background and font of the last compile preview.
+     */
+    val studioPreview: StateFlow<StudioPreviewState> = combine(
+        _ui.map { ColourInputs(it.spec, it.seed) }.distinctUntilChanged(),
+        draft,
+        draftSeed,
+        highlight,
+        iconPart,
+    ) { base, draftSpec, seedDraft, highlighted, icons ->
+        val spec = draftSpec ?: base.spec
+        StudioPreviewState.colorsOf(spec, seedDraft ?: base.seed).copy(
+            settingsIcons = icons.settings,
+            myFilesIcons = icons.myFiles,
+            background = icons.background,
+            fontFile = icons.fontFile,
+            fontName = icons.fontName,
+            highlightedGroup = highlighted,
+            qsPanelAlpha = spec.qsPanelAlpha.coerceAtLeast(EngineThemeSpec.MIN_QS_PANEL_ALPHA) / 255f,
+            iconsLoading = icons.loading,
+            hasScan = icons.hasScan,
+            note = icons.note,
+            iconsNight = icons.night,
+            dragging = draftSpec != null || seedDraft != null,
+            qsShapes = QsShapes.of(spec),
+            deviceColors = icons.deviceColors,
+        )
+    }
+        .conflate()
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudioPreviewState.colorsOf(_ui.value.spec, _ui.value.seed))
+
+    /** Resources per element group over every scanned app, for the element colour rows; empty without a scan. */
+    private val _groupCounts = MutableStateFlow<Map<ColorGroup, GroupCount>>(emptyMap())
+    val groupCounts: StateFlow<Map<ColorGroup, GroupCount>> = _groupCounts.asStateFlow()
+
+    /**
+     * The Quick panel shape controls over the last scan ([ValuePlanner.availableControls]), loaded
+     * with [loadGroupCounts]; empty without a scan. A control without names on this phone is
+     * hidden, one whose scan predates value lists shows "Rescan needed".
+     */
+    private val _valueControls = MutableStateFlow<Map<String, ValueControl>>(emptyMap())
+    val valueControls: StateFlow<Map<String, ValueControl>> = _valueControls.asStateFlow()
+
+    /** The scan stamp [_groupCounts] was computed from; null before the first count. Main thread only. */
+    private var groupCountsStamp: String? = null
+
+    /** True once the Studio showed the counts: a new scan then recounts them. */
+    private var groupCountsWanted = false
+    private var groupCountsJob: Job? = null
 
     /** Screens the user came through, so back returns to them (settings → AI providers → back → settings). */
     private val backStack = ArrayDeque<Screen>(
@@ -263,7 +468,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * Skipped while an apply or remove runs ([UiState.serviceBusy]), which sets the report itself
      * when it ends; a pack download or import does not touch the report, so it does not skip this.
      */
-    private fun refreshLastApply() {
+    internal fun refreshLastApply() {
         if (_ui.value.serviceBusy) return
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { ThemeApplier.lastReport(getApplication<Application>()) }
@@ -353,13 +558,35 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            val stored = themeStore.load()
+            saveRequests.collectLatest {
+                delay(SAVE_DEBOUNCE_MS)
+                flushSpecSave()
+            }
+        }
+        viewModelScope.launch {
+            // Read off the main thread rather than while the view model is built (cold start).
+            val (report, unconfirmed, expired) = withContext(Dispatchers.IO) {
+                Triple(
+                    ThemeApplier.lastReport(getApplication<Application>()).let { staleAfterSafeMode(it, guard.safeModeAt) },
+                    !guard.confirmed,
+                    guard.protectionExpired(),
+                )
+            }
+            // An apply or remove that already ran sets these itself.
+            _ui.update {
+                if (it.serviceBusy || it.lastApply != null) it
+                else it.copy(lastApply = report, applyUnconfirmed = unconfirmed, applyProtectionExpired = expired)
+            }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val stored = runCatching { themeStore.load() }.getOrElse { _ui.value.spec }
             _ui.update { it.copy(spec = stored) }
+            specLoaded.countDown()
             refreshPreview()
             val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
             if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
             seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
-            if (debuggable) {
+            if (debuggable && BuildConfig.DEBUG) {
                 val bundled = runCatching { packStore.bundledIds() }.getOrDefault(emptySet())
                 _ui.update { it.copy(bundledPackIds = bundled) }
             }
@@ -394,13 +621,25 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
         viewModelScope.launch {
             officialPacks.ids.collect { ids ->
+                val changed = _ui.value.officialPackIds != ids
                 _ui.update { if (it.officialPackIds == ids) it else it.copy(officialPackIds = ids) }
+                // A pack that became paid stays in the preview (preview only) but may have to move
+                // between the pack directories, and its badge changes.
+                if (changed) refreshPacks()
             }
         }
         viewModelScope.launch {
             var previous: EntitlementState? = null
             entitlements.state.collect { state ->
+                val old = _ui.value.entitlement
                 _ui.update { if (it.entitlement == state) it else it.copy(entitlement = state) }
+                // A verified purchase moves its preview-only zip into files/packs, where an apply
+                // can use it (refreshPacks); the preview renders locked and unlocked packs alike.
+                if (old.ready != state.ready || old.unlockAll != state.unlockAll ||
+                    old.ownedProductIds != state.ownedProductIds
+                ) {
+                    refreshPacks()
+                }
                 val before = previous
                 previous = state
                 onEntitlementsChanged(before, state)
@@ -449,6 +688,22 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             val bundle = result.getOrNull()
             if (bundle != null && bundle.getInt(ThemeService.KEY_CODE, -1) == 0) {
+                // Overlays are only part of the theme. The font (kept as a module that is mounted
+                // again at every boot) and the shell-tier palette seed go too, before the mark below
+                // switches off the boot-time guards that would otherwise remove them.
+                withContext(Dispatchers.IO) {
+                    val service = runCatching { ShizukuManager.service() }.getOrNull()
+                    if (service != null) {
+                        runCatching { MonetSeed.restore(service) { line -> if (line.level != LogLevel.INFO) log(line) } }
+                            .onFailure { log(LogLine(LogLevel.WARN, "Safe mode could not restore the system palette: ${it.javaClass.simpleName}: ${it.message}")) }
+                        val fonts = FontInstaller(service)
+                        runCatching { fonts.remove { line -> if (line.level != LogLevel.INFO) log(line) } }
+                            .onFailure { log(LogLine(LogLevel.WARN, "Safe mode could not remove the Hex Next font: ${it.javaClass.simpleName}: ${it.message}")) }
+                        if (runCatching { fonts.hasState() }.getOrDefault(false)) {
+                            log(LogLine(LogLevel.WARN, "The Hex Next font is still installed; run Remove theme with Shizuku running as root."))
+                        }
+                    }
+                }
                 guard.markSafeModeEntered(by = "app start")
                 // Safe mode confirms the guard: the "not confirmed yet" line must go with the overlays.
                 refreshGuard()
@@ -516,9 +771,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         canPurchase = entitlements.canPurchase,
         seed = prefs.getInt(PREF_SEED, DEFAULT_SEED) or OPAQUE,
         oneUiVersion = CompatibilityCheck.oneUiName(),
-        lastApply = ThemeApplier.lastReport(getApplication<Application>()),
-        applyUnconfirmed = !guard.confirmed,
-        applyProtectionExpired = guard.protectionExpired(),
+        // The last apply report and the restart guard are read on IO in init.
         capability = Capability.of(ShizukuManager.state.value),
     )
 
@@ -526,12 +779,16 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val seed = color or OPAQUE
         prefs.edit().putInt(PREF_SEED, seed).apply()
         _ui.update { it.copy(seed = seed) }
+        draftSeed.value = null
+        _edits.update { it + 1 }
         refreshPreview()
     }
 
     fun requestPermission() = ShizukuManager.requestPermission()
 
-    fun clearLog() = _ui.update { it.copy(log = emptyList()) }
+    fun clearLog() {
+        _log.value = emptyList()
+    }
 
     /**
      * Compiles and applies the full theme (the stored [EngineThemeSpec] with the chosen accent
@@ -550,19 +807,41 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     private fun applyUnlockedTheme() = runTask(retry = NoticeAction.RETRY_APPLY) { service, _ ->
+        // An apply right after start (the device lab hook, a quick tap) must not take the default
+        // theme for the stored one: lab-016/017 applied "Hex Next (default)" without its pack.
+        awaitSpecLoadedBlocking()
+        // The theme being applied is on disk too before anything changes on the phone.
+        flushSpecSave()
         val spec = specToApply()
         val stillLocked = PackAccess.lockedPacksIn(spec) { _ui.value.isPackUnlocked(it) }
         if (stillLocked.isNotEmpty()) {
             log(LogLine(LogLevel.ERROR, "Not applied: pack ${stillLocked.joinToString()} is locked"))
-            postNotice(Notice("Unlock ${packName(stillLocked.first())} to apply this theme", isError = true))
+            postNotice(lockedNotice(stillLocked.first(), "Unlock ${packName(stillLocked.first())} to apply this theme"))
             return@runTask false
         }
-        val report = applier.apply(service, spec, ::log)
+        // A foreground service keeps the process from being frozen if the user leaves mid-apply.
+        val app = getApplication<Application>()
+        com.hexnext.themer.theme.ApplyKeepAliveService.start(app)
+        val report = try {
+            applier.apply(service, spec, ::log)
+        } finally {
+            com.hexnext.themer.theme.ApplyKeepAliveService.stop(app)
+        }
         // A safe mode from before this apply is over once the new theme is on: left set, it keeps
         // the SemWT re-assert (here and at boot) and early-hook detection off for the new theme,
         // and its banner back on every start. A safe mode that tripped during this apply is kept.
         val endsSafeMode = report.success && guard.safeModeAt.let { it == 0L || it < report.startedAt }
         if (endsSafeMode && guard.safeModeActive()) guard.dismissSafeMode()
+        // A theme that applied is remembered, so it comes back by itself after a restart
+        // ([com.hexnext.themer.theme.ThemeRestorer]), and backed up to the chosen folder.
+        if (report.success) {
+            com.hexnext.themer.theme.ThemeRestorer.rememberApplied(getApplication(), spec)
+            val backup = com.hexnext.themer.theme.AutoBackup.get(getApplication())
+            if (backup.state.value.folder != null) {
+                val ok = backup.backUp { out -> com.hexnext.themer.theme.ThemeBackup.write(getApplication(), spec, appSettings.exportJson(), out) }
+                if (!ok) log(LogLine(LogLevel.WARN, "Automatic backup failed: ${backup.state.value.lastError}"))
+            }
+        }
         _ui.update {
             it.copy(
                 lastApply = report,
@@ -626,6 +905,210 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         navigate(Screen.DIAGNOSTICS)
     }
 
+    // ---- System > Targets and the resource editor ----
+
+    /** The app [Screen.RESOURCES] opens on next; null keeps the editor's own choice. */
+    private val _resourcesTarget = MutableStateFlow<String?>(null)
+    val resourcesTarget: StateFlow<String?> = _resourcesTarget.asStateFlow()
+
+    /** Opens the per-app resource editor, on [packageName] when given (a Targets row). */
+    fun openResources(packageName: String? = null) {
+        _resourcesTarget.value = packageName
+        navigate(Screen.RESOURCES)
+    }
+
+    /** The resource editor opened [resourcesTarget]. */
+    fun consumeResourcesTarget() {
+        _resourcesTarget.value = null
+    }
+
+    /**
+     * One UI apps the last saved scan found installed (not removed), for System > Targets before
+     * the first apply; null until read, empty without a scan.
+     */
+    private val _scannedTargets = MutableStateFlow<List<String>?>(null)
+    val scannedTargets: StateFlow<List<String>?> = _scannedTargets.asStateFlow()
+
+    /** Re-reads [scannedTargets] from the latest saved scan report, off the main thread. */
+    fun loadScannedTargets() {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val targets = withContext(Dispatchers.IO) {
+                runCatching { SnapshotBuilder(app).latestReport() }.getOrNull()
+                    ?.packages
+                    ?.filter { it.installed && !it.debloated && !it.deprecated }
+                    ?.map { it.pkg }
+                    ?.distinct()
+                    .orEmpty()
+            }
+            _scannedTargets.value = targets
+        }
+    }
+
+    // ---- System > Tools: the theme file ----
+
+    /** The theme as `theme.json` text, with the seed preference applied (what Apply would use). */
+    fun themeJson(): String = specToApply().toJson()
+
+    /**
+     * Writes the theme to [uri] as a `.hexnext` file ([ThemeExport.export]: a zip holding
+     * `theme.json` and the pack ids it uses), on IO. The outcome goes to the snackbar.
+     */
+    fun exportTheme(uri: Uri) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = ThemeExport.export(spec)
+                    val out = app.contentResolver.openOutputStream(uri, "wt") ?: error("The file could not be opened.")
+                    out.use { it.write(bytes) }
+                }
+            }
+            result.fold(
+                onSuccess = { postNotice(Notice("Theme file saved", isSuccess = true)) },
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Saving the theme file failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice("Couldn't save the theme file", isError = true))
+                },
+            )
+        }
+    }
+
+    /**
+     * Reads a `.hexnext` file from [uri] on IO ([ThemeExport.read]) and hands its theme to
+     * [onRead] on the main thread; nothing changes until [importTheme]. A file that is not a
+     * theme posts a notice instead.
+     */
+    fun readThemeFile(uri: Uri, onRead: (EngineThemeSpec) -> Unit) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val input = app.contentResolver.openInputStream(uri) ?: error("The file could not be opened.")
+                    val bytes = input.use { stream ->
+                        // A theme file is a few kilobytes; refuse anything far larger before reading it whole.
+                        val buffer = java.io.ByteArrayOutputStream()
+                        val chunk = ByteArray(8192)
+                        while (true) {
+                            val n = stream.read(chunk)
+                            if (n < 0) break
+                            buffer.write(chunk, 0, n)
+                            if (buffer.size() > MAX_THEME_FILE_BYTES) throw ThemeFormatException("The file is too large to be a theme.")
+                        }
+                        buffer.toByteArray()
+                    }
+                    ThemeExport.read(bytes).spec
+                }
+            }
+            result.fold(
+                onSuccess = onRead,
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Reading the theme file failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice("That file is not a Hex Next theme", isError = true))
+                },
+            )
+        }
+    }
+
+    /**
+     * Replaces the stored theme with an imported one. The seed lives outside the spec, so it moves
+     * too, as "Describe your theme" does. Locked packs it names stay locked: Apply refuses them.
+     */
+    fun importTheme(spec: EngineThemeSpec) {
+        setSeed(spec.source.seedArgb)
+        replaceSpec(spec)
+        val locked = PackAccess.lockedPacksIn(spec) { _ui.value.isPackUnlocked(it) }
+        if (locked.isEmpty()) {
+            postNotice(Notice("Theme imported. Apply it to see it on your phone", isSuccess = true))
+        } else {
+            log(LogLine(LogLevel.WARN, "Imported theme uses locked pack ${locked.joinToString()}; preview only until it is unlocked"))
+            postNotice(lockedNotice(locked.first(), "Theme imported. Unlock ${packName(locked.first())} to apply it"))
+        }
+    }
+
+    // ---- System > Tools: backup and restore ----
+
+    /** The automatic backup folder and the last backup ([com.hexnext.themer.theme.AutoBackup]). */
+    val autoBackup: StateFlow<com.hexnext.themer.theme.AutoBackup.State> =
+        com.hexnext.themer.theme.AutoBackup.get(app).state
+
+    /** Writes a full backup ([com.hexnext.themer.theme.ThemeBackup]) to [uri], on IO. */
+    fun backUpTo(uri: Uri) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val out = app.contentResolver.openOutputStream(uri, "wt") ?: error("The file could not be opened.")
+                    out.use { com.hexnext.themer.theme.ThemeBackup.write(app, spec, appSettings.exportJson(), it) }
+                }
+            }
+            result.fold(
+                onSuccess = { postNotice(Notice("Backup saved", isSuccess = true)) },
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Saving the backup failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice("Couldn't save the backup", isError = true))
+                },
+            )
+        }
+    }
+
+    /** Backs up to the automatic folder now. */
+    fun backUpNow() {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val ok = withContext(Dispatchers.IO) {
+                com.hexnext.themer.theme.AutoBackup.get(app).backUp { com.hexnext.themer.theme.ThemeBackup.write(app, spec, appSettings.exportJson(), it) }
+            }
+            postNotice(if (ok) Notice("Backup saved to your backup folder", isSuccess = true) else Notice("Couldn't save the backup", isError = true))
+        }
+    }
+
+    fun setBackupFolder(tree: Uri) {
+        com.hexnext.themer.theme.AutoBackup.get(getApplication()).setFolder(tree)
+        backUpNow()
+    }
+
+    fun clearBackupFolder() = com.hexnext.themer.theme.AutoBackup.get(getApplication()).clearFolder()
+
+    /** Reads a backup from [uri] on IO and hands it to [onRead]; nothing changes until [restoreBackup]. */
+    fun readBackup(uri: Uri, onRead: (com.hexnext.themer.theme.ThemeBackup.Contents) -> Unit) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val input = app.contentResolver.openInputStream(uri) ?: error("The file could not be opened.")
+                    input.use { com.hexnext.themer.theme.ThemeBackup.read(it) }
+                }
+            }
+            result.fold(
+                onSuccess = onRead,
+                onFailure = {
+                    log(LogLine(LogLevel.ERROR, "Reading the backup failed: ${it.javaClass.simpleName}: ${it.message}"))
+                    postNotice(Notice(if (it is ThemeFormatException) it.message ?: "That file is not a Hex Next backup" else "That file is not a Hex Next backup", isError = true))
+                },
+            )
+        }
+    }
+
+    /** Restores a read backup: assets and learned maps, then settings and the theme. */
+    fun restoreBackup(contents: com.hexnext.themer.theme.ThemeBackup.Contents) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val written = withContext(Dispatchers.IO) { runCatching { com.hexnext.themer.theme.ThemeBackup.restoreFiles(app, contents) } }
+            written.onFailure { log(LogLine(LogLevel.ERROR, "Restoring backup files failed: ${it.message}")) }
+            contents.settingsJson?.let { appSettings.importJson(it) }
+            refreshAssets()
+            importTheme(contents.spec)
+            log(LogLine(LogLevel.INFO, "Backup restored: ${written.getOrDefault(0)} files, theme ${contents.spec.name}"))
+        }
+    }
+
+    /** System > Tools could not hand the build log to a share sheet. */
+    fun noteBuildLogShareFailed() = postNotice(Notice("Couldn't share the build log", isError = true))
+
     /** Diagnostics took the scan request. */
     fun consumeScanRequest() = _ui.update { if (it.scanRequested) it.copy(scanRequested = false) else it }
 
@@ -638,7 +1121,37 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Replaces the whole stored theme (the "Describe your theme" card hands back a mapped spec). */
     fun replaceSpec(spec: EngineThemeSpec) = updateSpec { spec }
 
+    /**
+     * The theme the live preview renders: [specToApply] as it is, locked packs included, so every
+     * catalogue pack can be browsed and previewed before purchase. The preview compiles and
+     * renders in memory only (ThemePreviewer); it writes no overlay. Building overlays stays
+     * gated: [applyTheme] refuses a theme that uses a locked pack, and the applier only reads
+     * `files/packs`, never the preview-only directory.
+     */
+    private fun specToPreview(): EngineThemeSpec = PackAccess.specForPreview(specToApply())
+
     /** The stored theme ([UiState.spec]) with the seed preference applied on top. */
+    private fun awaitSpecLoadedBlocking() {
+        specLoaded.await(20, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    /** Suspends until the stored theme is loaded (up to 20 s). */
+    suspend fun awaitSpecLoaded() {
+        withContext(Dispatchers.IO) { awaitSpecLoadedBlocking() }
+    }
+
+    /**
+     * Suspends until an apply right now would use the stored theme with its packs: the theme is
+     * loaded and the purchase state has answered (before that every catalogue pack counts as
+     * locked and Apply refuses it). Up to 20 s each.
+     */
+    suspend fun awaitReadyToApply() {
+        awaitSpecLoaded()
+        kotlinx.coroutines.withTimeoutOrNull(20_000) { _ui.first { it.entitlement.ready } }
+        // The startup safety check (or a Diagnostics task) makes Apply refuse until it is done.
+        kotlinx.coroutines.withTimeoutOrNull(120_000) { ServiceTasks.running.first { it == null } }
+    }
+
     private fun specToApply(): EngineThemeSpec {
         val state = _ui.value
         return state.spec.copy(source = state.spec.source.copy(seedArgb = state.seed))
@@ -653,13 +1166,41 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * the preview.
      */
     private fun updateSpec(block: (EngineThemeSpec) -> EngineThemeSpec) {
+        val before = _ui.value.spec
         _ui.update { it.copy(spec = block(it.spec)) }
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                themeStore.update { _ui.value.spec }
-            }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
-        }
-        refreshPreview()
+        val after = _ui.value.spec
+        _edits.update { it + 1 }
+        savePending.set(true)
+        saveRequests.tryEmit(Unit)
+        // The icon render only sees Settings and My Files: an edit that cannot change them (Quick
+        // panel opacity or Quick panel-only colours, another app's switch or pins) skips it. An
+        // unchanged spec still renders, as a re-imported custom file may need it.
+        if (after == before || iconSignatureOf(after) != iconSignatureOf(before)) refreshPreview()
+    }
+
+    /**
+     * [spec] without the fields the preview render cannot see, so two specs with the same
+     * signature render the same Settings and My Files icons.
+     */
+    private fun iconSignatureOf(spec: EngineThemeSpec): EngineThemeSpec = spec.copy(
+        name = "",
+        qsPanelAlpha = 255,
+        targetEnabled = spec.targetEnabled.filterKeys { it in PREVIEW_PACKAGES },
+        colorPins = spec.colorPins.filterKeys { it.substringBefore(':', "") in PREVIEW_PACKAGES },
+        colorGroups = spec.colorGroups.filterKeys { id -> ColorGroup.byId(id)?.quickSettings != true },
+    )
+
+    /** Writes the current spec to `theme.json` when an edit is waiting to be saved. Blocking. */
+    private fun flushSpecSave() {
+        if (!savePending.getAndSet(false)) return
+        runCatching {
+            themeStore.update { _ui.value.spec }
+        }.onFailure { log(LogLine(LogLevel.ERROR, "Saving the theme failed: ${it.javaClass.simpleName}: ${it.message}")) }
+    }
+
+    override fun onCleared() {
+        // The writer's scope is gone: save a last pending edit now.
+        flushSpecSave()
     }
 
     /**
@@ -684,10 +1225,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * for a part also switches the part back on, so the choice takes effect.
      */
     fun setElementPack(elementId: String, packId: String?) {
-        if (packId != null && !_ui.value.isPackUnlocked(packId)) {
-            refuseLocked(packId)
-            return
-        }
+        // A locked pack may be chosen for the preview; Apply refuses it until it is unlocked.
         updateSpec { it.withElementPack(elementId, packId).withElementEnabled(elementId, true) }
     }
 
@@ -721,8 +1259,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 return@launch
             }
             _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
-            val spec = specToApply()
-            val rendered = withContext(Dispatchers.Default) { previewer.render(spec) }
+            val spec = specToPreview()
+            val night = previewNight.value
+            val rendered = withContext(Dispatchers.Default) {
+                // A newer edit cancels this job; the render then stops at its next check.
+                val job = coroutineContext[Job]
+                previewer.render(spec, night) { job?.isActive == false }
+            }
             _ui.update {
                 it.copy(
                     preview = PreviewState(
@@ -735,6 +1278,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         fontFile = rendered.fontFile,
                         fontName = rendered.fontName,
                         synthesised = rendered.synthesised,
+                        builtIn = rendered.builtIn,
+                        night = night,
+                        deviceColors = rendered.deviceColors,
                     ),
                 )
             }
@@ -757,6 +1303,241 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     fun invalidateSlots() {
         slotsSignature = null
         refreshPreview()
+        // A new scan changes the element colour counts too; recount once they were shown.
+        if (groupCountsWanted) loadGroupCounts()
+        // System > Targets lists the scanned apps before the first apply; a new scan changes them.
+        if (_scannedTargets.value != null) loadScannedTargets()
+    }
+
+    // ---- Colour Studio ----
+
+    /** The colour inputs of [studioPreview] that come from [UiState]. */
+    private data class ColourInputs(val spec: EngineThemeSpec, val seed: Int)
+
+    /** The [UiState] fields the icon half of [studioPreview] is built from. */
+    private data class IconSource(val preview: PreviewState, val spec: EngineThemeSpec, val seed: Int)
+
+    /** What the icon half of [studioPreview] depends on. */
+    private data class IconInputs(
+        val preview: PreviewState,
+        val style: IconColorStyle,
+        val source: com.hexnext.engine.palette.ThemeSource,
+        val dark: ThemeAdjustments,
+        val light: ThemeAdjustments,
+        val settingsBuiltIn: Boolean,
+        val myFilesBuiltIn: Boolean,
+        val night: Boolean,
+    )
+
+    /**
+     * Whether the preview may draw built-in badges for icon element [elementId] on its own:
+     * built-in icons on, the element enabled and no pack chosen for it. With a pack, the compile
+     * preview already carries the built-ins the engine plans when the pack draws none of the
+     * icons, so a preview without a scan or render never guesses colourful icons for a pack.
+     */
+    private fun drawsBuiltInIcons(spec: EngineThemeSpec, elementId: String): Boolean =
+        spec.builtInIcons && spec.isElementEnabled(elementId) && spec.packFor(elementId) == null
+
+    /** The icon half of [studioPreview]. */
+    private data class StudioIcons(
+        val settings: List<PreviewIcon> = emptyList(),
+        val myFiles: List<PreviewIcon> = emptyList(),
+        val background: ImageBitmap? = null,
+        val fontFile: String? = null,
+        val fontName: String? = null,
+        val loading: Boolean = false,
+        val hasScan: Boolean = false,
+        val note: String? = null,
+        val night: Boolean = true,
+        val deviceColors: com.hexnext.themer.ui.studio.DeviceColors = com.hexnext.themer.ui.studio.DeviceColors(),
+    )
+
+    private fun imageOf(bitmap: Bitmap): ImageBitmap = synchronized(imageCache) {
+        imageCache[bitmap]?.get() ?: bitmap.asImageBitmap().also { imageCache[bitmap] = WeakReference(it) }
+    }
+
+    /** Background thread only: converts the compile preview, filling in built-in badges where it has no icons. */
+    private fun studioIcons(inputs: IconInputs): StudioIcons {
+        val preview = inputs.preview
+        val fallback = preview.accent ?: inputs.source.seedArgb
+        val synthesised = preview.synthesised
+        var settings = preview.icons.map { icon ->
+            PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback, synthesised = icon.name in synthesised)
+        }
+        var myFiles = preview.myFiles.map { icon ->
+            PreviewIcon(icon.name, icon.label, icon.bitmap?.let(::imageOf), fallback)
+        }
+        // Built-in badges stand in only when Apply would draw them too (built-in icons on, element
+        // enabled, no pack for it), so the preview never shows colourful icons the phone will not get.
+        val needSettings = inputs.settingsBuiltIn && settings.none { it.bitmap != null }
+        val needMyFiles = inputs.myFilesBuiltIn && myFiles.none { it.bitmap != null }
+        if (needSettings || needMyFiles) {
+            runCatching {
+                val theme = ThemeResolver.resolve(inputs.source, inputs.dark, inputs.light)
+                if (needSettings) {
+                    settings = styledIcons.settingsIcons(inputs.style, theme, inputs.night, STUDIO_ICON_PX, STUDIO_SETTINGS_ICONS)
+                        .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
+                        .ifEmpty { settings }
+                }
+                if (needMyFiles) {
+                    myFiles = styledIcons.myFilesIcons(inputs.style, theme, inputs.night, STUDIO_ICON_PX, STUDIO_MY_FILES_ICONS)
+                        .map { PreviewIcon(it.key, it.label, imageOf(it.bitmap), fallback) }
+                        .ifEmpty { myFiles }
+                }
+            }
+        }
+        return StudioIcons(
+            settings = settings,
+            myFiles = myFiles,
+            background = preview.background?.let(::imageOf),
+            fontFile = preview.fontFile,
+            fontName = preview.fontName,
+            loading = preview.loading,
+            hasScan = SnapshotBuilder.scanStamp(getApplication<Application>()) != null,
+            note = preview.note,
+            night = inputs.night,
+            deviceColors = preview.deviceColors,
+        )
+    }
+
+    /**
+     * Applies [block] to the stored theme (persisted, preview re-rendered), like every other spec
+     * change, and ends a drag preview. For Studio controls that have no dedicated setter.
+     */
+    fun editSpec(block: (EngineThemeSpec) -> EngineThemeSpec) = commitSpec(block)
+
+    /** A committed Studio edit: the stored spec changes first, then the drag preview ends, so the colours never step back. */
+    private fun commitSpec(block: (EngineThemeSpec) -> EngineThemeSpec) {
+        updateSpec(block)
+        draft.value = null
+    }
+
+    /**
+     * Shows [spec] in the live preview without saving it (a slider being dragged); null returns
+     * the preview to the stored theme. The final value is committed with a setter on release.
+     */
+    fun previewDraft(spec: EngineThemeSpec?) {
+        draft.value = spec
+    }
+
+    /** As [previewDraft], for the primary seed (which lives outside the spec); null ends it. [setSeed] commits. */
+    fun previewSeed(argb: Int?) {
+        draftSeed.value = argb?.or(OPAQUE)
+    }
+
+    /** The secondary seed (its hue replaces the secondary palette's); null is Auto. */
+    fun setSecondarySeed(argb: Int?) = commitSpec { it.copy(source = it.source.copy(secondaryArgb = argb?.or(OPAQUE))) }
+
+    /** The tertiary seed (its hue replaces the tertiary palette's); null is Auto. */
+    fun setTertiarySeed(argb: Int?) = commitSpec { it.copy(source = it.source.copy(tertiaryArgb = argb?.or(OPAQUE))) }
+
+    /** The Monet scheme variant the palettes are built with. */
+    fun setPaletteStyle(style: PaletteStyle) = commitSpec { it.copy(source = it.source.copy(style = style)) }
+
+    /** Scheme contrast, -1 … 1 (0 is standard). */
+    fun setContrast(contrast: Double) = commitSpec { it.copy(source = it.source.copy(contrast = contrast.coerceIn(-1.0, 1.0))) }
+
+    /** Changes the light ([night] false) or dark adjustments. */
+    fun setAdjustments(night: Boolean, block: (ThemeAdjustments) -> ThemeAdjustments) = commitSpec { it.withAdjustments(night, block) }
+
+    /**
+     * Pins Monet shade [key] (`accent1_500`, with or without the `system_` prefix) to [argb] in the
+     * dark ([night]) or light scheme; null unpins it.
+     */
+    fun setShadeOverride(night: Boolean, key: String, argb: Int?) = commitSpec { it.withShadeOverride(night, key, argb) }
+
+    /** The colour of element [group] in one mode; null returns that mode to Auto. */
+    fun setGroupColor(group: ColorGroup, night: Boolean, argb: Int?) = commitSpec { it.withGroupColor(group, night, argb) }
+
+    /** The colour of element [group] in both modes; null returns both to Auto. */
+    fun setGroupColorBoth(group: ColorGroup, argb: Int?) = commitSpec { it.withGroupColor(group, false, argb).withGroupColor(group, true, argb) }
+
+    /** Every element group back to Auto, in both modes. */
+    fun resetGroupColors() = commitSpec { it.withAllGroupsAuto() }
+
+    /** Pins one colour resource (`pkg:color/name`) to [pin]; null removes the pin. */
+    fun setColorPin(resourceName: String, pin: ColorPin?) = commitSpec { spec ->
+        spec.copy(colorPins = if (pin == null) spec.colorPins - resourceName else spec.colorPins + (resourceName to pin))
+    }
+
+    /** Whether Apply themes [packageName]; a missing entry means enabled, so enabling drops it. */
+    fun setTargetEnabled(packageName: String, enabled: Boolean) = commitSpec { spec ->
+        spec.copy(targetEnabled = if (enabled) spec.targetEnabled - packageName else spec.targetEnabled + (packageName to false))
+    }
+
+    /** How pack, synthesised and built-in icons are coloured. */
+    fun setIconStyle(style: IconColorStyle) = commitSpec { it.copy(iconStyle = style) }
+
+    /** The app's own colourful icons for Settings rows and My Files categories no pack covers. */
+    fun setBuiltInIcons(enabled: Boolean) = commitSpec { it.copy(builtInIcons = enabled) }
+
+    /**
+     * Sets Quick panel shape [id] ([ShapeControls]) to [setting]; null returns it to One UI's
+     * size. A changed value set is no longer the one a crash rollback quarantined.
+     */
+    fun setShape(id: String, setting: ValueSetting?) {
+        commitSpec { if (setting == null) it.copy(shapes = it.shapes - id) else it.copy(shapes = it.shapes + (id to setting)) }
+        ThemeApplier.clearValuesQuarantine(getApplication())
+    }
+
+    /** Every Quick panel shape back to One UI's sizes. */
+    fun resetShapes() {
+        commitSpec { it.copy(shapes = emptyMap()) }
+        ThemeApplier.clearValuesQuarantine(getApplication())
+    }
+
+    /** Opacity of the Quick panel backdrop, 0 … 255 (255 leaves Samsung's). */
+    fun setQsPanelAlpha(alpha: Int) = commitSpec { it.copy(qsPanelAlpha = alpha.coerceIn(EngineThemeSpec.MIN_QS_PANEL_ALPHA, 255)) }
+
+    /**
+     * The Studio mockup switched to dark ([dark] true) or light mode: re-renders the preview icons
+     * from the matching night or day jobs. Main thread only.
+     */
+    fun setPreviewDark(dark: Boolean) {
+        if (previewNight.value == dark) return
+        previewNight.value = dark
+        // The icons on screen are the other mode's until the new render lands: show them as loading.
+        _ui.update { it.copy(preview = it.preview.copy(loading = true)) }
+        refreshPreview()
+    }
+
+    /** The group the Studio is editing (the preview outlines it); null for none. */
+    fun setHighlightedGroup(group: ColorGroup?) {
+        highlight.value = group
+    }
+
+    /**
+     * Counts the resources of every element group over the last scan, off the main thread, once
+     * per scan ([SnapshotBuilder.scanStamp]). Without a scan the counts stay empty.
+     */
+    fun loadGroupCounts() {
+        groupCountsWanted = true
+        if (groupCountsJob?.isActive == true) return
+        val known = groupCountsStamp
+        groupCountsJob = viewModelScope.launch {
+            val app = getApplication<Application>()
+            val result = withContext<Triple<String?, Map<ColorGroup, GroupCount>, Map<String, ValueControl>>?>(Dispatchers.IO) {
+                val stamp = SnapshotBuilder.scanStamp(app)
+                when {
+                    stamp == null -> Triple(null, emptyMap(), emptyMap())
+                    stamp == known -> null
+                    else -> runCatching {
+                        val built = SnapshotBuilder(app).build()
+                        val rules = built?.let { OneUiRules.forProfile(it.snapshot.oneUi) }
+                        val counts = built?.let { ColorGroupMatcher.groupCounts(it.snapshot, rules!!) }.orEmpty()
+                        // The Quick panel shape controls: which candidate names this phone defines.
+                        val controls = if (built != null && rules != null) ValuePlanner.availableControls(built.snapshot, rules) else emptyMap()
+                        Triple(stamp, counts, controls)
+                    }.getOrElse {
+                        log(LogLine(LogLevel.WARN, "Counting element colours failed: ${it.javaClass.simpleName}: ${it.message}"))
+                        null
+                    }
+                }
+            } ?: return@launch
+            groupCountsStamp = result.first
+            _groupCounts.value = result.second
+            _valueControls.value = result.third
+        }
     }
 
     // ---- Custom assets ----
@@ -869,6 +1650,50 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Uses the icon [file] for the drawable [slotKey] (`pkg:drawable/name`); null gives the slot back to the pack. */
     fun assignIcon(slotKey: String, file: String?) = updateSpec { it.withCustomIcon(slotKey, file) }
 
+    /** Every unlocked pack's art for [slotKey], rendered off the main thread (see [ThemePreviewer.iconChoices]). */
+    fun loadIconChoices(slotKey: String, night: Boolean, onResult: (List<ThemePreviewer.IconChoice>) -> Unit) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val choices = withContext(Dispatchers.Default) { previewer.iconChoices(spec, slotKey, night) }
+            onResult(choices)
+        }
+    }
+
+    /** Uses [choice] (another pack's art) for [slotKey]: stored as a custom icon and assigned. */
+    fun useIconChoice(slotKey: String, label: String, choice: ThemePreviewer.IconChoice) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = assets.saveIcon(choice.bitmap, "$label · ${choice.packName}")
+                assignIcon(slotKey, asset.fileName)
+                postNotice(Notice("$label now uses ${choice.packName}", isSuccess = true))
+            } catch (t: Exception) {
+                postNotice(Notice("Couldn't use that icon: ${t.message ?: t.javaClass.simpleName}", isError = true))
+            } finally {
+                refreshAssets()
+            }
+        }
+    }
+
+    /**
+     * Imports the image at [uri] for [slotKey]: cropped to its visible pixels and sized for the
+     * slot, then assigned. A file that cannot be used (not an image, empty, too small or too
+     * large) leaves the slot as it was and says why.
+     */
+    fun importIconFor(slotKey: String, label: String, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = assets.importImage(uri, CustomAssetStore.Kind.ICON)
+                assignIcon(slotKey, asset.fileName)
+                postNotice(Notice("$label now uses ${asset.displayName}", isSuccess = true))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Importing the icon for $label failed: ${t.message ?: t.javaClass.simpleName}"))
+                postNotice(Notice("Couldn't use that image: ${t.message ?: t.javaClass.simpleName}", isError = true))
+            } finally {
+                refreshAssets()
+            }
+        }
+    }
+
     /** Uses the background [file] for [slotKey]; null gives the slot back to the pack or Samsung. */
     fun assignBackground(slotKey: String, file: String?) = updateSpec { it.withCustomBackground(slotKey, file) }
 
@@ -896,14 +1721,42 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Re-reads `files/packs`; a selected pack that is gone falls back to colours only. */
     fun refreshPacks() {
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { packStore.installed() }
-            result.onSuccess { installed ->
+            val result = runCatching {
+                // A preview-only pack whose purchase is now verified moves to files/packs, where an
+                // apply can use it. Only the verified state counts, never the cached hint.
+                val previewOnly = previewPackStore.installed()
+                // OfficialPacks' own set too: the UiState copy may lag a just-recorded download.
+                val state = _ui.value
+                val official = state.officialPackIds + officialPacks.ids.value
+                for (pack in previewOnly.packs) {
+                    if (PackAccess.isUnlocked(state.entitlement, pack.id, state.bundledPackIds, official) &&
+                        packStore.adoptFrom(previewPackStore, pack.id)
+                    ) {
+                        log(LogLine(LogLevel.OK, "${pack.name} unlocked: it can be applied now"))
+                    }
+                }
+                previewPackStore.pruneOlderThan(PREVIEW_PACK_MAX_AGE_MS, keep = PackAccess.packsUsedBy(_ui.value.spec) + listOfNotNull(_ui.value.spec.simplePackId))
+                val applicable = packStore.installed()
+                val preview = previewPackStore.installed()
+                val applicableIds = applicable.packs.mapTo(HashSet()) { it.id }
+                val extra = preview.packs.filter { it.id !in applicableIds }
+                InstalledPacks(
+                    (applicable.packs + extra).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }),
+                    applicable.errors + preview.errors,
+                ) to extra.mapTo(HashSet()) { it.id }
+            }
+            result.onSuccess { (installed, previewOnlyIds) ->
                 val ids = installed.packs.mapTo(HashSet()) { it.id }
+                // Only a pack that the last listing had and this one lacks was removed. A theme may
+                // name a pack that was never installed here (an imported theme waiting for its
+                // pack); that choice is kept, so it works once the pack is bought or downloaded.
+                val removed = _ui.value.packs.mapTo(HashSet()) { it.id } - ids
                 entitlements.setCatalogue(ids)
                 val versions = installed.packs.associate { it.id to it.version }
                 _ui.update {
                     it.copy(
                         packs = installed.packs,
+                        previewOnlyPackIds = previewOnlyIds,
                         packErrors = installed.errors,
                         catalogue = it.catalogue.copy(
                             entries = it.catalogue.entries.map { e ->
@@ -914,27 +1767,34 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 }
                 val spec = _ui.value.spec
                 val selected = spec.simplePackId
-                if (selected != null && selected !in ids) {
+                if (selected != null && selected in removed) {
                     log(LogLine(LogLevel.WARN, "Theme pack $selected is no longer installed; colours only"))
                     selectPack(null)
                 }
-                val gone = spec.elementPacks.filterValues { it !in ids }
+                val gone = spec.elementPacks.filterValues { it in removed }
                 if (gone.isNotEmpty()) {
                     log(LogLine(LogLevel.WARN, "Pack ${gone.values.distinct().joinToString()} is no longer installed; ${gone.keys.joinToString()} use the default pack"))
-                    updateSpec { it.copy(elementPacks = it.elementPacks.filterValues { v -> v in ids }) }
+                    updateSpec { it.copy(elementPacks = it.elementPacks.filterValues { v -> v !in removed }) }
                 }
                 refreshPreview()
             }.onFailure { log(LogLine(LogLevel.ERROR, "Listing packs failed: ${it.javaClass.simpleName}: ${it.message}")) }
         }
     }
 
-    /** Chooses the pack of the next apply (null = colours only) and persists it in the theme; a locked pack is refused. */
+    /**
+     * Chooses the pack of the next apply (null = colours only) and persists it in the theme. A
+     * locked pack may be chosen: the preview shows it, and Apply refuses it until it is unlocked.
+     */
     fun selectPack(id: String?) {
-        if (id != null && !_ui.value.isPackUnlocked(id)) {
-            refuseLocked(id)
-            return
-        }
         updateSpec { it.copy(simplePackId = id) }
+    }
+
+    /**
+     * The Skins gallery picked catalogue pack [entry]: selects it when it is on the device,
+     * otherwise downloads it (into the preview-only directory while locked) and then selects it.
+     */
+    fun previewCataloguePack(entry: CatalogueEntry) {
+        if (_ui.value.packs.any { it.id == entry.id }) selectPack(entry.id) else downloadPack(entry, selectWhenDone = true)
     }
 
     /** Copies the chosen document into `files/packs` and lists it. */
@@ -961,7 +1821,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         _ui.update { it.copy(busy = true) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val removed = packStore.delete(id)
+                val removed = packStore.delete(id) or previewPackStore.delete(id)
                 if (_ui.value.selectedPackId == id) selectPack(null)
                 log(LogLine(if (removed) LogLevel.OK else LogLevel.WARN, if (removed) "Removed pack $id" else "Pack $id was not found"))
             } catch (t: Exception) {
@@ -1012,23 +1872,34 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
     }
 
-    /** Downloads [entry] into `files/packs` with progress in [CatalogueState.downloading]. */
-    fun downloadPack(entry: CatalogueEntry) {
+    /**
+     * Downloads [entry] with progress in [CatalogueState.downloading]: into `files/packs` when it
+     * is unlocked, otherwise into the preview-only directory, so a locked pack can be browsed and
+     * previewed (Apply still refuses it). With [selectWhenDone] the pack is selected afterwards.
+     */
+    fun downloadPack(entry: CatalogueEntry, selectWhenDone: Boolean = false) {
         if (_ui.value.busy || entry.id in _ui.value.catalogue.downloading) return
-        if (!_ui.value.isPackUnlocked(entry.id)) {
-            refuseLocked(entry.id)
-            return
-        }
         val url = _ui.value.catalogue.url
+        // An entry of the official catalogue is paid even before OfficialPacks has recorded its id,
+        // so it is judged with that id already counted as official (never the cached hint).
+        fun unlocked(state: UiState, vararg ids: String): Boolean {
+            val known = state.officialPackIds + officialPacks.ids.value
+            val official = if (isOfficialCatalogue(url)) known + ids else known
+            return ids.all { PackAccess.isUnlocked(state.entitlement, it, state.bundledPackIds, official) }
+        }
+        val store = if (unlocked(_ui.value, entry.id)) packStore else previewPackStore
         _ui.update { it.copy(busy = true, catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to 0f))) }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val pack = packStore.download(url, entry) { read, total ->
+                val pack = store.download(url, entry) { read, total ->
                     val fraction = if (total > 0) (read.toFloat() / total).coerceIn(0f, 1f) else 0f
                     _ui.update { it.copy(catalogue = it.catalogue.copy(downloading = it.catalogue.downloading + (entry.id to fraction))) }
                 }
                 if (isOfficialCatalogue(url)) officialPacks.record(listOf(entry.id, pack.id))
-                log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)"))
+                // The zip declared an id that is not unlocked: keep it out of files/packs.
+                if (store === packStore && !unlocked(_ui.value, entry.id, pack.id)) previewPackStore.adoptFrom(packStore, pack.id)
+                log(LogLine(LogLevel.OK, "Downloaded pack ${pack.name} (${pack.id}, ${pack.bytes / 1024} KiB)" + if (store === previewPackStore) ", preview only until unlocked" else ""))
+                if (selectWhenDone) selectPack(pack.id)
             } catch (t: Exception) {
                 log(LogLine(LogLevel.ERROR, "Download of ${entry.name} failed: ${t.message ?: t.javaClass.simpleName}"))
                 postNotice(Notice("Couldn't download ${entry.name}", isError = true))
@@ -1041,7 +1912,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     // ---- Pack unlocks ----
 
-    /** Starts the store purchase of [productId] ([ProductIds.forPack] or [ProductIds.ALL_PACKS]). */
+    /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS] or [ProductIds.AI_LIFETIME]). */
     fun unlock(activity: Activity, productId: String) {
         if (!entitlements.canPurchase) return
         entitlements.launchPurchase(activity, productId)
@@ -1067,11 +1938,19 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             state.entitlement.isPending(packId) -> postNotice(Notice("The payment for $name is still pending"))
             else -> {
-                log(LogLine(LogLevel.WARN, "$name is locked: unlock it to download or apply it"))
-                postNotice(Notice("Unlock $name to use it", isError = true))
+                log(LogLine(LogLevel.WARN, "$name is a preview: unlock it to apply it"))
+                postNotice(lockedNotice(packId, "$name is a preview. Unlock it to apply"))
             }
         }
     }
+
+    /** [message] with an "Unlock" action for [packId] in a store build. */
+    private fun lockedNotice(packId: String, message: String): Notice =
+        if (entitlements.canPurchase) {
+            Notice(message, actionLabel = "Unlock", action = NoticeAction.UNLOCK_PACK, isError = true, packId = packId)
+        } else {
+            Notice(message, isError = true)
+        }
 
     /** The name of pack [packId] from the installed packs or the catalogue; the id when neither has it. */
     private fun packName(packId: String): String {
@@ -1093,23 +1972,31 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
         if (!before.ready) return
         val newlyOwned = state.ownedProductIds - before.ownedProductIds
+        val aiNow = state.unlocks(PaidFeature.AI_CREATION)
         when {
             state.unlockAll && !before.unlockAll -> postNotice(Notice("All packs unlocked. Thank you!", isSuccess = true))
+            aiNow && !before.unlocks(PaidFeature.AI_CREATION) ->
+                postNotice(Notice("AI theme creation unlocked. Thank you!", isSuccess = true))
             newlyOwned.isNotEmpty() -> {
                 val names = newlyOwned.map { productId -> productName(productId) }
                 log(LogLine(LogLevel.OK, "Unlocked ${names.joinToString()}"))
                 postNotice(Notice("${names.joinToString()} unlocked. Thank you!", isSuccess = true))
             }
             (state.pendingProductIds - before.pendingProductIds).isNotEmpty() ->
-                postNotice(Notice("Payment pending. The pack unlocks once Google Play confirms it"))
+                postNotice(Notice("Payment pending. It unlocks once Google Play confirms it"))
         }
     }
 
     private fun productName(productId: String): String {
-        if (productId == ProductIds.ALL_PACKS) return "All packs"
+        when (productId) {
+            ProductIds.ALL_PACKS -> return "All packs"
+            ProductIds.AI_LIFETIME -> return "AI theme creation"
+        }
         val state = _ui.value
-        return state.packs.firstOrNull { ProductIds.forPack(it.id) == productId }?.name
-            ?: state.catalogue.entries.firstOrNull { ProductIds.forPack(it.id) == productId }?.name
+        // allForPack also matches a purchase made under a former product id, so the user sees
+        // the pack's current name instead of the raw id.
+        return state.packs.firstOrNull { productId in ProductIds.allForPack(it.id) }?.name
+            ?: state.catalogue.entries.firstOrNull { productId in ProductIds.allForPack(it.id) }?.name
             ?: productId
     }
 
@@ -1119,6 +2006,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         // The saved report would otherwise come back as "Applied to N apps" on the next start
         // (and in Diagnostics) although nothing is applied any more.
         if (ok) runCatching { ThemeApplier.reportFile(getApplication<Application>()).delete() }
+        if (ok) com.hexnext.themer.theme.ThemeRestorer.forget(getApplication())
         // A failed remove keeps the report (overlays may still be on), so the card keeps its line.
         _ui.update { it.copy(lastApply = if (ok) null else it.lastApply, applyUnconfirmed = !guard.confirmed, applyProtectionExpired = guard.protectionExpired()) }
         if (ok) {
@@ -1172,7 +2060,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             }
             return
         }
-        _ui.update { it.copy(busy = true, serviceBusy = true, log = emptyList()) }
+        _log.value = emptyList()
+        _ui.update { it.copy(busy = true, serviceBusy = true) }
         viewModelScope.launch {
             try {
                 val service = ShizukuManager.service()
@@ -1198,7 +2087,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun log(line: LogLine) {
         val text = if (line.text.length > MAX_LOG_CHARS) line.text.take(MAX_LOG_CHARS) + " …" else line.text
         val bounded = if (text === line.text) line else line.copy(text = text)
-        _ui.update { it.copy(log = (it.log + bounded).takeLast(MAX_LOG_LINES)) }
+        _log.update { (it + bounded).takeLast(MAX_LOG_LINES) }
     }
 
     private suspend fun loadDeviceInfo() {
@@ -1227,12 +2116,45 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         private const val DEFAULT_SEED = 0xFF00E5FF.toInt()
         private const val MAX_LOG_LINES = 400
         private const val MAX_LOG_CHARS = 2000
+        private const val MAX_THEME_FILE_BYTES = 4 shl 20
         private const val PREVIEW_DEBOUNCE_MS = 400L
+
+        /** How long the spec writer waits for edits to pause before it saves. */
+        private const val SAVE_DEBOUNCE_MS = 300L
+
+        /** The packages the preview render compiles ([ThemePreviewer]). */
+        private val PREVIEW_PACKAGES = setOf("com.android.settings", "com.sec.android.app.myfiles")
+
+        /** A locked pack kept for the preview only is deleted after this long unless the theme uses it. */
+        private const val PREVIEW_PACK_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+
+        /** Size and count of the built-in badges the Studio preview draws without pack icons. */
+        private const val STUDIO_ICON_PX = 96
+        private const val STUDIO_SETTINGS_ICONS = 12
+        private const val STUDIO_MY_FILES_ICONS = 6
+        private const val SETTINGS_ICONS_ELEMENT = "settings_icons"
+        private const val MY_FILES_ICONS_ELEMENT = "my_files_icons"
         private const val OPAQUE = 0xFF000000.toInt()
         private const val SAFE_MODE_TEXT = "Safe mode: Hex Next overlays were turned off after repeated restarts"
         private const val SAFE_MODE_FAILED_TEXT =
             "Safe mode: your phone restarted repeatedly, but Hex Next overlays could not be turned off automatically"
 
         val androidVersion: String get() = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+    }
+}
+
+/** [this] with the light ([night] false) or dark adjustments changed by [block]. */
+internal fun EngineThemeSpec.withAdjustments(night: Boolean, block: (ThemeAdjustments) -> ThemeAdjustments): EngineThemeSpec =
+    if (night) copy(darkAdjustments = block(darkAdjustments)) else copy(lightAdjustments = block(lightAdjustments))
+
+/**
+ * [this] with Monet shade [key] (`accent1_500` or `system_accent1_500`) pinned to [argb] (opaque)
+ * in one mode; null unpins it. Stored in the short form.
+ */
+internal fun EngineThemeSpec.withShadeOverride(night: Boolean, key: String, argb: Int?): EngineThemeSpec {
+    val short = key.removePrefix("system_")
+    return withAdjustments(night) { adj ->
+        val rest = adj.shadeOverrides - short - "system_$short"
+        adj.copy(shadeOverrides = if (argb == null) rest else rest + (short to (argb or 0xFF000000.toInt())))
     }
 }

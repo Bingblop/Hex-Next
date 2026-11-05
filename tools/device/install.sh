@@ -20,9 +20,9 @@
 #                  com.hexnext.themer.owner, but only one of the two may theme the phone)
 # When you change the pin, change RUN_ID / APK_ZIP_SHA256 in test-overlay.sh too.
 set -u
-RUN_ID="${RUN_ID:-41533489493}"
-APK_ZIP_SHA256="${APK_ZIP_SHA256:-10acef067815862cfa5d75efaed647982480e4055d6c3c76563126dd656d571e}"
-ARTIFACT="${ARTIFACT:-HexNext-Debug-Test-Installable}"
+RUN_ID="${RUN_ID:-41669190846}"
+APK_ZIP_SHA256="${APK_ZIP_SHA256:-3b0613f5ffa790998d8140bb1ecd9e116830d67188a4d5a72f9aa67d84e9f365}"
+ARTIFACT="${ARTIFACT:-HexNext-Owner-Release}"
 REPO=Bingblop/Hex-Next
 case "$ARTIFACT" in *Owner*) PKG=com.hexnext.themer.owner ;; *) PKG=com.hexnext.themer ;; esac
 # Download into the home directory: Termux's $TMPDIR can be small or unwritable

@@ -99,6 +99,19 @@ class ApplyReportTest {
     }
 
     @Test
+    fun `night probe skips a tile colour equal to SemWT's night value`() {
+        val ui = "com.android.systemui"
+        val onNight = com.hexnext.engine.map.PlannedColor("$ui:color/qs_tile_round_background_on", 5, "night")
+        val cardNight = com.hexnext.engine.map.PlannedColor("$ui:color/qs_tile_container_bg", 6, "night")
+        fun target(matches: Set<String>) = CompiledTarget(
+            ui, "HexNext_ui", listOf(onNight, cardNight), emptyList(), emptyList(), 0, "",
+            semwtConfigMatches = matches,
+        )
+        assertEquals(onNight, OverlayLookup.probe(target(emptySet()), night = true))
+        assertEquals(cardNight, OverlayLookup.probe(target(setOf("${onNight.resourceName}|night")), night = true))
+    }
+
+    @Test
     fun `in-progress and aborted reports`() {
         val running = report.copy(status = ApplyReport.STATUS_RUNNING, pendingTargets = listOf("com.android.settings"))
         assertEquals(running, ApplyReport.fromJson(running.toJson()))

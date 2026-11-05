@@ -152,6 +152,9 @@ public object Elements {
     /** Id of the catch-all element that receives unknown categories. */
     public const val MISC: String = "misc"
 
+    /** Id of the catch-all element for plain `drawable`/`mipmap` categories. */
+    public const val SYSTEM_DRAWABLES: String = "system_drawables"
+
     /** Every element, in display order. [MISC] is last. */
     public val ALL: List<Element> = listOf(
         Element("settings_icons", "Settings icons", listOf(SETTINGS), listOf("settingsicon")),
@@ -166,7 +169,9 @@ public object Elements {
             "quick_settings_panel", "Quick settings panel", listOf(SYSTEMUI),
             listOf("qspanel", "brighnessbar", "brightnessbar", "misc-qsmb1", "misc-qsmb3", "misc-brightness"),
         ),
-        Element("controls", "Switches, checkboxes and radios", listOf(ANDROID, SYSTEMUI, SETTINGS), listOf("control")),
+        // Every Samsung app carries its own copy of the switch and checkbox art (the SESL
+        // library), so the controls go to each target that defines the names.
+        Element("controls", "Switches, checkboxes and radios", emptyList(), listOf("control")),
         Element(
             "notifications", "Notifications", listOf(SYSTEMUI, ANDROID),
             listOf(
@@ -207,9 +212,14 @@ public object Elements {
         Element("smart_capture", "Smart capture", listOf("com.samsung.android.app.smartcapture"), listOf("smartcapture")),
         Element("notes", "Samsung Notes", listOf("com.samsung.android.app.notes"), listOf("notes")),
         Element("reminder", "Reminder", listOf("com.samsung.android.app.reminder"), listOf("reminder")),
+        Element("internet", "Samsung Internet", listOf("com.sec.android.app.sbrowser"), listOf("internet", "sbrowser", "browser")),
+        Element("email", "Samsung Email", listOf("com.samsung.android.email.provider"), listOf("email")),
+        Element("music", "Samsung Music", listOf("com.sec.android.app.music"), listOf("music")),
+        Element("voice_recorder", "Voice Recorder", listOf("com.sec.android.app.voicenote"), listOf("voicerecorder", "voicenote")),
+        Element("health", "Samsung Health", listOf("com.sec.android.app.shealth"), listOf("health", "shealth")),
         Element("backgrounds", "Backgrounds", listOf(ANDROID, SETTINGS, DIALER, CONTACTS), listOf("background")),
         Element("dialogs", "Dialogs and buttons", listOf(ANDROID, SETTINGS), listOf("box", "buttons")),
-        Element("system_drawables", "Framework and app drawables", emptyList(), listOf("drawable", "mipmap")),
+        Element(SYSTEM_DRAWABLES, "Framework and app drawables", emptyList(), listOf("drawable", "mipmap")),
         Element(
             MISC, "Miscellaneous", emptyList(),
             listOf("misc", "mms", "msgbubble", "wabuble", "ui", "ui_messages", "timmah", "plugin", "bottom"),
