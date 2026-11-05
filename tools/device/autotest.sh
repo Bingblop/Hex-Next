@@ -8,7 +8,7 @@
 #   gh auth login            # GitHub.com, HTTPS, log in as Bingblop
 #   gh auth setup-git
 #   termux-wake-lock         # optional: keeps the watcher alive with the screen off
-#   curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/claude/project-thread-rje8bm/tools/device/autotest.sh
+#   curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/main/tools/device/autotest.sh
 #   bash autotest.sh watch   # leave it running; Ctrl-C to stop
 #
 #   bash autotest.sh once    # run any pending jobs, then exit
@@ -19,13 +19,14 @@
 # successful run of Bingblop/Hex-Next whose artifact digest matches the job, and pm only updates
 # the owner build in place when it carries the same release key.
 set -u
+LAB_KEY="${LAB_KEY:-$HOME/.hexnext-lab/key.pem}"
 PHASE=""   # "after-" for the captures taken after a System UI restart (step restartui)
 LAB_REPO="${LAB_REPO:-Bingblop/hexnext-device-lab}"
 APP_REPO=Bingblop/Hex-Next
 # The only ref scripts are downloaded from before they run as root. A job's own "ref" is
 # logged but never used for code, so a job cannot point the runner at another branch.
 # Switch this to main once the Studio branch is merged.
-TRUSTED_REF=claude/project-thread-rje8bm
+TRUSTED_REF=main
 PKG=com.hexnext.themer.owner
 HOOK="$PKG/com.hexnext.themer.autotest.AutotestActivity"
 LAB="${LAB_DIR:-$HOME/hexnext-device-lab}"
@@ -262,6 +263,21 @@ step_install() {
   got=$(sha256_of "$zip")
   [ "$got" = "$want" ] || { log "install: sha256 $got != job $want; NOT installing"; return 1; }
   (cd "$HOME/hexnext-apk" && unzip -o -q owner.zip) 2>>"$RES/runner.log" || { log "install: unzip failed"; return 1; }
+  # The owner APK is published encrypted to this phone's lab key (step_labkey): decrypt it here.
+  if [ -f "$HOME/hexnext-apk/owner.apk.enc" ]; then
+    [ -s "$LAB_KEY" ] || { log "install: encrypted owner APK but no lab key at $LAB_KEY (run the labkey step)"; return 1; }
+    local k="$HOME/hexnext-apk/.k"
+    ( umask 077
+      openssl pkeyutl -decrypt -inkey "$LAB_KEY" -pkeyopt rsa_padding_mode:oaep -in "$HOME/hexnext-apk/owner.key.enc" -out "$k" &&
+        openssl enc -d -aes-256-cbc -pbkdf2 -in "$HOME/hexnext-apk/owner.apk.enc" -out "$HOME/hexnext-apk/owner-universal.apk" -pass "file:$k" ) 2>>"$RES/runner.log"
+    local rc=$?; rm -f "$k" "$HOME/hexnext-apk/owner.apk.enc" "$HOME/hexnext-apk/owner.key.enc"
+    [ $rc -eq 0 ] || { log "install: decrypting the owner APK failed"; return 1; }
+    if [ -f "$HOME/hexnext-apk/owner.apk.sha256" ] &&
+      [ "$(sha256_of "$HOME/hexnext-apk/owner-universal.apk")" != "$(cat "$HOME/hexnext-apk/owner.apk.sha256")" ]; then
+      log "install: decrypted APK does not match its sha256; NOT installing"; return 1
+    fi
+    log "install: decrypted the owner APK"
+  fi
   local apk; apk=$(find "$HOME/hexnext-apk" -name '*universal*.apk' | head -1)
   [ -n "$apk" ] || apk=$(find "$HOME/hexnext-apk" -name '*.apk' | head -1)
   [ -n "$apk" ] || { log "install: no apk in the zip"; return 1; }
@@ -560,6 +576,22 @@ step_unprobe() {
   log "unprobe: done"
 }
 
+# The lab's own RSA key: the private half stays in $LAB_KEY on this phone; the public half is
+# written to the results (labkey.pem) for tools/device/lab-pubkey.pem, which CI uses to encrypt
+# the owner APK. Kept when it exists.
+step_labkey() {
+  command -v openssl >/dev/null 2>&1 || pkg install -y openssl-tool >/dev/null 2>&1 || pkg install -y openssl >/dev/null 2>&1
+  command -v openssl >/dev/null 2>&1 || { log "labkey: no openssl"; return 1; }
+  if [ ! -s "$LAB_KEY" ]; then
+    mkdir -p "$(dirname "$LAB_KEY")"; chmod 700 "$(dirname "$LAB_KEY")"
+    ( umask 077; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$LAB_KEY" ) 2>>"$RES/runner.log" ||
+      { log "labkey: key generation failed"; return 1; }
+    log "labkey: new key"
+  fi
+  openssl pkey -in "$LAB_KEY" -pubout -out "$RES/labkey.pem" 2>>"$RES/runner.log" || { log "labkey: no public key"; return 1; }
+  log "labkey: public key in labkey.pem"
+}
+
 step_shizuku() { restart_shizuku; }
 
 # Waits (up to 10 min) for Hex Next to put its overlays back by itself after a restart
@@ -800,7 +832,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate|probe|unprobe) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate|probe|unprobe|labkey) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
