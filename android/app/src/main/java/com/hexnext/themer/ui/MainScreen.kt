@@ -135,6 +135,7 @@ import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.Element
 import com.hexnext.engine.compile.Elements
 import com.hexnext.engine.compile.LiveOption
+import com.hexnext.engine.compile.OptionReach
 import com.hexnext.engine.compile.PackOptions
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
@@ -780,6 +781,8 @@ internal fun PackCard(
     onDownload: (CatalogueEntry) -> Unit,
     /** A catalogue skin that is not on the phone yet was picked: download it (preview only while locked) and select it. */
     onPreviewCatalogue: ((CatalogueEntry) -> Unit)? = null,
+    /** Hides options whose artwork has no target on this phone; null (no scan yet) shows every live option. */
+    optionReach: OptionReach? = null,
 ) {
     var showCatalogue by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -851,7 +854,7 @@ internal fun PackCard(
             }
             PackBadges(chosen, locked = locked, pending = locks.pending(chosen.id), price = locks.singlePrice(chosen.id))
             Reveal(visible = !advanced) {
-                val options = remember(chosen.pack) { PackOptions.all(chosen.pack) }
+                val options = remember(chosen.pack, optionReach) { PackOptions.all(chosen.pack, optionReach) }
                 OptionList(
                     pack = chosen.pack,
                     options = options,
@@ -884,6 +887,7 @@ internal fun PackCard(
                     onOption = onOption,
                     onElementPack = onElementPack,
                     onElementEnabled = onElementEnabled,
+                    optionReach = optionReach,
                 )
             }
         }
@@ -1100,6 +1104,7 @@ private fun ElementRow(
     onOption: (Pack, LiveOption, String, String?) -> Unit,
     onElementPack: (String, String?) -> Unit,
     onElementEnabled: (String, Boolean) -> Unit,
+    optionReach: OptionReach? = null,
 ) {
     var showDialog by rememberSaveable { mutableStateOf(false) }
     val enabled = spec.isElementEnabled(element.id)
@@ -1132,8 +1137,8 @@ private fun ElementRow(
         Switch(checked = enabled, onCheckedChange = null, enabled = !busy)
     }
     if (effective != null) {
-        val options = remember(effective.pack, element.id) {
-            PackOptions.all(effective.pack).filter { element.id in it.elementIds }
+        val options = remember(effective.pack, element.id, optionReach) {
+            PackOptions.all(effective.pack, optionReach).filter { element.id in it.elementIds }
         }
         OptionList(
             pack = effective.pack,

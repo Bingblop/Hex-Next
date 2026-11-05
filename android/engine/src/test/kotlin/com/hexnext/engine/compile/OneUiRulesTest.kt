@@ -45,6 +45,41 @@ class OneUiRulesTest {
     }
 
     @Test
+    fun `One UI 9 rewires the legacy names other packs use where Willemite had none`() {
+        // Pack audit of 2026-11-05 (docs/device/oneui9-pack-rewiring-audit-20261105.md): names that
+        // 8-22 of the 44 packs ship under legacy or slot-template names, which no One UI 9 app has.
+        val rules = OneUiRules.load(9)
+        val none = { _: String -> false }
+        // Status bar Wi-Fi icons, which the Quick panel policy lets through as sec_ic_wifi_signal_*.
+        for (level in 0..4) {
+            assertEquals("drawable/sec_ic_wifi_signal_$level", rules.renameFor("drawable/sec_quickpannel_wifi_signal_$level", none))
+            assertEquals("drawable/sec_ic_wifi_signal_lock_$level", rules.renameFor("drawable/sec_quickpannel_wifi_signal_lock_$level", none))
+            assertTrue(rules.quickSettings.allowsOutside(rules.renameFor("drawable/sec_quickpannel_wifi_signal_$level", none)))
+        }
+        // The legacy `buttons` layer: action bar back and overflow glyphs per theme.
+        assertEquals("drawable/sesl_ic_menu_overflow_dark", rules.renameFor("drawable/menu_dark", none))
+        assertEquals("drawable/sesl_ic_menu_overflow_light", rules.renameFor("drawable/menu_light", none))
+        assertEquals("drawable/sesl_ic_ab_back_dark", rules.renameFor("drawable/back_dark", none))
+        assertEquals("drawable/sesl_ic_ab_back_light", rules.renameFor("drawable/back_light", none))
+        // Dialer Wi-Fi calling keypad icon, now split per carrier.
+        assertEquals("drawable/phone_keypad_wificall_ic_comm", rules.renameFor("drawable/phone_keypad_wificall", none))
+        assertTrue("drawable/phone_keypad_wificall_ic_vzw" in rules.drawableCopies.getValue("drawable/phone_keypad_wificall"))
+        // Slot-template names (trailing underscore) like Willemite's dialog_ and popup_.
+        assertEquals("drawable/sesl_index_bar_bg", rules.renameFor("drawable/sesl_index_bar_bg_", none))
+        assertTrue("drawable/sem_toast_frame_mtrl" in rules.drawableCopies.getValue("drawable/sem_toast_frame_mtrl_"))
+        assertTrue("drawable/tw_spinner_mtrl_am_alpha" in rules.drawableCopies.getValue("drawable/tw_spinner_mtrl_am_alpha_"))
+        // Un-suffixed sesl names that One UI 9 splits into dark and light.
+        for (name in listOf("sesl_ic_ab_back", "sesl_ic_menu_overflow", "sesl_tablayout_subtab_indicator_background")) {
+            val copies = rules.drawableCopies.getValue("drawable/$name")
+            assertTrue("drawable/${name}_dark" in copies, name)
+            assertTrue("drawable/${name}_light" in copies, name)
+        }
+        assertEquals(3, rules.drawableCopies.getValue("drawable/sec_ic_settings_coverscreen").size)
+        // A target that still has the legacy name keeps it: the fallback never overrides exact artwork.
+        assertEquals("drawable/menu_dark", rules.renameFor("drawable/menu_dark") { it == "drawable/menu_dark" })
+    }
+
+    @Test
     fun `One UI 9 builds power menu and status bar icons outside the Quick panel policy`() {
         val qs = OneUiRules.load(9).quickSettings
         assertTrue(qs.allowsOutside("drawable/tw_ic_do_poweroff"))

@@ -38,10 +38,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.Face
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -115,11 +113,58 @@ import com.hexnext.themer.ui.statusPillText
 internal const val EXTRA_DESTINATION = "hexnext.destination"
 
 internal enum class Destination(val label: String, val icon: ImageVector) {
-    STUDIO("Studio", Icons.Outlined.Home),
-    SKINS("Skins", Icons.Outlined.Star),
-    COLOURS("Colours", Icons.Outlined.Create),
-    ICONS("Icons", Icons.Outlined.Face),
-    SYSTEM("System", Icons.Outlined.Build),
+    THEME("Theme", Icons.Outlined.Create),
+    PACKS("Packs", Icons.Outlined.Star),
+    LIBRARY("Library", Icons.AutoMirrored.Outlined.List),
+    SETTINGS("Settings", Icons.Outlined.Settings),
+}
+
+/**
+ * The sections of the Theme tab, in one row: the overview (describe + whole phone), the colour
+ * cards and the icon cards. One level of tabs instead of a bottom tab plus a sub-tab each.
+ */
+internal enum class ThemeSection(val label: String, val colours: ColoursTab? = null, val icons: IconsTab? = null) {
+    OVERVIEW("Overview"),
+    COLOURS("Colours", colours = ColoursTab.ENGINE),
+    ELEMENTS("Elements", colours = ColoursTab.ELEMENTS),
+    QUICK_PANEL("Quick panel", colours = ColoursTab.QUICK_PANEL),
+    SHADES("Shades", colours = ColoursTab.SHADES),
+    ICONS("Icons", icons = IconsTab.STYLE),
+    CUSTOM_ICONS("Custom icons", icons = IconsTab.CUSTOM),
+    FONTS("Fonts", icons = IconsTab.FONTS),
+    BACKGROUNDS("Backgrounds", icons = IconsTab.BACKGROUNDS);
+
+    companion object {
+        fun of(tab: ColoursTab): ThemeSection = entries.first { it.colours == tab }
+        fun of(tab: IconsTab): ThemeSection = entries.first { it.icons == tab }
+    }
+}
+
+/** The sections of the Settings tab: the app's own settings, the themed apps, and tools. */
+internal enum class SettingsSection(val label: String) {
+    GENERAL("General"),
+    APPS("Themed apps"),
+    TOOLS("Tools"),
+}
+
+/**
+ * Where `hexnext.destination` opens: a [Destination] name, `THEME:<ThemeSection>` /
+ * `SETTINGS:<SettingsSection>`, or a page name of the five-tab shell (`STUDIO`, `SKINS`,
+ * `COLOURS`, `ICONS`, `SYSTEM`) so the device lab's `hexnext:<PAGE>` screenshots keep working.
+ */
+internal fun destinationFor(asked: String?): Triple<Destination, ThemeSection, SettingsSection> {
+    val name = asked.orEmpty().substringBefore(':')
+    val sub = asked.orEmpty().substringAfter(':', "")
+    val theme = ThemeSection.entries.firstOrNull { it.name == sub } ?: ThemeSection.OVERVIEW
+    val settings = SettingsSection.entries.firstOrNull { it.name == sub } ?: SettingsSection.GENERAL
+    return when (name) {
+        "STUDIO" -> Triple(Destination.THEME, ThemeSection.OVERVIEW, settings)
+        "SKINS" -> Triple(Destination.PACKS, theme, settings)
+        "COLOURS" -> Triple(Destination.THEME, ThemeSection.COLOURS, settings)
+        "ICONS" -> Triple(Destination.THEME, ThemeSection.ICONS, settings)
+        "SYSTEM" -> Triple(Destination.SETTINGS, theme, SettingsSection.APPS)
+        else -> Triple(Destination.entries.firstOrNull { it.name == name } ?: Destination.THEME, theme, settings)
+    }
 }
 
 /** The sub-tabs of Colours. */
@@ -136,12 +181,6 @@ internal enum class IconsTab(val label: String) {
     CUSTOM("Custom icons"),
     FONTS("Fonts"),
     BACKGROUNDS("Backgrounds"),
-}
-
-/** The sub-tabs of System. */
-internal enum class SystemTab(val label: String) {
-    TARGETS("Targets"),
-    TOOLS("Tools"),
 }
 
 /** Width from which the shell shows a navigation rail and two panes. */
@@ -183,15 +222,12 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val activity = remember(context) { context.findActivity() }
     LaunchedEffect(activity) { viewModel.bindBillingActivity(activity) }
 
-    // `hexnext.destination` (a Destination name) opens that page first: the device lab
-    // screenshots every page this way. Unknown or missing names open the Studio.
-    var destination by rememberSaveable {
-        val asked = activity?.intent?.getStringExtra(EXTRA_DESTINATION)
-        mutableStateOf(Destination.entries.firstOrNull { it.name == asked } ?: Destination.STUDIO)
-    }
-    var coloursTab by rememberSaveable { mutableStateOf(ColoursTab.ENGINE) }
-    var iconsTab by rememberSaveable { mutableStateOf(IconsTab.STYLE) }
-    var systemTab by rememberSaveable { mutableStateOf(SystemTab.TARGETS) }
+    // `hexnext.destination` opens that page first ([destinationFor]): the device lab screenshots
+    // every page this way. Unknown or missing names open the Theme tab.
+    val start = remember { destinationFor(activity?.intent?.getStringExtra(EXTRA_DESTINATION)) }
+    var destination by rememberSaveable { mutableStateOf(start.first) }
+    var themeSection by rememberSaveable { mutableStateOf(start.second) }
+    var settingsSection by rememberSaveable { mutableStateOf(start.third) }
     var previewTab by rememberSaveable { mutableStateOf(PreviewTab.SETTINGS) }
     var previewDark by rememberSaveable { mutableStateOf(true) }
     // Icons are rendered from the night or day jobs to match the mockup's mode.
@@ -221,8 +257,10 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     // Each destination and sub-tab keeps its own scroll position while another is on display.
     val pages = rememberSaveableStateHolder()
 
-    // On Skins, Colours, Icons and System, Back returns to Studio; on Studio it leaves as before.
-    BackHandler(enabled = destination != Destination.STUDIO) { destination = Destination.STUDIO }
+    // Back: another tab returns to Theme, a Theme section to its overview, the overview leaves.
+    BackHandler(enabled = destination != Destination.THEME || themeSection != ThemeSection.OVERVIEW) {
+        if (destination != Destination.THEME) destination = Destination.THEME else themeSection = ThemeSection.OVERVIEW
+    }
 
     // One snackbar per notice: haptic on arrival, the action when tapped. The notice is consumed
     // only once the snackbar is gone (shown, dismissed, or the editor left while it showed, so it
@@ -263,8 +301,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     // The Quick panel sub-tab shows the Quick panel on the phone; leaving it brings back the phone
     // tab that was showing before, unless the user picked another one meanwhile.
     var previewTabBeforeQs by rememberSaveable { mutableStateOf<PreviewTab?>(null) }
-    LaunchedEffect(destination, coloursTab) {
-        val onQuickPanel = destination == Destination.COLOURS && coloursTab == ColoursTab.QUICK_PANEL
+    LaunchedEffect(destination, themeSection) {
+        val onQuickPanel = destination == Destination.THEME && themeSection == ThemeSection.QUICK_PANEL
         if (onQuickPanel) {
             if (previewTab != PreviewTab.QUICK_PANEL) {
                 previewTabBeforeQs = previewTab
@@ -278,8 +316,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     }
 
     val openTargets: () -> Unit = {
-        destination = Destination.SYSTEM
-        systemTab = SystemTab.TARGETS
+        destination = Destination.SETTINGS
+        settingsSection = SettingsSection.APPS
     }
     val previewModel = remember(previewState, previewTab, previewDark, peekFull, viewModel) {
         PreviewModel(
@@ -293,21 +331,24 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
             onPeekFull = { peekFull = it },
         )
     }
-    // Studio edits in place; Colours and Icons jump to the element's row (§ 1.3). Remembered: the
-    // lambda reads destination, tabs and mode from their state holders when it runs.
+    // A tap on the phone edits in place: on the Theme tab's colour sections it scrolls to the
+    // element's row; everywhere else it opens the colour sheet over the current page, so a tap
+    // never moves you to another tab. Remembered: the lambda reads destination, section and mode
+    // from their state holders when it runs.
     val onElementTap: (ColorGroup) -> Unit = remember(viewModel) { { group ->
         viewModel.setHighlightedGroup(group)
-        if (destination == Destination.STUDIO) {
-            studioPick = "${group.id}:$previewDark"
-        } else {
-            destination = Destination.COLOURS
-            coloursTab = when {
-                previewTab == PreviewTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
-                coloursTab == ColoursTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
-                group.quickSettings -> ColoursTab.QUICK_PANEL
-                else -> ColoursTab.ELEMENTS
+        val onColourRows = destination == Destination.THEME &&
+            (themeSection == ThemeSection.ELEMENTS || themeSection == ThemeSection.QUICK_PANEL)
+        if (onColourRows) {
+            themeSection = when {
+                previewTab == PreviewTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ThemeSection.QUICK_PANEL
+                themeSection == ThemeSection.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ThemeSection.QUICK_PANEL
+                group.quickSettings -> ThemeSection.QUICK_PANEL
+                else -> ThemeSection.ELEMENTS
             }
             elementsTick++
+        } else {
+            studioPick = "${group.id}:$previewDark"
         }
     } }
     val connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE
@@ -383,17 +424,13 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
                         }
                     },
-                    actions = {
-                        IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "App settings")
-                        }
-                    },
                 )
             },
             bottomBar = {
                 if (!imeVisible) {
                     Column {
-                        applyBar()
+                        // Preview and Apply stay pinned where the theme is made: Theme and Packs.
+                        if (destination == Destination.THEME || destination == Destination.PACKS) applyBar()
                         if (!rail) {
                             NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                                 Destination.entries.forEach { entry ->
@@ -428,9 +465,6 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             {
                                 // No top bar on short windows, so the logo leads the rail instead.
                                 AppLogo(Modifier.padding(top = 8.dp).size(32.dp))
-                                IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
-                                    Icon(Icons.Outlined.Settings, contentDescription = "App settings")
-                                }
                             }
                         } else {
                             null
@@ -462,7 +496,9 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     }
                     // Colours, Icons and Skins need the room for the preview: the strip shows there
                     // only when something needs attention.
-                    if (destination == Destination.STUDIO || destination == Destination.SYSTEM || stripNeedsAttention(ui)) {
+                    val stripRoom = (destination == Destination.THEME && themeSection == ThemeSection.OVERVIEW) ||
+                        (destination == Destination.SETTINGS && settingsSection == SettingsSection.APPS)
+                    if (stripRoom || stripNeedsAttention(ui)) {
                         StatusStrip(
                             ui = ui,
                             onPrivilege = { showPrivilege = true },
@@ -473,25 +509,61 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         androidx.compose.runtime.CompositionLocalProvider(
                             com.hexnext.themer.ui.preview.LocalIconTap provides { key, label -> iconPick = "$key|$label" },
                         ) {
+                        val themeTabs: @Composable () -> Unit = {
+                            SubTabs(ThemeSection.entries, themeSection, { it.label }, { themeSection = it })
+                        }
                         val page: @Composable (Destination) -> Unit = { dest ->
                             pages.SaveableStateProvider(
                                 when (dest) {
-                                    Destination.COLOURS -> "COLOURS:${coloursTab.name}"
-                                    Destination.ICONS -> "ICONS:${iconsTab.name}"
-                                    Destination.SYSTEM -> "SYSTEM:${systemTab.name}"
+                                    Destination.THEME -> "THEME:${themeSection.name}"
+                                    Destination.SETTINGS -> "SETTINGS:${settingsSection.name}"
                                     else -> dest.name
                                 },
                             ) {
                                 when (dest) {
-                                    Destination.STUDIO -> StudioPage(
-                                        viewModel, ui, previewModel, onElementTap, wide,
-                                        applyBlockedReason = when {
-                                            !connected -> "Connect root or Shizuku to apply. The preview above already shows the result."
-                                            previewOnlyPack != null -> "Unlock ${ui.packDisplayName(previewOnlyPack)} to apply this theme. The preview above already shows the result."
-                                            else -> null
-                                        },
-                                    )
-                                    Destination.SKINS -> SkinsPage(
+                                    Destination.THEME -> {
+                                        val colours = themeSection.colours
+                                        val icons = themeSection.icons
+                                        when {
+                                            colours != null -> ColoursPage(
+                                                viewModel = viewModel,
+                                                ui = ui,
+                                                preview = previewModel,
+                                                tab = colours,
+                                                onTab = { themeSection = ThemeSection.of(it) },
+                                                onElementTap = onElementTap,
+                                                elementsTick = elementsTick,
+                                                elementsTickHandled = elementsTickHandled,
+                                                onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
+                                                peekCollapsed = peekCollapsed,
+                                                onPeekCollapsed = { peekCollapsed = it },
+                                                wide = wide,
+                                                sectionTabs = themeTabs,
+                                            )
+                                            icons != null -> IconsPage(
+                                                viewModel = viewModel,
+                                                ui = ui,
+                                                preview = previewModel,
+                                                tab = icons,
+                                                onTab = { themeSection = ThemeSection.of(it) },
+                                                onElementTap = onElementTap,
+                                                peekCollapsed = peekCollapsed,
+                                                onPeekCollapsed = { peekCollapsed = it },
+                                                wide = wide,
+                                                sectionTabs = themeTabs,
+                                            )
+                                            else -> StudioPage(
+                                                viewModel, ui, previewModel, onElementTap, wide,
+                                                applyBlockedReason = when {
+                                                    !connected -> "Connect root or Shizuku to apply. The preview above already shows the result."
+                                                    previewOnlyPack != null -> "Unlock ${ui.packDisplayName(previewOnlyPack)} to apply this theme. The preview above already shows the result."
+                                                    else -> null
+                                                },
+                                                sectionTabs = themeTabs,
+                                            )
+                                        }
+                                    }
+                                    Destination.PACKS -> SkinsPage(
                                         viewModel = viewModel,
                                         ui = ui,
                                         preview = previewModel,
@@ -500,41 +572,13 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                         onPeekCollapsed = { peekCollapsed = it },
                                         wide = wide,
                                     )
-                                    Destination.COLOURS -> ColoursPage(
-                                        viewModel = viewModel,
-                                        ui = ui,
-                                        preview = previewModel,
-                                        tab = coloursTab,
-                                        onTab = { coloursTab = it },
-                                        onElementTap = onElementTap,
-                                        elementsTick = elementsTick,
-                                        elementsTickHandled = elementsTickHandled,
-                                        onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        wide = wide,
-                                    )
-                                    Destination.ICONS -> IconsPage(
-                                        viewModel = viewModel,
-                                        ui = ui,
-                                        preview = previewModel,
-                                        tab = iconsTab,
-                                        onTab = { iconsTab = it },
-                                        onElementTap = onElementTap,
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        wide = wide,
-                                    )
-                                    Destination.SYSTEM -> SystemPage(
+                                    Destination.LIBRARY -> ToolsTab(viewModel, ui, shizuku, library = true)
+                                    Destination.SETTINGS -> SettingsPage(
                                         viewModel = viewModel,
                                         ui = ui,
                                         shizuku = shizuku,
-                                        preview = previewModel,
-                                        onElementTap = onElementTap,
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        tab = systemTab,
-                                        onTab = { systemTab = it },
+                                        section = settingsSection,
+                                        onSection = { settingsSection = it },
                                     )
                                 }
                             }

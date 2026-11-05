@@ -1,5 +1,7 @@
 package com.hexnext.themer.ui.studio
 
+import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.settings.AppSettingsContent
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,36 +77,42 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * System (Studio v2 phase 2 § 2.7): Targets, what the last apply did per One UI app with a switch
- * to leave an app out, and Tools, the theme file, the build log, safe mode and the device line.
+ * The Settings tab: General (the app's own appearance, behaviour, AI providers, purchases and
+ * about), Themed apps (each target's result and switch, restart protection) and Tools (build
+ * log, safe mode, diagnostics, device). No preview here: nothing on this tab changes the theme.
  */
 @Composable
-internal fun SystemPage(
+internal fun SettingsPage(
     viewModel: MainViewModel,
     ui: UiState,
     shizuku: ShizukuState,
-    preview: PreviewModel,
-    onElementTap: (ColorGroup) -> Unit,
-    peekCollapsed: Boolean,
-    onPeekCollapsed: (Boolean) -> Unit,
-    tab: SystemTab,
-    onTab: (SystemTab) -> Unit,
+    section: SettingsSection,
+    onSection: (SettingsSection) -> Unit,
 ) {
+    val context = LocalContext.current
+    val store = remember(context) { AppSettingsStore.get(context) }
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)) {
-            PreviewPeek(preview, onElementTap, peekCollapsed, onPeekCollapsed)
-        }
         SubTabs(
-            SystemTab.entries,
-            tab,
+            SettingsSection.entries,
+            section,
             { it.label },
-            onTab,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            onSection,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (tab) {
-                SystemTab.TARGETS -> TargetsTab(viewModel, ui)
-                SystemTab.TOOLS -> ToolsTab(viewModel, ui, shizuku)
+            when (section) {
+                SettingsSection.GENERAL -> AppSettingsContent(
+                    store = store,
+                    onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
+                    onOpenAiProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
+                    onOpenOnboarding = { viewModel.navigate(Screen.ONBOARDING) },
+                    purchases = ui.entitlement,
+                    canPurchase = ui.canPurchase,
+                    onRestorePurchases = viewModel::restorePurchases,
+                    contentPadding = PAGE_PADDING,
+                )
+                SettingsSection.APPS -> TargetsTab(viewModel, ui)
+                SettingsSection.TOOLS -> ToolsTab(viewModel, ui, shizuku)
             }
         }
     }
@@ -410,7 +418,7 @@ private enum class LogFilter(val label: String, val level: LogLevel?) {
 }
 
 @Composable
-private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
+internal fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState, library: Boolean = false) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val diagnostics: DiagnosticsViewModel = composeViewModel()
@@ -459,6 +467,8 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
         contentPadding = PAGE_PADDING,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Library: the theme file and the backups. Settings › Tools: log, safe mode, diagnostics.
+        if (library) {
         item(key = "file") {
             StudioCard(
                 title = "Theme file",
@@ -534,6 +544,8 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
             }
         }
 
+        }
+        if (!library) {
         item(key = "log") {
             val log by viewModel.log.collectAsStateWithLifecycle()
             val lines = remember(log, logFilter) {
@@ -624,6 +636,7 @@ private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuStat
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
         }
     }
 
