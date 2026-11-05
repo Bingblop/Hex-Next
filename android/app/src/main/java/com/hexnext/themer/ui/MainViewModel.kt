@@ -50,7 +50,6 @@ import com.hexnext.themer.billing.PackPricing
 import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.device.CompatibilityCheck
-import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.ShizukuManager
@@ -143,6 +142,9 @@ data class UiState(
     val serviceBusy: Boolean = false,
     /** The pending snackbar message; null once shown (see [MainViewModel.consumeNotice]). */
     val notice: Notice? = null,
+    /** Result of the UID 2000 palette controls, separate from overlay reports. */
+    val monetMessage: String? = null,
+    val monetError: Boolean = false,
     val oneUiVersion: String? = null,
     /** Non-null while the "Hex Next overlays were turned off after repeated restarts" banner shows. */
     val safeModeBanner: String? = null,
@@ -153,7 +155,7 @@ data class UiState(
     /**
      * True while the last apply has not been confirmed with "It works": restart protection is
      * armed and two restarts within 10 minutes turn the overlays off, but only when root survives
-     * a restart (a temporary root such as DFRoot does not, so the UI must not promise it).
+     * a restart (a temporary root such as DirtyFrag does not, so the UI must not promise it).
      */
     val applyUnconfirmed: Boolean = false,
     /**
@@ -186,8 +188,6 @@ data class UiState(
     val iconSlots: List<ThemePreviewer.IconSlot> = emptyList(),
     /** Why the slot lists are empty when building them failed; null without a failure (no scan yet, or fine). */
     val slotsError: String? = null,
-    /** [RootTools.Tool.name] → the newest APK URL (the pinned one until resolved). */
-    val rootToolLinks: Map<String, String> = RootTools.ALL.associate { it.name to it.pinnedApk },
     /** "Android 17 · One UI 9.0" from the compatibility check. */
     val versionLine: String = CompatibilityCheck.versionLine(),
     /**
@@ -597,18 +597,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             learnOfficialPacks()
         }
         viewModelScope.launch {
-            for (tool in RootTools.ALL) {
-                val url = RootTools.latestApkUrl(tool)
-                _ui.update { it.copy(rootToolLinks = it.rootToolLinks + (tool.name to url)) }
-            }
-        }
-        viewModelScope.launch {
             ShizukuManager.state.collect {
                 val capability = Capability.of(it)
                 _ui.update { state -> if (state.capability == capability) state else state.copy(capability = capability) }
                 if (it is ShizukuState.Ready) {
                     runStartupChecks()
                     loadDeviceInfo()
+                    if (Capability.of(it) == Capability.ROOT) refreshPreview()
                 }
             }
         }
@@ -666,6 +661,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * service. Waits while another task holds the slot.
      */
     private suspend fun runStartupChecks() {
+        if (Capability.of(ShizukuManager.state.value) != Capability.ROOT) return
         if (safeModeChecked && semwtReasserted) return
         ServiceTasks.running.first { running -> running == null && ServiceTasks.tryStart(STARTUP_TASK) }
         try {
@@ -1288,6 +1284,12 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     /** Main thread only (viewModelScope). */
     private fun schedulePreview() {
+        // UID 2000 has a single-purpose Monet screen; never spend CPU building app mockups.
+        if (Capability.of(ShizukuManager.state.value) == Capability.SHELL) {
+            previewJob?.cancel()
+            previewPending = false
+            return
+        }
         if (_ui.value.busy) {
             previewPending = true
             return
@@ -2045,6 +2047,33 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         return state.packs.firstOrNull { productId in ProductIds.allForPack(it.id) }?.name
             ?: state.catalogue.entries.firstOrNull { productId in ProductIds.allForPack(it.id) }?.name
             ?: productId
+    }
+
+    /** Updates the Monet secure setting through shell access without creating app overlays. */
+    fun applyMonetPalette() = runTask(retry = null) { service, _ ->
+        check(service.uid == 2000) { "The connection changed. Use the controls for the current access mode." }
+        val seed = _ui.value.seed
+        val ok = runCatching { MonetSeed.apply(service, seed, ::log) }.getOrDefault(false)
+        _ui.update { it.copy(
+            monetError = !ok,
+            monetMessage = if (ok) "Palette applied: #${MonetSeed.hex(seed)}. No app overlays were changed."
+                else "The palette could not be applied. Check Shizuku and try again; details are in Diagnostics.",
+        ) }
+        ok
+    }
+
+    fun restoreMonetPalette() = runTask(retry = null) { service, _ ->
+        check(service.uid == 2000) { "The connection changed. Use the controls for the current access mode." }
+        val restored = runCatching { MonetSeed.restore(service, ::log) }.getOrDefault(false)
+        _ui.update { it.copy(
+            monetError = restored == false,
+            monetMessage = when (restored) {
+                true -> "Previous palette restored or a newer user-selected palette left intact. No app overlays were changed."
+                null -> "No previous palette was saved by Hex Next."
+                false -> "The saved palette could not be restored. Check Shizuku and try again; details are in Diagnostics."
+            },
+        ) }
+        restored != false
     }
 
     /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */

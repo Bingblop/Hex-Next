@@ -228,7 +228,7 @@ fun DiagnosticsScreen(
                             // Only root that survives a restart can act after one (see the Apply card).
                             "The last apply is not confirmed yet. If your phone restarts twice within 10 minutes, " +
                                 "Hex Next turns its overlays off, but only if your root stays after a restart. A " +
-                                "temporary root such as DFRoot is gone after a restart, so then nothing can turn " +
+                                "temporary root such as DirtyFrag is gone after a restart, so then nothing can turn " +
                                 "them off. Tap \"It works\" once everything looks right."
                         },
                         style = MaterialTheme.typography.bodySmall,

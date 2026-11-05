@@ -92,7 +92,7 @@ class ThemeService() : IThemeService.Stub() {
         val output = bundle.getString(KEY_OUTPUT).orEmpty()
         if (output.length <= EXEC_INLINE_LIMIT) return bundle
         return try {
-            val file = File(MonitorScript.DIR, "exec/out-${System.currentTimeMillis()}-${Process.myPid()}-${spillCounter++}.txt")
+            val file = File(MonitorScript.DIR, "exec/out-${System.currentTimeMillis()}-${Process.myPid()}-${spillCounter.getAndIncrement()}.txt")
             writeRootFile(file, output)
             bundle.apply {
                 putString(KEY_OUTPUT_PATH, file.path)
@@ -101,13 +101,15 @@ class ThemeService() : IThemeService.Stub() {
             }
         } catch (t: Throwable) {
             bundle.apply {
+                // Only a prefix survives: report it as incomplete, like ExecOutput.fullText's 125.
+                putInt(KEY_CODE, 125)
                 putInt(KEY_OUTPUT_LENGTH, output.length)
                 putString(KEY_OUTPUT, output.take(EXEC_INLINE_LIMIT) + "\n… (truncated from ${output.length} characters: ${describe(t)})")
             }
         }
     }
 
-    @Volatile private var spillCounter = 0
+    private val spillCounter = java.util.concurrent.atomic.AtomicLong()
 
     /** Runs [command] as the service uid (root, system or shell), or through `su` from the app process, and returns the whole output. */
     private fun shell(command: String): Bundle = try {
@@ -123,7 +125,8 @@ class ThemeService() : IThemeService.Stub() {
         runCatching { process.outputStream.close() }
         // Read on a separate thread: reading to EOF here would block for as long as the child
         // keeps its output open, so the timeout below could never fire for a hung command.
-        val sink = StringBuilder()
+        val sink = ProcessOutputPolicy.Capture()
+        val readFailed = java.util.concurrent.atomic.AtomicBoolean()
         val reader = Thread({
             try {
                 process.inputStream.bufferedReader().use { input ->
@@ -131,11 +134,16 @@ class ThemeService() : IThemeService.Stub() {
                     while (true) {
                         val n = input.read(buffer)
                         if (n < 0) break
-                        synchronized(sink) { sink.append(buffer, 0, n) }
+                        if (!sink.append(buffer, n)) {
+                            process.destroyForcibly()
+                            break
+                        }
                     }
                 }
-            } catch (ignored: Throwable) {
-                // The stream closed under us (process destroyed); keep what was read.
+            } catch (error: java.io.IOException) {
+                // Destruction can close the stream. Never present a partial dump as success.
+                readFailed.set(true)
+                android.util.Log.w("HexNextShell", "Command output closed (${error.javaClass.simpleName})")
             }
         }, "hexnext-shell")
         reader.isDaemon = true
@@ -148,9 +156,13 @@ class ThemeService() : IThemeService.Stub() {
         // A background grandchild that inherited the pipe can hold it open after the child
         // exits; do not wait on it indefinitely.
         reader.join(if (finished) READER_GRACE_MILLIS else 2_000L)
-        val output = synchronized(sink) { sink.toString() }
-        if (!finished) {
+        val output = sink.snapshot()
+        if (sink.exceeded()) {
+            result(125, "Command output exceeded the safety limit; no partial resource table was accepted")
+        } else if (!finished) {
             result(124, output + "\n(timed out after ${SHELL_TIMEOUT_SECONDS}s)")
+        } else if (readFailed.get() || reader.isAlive) {
+            result(125, "Command output did not complete; no partial resource table was accepted")
         } else {
             result(process.exitValue(), output)
         }

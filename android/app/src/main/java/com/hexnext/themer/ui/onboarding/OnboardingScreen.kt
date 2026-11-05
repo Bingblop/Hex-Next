@@ -45,7 +45,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,7 +57,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -79,7 +77,7 @@ import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.ui.EmptyState
 import com.hexnext.themer.ui.LocalAppSettings
 import com.hexnext.themer.ui.MainViewModel
-import com.hexnext.themer.ui.RootGuide
+import com.hexnext.themer.ui.ManualRootSetup
 import com.hexnext.themer.ui.SHIZUKU_DOWNLOAD_URL
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.connectionSummary
@@ -102,7 +100,6 @@ private enum class Step(val title: String) {
  * Done and Skip alike, so the host marks the guide as seen either way.
  *
  * @param shizuku the live connection state, so the access page updates as the user acts.
- * @param rootToolLinks the newest APK links of the root tools, as the Connection card shows them.
  * @param packs the installed packs to pick from; an empty list shows how to get some.
  * @param selectedPackId the editor's current pack (null = colours only).
  * @param onImportPack copies a chosen pack file into the app, so a fresh install can end the
@@ -115,7 +112,6 @@ private enum class Step(val title: String) {
 fun OnboardingScreen(
     shizuku: ShizukuState,
     versionLine: String,
-    rootToolLinks: Map<String, String>,
     packs: List<InstalledPack>,
     selectedPackId: String?,
     onSelectPack: (String?) -> Unit,
@@ -220,7 +216,7 @@ fun OnboardingScreen(
                 when (current) {
                     Step.WELCOME -> WelcomePage()
                     Step.COMPATIBILITY -> CompatibilityPage(versionLine)
-                    Step.ACCESS -> AccessPage(shizuku, rootToolLinks, onRequestPermission)
+                    Step.ACCESS -> AccessPage(shizuku, onRequestPermission)
                     Step.PACK -> PackPage(packs, selectedPackId, ownPackParts, ui.busy, onSelectPack, onImportPack, isPackLocked)
                     Step.DONE -> DonePage(shizuku, packs, selectedPackId, ownPackParts)
                 }
@@ -294,7 +290,7 @@ private fun CompatibilityPage(versionLine: String) {
 }
 
 @Composable
-private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequestPermission: () -> Unit) {
+private fun AccessPage(shizuku: ShizukuState, onRequestPermission: () -> Unit) {
     val uriHandler = rememberSafeUriHandler()
     val context = LocalContext.current
     val ready = shizuku as? ShizukuState.Ready
@@ -308,17 +304,20 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
         title = when {
             connected -> "Connected"
             paletteOnly -> "Connected, system palette only"
-            suOnly -> "Start Shizuku with root"
+            suOnly -> "Connect root access"
             else -> "Give Hex Next access"
         },
-        // The shared summary reads "root, or Shizuku": here, where the steps below end in
-        // Shizuku, say plainly that root alone is not enough.
         body = if (shizuku == ShizukuState.NotRunning) {
-            "Hex Next needs root, and Shizuku started with root, to change your phone's theme. Theme Park is not required."
+            "Root can start Hex Next's own system service. Shizuku with root is an alternative; Theme Park is not required."
         } else {
             connectionSummary(shizuku)
         },
     )
+    if (!connected) {
+        SectionCard("Root access") {
+            ManualRootSetup(shizuku, startExpanded = true)
+        }
+    }
     when (shizuku) {
         ShizukuState.PermissionNeeded -> SectionCard("Shizuku") {
             Text("Shizuku is running. Allow Hex Next to use it.", style = MaterialTheme.typography.bodyMedium)
@@ -326,7 +325,8 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
         }
         ShizukuState.NotRunning, ShizukuState.TooOld -> SectionCard("Shizuku") {
             Text(
-                "Already rooted? Install Shizuku and start it with root, then come back here.",
+                "Shizuku is an alternative connection. For full theming, start it with root. " +
+                    "It is not required when Hex Next's own system service connects.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
@@ -344,7 +344,8 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
         is ShizukuState.Ready -> if (suOnly) {
             SectionCard("Shizuku") {
                 Text(
-                    "Your phone is rooted, but Hex Next applies themes through Shizuku. Install Shizuku, start it with root, then come back here.",
+                    "A root setup was detected. Use Request root access below for Hex Next's own system service, " +
+                        "or use Shizuku started with root as an alternative.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -362,26 +363,7 @@ private fun AccessPage(shizuku: ShizukuState, links: Map<String, String>, onRequ
             }
         }
     }
-    if (!connected) {
-        // A rooted phone in SU mode only needs Shizuku, not the rooting guide.
-        if (!suOnly) {
-            SectionCard("No root yet?") {
-                // RootGuide opens its download links through LocalUriHandler; hand it the safe
-                // handler so a phone with every browser disabled shows a message, not a crash.
-                CompositionLocalProvider(LocalUriHandler provides uriHandler) {
-                    RootGuide(links, startExpanded = true)
-                }
-                // RootGuide's steps end at root for Hex Next, which on its own is SU mode and
-                // cannot apply. Finish with the Shizuku step every rooted phone still needs.
-                Text(
-                    "Root alone cannot apply a theme. After these steps, install Shizuku, turn on Superuser for Shizuku " +
-                        "in KernelSU too, then open Shizuku, start it with root and come back here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) { Text("Get Shizuku") }
-            }
-        }
-    } else {
+    if (connected) {
         SectionCard("You're ready") {
             Text(
                 "Hex Next can now build and apply overlays. You can check it later from the Connection chip at the top of Studio.",

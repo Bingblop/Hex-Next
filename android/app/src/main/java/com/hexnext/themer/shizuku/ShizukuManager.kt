@@ -8,8 +8,11 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Process
+import android.os.RemoteException
 import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.IThemeService
+import com.hexnext.themer.ServiceTasks
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +22,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeout
 import rikka.shizuku.Shizuku
 import java.io.File
@@ -43,8 +47,8 @@ sealed interface ShizukuState {
     data object PermissionDenied : ShizukuState
 
     /**
-     * @property viaSystem Hex Next's own system service ([SystemLauncher], UID 1000 through su),
-     *   not Shizuku: its overlays survive reboots.
+     * @property viaSystem Hex Next's own service ([SystemLauncher]), not Shizuku.
+     *   Check [uid]: UID 1000 persists; the UID 0 fallback does not.
      */
     data class Ready(val uid: Int, val version: Int, val viaSu: Boolean = false, val viaSystem: Boolean = false) : ShizukuState {
         val isRoot: Boolean get() = uid == 0
@@ -55,12 +59,19 @@ sealed interface ShizukuState {
 }
 
 object ShizukuManager {
+    data class RootRequest(val requesting: Boolean = false, val error: String? = null) {
+        internal fun onBackgroundFailure(message: String): RootRequest =
+            if (requesting) this else RootRequest(error = message)
+    }
+    private val _rootRequest = MutableStateFlow(RootRequest())
+    val rootRequest: StateFlow<RootRequest> = _rootRequest.asStateFlow()
     private const val PERMISSION_REQUEST = 7301
 
     private val _state = MutableStateFlow<ShizukuState>(ShizukuState.NotRunning)
     val state: StateFlow<ShizukuState> = _state.asStateFlow()
 
     private var service: IThemeService? = null
+    private var serviceFromShizuku = false
     private var pending: CompletableDeferred<IThemeService>? = null
 
     private val serviceArgs by lazy {
@@ -76,6 +87,7 @@ object ShizukuManager {
             if (binder == null || !binder.pingBinder()) return
             val bound = IThemeService.Stub.asInterface(binder)
             service = bound
+            serviceFromShizuku = true
             pending?.complete(bound)
             pending = null
         }
@@ -151,14 +163,71 @@ object ShizukuManager {
     /** Starts (or reconnects) the system service in the background; the state follows. */
     fun startSystem() {
         val context = appContext ?: return
+        if (permittedShizukuUid() == 1000) { refresh(); return }
         if (SystemLauncher.failed || !SystemLauncher.suPresent()) return
-        scope.launch {
-            SystemLauncher.ensure(context) { Handler(Looper.getMainLooper()).post { refresh() } }
+        scope.launch(Dispatchers.Main.immediate) {
+            try {
+                SystemLauncher.ensure(context) { Handler(Looper.getMainLooper()).post { refresh() } }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RemoteException) {
+                _rootRequest.update {
+                    it.onBackgroundFailure("Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+                }
+            } catch (e: SecurityException) {
+                _rootRequest.update {
+                    it.onBackgroundFailure("Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+                }
+            }
         }
     }
 
+    /** User-initiated retry, including when KernelSU is installed but su is not visible yet. */
+    fun requestRootAccess() {
+        // Keep UI-facing state and task ownership on Main without tying this app-scoped flow
+        // to an Activity. ensure() moves privileged process work to Dispatchers.IO.
+        scope.launch(Dispatchers.Main.immediate) {
+            val context = appContext ?: return@launch
+            if (permittedShizukuUid() == 1000) { refresh(); return@launch }
+            val previous = _rootRequest.value
+            if (previous.requesting || !_rootRequest.compareAndSet(previous, RootRequest(requesting = true))) return@launch
+            if (!ServiceTasks.tryStart("Requesting root access")) {
+                _rootRequest.value = RootRequest(error = "Wait for the current device task to finish, then try again.")
+                return@launch
+            }
+            try {
+                val connected = SystemLauncher.ensure(context, requestAccess = true)
+                _rootRequest.value = RootRequest(error = if (connected == null) {
+                    "Root access was not granted or no privileged service is active. Allow Hex Next in your root manager, " +
+                        "or connect Shizuku at UID 1000. If you are not rooted, complete manual setup in DirtyFrag first. " +
+                        (SystemLauncher.lastError ?: "Neither UID 1000 nor UID 0 access was obtained.")
+                } else null)
+            } catch (e: CancellationException) {
+                _rootRequest.value = RootRequest()
+                throw e
+            } catch (e: RemoteException) {
+                _rootRequest.value = RootRequest(error = "Root access could not be started. Check your root manager or Shizuku and try again.")
+            } catch (e: SecurityException) {
+                _rootRequest.value = RootRequest(error = "Root access could not be started. Check your root manager or Shizuku and try again.")
+            } finally {
+                _rootRequest.value = _rootRequest.value.copy(requesting = false)
+                ServiceTasks.finish()
+                Handler(Looper.getMainLooper()).post { refresh() }
+            }
+        }
+    }
+
+    private fun permittedShizukuUid(): Int? = runCatching {
+        if (Shizuku.pingBinder() && !Shizuku.isPreV11() &&
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) Shizuku.getUid() else null
+    }.getOrNull()
+
     private fun readState(): ShizukuState {
-        if (SystemLauncher.alive()) return ShizukuState.Ready(uid = 1000, version = 13, viaSystem = true)
+        val shizukuUid = permittedShizukuUid()
+        val ownUid = SystemLauncher.connectedUid
+        PrivilegeMode.preferredUid(ownUid, shizukuUid)?.let { uid ->
+            return ShizukuState.Ready(uid, 13, viaSystem = ownUid == uid && shizukuUid != 1000)
+        }
         return when {
             Shizuku.pingBinder() -> {
                 when {
@@ -188,51 +257,46 @@ object ShizukuManager {
 
     /** Binds the privileged user service (or local SU/UID 1000 service), starting it if needed. */
     suspend fun service(): IThemeService {
+        // An already-authorized Shizuku system service must never be downgraded to root UID 0
+        // merely because a different su provider is installed or the system launcher failed.
+        if (permittedShizukuUid() == 1000) return shizukuService(1000)
+        if (Process.myUid() == 1000) return ThemeService()
         // On a rooted phone the system service comes first, even while Shizuku is up: only its
         // overlays survive a reboot. A start in progress is waited for (ensure() holds a lock),
         // so an apply right after launch never builds shell-owned overlays beside it.
         appContext?.let { context ->
             if (!SystemLauncher.failed && SystemLauncher.suPresent()) {
                 SystemLauncher.ensure(context) { Handler(Looper.getMainLooper()).post { refresh() } }?.let { system ->
+                    if (permittedShizukuUid() == 1000) return shizukuService(1000)
                     service = system
+                    serviceFromShizuku = false
                     if (_state.value !is ShizukuState.Ready || !(_state.value as ShizukuState.Ready).viaSystem) refresh()
                     return system
                 }
             }
         }
-        val current = _state.value as? ShizukuState.Ready
-        val wantLocal = current != null && !current.viaSystem && (current.viaSu || Process.myUid() == 0 || Process.myUid() == 1000)
-        service?.let { cached ->
-            // An in-process ThemeService cached in SU mode always pings (it is a local Binder),
-            // so it would outlive the switch to Shizuku and keep handing back the app uid.
-            // Only reuse the cached service when it is the kind the current state calls for.
-            val cachedLocal = cached is ThemeService
-            val cachedSystem = cached === SystemLauncher.service
-            if (current?.viaSystem == true && !cachedSystem) {
-                service = null
-            } else if (current == null || cachedLocal == wantLocal) {
-                if (cached.asBinder().pingBinder()) return cached
-            } else if (cachedLocal) {
-                service = null
-            }
+        SystemLauncher.service?.takeIf { it.asBinder().pingBinder() }?.let { return it }
+        permittedShizukuUid()?.let { uid ->
+            if (PrivilegeMode.fromUid(uid) != PrivilegeMode.NONE) return shizukuService(uid)
         }
-        if (current == null) error("Privileged session (Shizuku UID 0/1000 or SU) isn't ready")
-        if (current.viaSystem) {
-            val context = appContext ?: error("System service has no context")
-            val system = SystemLauncher.ensure(context) { Handler(Looper.getMainLooper()).post { refresh() } }
-            if (system != null) return system.also { service = it }
-            refresh()
-            error("System service stopped: ${SystemLauncher.lastError ?: "unknown"}")
-        }
-        if (wantLocal) {
-            return ThemeService().also { service = it }
+        if (Process.myUid() == 0) return ThemeService()
+        refresh()
+        error("No privileged service is connected. Request root access or authorize Shizuku (UID 1000 preferred, UID 0 fallback; UID 2000 is Monet only).")
+    }
+
+    private suspend fun shizukuService(expectedUid: Int): IThemeService {
+        service?.takeIf { serviceFromShizuku && it.asBinder().pingBinder() }?.let {
+            if (it.uid == expectedUid) return it
+            service = null
         }
         val deferred = pending ?: CompletableDeferred<IThemeService>().also {
             pending = it
             Shizuku.bindUserService(serviceArgs, connection)
         }
         return try {
-            withTimeout(15_000) { deferred.await() }
+            withTimeout(15_000) { deferred.await() }.also {
+                check(it.uid == expectedUid) { "Shizuku changed UID while connecting; reconnect before applying." }
+            }
         } catch (e: TimeoutCancellationException) {
             pending = null
             throw IllegalStateException("Shizuku didn't start the theme service within 15 seconds")

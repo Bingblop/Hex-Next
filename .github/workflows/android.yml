@@ -4,7 +4,6 @@ on:
   push:
     branches: [main, master, "release/**"]
   pull_request:
-    branches: [main, master]
   workflow_dispatch:
     inputs:
       # Run once from the default branch to create the cached debug-keystore pin (see below).
@@ -186,7 +185,7 @@ jobs:
       - name: Test and build unsigned universal candidate
         run: >-
           ./gradlew --no-daemon --console=plain :engine:test :app:verifyAndroidSdkTools
-          :app:testPlayDebugUnitTest
+          :app:testPlayDebugUnitTest :app:testOwnerDebugUnitTest
           :app:assemblePlayRelease :app:assembleOwnerRelease
           :app:assemblePlayDebug :app:assembleOwnerDebug
           && ./gradlew --no-daemon --console=plain :app:bundlePlayRelease

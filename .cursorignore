@@ -1,0 +1,52 @@
+# Context/indexing filter, not an access-control boundary. See AGENTS.md for targeted audits.
+# Generated dependencies, caches, builds, coverage and local IDE state.
+**/.git/**
+**/.gradle/**
+**/.kotlin/**
+**/node_modules/**
+**/build/**
+**/dist/**
+**/.next/**
+**/coverage/**
+**/.wrangler/**
+**/__pycache__/**
+**/.pytest_cache/**
+**/.venv/**
+**/venv/**
+**/.idea/**
+**/.aistudio/**
+**/.hex_temp/**
+**/.cache_apks/**
+
+# Large machine-produced evidence and generated art/maps. Keep their source generators indexed.
+docs/device/**
+android/captures/**
+tools/glyphs/contact-sheet.*
+tools/glyphs/glyphs.svg
+**/*.arsc
+**/*.frro
+**/*.apk
+**/*.aab
+**/*.jar
+**/*.hprof
+**/*.jsonl
+**/*.log
+
+# Lockfiles remain tracked; inspect them explicitly during dependency/security review.
+**/package-lock.json
+**/gradle.lockfile
+
+# Never ingest secret-bearing local configuration or private signing material.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+**/local.properties
+**/keystore.properties
+**/*.secrets.properties
+**/*.keystore
+**/*.jks
+**/*.p12
+**/*.key
+**/*.pem
+!tools/device/lab-pubkey.pem

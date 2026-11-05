@@ -167,6 +167,10 @@ private val SHORT_TWO_PANE_WIDTH = 600.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
+    if (Capability.of(shizuku) == Capability.SHELL) {
+        MonetOnlyScreen(viewModel, ui, shizuku)
+        return
+    }
     // Collected here but never read here: only the composables that draw it read the value (through
     // PreviewModel.state), so a drag tick recomposes the phone and the cards, not the whole shell.
     val previewState = viewModel.studioPreview.collectAsStateWithLifecycle()
@@ -587,7 +591,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     .navigationBarsPadding()
                     .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             ) {
-                StatusCard(shizuku, ui.capability, ui.versionLine, ui.rootToolLinks, viewModel::requestPermission)
+                StatusCard(shizuku, ui.capability, ui.versionLine, viewModel::requestPermission)
             }
         }
     }

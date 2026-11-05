@@ -17,6 +17,9 @@
          launch intent instead of falling back to the download page. -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <!-- Manual root setup: show download options only for missing helpers. -->
+        <package android:name="df.root" /> <!-- DirtyFrag retains this upstream package name. -->
+        <package android:name="me.weishu.kernelsu" />
         <!-- The Play and owner builds detect each other (safety/OtherBuild.kt). -->
         <package android:name="com.hexnext.themer" />
         <package android:name="com.hexnext.themer.owner" />
