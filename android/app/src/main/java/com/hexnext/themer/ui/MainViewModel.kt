@@ -140,6 +140,8 @@ data class UiState(
      * ([ServiceTasks]). Pack downloads, imports and deletes set [busy] but not this.
      */
     val serviceBusy: Boolean = false,
+    /** What holds the service while [serviceBusy]: "Applying theme" or "Removing theme", for the status chip. */
+    val serviceTask: String? = null,
     /** The pending snackbar message; null once shown (see [MainViewModel.consumeNotice]). */
     val notice: Notice? = null,
     /** Result of the UID 2000 palette controls, separate from overlay reports. */
@@ -2137,7 +2139,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             return
         }
         _log.value = emptyList()
-        _ui.update { it.copy(busy = true, serviceBusy = true) }
+        _ui.update {
+            it.copy(
+                busy = true,
+                serviceBusy = true,
+                serviceTask = if (retry == NoticeAction.RETRY_REMOVE) "Removing theme" else "Applying theme",
+            )
+        }
         viewModelScope.launch {
             try {
                 val service = ShizukuManager.service()
@@ -2154,7 +2162,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 )
             } finally {
                 ServiceTasks.finish()
-                _ui.update { it.copy(busy = false, serviceBusy = false) }
+                _ui.update { it.copy(busy = false, serviceBusy = false, serviceTask = null) }
             }
         }
     }

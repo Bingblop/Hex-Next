@@ -1,5 +1,9 @@
 # Studio v2, phase 2: the console look on a phone
 
+> **Superseded in part (2026-11-05):** the shell in sections 1.2 to 1.4 (five destinations, the
+> status strip, cross-tab jumps) was replaced by the four-destination shell in
+> `navigation-v3.md`. The pack rename, data model and page contents still hold.
+
 Status: design spec for two parallel workstreams (UI port, pack rename).
 Builds on `docs/design/studio-v2.md` (data model, Colour Studio, live preview, icon styles).
 Everything in section 9 of that file still holds.

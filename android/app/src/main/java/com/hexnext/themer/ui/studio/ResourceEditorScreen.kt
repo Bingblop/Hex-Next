@@ -175,13 +175,24 @@ fun ResourceEditorScreen(viewModel: MainViewModel, ui: UiState) {
         },
     ) { padding ->
         if (!state.hasScan) {
+            // The scan runs right here, on the activity-scoped Diagnostics model; the list fills in
+            // when it ends.
+            val dstate by diagnostics.state.collectAsStateWithLifecycle()
             Box(Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
-                EmptyState(
-                    icon = Icons.Outlined.Search,
-                    text = "Scan your phone first. The editor lists the colours the scan found in each One UI app.",
-                    actionLabel = "Scan phone",
-                    onAction = viewModel::openScan,
-                )
+                if (dstate.busy) {
+                    Text(
+                        "Scanning your phone…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    EmptyState(
+                        icon = Icons.Outlined.Search,
+                        text = "Scan your phone first. The editor lists the colours the scan found in each One UI app.",
+                        actionLabel = "Scan phone",
+                        onAction = diagnostics::runScan,
+                    )
+                }
             }
             return@Scaffold
         }

@@ -1,9 +1,7 @@
 package com.hexnext.themer.ui.studio
 
-import com.hexnext.themer.R
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.Image
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -11,42 +9,38 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.Face
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
@@ -55,6 +49,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarDuration
@@ -66,6 +61,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
@@ -79,69 +75,95 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
+import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.engine.compile.TargetResult
+import com.hexnext.themer.R
+import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.billing.PackAccess
 import com.hexnext.themer.billing.PackPricing
-import com.hexnext.themer.ui.rememberHapticTap
-import com.hexnext.engine.compile.TargetResult
+import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.shizuku.ShizukuState
 import com.hexnext.themer.theme.Capability
 import com.hexnext.themer.ui.ApplyBar
+import com.hexnext.themer.ui.DiagnosticsViewModel
 import com.hexnext.themer.ui.LocalAppSettings
 import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.NoticeAction
 import com.hexnext.themer.ui.SafeModeBanner
 import com.hexnext.themer.ui.Screen
 import com.hexnext.themer.ui.StatusCard
-import com.hexnext.themer.ui.StatusPill
 import com.hexnext.themer.ui.UiState
 import com.hexnext.themer.ui.findActivity
-import com.hexnext.themer.billing.ProductIds
-import com.hexnext.themer.ui.statusPillText
+import com.hexnext.themer.ui.preview.LocalIconTap
+import com.hexnext.themer.ui.rememberHapticTap
+import com.hexnext.themer.ui.restartProtectionText
+import com.hexnext.themer.ui.settings.AppSettingsStore
 
-/** The bottom-navigation destinations of the shell (§ 1.2), in order. Saved by name. */
 /** Intent extra naming the [Destination] to open first. */
 internal const val EXTRA_DESTINATION = "hexnext.destination"
 
-internal enum class Destination(val label: String, val icon: ImageVector) {
-    STUDIO("Studio", Icons.Outlined.Home),
-    SKINS("Skins", Icons.Outlined.Star),
-    COLOURS("Colours", Icons.Outlined.Create),
-    ICONS("Icons", Icons.Outlined.Face),
-    SYSTEM("System", Icons.Outlined.Build),
+/**
+ * The four bottom-navigation destinations, in order: what the user is doing, not how the engine
+ * is organised. Theme (preview and colours), Packs, Library (icons, fonts, backgrounds) and
+ * Settings (this phone's themed apps, tools, and Hex Next's own settings). Saved by name.
+ */
+internal enum class Destination(val label: String, @DrawableRes val icon: Int) {
+    THEME("Theme", R.drawable.hx_nav_theme),
+    PACKS("Packs", R.drawable.hx_nav_packs),
+    LIBRARY("Library", R.drawable.hx_nav_library),
+    SETTINGS("Settings", R.drawable.hx_nav_settings);
+
+    companion object {
+        /**
+         * The destination for [name], which may be an older page name (the device lab opens
+         * pages as `hexnext:<PAGE>`): that content's new home opens instead. Null for no or an
+         * unknown name.
+         */
+        fun parse(name: String?): Destination? = when (name) {
+            null -> null
+            "STUDIO", "COLOURS" -> THEME
+            "SKINS" -> PACKS
+            "ICONS" -> LIBRARY
+            "SYSTEM" -> SETTINGS
+            else -> entries.firstOrNull { it.name == name }
+        }
+    }
 }
 
-/** The sub-tabs of Colours. */
-internal enum class ColoursTab(val label: String) {
-    ENGINE("Engine"),
+/** The sub-tabs of Theme: the colour engine, the element colours, the Quick panel and the AI chat. */
+internal enum class ThemeTab(val label: String) {
+    PALETTE("Palette"),
     ELEMENTS("Elements"),
     QUICK_PANEL("Quick panel"),
-    SHADES("Shades"),
+    AI("AI"),
 }
 
-/** The sub-tabs of Icons. */
-internal enum class IconsTab(val label: String) {
-    STYLE("Style"),
-    CUSTOM("Custom icons"),
+/** The sub-tabs of Library. */
+internal enum class LibraryTab(val label: String) {
+    ICONS("Icons"),
     FONTS("Fonts"),
     BACKGROUNDS("Backgrounds"),
 }
 
-/** The sub-tabs of System. */
-internal enum class SystemTab(val label: String) {
-    TARGETS("Targets"),
+/** The sub-tabs of Settings: this phone's themed apps, the tools, and Hex Next's own settings. */
+internal enum class SettingsTab(val label: String) {
+    APPS("Apps"),
     TOOLS("Tools"),
+    APP("Hex Next"),
 }
 
 /** Width from which the shell shows a navigation rail and two panes. */
@@ -157,12 +179,13 @@ internal val SHORT_HEIGHT = 480.dp
 private val SHORT_TWO_PANE_WIDTH = 600.dp
 
 /**
- * The shell after the setup guide (Studio v2 phase 2 § 1): the top bar with the status pill and
- * App settings, the safe-mode banner, the status strip, one destination, the persistent Apply bar
- * and the bottom navigation (a navigation rail from 840 dp).
+ * The shell after the setup guide: a top bar with one status word, the safe-mode banner, one
+ * destination, the persistent Apply bar and the bottom navigation (a navigation rail from 840 dp).
  *
- * Everything the old editor did is still here: snackbar notices with their actions and haptics,
- * Apply / Remove / "It works", the pack, colour, icon, background and font cards, and App settings.
+ * Every page edits in place. A tap on the phone preview opens that element's colour sheet right
+ * where the user is; the status word opens one status sheet; a phone scan runs in place and says
+ * so in the status word. The only full screens left are Diagnostics, the per-app colour editor,
+ * the AI provider keys and the setup guide, each with its own Back.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,48 +204,50 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
+    val settingsStore = remember(context) { AppSettingsStore.get(context) }
     LaunchedEffect(activity) { viewModel.bindBillingActivity(activity) }
 
-    // `hexnext.destination` (a Destination name) opens that page first: the device lab
-    // screenshots every page this way. Unknown or missing names open the Studio.
-    var destination by rememberSaveable {
-        val asked = activity?.intent?.getStringExtra(EXTRA_DESTINATION)
-        mutableStateOf(Destination.entries.firstOrNull { it.name == asked } ?: Destination.STUDIO)
+    // The scan runs on the activity-scoped Diagnostics model, right here: no screen change, the
+    // status word says "Scanning…" meanwhile and a snackbar reports the end.
+    val diagnostics: DiagnosticsViewModel = composeViewModel()
+    val dstate by diagnostics.state.collectAsStateWithLifecycle()
+    val serviceTask by ServiceTasks.running.collectAsStateWithLifecycle()
+    val scanning = dstate.busy && dstate.task == "Scan"
+    LaunchedEffect(dstate.scanFinishedId) {
+        val id = dstate.scanFinishedId
+        if (id == 0L) return@LaunchedEffect
+        try {
+            snackbar.showSnackbar("Scan finished. Previews now use your phone's icons.", duration = SnackbarDuration.Short)
+        } finally {
+            if (activity?.isChangingConfigurations != true) diagnostics.consumeScanFinished(id)
+        }
     }
-    var coloursTab by rememberSaveable { mutableStateOf(ColoursTab.ENGINE) }
-    var iconsTab by rememberSaveable { mutableStateOf(IconsTab.STYLE) }
-    var systemTab by rememberSaveable { mutableStateOf(SystemTab.TARGETS) }
+
+    // `hexnext.destination` (a Destination name, old page names included) opens that page first.
+    var destination by rememberSaveable {
+        mutableStateOf(Destination.parse(activity?.intent?.getStringExtra(EXTRA_DESTINATION)) ?: Destination.THEME)
+    }
+    var themeTab by rememberSaveable { mutableStateOf(ThemeTab.PALETTE) }
+    var libraryTab by rememberSaveable { mutableStateOf(LibraryTab.ICONS) }
+    var settingsTab by rememberSaveable { mutableStateOf(SettingsTab.APPS) }
     var previewTab by rememberSaveable { mutableStateOf(PreviewTab.SETTINGS) }
     var previewDark by rememberSaveable { mutableStateOf(true) }
     // Icons are rendered from the night or day jobs to match the mockup's mode.
     LaunchedEffect(previewDark) { viewModel.setPreviewDark(previewDark) }
     var peekCollapsed by rememberSaveable { mutableStateOf(false) }
-    // A committed edit (a picked option, a released slider) opens the peek to the whole phone.
-    // Held here, not in the peek's list item, so an edit made while the peek is scrolled away
-    // still counts; only edits newer than the last one seen open it.
-    var peekFull by rememberSaveable { mutableStateOf(false) }
-    val edits by viewModel.edits.collectAsStateWithLifecycle()
-    var editsSeen by rememberSaveable { mutableIntStateOf(edits) }
-    LaunchedEffect(edits) {
-        if (edits > editsSeen) {
-            peekFull = true
-            peekCollapsed = false
-        }
-        editsSeen = edits
-    }
-    var showPrivilege by rememberSaveable { mutableStateOf(false) }
-    // The Studio's tap-to-edit sheet: "<group id>:<night>".
-    var studioPick by rememberSaveable { mutableStateOf<String?>(null) }
+    var showStatus by rememberSaveable { mutableStateOf(false) }
+    // The in-place colour sheet for the element tapped on the phone: "<group id>:<night>".
+    var groupPick by rememberSaveable { mutableStateOf<String?>(null) }
     // The icon tapped on the phone ("pkg:drawable/name|Label"), for IconChooserSheet.
     var iconPick by rememberSaveable { mutableStateOf<String?>(null) }
     var elementsTick by remember { mutableIntStateOf(0) }
-    // The last phone tap the Colours page has scrolled for; only a newer tap scrolls again.
+    // The last phone tap the Elements list has scrolled for; only a newer tap scrolls again.
     var elementsTickHandled by remember { mutableIntStateOf(0) }
     // Each destination and sub-tab keeps its own scroll position while another is on display.
     val pages = rememberSaveableStateHolder()
 
-    // On Skins, Colours, Icons and System, Back returns to Studio; on Studio it leaves as before.
-    BackHandler(enabled = destination != Destination.STUDIO) { destination = Destination.STUDIO }
+    // On Packs, Library and Settings, Back returns to Theme; on Theme it leaves as before.
+    BackHandler(enabled = destination != Destination.THEME) { destination = Destination.THEME }
 
     // One snackbar per notice: haptic on arrival, the action when tapped. The notice is consumed
     // only once the snackbar is gone (shown, dismissed, or the editor left while it showed, so it
@@ -263,8 +288,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     // The Quick panel sub-tab shows the Quick panel on the phone; leaving it brings back the phone
     // tab that was showing before, unless the user picked another one meanwhile.
     var previewTabBeforeQs by rememberSaveable { mutableStateOf<PreviewTab?>(null) }
-    LaunchedEffect(destination, coloursTab) {
-        val onQuickPanel = destination == Destination.COLOURS && coloursTab == ColoursTab.QUICK_PANEL
+    LaunchedEffect(destination, themeTab) {
+        val onQuickPanel = destination == Destination.THEME && themeTab == ThemeTab.QUICK_PANEL
         if (onQuickPanel) {
             if (previewTab != PreviewTab.QUICK_PANEL) {
                 previewTabBeforeQs = previewTab
@@ -277,42 +302,32 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         }
     }
 
-    val openTargets: () -> Unit = {
-        destination = Destination.SYSTEM
-        systemTab = SystemTab.TARGETS
+    val connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE
+    // A scan needs the service too: without a connection the status sheet explains what to do.
+    val scanPhone: () -> Unit = {
+        if (ready != null) diagnostics.runScan() else showStatus = true
     }
-    val previewModel = remember(previewState, previewTab, previewDark, peekFull, viewModel) {
+    val previewModel = remember(previewState, previewTab, previewDark, scanning, viewModel) {
         PreviewModel(
             stateRef = previewState,
             tab = previewTab,
             onTab = { previewTab = it },
             dark = previewDark,
             onDark = { previewDark = it },
-            onScan = viewModel::openScan,
-            peekFull = peekFull,
-            onPeekFull = { peekFull = it },
+            onScan = scanPhone,
+            scanning = scanning,
         )
     }
-    // Studio edits in place; Colours and Icons jump to the element's row (§ 1.3). Remembered: the
-    // lambda reads destination, tabs and mode from their state holders when it runs.
+    // Every tap on the phone edits in place: the element's colour sheet opens over the page the
+    // user is on. On Theme > Elements the element's row is scrolled into view as well.
     val onElementTap: (ColorGroup) -> Unit = remember(viewModel) { { group ->
         viewModel.setHighlightedGroup(group)
-        if (destination == Destination.STUDIO) {
-            studioPick = "${group.id}:$previewDark"
-        } else {
-            destination = Destination.COLOURS
-            coloursTab = when {
-                previewTab == PreviewTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
-                coloursTab == ColoursTab.QUICK_PANEL && group in QUICK_PANEL_GROUPS -> ColoursTab.QUICK_PANEL
-                group.quickSettings -> ColoursTab.QUICK_PANEL
-                else -> ColoursTab.ELEMENTS
-            }
-            elementsTick++
-        }
+        groupPick = "${group.id}:$previewDark"
+        if (destination == Destination.THEME && themeTab == ThemeTab.ELEMENTS) elementsTick++
     } }
-    val connected = ready != null && !ready.viaSu && ui.capability != Capability.NONE
     // With the keyboard up the bars step aside, so the field being typed in stays in view.
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val status = shellStatus(ui, shizuku, serviceTask, if (dstate.busy) dstate.task else null)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // A short window (landscape phone) trades the top bar and bottom navigation for a rail,
@@ -336,7 +351,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                 ApplyBar(
                     // SU mode is Ready but cannot apply (Capability.of gives NONE): keep Apply off there.
                     connected = connected,
-                    busy = ui.busy,
+                    // A scan or another Diagnostics task holds the service too.
+                    busy = ui.busy || serviceTask != null,
                     // Only Apply theme or Remove theme shows as running; a pack download or import only disables the buttons.
                     applying = ui.serviceBusy,
                     report = ui.lastApply,
@@ -349,8 +365,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     },
                     onRemove = viewModel::removeTheme,
                     onConfirmWorks = viewModel::confirmWorks,
-                    onDetails = openTargets,
-                    onConnection = { showPrivilege = true },
+                    onDetails = { showStatus = true },
+                    onConnection = { showStatus = true },
                     previewOnlyPack = previewOnlyPack?.let { ui.packDisplayName(it) },
                     lockedPackCount = lockedPacks.size,
                     lockedPackPrice = if (lockedPacks.isEmpty()) null else PackPricing.labelForOffer(
@@ -363,29 +379,33 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                 )
             }
         }
+        val select: (Destination) -> Unit = { entry ->
+            tap()
+            destination = entry
+        }
+        val navIcon: @Composable (Destination) -> Unit = { entry -> Icon(painterResource(entry.icon), contentDescription = null) }
+        val navLabel: @Composable (Destination) -> Unit = { entry -> Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             // The keyboard counts as an inset, so the hex, search and name fields scroll clear of it.
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets.ime),
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                // Short windows move App settings to the rail header; the strip still shows privilege.
+                // Short windows move the status word to the rail header.
                 if (!short) TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.semantics(mergeDescendants = true) {},
                         ) {
                             AppLogo(Modifier.size(32.dp))
                             Text("Hex Next", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                            StatusPill(text = statusPillText(ui.versionLine, shizuku), ok = ready != null && ui.capability != Capability.NONE)
                         }
                     },
                     actions = {
-                        IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
-                            Icon(Icons.Outlined.Settings, contentDescription = "App settings")
+                        Box(Modifier.padding(end = 12.dp)) {
+                            StatusWord(status, onClick = { showStatus = true })
                         }
                     },
                 )
@@ -399,12 +419,9 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                 Destination.entries.forEach { entry ->
                                     NavigationBarItem(
                                         selected = destination == entry,
-                                        onClick = {
-                                            tap()
-                                            destination = entry
-                                        },
-                                        icon = { Icon(entry.icon, contentDescription = null) },
-                                        label = { Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
+                                        onClick = { select(entry) },
+                                        icon = { navIcon(entry) },
+                                        label = { navLabel(entry) },
                                         colors = NavigationBarItemDefaults.colors(
                                             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                             indicatorColor = MaterialTheme.colorScheme.primaryContainer,
@@ -426,10 +443,10 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         containerColor = MaterialTheme.colorScheme.background,
                         header = if (short) {
                             {
-                                // No top bar on short windows, so the logo leads the rail instead.
+                                // No top bar on short windows, so the logo and status lead the rail.
                                 AppLogo(Modifier.padding(top = 8.dp).size(32.dp))
-                                IconButton(onClick = { viewModel.navigate(Screen.SETTINGS) }) {
-                                    Icon(Icons.Outlined.Settings, contentDescription = "App settings")
+                                Box(Modifier.padding(top = 8.dp)) {
+                                    StatusWord(status, onClick = { showStatus = true }, compact = true)
                                 }
                             }
                         } else {
@@ -439,12 +456,9 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         Destination.entries.forEach { entry ->
                             NavigationRailItem(
                                 selected = destination == entry,
-                                onClick = {
-                                    tap()
-                                    destination = entry
-                                },
-                                icon = { Icon(entry.icon, contentDescription = null) },
-                                label = { Text(entry.label, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
+                                onClick = { select(entry) },
+                                icon = { navIcon(entry) },
+                                label = { navLabel(entry) },
                                 colors = NavigationRailItemDefaults.colors(
                                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                     indicatorColor = MaterialTheme.colorScheme.primaryContainer,
@@ -460,99 +474,86 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             SafeModeBanner(banner, failed = ui.safeModeFailed, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode)
                         }
                     }
-                    // Colours, Icons and Skins need the room for the preview: the strip shows there
-                    // only when something needs attention.
-                    if (destination == Destination.STUDIO || destination == Destination.SYSTEM || stripNeedsAttention(ui)) {
-                        StatusStrip(
-                            ui = ui,
-                            onPrivilege = { showPrivilege = true },
-                            onTargets = openTargets,
-                        )
-                    }
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        androidx.compose.runtime.CompositionLocalProvider(
-                            com.hexnext.themer.ui.preview.LocalIconTap provides { key, label -> iconPick = "$key|$label" },
+                        CompositionLocalProvider(
+                            LocalIconTap provides { key, label -> iconPick = "$key|$label" },
                         ) {
-                        val page: @Composable (Destination) -> Unit = { dest ->
-                            pages.SaveableStateProvider(
-                                when (dest) {
-                                    Destination.COLOURS -> "COLOURS:${coloursTab.name}"
-                                    Destination.ICONS -> "ICONS:${iconsTab.name}"
-                                    Destination.SYSTEM -> "SYSTEM:${systemTab.name}"
-                                    else -> dest.name
-                                },
-                            ) {
-                                when (dest) {
-                                    Destination.STUDIO -> StudioPage(
-                                        viewModel, ui, previewModel, onElementTap, wide,
-                                        applyBlockedReason = when {
-                                            !connected -> "Connect root or Shizuku to apply. The preview above already shows the result."
-                                            previewOnlyPack != null -> "Unlock ${ui.packDisplayName(previewOnlyPack)} to apply this theme. The preview above already shows the result."
-                                            else -> null
-                                        },
-                                    )
-                                    Destination.SKINS -> SkinsPage(
-                                        viewModel = viewModel,
-                                        ui = ui,
-                                        preview = previewModel,
-                                        onElementTap = onElementTap,
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        wide = wide,
-                                    )
-                                    Destination.COLOURS -> ColoursPage(
-                                        viewModel = viewModel,
-                                        ui = ui,
-                                        preview = previewModel,
-                                        tab = coloursTab,
-                                        onTab = { coloursTab = it },
-                                        onElementTap = onElementTap,
-                                        elementsTick = elementsTick,
-                                        elementsTickHandled = elementsTickHandled,
-                                        onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        wide = wide,
-                                    )
-                                    Destination.ICONS -> IconsPage(
-                                        viewModel = viewModel,
-                                        ui = ui,
-                                        preview = previewModel,
-                                        tab = iconsTab,
-                                        onTab = { iconsTab = it },
-                                        onElementTap = onElementTap,
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        wide = wide,
-                                    )
-                                    Destination.SYSTEM -> SystemPage(
-                                        viewModel = viewModel,
-                                        ui = ui,
-                                        shizuku = shizuku,
-                                        preview = previewModel,
-                                        onElementTap = onElementTap,
-                                        peekCollapsed = peekCollapsed,
-                                        onPeekCollapsed = { peekCollapsed = it },
-                                        tab = systemTab,
-                                        onTab = { systemTab = it },
-                                    )
+                            val page: @Composable (Destination) -> Unit = { dest ->
+                                pages.SaveableStateProvider(
+                                    when (dest) {
+                                        Destination.THEME -> "THEME:${themeTab.name}"
+                                        Destination.LIBRARY -> "LIBRARY:${libraryTab.name}"
+                                        Destination.SETTINGS -> "SETTINGS:${settingsTab.name}"
+                                        else -> dest.name
+                                    },
+                                ) {
+                                    when (dest) {
+                                        Destination.THEME -> ThemePage(
+                                            viewModel = viewModel,
+                                            ui = ui,
+                                            preview = previewModel,
+                                            tab = themeTab,
+                                            onTab = { themeTab = it },
+                                            onElementTap = onElementTap,
+                                            elementsTick = elementsTick,
+                                            elementsTickHandled = elementsTickHandled,
+                                            onElementsTickHandled = { handled -> if (handled > elementsTickHandled) elementsTickHandled = handled },
+                                            peekCollapsed = peekCollapsed,
+                                            onPeekCollapsed = { peekCollapsed = it },
+                                            wide = wide,
+                                            applyBlockedReason = when {
+                                                !connected -> "Connect root or Shizuku to apply. The preview already shows the result."
+                                                previewOnlyPack != null -> "Unlock ${ui.packDisplayName(previewOnlyPack)} to apply this theme. The preview already shows the result."
+                                                else -> null
+                                            },
+                                        )
+                                        Destination.PACKS -> PacksPage(
+                                            viewModel = viewModel,
+                                            ui = ui,
+                                            preview = previewModel,
+                                            onElementTap = onElementTap,
+                                            peekCollapsed = peekCollapsed,
+                                            onPeekCollapsed = { peekCollapsed = it },
+                                            wide = wide,
+                                        )
+                                        Destination.LIBRARY -> LibraryPage(
+                                            viewModel = viewModel,
+                                            ui = ui,
+                                            preview = previewModel,
+                                            tab = libraryTab,
+                                            onTab = { libraryTab = it },
+                                            onElementTap = onElementTap,
+                                            peekCollapsed = peekCollapsed,
+                                            onPeekCollapsed = { peekCollapsed = it },
+                                            wide = wide,
+                                        )
+                                        Destination.SETTINGS -> SettingsPage(
+                                            viewModel = viewModel,
+                                            ui = ui,
+                                            shizuku = shizuku,
+                                            settingsStore = settingsStore,
+                                            tab = settingsTab,
+                                            onTab = { settingsTab = it },
+                                            onScan = scanPhone,
+                                            scanning = scanning,
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        if (appSettings.reduceMotion) {
-                            page(destination)
-                        } else {
-                            AnimatedContent(
-                                targetState = destination,
-                                transitionSpec = {
-                                    val forward = targetState.ordinal >= initialState.ordinal
-                                    val slide = tween<IntOffset>(260)
-                                    (slideInHorizontally(slide) { full -> if (forward) full / 5 else -full / 5 } + fadeIn(tween(200)))
-                                        .togetherWith(slideOutHorizontally(slide) { full -> if (forward) -full / 6 else full / 6 } + fadeOut(tween(160)))
-                                },
-                                label = "destination",
-                            ) { dest -> page(dest) }
-                        }
+                            if (appSettings.reduceMotion) {
+                                page(destination)
+                            } else {
+                                AnimatedContent(
+                                    targetState = destination,
+                                    transitionSpec = {
+                                        val forward = targetState.ordinal >= initialState.ordinal
+                                        val slide = tween<IntOffset>(260)
+                                        (slideInHorizontally(slide) { full -> if (forward) full / 5 else -full / 5 } + fadeIn(tween(200)))
+                                            .togetherWith(slideOutHorizontally(slide) { full -> if (forward) -full / 6 else full / 6 } + fadeOut(tween(160)))
+                                    },
+                                    label = "destination",
+                                ) { dest -> page(dest) }
+                            }
                         }
                     }
                 }
@@ -560,12 +561,12 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         }
     }
 
-    // The Studio's in-place colour sheet for the element tapped on the phone.
-    val pick = studioPick?.let { saved ->
+    // The in-place colour sheet for the element tapped on the phone, whatever page is showing.
+    val pick = groupPick?.let { saved ->
         ColorGroup.byId(saved.substringBefore(':'))?.let { it to (saved.substringAfter(':') == "true") }
     }
     if (pick != null) {
-        StudioPickSheet(viewModel, ui, previewModel, pick.first, pick.second, onClose = { studioPick = null })
+        GroupPickSheet(viewModel, ui, previewModel, pick.first, pick.second, onClose = { groupPick = null })
     }
 
     iconPick?.let { saved ->
@@ -578,97 +579,72 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         )
     }
 
-    if (showPrivilege) {
-        ModalBottomSheet(
-            onDismissRequest = { showPrivilege = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-            ) {
-                StatusCard(shizuku, ui.capability, ui.versionLine, viewModel::requestPermission)
-            }
-        }
+    if (showStatus) {
+        StatusSheet(
+            ui = ui,
+            shizuku = shizuku,
+            status = status,
+            onRequestPermission = viewModel::requestPermission,
+            onConfirmWorks = viewModel::confirmWorks,
+            onShowApps = {
+                showStatus = false
+                destination = Destination.SETTINGS
+                settingsTab = SettingsTab.APPS
+            },
+            onDiagnostics = {
+                showStatus = false
+                viewModel.navigate(Screen.DIAGNOSTICS)
+            },
+            onDismiss = { showStatus = false },
+        )
     }
 }
+
+// ---- Status ----
+
+/** The one status word of the shell and its tone. */
+internal data class ShellStatus(val text: String, val tone: StatusTone)
 
 /**
- * The status strip (§ 1.3): the connection tier, "Themed n/m" after an apply and "Protection on"
- * while restart protection is armed. One horizontally scrolling row; each chip is 32 dp high in a
- * 48 dp touch area and always carries a word.
+ * The status word in plain words, first match wins: what is running now, then the connection,
+ * then what the last apply left behind. [serviceTask] is [ServiceTasks.running]; [diagnosticsTask]
+ * the Diagnostics task running, if any ("Scan").
  */
-@Composable
-private fun StatusStrip(
-    ui: UiState,
-    onPrivilege: () -> Unit,
-    onTargets: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StripChip(
-            text = "Connection · ${ui.capability.label}",
-            tone = when (ui.capability) {
-                Capability.ROOT -> StatusTone.OK
-                Capability.NONE -> StatusTone.BAD
-                else -> StatusTone.WARN
-            },
-            onClickLabel = "Show connection",
-            onClick = onPrivilege,
-        )
-        ui.lastApply?.let { report ->
-            val failed = report.outcomes.count { it.result == TargetResult.FAILED }
-            StripChip(
-                text = "Themed ${report.okCount}/${report.okCount + report.failedCount}",
-                tone = when {
-                    !report.finished || failed > 0 -> StatusTone.BAD
-                    report.partialCount > 0 -> StatusTone.WARN
-                    else -> StatusTone.OK
-                },
-                onClickLabel = "Show targets",
-                onClick = onTargets,
-            )
+internal fun shellStatus(ui: UiState, shizuku: ShizukuState, serviceTask: String?, diagnosticsTask: String?): ShellStatus {
+    if (ui.serviceBusy) return ShellStatus("${(ui.serviceTask ?: "Working").substringBefore(' ')}…", StatusTone.INFO)
+    if (diagnosticsTask != null) {
+        return ShellStatus(if (diagnosticsTask == "Scan") "Scanning…" else "$diagnosticsTask…", StatusTone.INFO)
+    }
+    if (serviceTask == MainViewModel.STARTUP_TASK) return ShellStatus("Checking…", StatusTone.INFO)
+    when (shizuku) {
+        ShizukuState.PermissionNeeded, ShizukuState.PermissionDenied -> return ShellStatus("Allow Shizuku", StatusTone.WARN)
+        ShizukuState.TooOld -> return ShellStatus("Update Shizuku", StatusTone.WARN)
+        ShizukuState.NotRunning -> return ShellStatus("Not connected", StatusTone.BAD)
+        is ShizukuState.Ready -> when {
+            shizuku.viaSu -> return ShellStatus("Start Shizuku", StatusTone.WARN)
+            ui.capability == Capability.NONE -> return ShellStatus("No root", StatusTone.BAD)
+            ui.capability == Capability.SHELL -> return ShellStatus("Palette only", StatusTone.WARN)
         }
-        if (ui.applyUnconfirmed && !ui.applyProtectionExpired) {
-            StripChip(
-                text = "Protection on",
-                tone = StatusTone.WARN,
-                onClickLabel = "Show restart protection",
-                // Opens System > Targets, whose Restart protection card holds the explicit
-                // "It works" button: a tap on a status chip never disarms the guard.
-                onClick = onTargets,
-            )
-        }
+    }
+    if (ui.applyUnconfirmed && !ui.applyProtectionExpired) return ShellStatus("Check your phone", StatusTone.WARN)
+    val report = ui.lastApply ?: return ShellStatus("Ready", StatusTone.OK)
+    return when {
+        !report.finished || report.failedCount > 0 -> ShellStatus("Needs attention", StatusTone.BAD)
+        report.partialCount > 0 -> ShellStatus("Partly applied", StatusTone.WARN)
+        else -> ShellStatus("Applied", StatusTone.OK)
     }
 }
 
-/** True when a [StatusStrip] chip would not be green: no root, a failed or partial apply, protection armed. */
-private fun stripNeedsAttention(ui: UiState): Boolean {
-    if (ui.capability != Capability.ROOT) return true
-    if (ui.applyUnconfirmed && !ui.applyProtectionExpired) return true
-    val report = ui.lastApply ?: return false
-    return !report.finished || report.partialCount > 0 || report.outcomes.any { it.result == TargetResult.FAILED }
-}
-
-/** One chip of [StatusStrip]: a dot and a word in the tone colour, 32 dp inside a 48 dp target. */
+/** The tappable status word of the top bar: a dot and the word in the tone colour, 48 dp target. */
 @Composable
-private fun StripChip(text: String, tone: StatusTone, onClickLabel: String, onClick: () -> Unit) {
-    val color = statusColor(tone)
+private fun StatusWord(status: ShellStatus, onClick: () -> Unit, compact: Boolean = false) {
+    val color = statusColor(status.tone)
     Box(
         Modifier
             .heightIn(min = 48.dp)
             .clip(CircleShape)
-            .clickableChip(onClickLabel, onClick),
+            .clickable(onClickLabel = "Show status", role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "Status: ${status.text}" },
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -676,25 +652,142 @@ private fun StripChip(text: String, tone: StatusTone, onClickLabel: String, onCl
                 .heightIn(min = 32.dp)
                 .clip(CircleShape)
                 .background(color.copy(alpha = 0.14f))
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = if (compact) 8.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-            Text(text, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
+            if (!compact) Text(status.text, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
         }
     }
 }
 
-private fun Modifier.clickableChip(label: String, onClick: () -> Unit): Modifier =
-    this.then(Modifier.clickable(onClickLabel = label, role = Role.Button, onClick = onClick))
+/**
+ * The status sheet: the connection, what the last apply did, the restart-protection check and
+ * the one door to Diagnostics. Everything the old status strip, pill and System tab reported, in
+ * one place, reached from the status word and from the Apply bar's summary.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun StatusSheet(
+    ui: UiState,
+    shizuku: ShizukuState,
+    status: ShellStatus,
+    onRequestPermission: () -> Unit,
+    onConfirmWorks: () -> Unit,
+    onShowApps: () -> Unit,
+    onDiagnostics: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Status", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                StatusChip(status.text, status.tone)
+            }
+            StatusCard(shizuku, ui.capability, ui.versionLine, onRequestPermission)
+            if (ui.applyUnconfirmed) {
+                StudioCard(
+                    title = "Check your phone",
+                    trailing = { StatusChip(if (ui.applyProtectionExpired) "Window over" else "Protection on", StatusTone.WARN) },
+                ) {
+                    Text(
+                        restartProtectionText(unconfirmed = true, expired = ui.applyProtectionExpired),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FilledTonalButton(onClick = onConfirmWorks, enabled = !ui.serviceBusy, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("It works")
+                    }
+                }
+            }
+            val report = ui.lastApply
+            StudioCard(
+                title = "Last apply",
+                subtitle = if (report == null) "Not applied yet. Apply theme builds one overlay per One UI app." else null,
+            ) {
+                if (report != null) {
+                    ApplyFacts(report)
+                    val trouble = report.outcomes.filter { it.result == TargetResult.FAILED || it.result == TargetResult.PARTIAL }
+                    trouble.take(6).forEach { outcome ->
+                        Text(
+                            "${outcome.target.substringAfterLast('.').replaceFirstChar { it.uppercase() }}: " +
+                                if (outcome.result == TargetResult.FAILED) "failed" else "partly applied",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = statusColor(if (outcome.result == TargetResult.FAILED) StatusTone.BAD else StatusTone.WARN),
+                        )
+                    }
+                    if (trouble.size > 6) {
+                        Text("and ${trouble.size - 6} more", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onShowApps, modifier = Modifier.heightIn(min = 48.dp)) { Text("Themed apps") }
+                    if (report != null && (!report.finished || report.failedCount > 0 || report.partialCount > 0)) {
+                        Button(onClick = onDiagnostics, modifier = Modifier.heightIn(min = 48.dp)) { Text("Diagnostics") }
+                    } else {
+                        OutlinedButton(onClick = onDiagnostics, modifier = Modifier.heightIn(min = 48.dp)) { Text("Diagnostics") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The facts of the last apply as chips: apps themed, failed, partial, colours written, time. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ApplyFacts(report: ApplyReport) {
+    val colours = report.outcomes.sumOf { it.colorCount }
+    val seconds = ((report.finishedAt - report.startedAt).coerceAtLeast(0L) / 100L) / 10.0
+    // Only targets that were built count: OK, PARTIAL (both in okCount) and FAILED. Skipped,
+    // removed and EMPTY targets were never attempted, so they are not part of the denominator.
+    val attempted = report.okCount + report.failedCount
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        StatusChip(
+            "${report.okCount} of $attempted apps themed",
+            if (report.failedCount > 0) StatusTone.WARN else StatusTone.OK,
+        )
+        if (report.failedCount > 0) StatusChip("${report.failedCount} failed", StatusTone.BAD)
+        if (report.partialCount > 0) StatusChip("${report.partialCount} partial", StatusTone.WARN)
+        StatusChip("$colours colours", StatusTone.INFO)
+        if (report.semwtDisabledCount > 0) {
+            StatusChip(
+                "${report.semwtDisabledCount} Samsung theme ${if (report.semwtDisabledCount == 1) "overlay" else "overlays"} off",
+                StatusTone.NEUTRAL,
+            )
+        }
+        if (report.finishedAt > report.startedAt) StatusChip("$seconds s", StatusTone.NEUTRAL)
+    }
+    if (!report.finished) {
+        Text(
+            "The last apply did not finish. Apply again.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = statusColor(StatusTone.BAD),
+        )
+    }
+}
 
 /**
- * The Studio's tap-to-edit colour sheet. Its own composable, so the preview it reads while a colour
- * is dragged recomposes only the sheet.
+ * The in-place colour sheet of the element tapped on the phone. Its own composable, so the
+ * preview it reads while a colour is dragged recomposes only the sheet.
  */
 @Composable
-private fun StudioPickSheet(viewModel: MainViewModel, ui: UiState, preview: PreviewModel, group: ColorGroup, night: Boolean, onClose: () -> Unit) {
+private fun GroupPickSheet(viewModel: MainViewModel, ui: UiState, preview: PreviewModel, group: ColorGroup, night: Boolean, onClose: () -> Unit) {
     GroupColorSheet(viewModel, ui.spec, preview.state, group, night, onClose = onClose)
 }
 
@@ -710,10 +803,10 @@ internal class PreviewModel(
     val onTab: (PreviewTab) -> Unit,
     val dark: Boolean,
     val onDark: (Boolean) -> Unit,
+    /** Scans the phone in place (or opens the status sheet when nothing is connected). */
     val onScan: () -> Unit,
-    /** The peek shows the whole phone (after an edit) rather than its short top. */
-    val peekFull: Boolean = false,
-    val onPeekFull: (Boolean) -> Unit = {},
+    /** True while a scan runs. */
+    val scanning: Boolean = false,
 ) {
     val state: StudioPreviewState get() = stateRef.value
 }

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -132,32 +133,61 @@ fun AppSettingsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { AppearanceCard(settings, store) }
-            item { BehaviourCard(settings, store) }
-            item {
-                SectionCard(stringResource(R.string.settings_ai_providers)) {
-                    NavRow(
-                        title = stringResource(R.string.settings_ai_keys),
-                        summary = stringResource(R.string.settings_ai_keys_summary),
-                        onClick = onOpenAiProviders,
-                    )
-                }
-            }
-            item {
-                SectionCard(stringResource(R.string.settings_diagnostics)) {
-                    NavRow(
-                        title = stringResource(R.string.settings_diagnostics_title),
-                        summary = stringResource(R.string.settings_diagnostics_summary),
-                        onClick = onOpenDiagnostics,
-                    )
-                }
-            }
-            if (canPurchase) {
-                item { PurchasesCard(purchases, onRestorePurchases) }
-            }
-            item { AboutCard(onOpenOnboarding) }
+            appSettingsItems(
+                settings = settings,
+                store = store,
+                onOpenDiagnostics = onOpenDiagnostics,
+                onOpenAiProviders = onOpenAiProviders,
+                onOpenOnboarding = onOpenOnboarding,
+                purchases = purchases,
+                canPurchase = canPurchase,
+                onRestorePurchases = onRestorePurchases,
+            )
         }
     }
+}
+
+/**
+ * The cards of App settings, for the full screen above and for the Settings tab of the shell:
+ * appearance and behaviour of Hex Next itself, the AI keys, Diagnostics (when [onOpenDiagnostics]
+ * is given), purchases and About.
+ */
+fun LazyListScope.appSettingsItems(
+    settings: AppSettings,
+    store: AppSettingsStore,
+    onOpenDiagnostics: (() -> Unit)?,
+    onOpenAiProviders: () -> Unit,
+    onOpenOnboarding: () -> Unit,
+    purchases: EntitlementState,
+    canPurchase: Boolean,
+    onRestorePurchases: () -> Unit,
+) {
+    item { AppearanceCard(settings, store) }
+    item { BehaviourCard(settings, store) }
+    item {
+        SectionCard(stringResource(R.string.settings_ai_providers)) {
+            NavRow(
+                title = stringResource(R.string.settings_ai_keys),
+                summary = stringResource(R.string.settings_ai_keys_summary),
+                onClick = onOpenAiProviders,
+            )
+        }
+    }
+    if (onOpenDiagnostics != null) {
+        item {
+            SectionCard(stringResource(R.string.settings_diagnostics)) {
+                NavRow(
+                    title = stringResource(R.string.settings_diagnostics_title),
+                    summary = stringResource(R.string.settings_diagnostics_summary),
+                    onClick = onOpenDiagnostics,
+                )
+            }
+        }
+    }
+    if (canPurchase) {
+        item { PurchasesCard(purchases, onRestorePurchases) }
+    }
+    item { AboutCard(onOpenOnboarding) }
 }
 
 // ---------------------------------------------------------------------------------------------

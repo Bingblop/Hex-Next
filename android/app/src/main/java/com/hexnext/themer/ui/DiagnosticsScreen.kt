@@ -117,7 +117,7 @@ fun DiagnosticsScreen(
         // Consumed once the snackbar is gone: consuming first would change this effect's key and
         // the key change cancels showSnackbar, which takes the snackbar down within a frame.
         val result = try {
-            snackbar.showSnackbar("Scan finished", actionLabel = "Back to editor", duration = SnackbarDuration.Long)
+            snackbar.showSnackbar("Scan finished", actionLabel = "Back to theme", duration = SnackbarDuration.Long)
         } finally {
             // Kept when the activity is recreated (rotation, unfold), so the new screen shows it again.
             if (activity?.isChangingConfigurations != true) viewModel.consumeScanFinished(scanFinished)
@@ -174,7 +174,7 @@ fun DiagnosticsScreen(
                     }
                     if (editorBusy) {
                         Text(
-                            "Apply theme or Remove theme is running in the editor. These actions turn back on when it finishes.",
+                            "Apply theme or Remove theme is running. These actions turn back on when it finishes.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -267,7 +267,7 @@ fun DiagnosticsScreen(
     if (confirmTurnOff) {
         ConfirmDialog(
             title = "Turn off every Hex Next overlay?",
-            text = "Your phone goes back to Samsung's look. Tap Apply theme at the bottom of Studio to put it back.",
+            text = "Your phone goes back to Samsung's look. Tap Apply theme at the bottom of the app to put it back.",
             confirmLabel = "Turn off",
             onConfirm = {
                 confirmTurnOff = false
