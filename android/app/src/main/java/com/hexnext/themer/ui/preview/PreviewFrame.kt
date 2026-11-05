@@ -77,6 +77,7 @@ internal fun PreviewFrame(
     onDarkChange: (Boolean) -> Unit,
     scope: PreviewScope,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     screen: @Composable () -> Unit,
 ) {
     BoxWithConstraints(modifier) {
@@ -87,15 +88,24 @@ internal fun PreviewFrame(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PreviewTabRow(tab, onTabChange, Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                EditingHint(scope.highlighted, Modifier.weight(1f))
-                Spacer(Modifier.width(8.dp))
-                ModeToggle(dark, onDarkChange)
+            if (compact) {
+                // The peek names the edited element in its header, so the hint row is not needed.
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    PreviewTabRow(tab, onTabChange, Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    ModeToggle(dark, onDarkChange)
+                }
+            } else {
+                PreviewTabRow(tab, onTabChange, Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    EditingHint(scope.highlighted, Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    ModeToggle(dark, onDarkChange)
+                }
             }
             Spacer(Modifier.height(10.dp))
             Box(

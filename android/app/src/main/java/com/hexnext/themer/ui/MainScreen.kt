@@ -2015,7 +2015,18 @@ internal fun ApplyBar(
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(
+                val clean = connected && lockedPackCount == 0 && previewOnlyPack == null && report != null &&
+                    report.finished && report.failedCount == 0 && report.debloatedCount == 0
+                if (clean) {
+                    // Two deliberate lines instead of "Applied to 61" wrapping before "apps".
+                    Text("Applied to", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text(
+                        "${report!!.okCount} ${if (report.okCount == 1) "app" else "apps"}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                } else Text(
                     summary,
                     style = MaterialTheme.typography.bodySmall,
                     color = when {

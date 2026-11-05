@@ -31,6 +31,8 @@ fun PhonePreview(
     onDarkChange: (Boolean) -> Unit,
     onElementTap: (ColorGroup) -> Unit,
     modifier: Modifier = Modifier,
+    /** Tabs and the light/dark switch on one row, no tap hint: the short peek of Colours and Icons. */
+    compact: Boolean = false,
 ) {
     val reduceMotion = LocalAppSettings.current.reduceMotion
     val palette = animatedPalette(state.scheme(dark), instant = state.dragging)
@@ -56,6 +58,7 @@ fun PhonePreview(
         onDarkChange = onDarkChange,
         scope = scope,
         modifier = modifier,
+        compact = compact,
     ) {
         if (reduceMotion) {
             PreviewScreen(tab, state, scope)
