@@ -155,7 +155,18 @@
       "drawable/sem_list_popup_background_material_dark",
       "drawable/sem_spinner_popup_background_material",
       "drawable/sem_spinner_popup_background_material_dark"
-    ]
+    ],
+    "drawable/sesl_ic_ab_back": ["drawable/sesl_ic_ab_back_dark", "drawable/sesl_ic_ab_back_light"],
+    "drawable/sesl_ic_menu_overflow": ["drawable/sesl_ic_menu_overflow_dark", "drawable/sesl_ic_menu_overflow_light"],
+    "drawable/sesl_tablayout_subtab_indicator_background": ["drawable/sesl_tablayout_subtab_indicator_background_dark", "drawable/sesl_tablayout_subtab_indicator_background_light"],
+    "drawable/sesl_tablayout_subtab_indicator_background_": ["drawable/sesl_tablayout_subtab_indicator_background_dark", "drawable/sesl_tablayout_subtab_indicator_background_light"],
+    "drawable/sesl_tablayout_maintab_indicator_opentheme_background_": ["drawable/sesl_tablayout_maintab_indicator_opentheme_background", "drawable/sem_maintab_indicator_opentheme_background"],
+    "drawable/sem_toast_frame_mtrl_": ["drawable/sem_toast_frame_mtrl", "drawable/sem_toast_frame_mtrl_light"],
+    "drawable/tw_spinner_mtrl_am_alpha_": ["drawable/tw_spinner_mtrl_am_alpha", "drawable/sesl_spinner_mtrl_am_alpha_dark", "drawable/sesl_spinner_mtrl_am_alpha_light"],
+    "drawable/floating_popup_background_dark": ["drawable/sem_floating_popup_background_dark", "drawable/tw_floating_popup_background_dark"],
+    "drawable/floating_popup_background_light": ["drawable/sem_floating_popup_background_light", "drawable/floating_popup_background", "drawable/tw_floating_popup_background"],
+    "drawable/phone_keypad_wificall": ["drawable/phone_keypad_wificall_ic_spr", "drawable/phone_keypad_wificall_ic_vzw"],
+    "drawable/sec_ic_settings_coverscreen": ["drawable/sec_ic_settings_coverscreen_folder_cover", "drawable/sec_ic_settings_coverscreen_full_cover", "drawable/sec_ic_settings_coverscreen_pill_cover"]
   },
   "fallbackRenames": {
       "drawable/switch_thumb_on": "drawable/sesl_switch_thumb_on",
@@ -230,7 +241,27 @@
       "drawable/checkbox_025": "drawable/sesl_btn_check_to_on_025",
       "drawable/radio_025": "drawable/sesl_btn_radio_to_on_025",
       "drawable/checkbox_026": "drawable/sesl_btn_check_to_on_026",
-      "drawable/radio_026": "drawable/sesl_btn_radio_to_on_026"
+      "drawable/radio_026": "drawable/sesl_btn_radio_to_on_026",
+      "drawable/sec_quickpannel_wifi_signal_0": "drawable/sec_ic_wifi_signal_0",
+      "drawable/sec_quickpannel_wifi_signal_1": "drawable/sec_ic_wifi_signal_1",
+      "drawable/sec_quickpannel_wifi_signal_2": "drawable/sec_ic_wifi_signal_2",
+      "drawable/sec_quickpannel_wifi_signal_3": "drawable/sec_ic_wifi_signal_3",
+      "drawable/sec_quickpannel_wifi_signal_4": "drawable/sec_ic_wifi_signal_4",
+      "drawable/sec_quickpannel_wifi_signal_lock_0": "drawable/sec_ic_wifi_signal_lock_0",
+      "drawable/sec_quickpannel_wifi_signal_lock_1": "drawable/sec_ic_wifi_signal_lock_1",
+      "drawable/sec_quickpannel_wifi_signal_lock_2": "drawable/sec_ic_wifi_signal_lock_2",
+      "drawable/sec_quickpannel_wifi_signal_lock_3": "drawable/sec_ic_wifi_signal_lock_3",
+      "drawable/sec_quickpannel_wifi_signal_lock_4": "drawable/sec_ic_wifi_signal_lock_4",
+      "drawable/menu_dark": "drawable/sesl_ic_menu_overflow_dark",
+      "drawable/menu_light": "drawable/sesl_ic_menu_overflow_light",
+      "drawable/back_dark": "drawable/sesl_ic_ab_back_dark",
+      "drawable/back_light": "drawable/sesl_ic_ab_back_light",
+      "drawable/phone_keypad_wificall": "drawable/phone_keypad_wificall_ic_comm",
+      "drawable/sesl_index_bar_bg_": "drawable/sesl_index_bar_bg",
+      "drawable/toast_frame_": "drawable/toast_frame",
+      "drawable/tw_text_select_handle_left_mtrl_alpha": "drawable/text_select_handle_left_mtrl_alpha",
+      "drawable/tw_text_select_handle_middle_mtrl_alpha": "drawable/text_select_handle_middle_mtrl_alpha",
+      "drawable/tw_text_select_handle_right_mtrl_alpha": "drawable/text_select_handle_right_mtrl_alpha"
   },
   "dashboardRows": [
     "cloud_and_account",

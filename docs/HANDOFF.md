@@ -321,3 +321,8 @@ to test it. Encrypted Owner artifacts follow rule 13 instead.
 - Supporting references: https://github.com/mitschud/DirtyFrag ; https://docs.samsungknox.com/admin/knox-platform-for-enterprise/faq/ ; https://www.samsung.com/us/support/legal/mobile/?r=true&referrer=usnewsroom .
 - Explicit root requests allow 45 seconds for the root-manager prompt, rather than the 8-second background startup timeout. A legacy “DFRoot” label sharing `df.root` is not falsely presented as an installed DirtyFrag app.
 - Latest copy preference: omit warranty discussion from the in-app guide and download prompt. State “No bootloader unlock or firmware flashing required”; do not replace that with an unverified “won't trip Knox” guarantee.
+
+### 12.2 Pack rewiring audit, all 44 packs (2026-11-05)
+- Rewiring is engine-wide (`oneui/9.json` `renamed` / `fallbackRenames` / `drawableCopies`), not per pack, and the live preview runs the same compiler; a pack is rewired like Willemite wherever it uses Willemite's legacy names.
+- Offline audit of every pack against the real One UI 9 drawable tables (device lab name dumps + `.arsc`): `docs/device/oneui9-pack-rewiring-audit-20261105.md`. Names Willemite never shipped were unmapped; 9.json now maps them (Wi-Fi status icons, `buttons` back/overflow, dialpad Wi-Fi calling, slot templates `*_`, dark/light sesl splits). 39 packs gain names, Willemite is unchanged.
+- Not verified on the phone yet: run a lab pass with kunzite/sodalite (status bar + templates), axinite/citrine (`buttons`) and apatite/charoite (dialpad).
