@@ -17,6 +17,12 @@ public data class LiveOption(
     val option: PackOption,
     val elementIds: Set<String>,
     val extra: String? = null,
+    /**
+     * Every key the pack declares for this option. A select offers only its choices with art
+     * ([option] keeps those), but reads and writes state over all of them, so a choice hidden now
+     * (no art, or no target until the next scan) never stays switched on behind the offered ones.
+     */
+    val declaredKeys: List<String> = if (option.type == PackOption.SELECT) option.keys else listOfNotNull(option.key),
 ) {
     /** The keys this option toggles: [PackOption.keys] for a select, the single [PackOption.key] for a switch. */
     public val keys: List<String>
@@ -37,24 +43,38 @@ public object PackOptions {
      * dropped; duplicate declarations (same type and keys) are kept once; blank labels fall back
      * to the first key.
      */
-    public fun live(pack: Pack): List<LiveOption> {
+    public fun live(pack: Pack, reach: OptionReach? = null): List<LiveOption> {
         val gated = LinkedHashMap<String, MutableSet<String>>() // option token → element ids
         for (category in pack.layers.map { it.category }.distinct()) {
             val parsed = CategoryName.parse(category)
             if (parsed.optionTokens.isEmpty()) continue
+            // With a scan, artwork that reaches nothing on this phone (One UI 3 toggles) gates nothing.
+            if (reach != null && !reach.reaches(pack, category)) continue
             val elementId = Elements.elementForCategory(category).id
             for (token in parsed.optionTokens) gated.getOrPut(token) { LinkedHashSet() } += elementId
         }
         val seen = HashSet<Pair<String, List<String>>>()
         val result = ArrayList<LiveOption>()
-        for (option in pack.options) {
-            val keys = keysOf(option)
-            if (keys.isEmpty() || !seen.add(option.type to keys)) continue
+        for (declared in pack.options) {
+            val keys = keysOf(declared)
+            if (keys.isEmpty() || !seen.add(declared.type to keys)) continue
+            // A select keeps only the choices with artwork (Carnelian's "OG Type" has none); with
+            // fewer than two left there is nothing to choose.
+            val option = if (declared.type == PackOption.SELECT) {
+                val kept = keys.indices.filter { keys[it] in gated }
+                if (kept.size < 2) continue
+                declared.copy(
+                    keys = kept.map { keys[it] },
+                    choices = if (declared.choices.size == keys.size) kept.map { declared.choices[it].trim() } else declared.choices,
+                )
+            } else {
+                declared
+            }
             val elementIds = LinkedHashSet<String>()
-            for (key in keys) gated[key]?.let(elementIds::addAll)
+            for (key in keysOf(option)) gated[key]?.let(elementIds::addAll)
             if (elementIds.isEmpty()) continue
             val label = option.label.trim().ifEmpty { keys.first() }
-            result += LiveOption(option.copy(label = label), elementIds)
+            result += LiveOption(option.copy(label = label), elementIds, declaredKeys = keys)
         }
         return result
     }
@@ -63,7 +83,8 @@ public object PackOptions {
      * Every option of [pack] the pack card shows: the [live] layer options, then the options
      * Hex Next rebuilds natively ([NativeExtras.options]).
      */
-    public fun all(pack: Pack): List<LiveOption> = live(pack) + NativeExtras.options(pack).map { it.live }
+    public fun all(pack: Pack, reach: OptionReach? = null): List<LiveOption> =
+        live(pack, reach) + NativeExtras.options(pack).map { it.live }
 
     /** The state of [live] in [spec]: [NativeExtras.value] for a native option, else [value]. */
     public fun value(spec: ThemeSpec, pack: Pack, live: LiveOption, elementId: String? = null): String =
@@ -80,8 +101,9 @@ public object PackOptions {
      */
     public fun value(spec: ThemeSpec, pack: Pack, option: PackOption, elementId: String? = null): String {
         val keys = keysOf(option)
-        val element = elementId ?: live(pack).firstOrNull { it.option.type == option.type && keysOf(it.option) == keys }
-            ?.elementIds?.firstOrNull()
+        val element = elementId ?: live(pack).firstOrNull {
+            it.option.type == option.type && (keysOf(it.option) == keys || it.declaredKeys == keys)
+        }?.elementIds?.firstOrNull()
         val effective = pack.defaultOptions + spec.elementOptions[element].orEmpty()
         return if (option.type == PackOption.SELECT) {
             keys.firstOrNull { effective[it] == "true" } ?: keys.firstOrNull().orEmpty()
@@ -118,7 +140,7 @@ public fun ThemeSpec.withOption(
 ): ThemeSpec {
     val option = live.option
     val writes: Map<String, String> = if (option.type == PackOption.SELECT) {
-        option.keys.associateWith { if (it == value) "true" else "false" }
+        (live.declaredKeys + option.keys).distinct().associateWith { if (it == value) "true" else "false" }
     } else {
         val key = option.key ?: return this
         mapOf(key to if (value == "true") "true" else "false")
@@ -139,3 +161,37 @@ public fun ThemeSpec.withElementPack(elementId: String, packId: String?): ThemeS
 /** This spec with [elementId] switched on or off ([enabled]); a missing entry means enabled. Pure. */
 public fun ThemeSpec.withElementEnabled(elementId: String, enabled: Boolean): ThemeSpec =
     copy(elementEnabled = if (enabled) elementEnabled - elementId else elementEnabled + (elementId to false))
+
+/**
+ * Which layer categories of a pack reach a resource on this phone: at least one of the category's
+ * resources, after [OneUiRules.renameFor] and [OneUiRules.drawableCopies], is a drawable or mipmap
+ * of an installed target. The option lists use it to hide options whose artwork has no target on
+ * the running One UI version (One UI 3 media buttons, One UI 4-6 brightness bars). Keeps only the
+ * drawable and mipmap names, not the resource tables.
+ */
+public class OptionReach(private val names: Set<String>, private val rules: OneUiRules) {
+    private val cache = HashMap<Pair<String, String>, Boolean>()
+
+    /** True when [category] of [pack] has a resource that maps to a drawable or mipmap on this phone. */
+    public fun reaches(pack: Pack, category: String): Boolean = synchronized(cache) {
+        cache.getOrPut(pack.id to category) {
+            val type = if (CategoryName.parse(category).base == "mipmap") "mipmap" else "drawable"
+            pack.layers.asSequence().filter { it.category == category }.flatMap { it.resources }.distinct().any { res ->
+                rules.renameFor("$type/$res") { it in names } in names ||
+                    rules.drawableCopies["$type/$res"].orEmpty().any { it in names }
+            }
+        }
+    }
+
+    public companion object {
+        /** The reach over every installed target of [device]. */
+        public fun of(device: DeviceSnapshot, rules: OneUiRules): OptionReach {
+            val names = HashSet<String>()
+            for (t in device.targets.values) {
+                if (!t.installed) continue
+                for (e in t.table?.entries.orEmpty()) if (e.type == "drawable" || e.type == "mipmap") names += "${e.type}/${e.name}"
+            }
+            return OptionReach(names, rules)
+        }
+    }
+}

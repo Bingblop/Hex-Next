@@ -110,7 +110,6 @@ fun AppSettingsScreen(
     canPurchase: Boolean,
     onRestorePurchases: () -> Unit,
 ) {
-    val settings by store.settings.collectAsStateWithLifecycle()
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -123,40 +122,68 @@ fun AppSettingsScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
+        AppSettingsContent(
+            store = store,
+            onOpenDiagnostics = onOpenDiagnostics,
+            onOpenAiProviders = onOpenAiProviders,
+            onOpenOnboarding = onOpenOnboarding,
+            purchases = purchases,
+            canPurchase = canPurchase,
+            onRestorePurchases = onRestorePurchases,
             contentPadding = PaddingValues(
                 start = 16.dp + padding.calculateStartPadding(LayoutDirection.Ltr),
                 end = 16.dp + padding.calculateEndPadding(LayoutDirection.Ltr),
                 top = padding.calculateTopPadding() + 4.dp,
                 bottom = padding.calculateBottomPadding() + 24.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item { AppearanceCard(settings, store) }
-            item { BehaviourCard(settings, store) }
-            item {
-                SectionCard(stringResource(R.string.settings_ai_providers)) {
-                    NavRow(
-                        title = stringResource(R.string.settings_ai_keys),
-                        summary = stringResource(R.string.settings_ai_keys_summary),
-                        onClick = onOpenAiProviders,
-                    )
-                }
+        )
+    }
+}
+
+/**
+ * The App settings cards (appearance, behaviour, AI providers, diagnostics, purchases, about) as
+ * one list: inside [AppSettingsScreen], and as the General section of the Settings tab.
+ */
+@Composable
+internal fun AppSettingsContent(
+    store: AppSettingsStore,
+    onOpenDiagnostics: () -> Unit,
+    onOpenAiProviders: () -> Unit,
+    onOpenOnboarding: () -> Unit,
+    purchases: EntitlementState,
+    canPurchase: Boolean,
+    onRestorePurchases: () -> Unit,
+    contentPadding: PaddingValues,
+) {
+    val settings by store.settings.collectAsStateWithLifecycle()
+    LazyColumn(
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item { AppearanceCard(settings, store) }
+        item { BehaviourCard(settings, store) }
+        item {
+            SectionCard(stringResource(R.string.settings_ai_providers)) {
+                NavRow(
+                    title = stringResource(R.string.settings_ai_keys),
+                    summary = stringResource(R.string.settings_ai_keys_summary),
+                    onClick = onOpenAiProviders,
+                )
             }
-            item {
-                SectionCard(stringResource(R.string.settings_diagnostics)) {
-                    NavRow(
-                        title = stringResource(R.string.settings_diagnostics_title),
-                        summary = stringResource(R.string.settings_diagnostics_summary),
-                        onClick = onOpenDiagnostics,
-                    )
-                }
-            }
-            if (canPurchase) {
-                item { PurchasesCard(purchases, onRestorePurchases) }
-            }
-            item { AboutCard(onOpenOnboarding) }
         }
+        item {
+            SectionCard(stringResource(R.string.settings_diagnostics)) {
+                NavRow(
+                    title = stringResource(R.string.settings_diagnostics_title),
+                    summary = stringResource(R.string.settings_diagnostics_summary),
+                    onClick = onOpenDiagnostics,
+                )
+            }
+        }
+        if (canPurchase) {
+            item { PurchasesCard(purchases, onRestorePurchases) }
+        }
+        item { AboutCard(onOpenOnboarding) }
     }
 }
 

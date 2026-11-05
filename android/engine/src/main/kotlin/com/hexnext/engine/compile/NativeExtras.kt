@@ -128,7 +128,8 @@ public object NativeExtras {
      */
     public fun options(pack: Pack, extras: List<NativeExtra> = ALL): List<NativeOption> {
         if (extras.isEmpty()) return emptyList()
-        val layerKeys = PackOptions.live(pack).flatMapTo(HashSet()) { it.keys }
+        // Keys that gate layer art, whether or not PackOptions.live offers their option.
+        val layerKeys = pack.gatingTokens
         val out = ArrayList<NativeOption>()
         val seen = HashSet<Pair<String, List<String>>>()
         for (option in pack.options) {

@@ -51,13 +51,19 @@ public data class Element(
  * @property raw the category as given.
  * @property base base name without suffixes (`settingsicon`).
  * @property tokens every remaining part in order, excluding `night`.
- * @property night true for night (dark) categories.
+ * @property night true for night (dark) categories: a `night` token, a `_night` suffix, or an
+ *   `_alt` suffix.
+ * @property alt true when the night flag came from an `_alt` suffix. Hex Installer packs ship the
+ *   dark-mode twin of a category as `<base>_alt` (light `lxx*` slots become dark `xx*` slots, a
+ *   black `H000000` glyph becomes a white `Hffffff` one); every `_alt` category in the catalogue
+ *   is dark artwork, so it is the night counterpart of `<base>`, not an option named `alt`.
  */
 public data class CategoryName(
     val raw: String,
     val base: String,
     val tokens: List<String>,
     val night: Boolean,
+    val alt: Boolean = false,
 ) {
     /**
      * Variant tokens that select optional artwork: [tokens] minus resource qualifiers
@@ -123,18 +129,19 @@ public data class CategoryName(
             var base = expanded.firstOrNull().orEmpty()
             val tokens = mutableListOf<String>()
             var night = false
+            var alt = false
             val baseTokens = mutableListOf<String>()
             loop@ while (true) {
                 when {
                     base.endsWith("_night") -> { night = true; base = base.removeSuffix("_night") }
-                    base.endsWith("_alt") -> { baseTokens.add(0, "alt"); base = base.removeSuffix("_alt") }
+                    base.endsWith("_alt") -> { night = true; alt = true; base = base.removeSuffix("_alt") }
                     base.endsWith("_land") -> { baseTokens.add(0, "land"); base = base.removeSuffix("_land") }
                     else -> break@loop
                 }
             }
             tokens += baseTokens
             for (t in expanded.drop(1)) if (t == "night") night = true else tokens += t
-            return CategoryName(category, base, tokens, night)
+            return CategoryName(category, base, tokens, night, alt)
         }
     }
 }
