@@ -333,3 +333,4 @@ to test it. Encrypted Owner artifacts follow rule 13 instead.
 - The name rewiring from 12.2 is merged with it.
 - Navigation rebuilt as four tabs (see section 7).
 - No lab jobs were posted. Kyle tests the owner APK on his phone: Carnelian Settings dark mode first, then Morganite light mode and a few other packs.
+- After 2.3.1 (Kyle's test): Willemite's Settings icons changed because the select-default fallback moved "OG Pastel color" to "Primary tint"; reverted (a choice without categories means the base art). Morganite looks right. Carnelian applied colours only on the phone; the offline plan is correct, so the cause is waiting on Kyle's beta report (apply report and build logs).

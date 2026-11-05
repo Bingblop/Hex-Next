@@ -58,18 +58,9 @@ public object PackOptions {
         for (declared in pack.options) {
             val keys = keysOf(declared)
             if (keys.isEmpty() || !seen.add(declared.type to keys)) continue
-            // A select keeps only the choices with artwork (Carnelian's "OG Type" has none); with
-            // fewer than two left there is nothing to choose.
-            val option = if (declared.type == PackOption.SELECT) {
-                val kept = keys.indices.filter { keys[it] in gated }
-                if (kept.size < 2) continue
-                declared.copy(
-                    keys = kept.map { keys[it] },
-                    choices = if (declared.choices.size == keys.size) kept.map { declared.choices[it].trim() } else declared.choices,
-                )
-            } else {
-                declared
-            }
+            // Every choice of a select stays: one without categories of its own selects the base
+            // art (Willemite's "OG Pastel color") or the phone's own (Carnelian's "OG Type").
+            val option = declared
             val elementIds = LinkedHashSet<String>()
             for (key in keysOf(option)) gated[key]?.let(elementIds::addAll)
             if (elementIds.isEmpty()) continue

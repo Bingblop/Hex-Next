@@ -79,14 +79,11 @@ public data class Pack(
         for (option in options) {
             when (option.type) {
                 PackOption.SELECT -> {
+                    // A choice with no category of its own (Willemite's "OG Pastel color",
+                    // `multicolor`) is real: it selects the pack's base art, so the plugin's
+                    // default stays even when another choice has its own categories.
                     val chosen = ranked.firstNotNullOfOrNull { values -> option.keys.firstOrNull { values[it] == "true" } }
-                        ?: option.keys.firstOrNull()
-                    // A default choice that gates no artwork (Carnelian's "OG Type", artwork only in
-                    // the plugin's encrypted templates) would leave the element unthemed although
-                    // another choice has art: the first choice with art becomes the default.
-                    val live = chosen?.takeIf { it in gatingTokens || option.keys.none(gatingTokens::contains) }
-                        ?: option.keys.firstOrNull(gatingTokens::contains)
-                    live?.let { result[it] = "true" }
+                    (chosen ?: option.keys.firstOrNull())?.let { result[it] = "true" }
                 }
                 PackOption.SWITCH -> {
                     val key = option.key
