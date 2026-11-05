@@ -547,6 +547,9 @@ step_probe() {
   root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/probe.txt" 2>&1
   log "probe: $(grep -c HexNextProbe_ "$RES/probe.txt") overlay lines"
   local t; for t in $(jq -r '.probes // [] | map(.target) | unique | .[]' "$JOB"); do root "am force-stop $t" 2>/dev/null; done
+  # The job's "probe_captures" are taken with the probes on (probe-<mode>-real-*), then the probes go.
+  local caps; caps=$(jq -r '.probe_captures // [] | join(" ")' "$JOB")
+  if [ -n "$caps" ]; then PHASE="probe-"; step_capture "$caps"; PHASE=""; step_unprobe; fi
 }
 
 step_unprobe() {
