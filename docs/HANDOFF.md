@@ -263,3 +263,8 @@ After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle f
 - Default AI agent (AI providers > Default agent) is preselected by every Generate; the icon chooser has "Generate with AI".
 - Colours/Icons/Skins: the preview peek puts tabs and Light/Dark on one row and shows "Editing: <element>" in its header; the status strip shows there only when something is not green; apply summary is two lines; lists leave room for the Preview button.
 - Still needs the owner: `HEXNEXT_PLAY_LICENSE_KEY` or `HEXNEXT_LICENSE_SERVER_URL`, branch protection on main, and the R2 pack bucket (paid packs are still public on `packs`).
+
+### 12.2 Pack rewiring audit, all 44 packs (2026-11-05)
+- Rewiring is engine-wide (`oneui/9.json` `renamed` / `fallbackRenames` / `drawableCopies`), not per pack, and the live preview runs the same compiler; a pack is rewired like Willemite wherever it uses Willemite's legacy names.
+- Offline audit of every pack against the real One UI 9 drawable tables (device lab name dumps + `.arsc`): `docs/device/oneui9-pack-rewiring-audit-20261105.md`. Names Willemite never shipped were unmapped; 9.json now maps them (Wi-Fi status icons, `buttons` back/overflow, dialpad Wi-Fi calling, slot templates `*_`, dark/light sesl splits). 39 packs gain names, Willemite is unchanged.
+- Not verified on the phone yet: run a lab pass with kunzite/sodalite (status bar + templates), axinite/citrine (`buttons`) and apatite/charoite (dialpad).
