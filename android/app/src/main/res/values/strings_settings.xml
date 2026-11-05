@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_title">App settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_ai_providers">AI providers</string>
+    <string name="settings_ai_keys">AI keys</string>
+    <string name="settings_ai_keys_summary">Add your own key to make a theme from a description and to draw icons with AI.</string>
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="settings_diagnostics_title">Scan, reports and safety</string>
+    <string name="settings_diagnostics_summary">Check the phone, share a report and manage restart protection.</string>
+
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_summary">How Hex Next itself looks. The theme for your phone is made in Studio.</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_palette">Colour palette</string>
+    <string name="settings_palette_console">Console</string>
+    <string name="settings_palette_console_summary">Navy studio look with cyan and coral accents in the theme editor. Other screens follow the phone\'s colours.</string>
+    <string name="settings_palette_dynamic">Phone colours</string>
+    <string name="settings_palette_dynamic_summary">Follow the wallpaper, or the theme applied by Hex Next.</string>
+    <string name="settings_palette_seed">Custom colour</string>
+    <string name="settings_palette_seed_summary">Build the app\'s colours from one colour of your choice.</string>
+    <string name="settings_wallpaper_colour">Wallpaper colour</string>
+    <string name="settings_pure_black">Pure black</string>
+    <string name="settings_pure_black_summary">Use true black backgrounds in dark theme. Saves power on AMOLED screens.</string>
+    <string name="settings_contrast">Contrast</string>
+    <string name="settings_contrast_standard">Standard</string>
+    <string name="settings_contrast_medium">Medium</string>
+    <string name="settings_contrast_high">High</string>
+    <string name="settings_preview">Preview</string>
+    <string name="settings_seed_hex">Hex</string>
+    <string name="settings_seed_hex_error">Enter a colour like #3E7BFA</string>
+
+    <string name="settings_behaviour">Behaviour</string>
+    <string name="settings_haptics">Haptic feedback</string>
+    <string name="settings_haptics_summary">Vibrate on taps, and when a theme is applied, succeeds or fails.</string>
+    <string name="settings_reduce_motion">Reduce motion</string>
+    <string name="settings_reduce_motion_summary">Skip card and screen animations.</string>
+    <string name="settings_restart_protection">Restart protection</string>
+    <string name="settings_restart_protection_summary">Needs root that stays after a restart. If the phone restarts twice within 10 minutes of an apply you have not confirmed, Hex Next turns its overlays off.</string>
+
+    <string name="settings_purchases">Purchases</string>
+    <string name="settings_purchases_checking">Checking your purchases with Google Play…</string>
+    <string name="settings_purchases_unchecked">Your purchases have not been checked yet.</string>
+    <string name="settings_purchases_all_unlocked">All packs are unlocked, including packs added later.</string>
+    <string name="settings_purchases_none_unlocked">No packs unlocked yet. Unlock packs in Skins.</string>
+    <plurals name="settings_purchases_packs_unlocked">
+        <item quantity="one">%1$d pack unlocked.</item>
+        <item quantity="other">%1$d packs unlocked.</item>
+    </plurals>
+    <string name="settings_ai_creation_unlocked">AI theme creation: unlocked forever.</string>
+    <string name="settings_ai_creation_pending">AI theme creation: payment pending.</string>
+    <string name="settings_ai_creation_locked">AI theme creation: locked. Unlock it from Describe your theme on the Studio tab.</string>
+    <string name="settings_restore_purchases">Restore purchases</string>
+    <string name="settings_restore_purchases_summary">Unlock packs and AI theme creation you bought before on this Google account.</string>
+
+    <string name="settings_about">About</string>
+    <string name="settings_product_name" translatable="false">Hex Next</string>
+    <string name="settings_version">Version %1$s (%2$d)</string>
+    <string name="settings_setup_guide">Setup guide</string>
+    <string name="settings_setup_guide_summary">See the welcome steps again: compatibility, root or Shizuku, and a first pack.</string>
+    <string name="settings_licences">Open-source licences</string>
+    <string name="settings_licences_summary">Third-party libraries used by Hex Next.</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_privacy_policy_summary">No analytics, no account. AI prompts go to the provider whose key you add; the policy lists what leaves the phone. Opens in the browser.</string>
+    <string name="settings_source_code">Source code on GitHub</string>
+    <string name="settings_hex_installer">Hex Installer for older phones</string>
+    <string name="settings_hex_installer_summary">Android 14 and earlier, One UI 6 and earlier. Opens the Play Store.</string>
+    <string name="settings_close">Close</string>
+    <string name="settings_licences_intro">Hex Next is built with these open-source projects. Each is used under the licence named.</string>
+    <string-array name="settings_third_party_libraries">
+        <item>Hex Next · MIT License</item>
+        <item>Kotlin standard library and coroutines (JetBrains) · Apache License 2.0</item>
+        <item>kotlinx.serialization (JetBrains) · Apache License 2.0</item>
+        <item>Jetpack Compose, Material 3 and Material Icons (AndroidX) · Apache License 2.0</item>
+        <item>AndroidX Core, Activity and Lifecycle · Apache License 2.0</item>
+        <item>Material Components for Android, colour utilities (Google) · Apache License 2.0</item>
+        <item>Shizuku API and provider (RikkaApps) · see github.com/RikkaApps/Shizuku-API</item>
+        <item>HiddenApiBypass (LSPosed) · Apache License 2.0</item>
+        <item>Google Play Billing Library (Play Store build) · Android Software Development Kit License</item>
+    </string-array>
+</resources>

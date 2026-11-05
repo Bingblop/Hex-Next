@@ -59,6 +59,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +70,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.themer.BuildConfig
+import com.hexnext.themer.R
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.billing.ProductIds
@@ -112,9 +116,9 @@ fun AppSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("App settings", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.settings_back)) }
                 },
             )
         },
@@ -131,19 +135,19 @@ fun AppSettingsScreen(
             item { AppearanceCard(settings, store) }
             item { BehaviourCard(settings, store) }
             item {
-                SectionCard("AI providers") {
+                SectionCard(stringResource(R.string.settings_ai_providers)) {
                     NavRow(
-                        title = "AI keys",
-                        summary = "Add your own key to make a theme from a description and to draw icons with AI.",
+                        title = stringResource(R.string.settings_ai_keys),
+                        summary = stringResource(R.string.settings_ai_keys_summary),
                         onClick = onOpenAiProviders,
                     )
                 }
             }
             item {
-                SectionCard("Diagnostics") {
+                SectionCard(stringResource(R.string.settings_diagnostics)) {
                     NavRow(
-                        title = "Scan, reports and safety",
-                        summary = "Check the phone, share a report and manage restart protection.",
+                        title = stringResource(R.string.settings_diagnostics_title),
+                        summary = stringResource(R.string.settings_diagnostics_summary),
                         onClick = onOpenDiagnostics,
                     )
                 }
@@ -167,42 +171,48 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
     val dark = settings.isDark(isSystemInDarkTheme())
     val wallpaperSeed = remember { wallpaperColor(context) }
 
-    SectionCard("Appearance") {
+    SectionCard(stringResource(R.string.settings_appearance)) {
         Text(
-            "How Hex Next itself looks. The theme for your phone is made in Studio.",
+            stringResource(R.string.settings_appearance_summary),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Label("Theme")
+        Label(stringResource(R.string.settings_theme))
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             ThemeMode.entries.forEachIndexed { index, mode ->
                 SegmentedButton(
                     selected = settings.themeMode == mode,
                     onClick = { store.setThemeMode(mode) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
-                    label = { Text(mode.label) },
+                    label = {
+                        Text(stringResource(when (mode) {
+                            ThemeMode.SYSTEM -> R.string.settings_theme_system
+                            ThemeMode.LIGHT -> R.string.settings_theme_light
+                            ThemeMode.DARK -> R.string.settings_theme_dark
+                        }))
+                    },
                 )
             }
         }
 
-        Label("Colour palette")
+        Label(stringResource(R.string.settings_palette))
         ChoiceRow(
             selected = settings.palette == PaletteSource.CONSOLE,
-            title = PaletteSource.CONSOLE.label,
-            summary = "Navy studio look with cyan and coral accents in the theme editor. Other screens follow the phone's colours.",
+            title = stringResource(R.string.settings_palette_console),
+            summary = stringResource(R.string.settings_palette_console_summary),
             onClick = { store.setPalette(PaletteSource.CONSOLE) },
         )
         ChoiceRow(
             selected = settings.palette == PaletteSource.DYNAMIC,
-            title = PaletteSource.DYNAMIC.label,
-            summary = "Follow the wallpaper, or the theme applied by Hex Next.",
+            title = stringResource(R.string.settings_palette_dynamic),
+            summary = stringResource(R.string.settings_palette_dynamic_summary),
             onClick = { store.setPalette(PaletteSource.DYNAMIC) },
         )
         ChoiceRow(
             selected = settings.palette == PaletteSource.SEED,
-            title = PaletteSource.SEED.label,
-            summary = "Build the app's colours from one colour of your choice.",
+            title = stringResource(R.string.settings_palette_seed),
+            summary = stringResource(R.string.settings_palette_seed_summary),
             onClick = { store.setPalette(PaletteSource.SEED) },
         )
         if (settings.palette == PaletteSource.SEED) {
@@ -228,7 +238,7 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
                     ) {
                         SwatchDot(color = wallpaperSeed, selected = wallpaperSelected)
                         Column {
-                            Text("Wallpaper colour", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.settings_wallpaper_colour), style = MaterialTheme.typography.titleSmall)
                             Text(
                                 wallpaperSeed.toHex(),
                                 style = MaterialTheme.typography.bodySmall,
@@ -242,21 +252,27 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
         }
 
         SwitchRow(
-            label = "Pure black",
-            summary = "Use true black backgrounds in dark theme. Saves power on AMOLED screens.",
+            label = stringResource(R.string.settings_pure_black),
+            summary = stringResource(R.string.settings_pure_black_summary),
             checked = settings.pureBlack,
             enabled = settings.themeMode != ThemeMode.LIGHT,
             onCheckedChange = store::setPureBlack,
         )
 
-        Label("Contrast")
+        Label(stringResource(R.string.settings_contrast))
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             ContrastLevel.entries.forEachIndexed { index, level ->
                 SegmentedButton(
                     selected = settings.contrast == level,
                     onClick = { store.setContrast(level) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = ContrastLevel.entries.size),
-                    label = { Text(level.label) },
+                    label = {
+                        Text(stringResource(when (level) {
+                            ContrastLevel.STANDARD -> R.string.settings_contrast_standard
+                            ContrastLevel.MEDIUM -> R.string.settings_contrast_medium
+                            ContrastLevel.HIGH -> R.string.settings_contrast_high
+                        }))
+                    },
                 )
             }
         }
@@ -270,7 +286,7 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
                 appColorScheme(context, settings, dark)
             }
         }
-        Label("Preview")
+        Label(stringResource(R.string.settings_preview))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
                 preview.primary,
@@ -329,10 +345,10 @@ private fun SeedHexField(seed: Int, onSeed: (Int) -> Unit) {
             text = value
             parseHexColor(value)?.let(onSeed)
         },
-        label = { Text("Hex") },
+        label = { Text(stringResource(R.string.settings_seed_hex)) },
         singleLine = true,
         isError = parseHexColor(text) == null,
-        supportingText = { if (parseHexColor(text) == null) Text("Enter a colour like #3E7BFA") },
+        supportingText = { if (parseHexColor(text) == null) Text(stringResource(R.string.settings_seed_hex_error)) },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         modifier = Modifier.fillMaxWidth(),
@@ -345,26 +361,25 @@ private fun SeedHexField(seed: Int, onSeed: (Int) -> Unit) {
 
 @Composable
 private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
-    SectionCard("Behaviour") {
+    SectionCard(stringResource(R.string.settings_behaviour)) {
         SwitchRow(
-            label = "Haptic feedback",
-            summary = "Vibrate on taps, and when a theme is applied, succeeds or fails.",
+            label = stringResource(R.string.settings_haptics),
+            summary = stringResource(R.string.settings_haptics_summary),
             checked = settings.haptics,
             enabled = true,
             onCheckedChange = store::setHaptics,
         )
         SwitchRow(
-            label = "Reduce motion",
-            summary = "Skip card and screen animations.",
+            label = stringResource(R.string.settings_reduce_motion),
+            summary = stringResource(R.string.settings_reduce_motion_summary),
             checked = settings.reduceMotion,
             enabled = true,
             onCheckedChange = store::setReduceMotion,
         )
         Column(Modifier.heightIn(min = 48.dp), verticalArrangement = Arrangement.Center) {
-            Text("Restart protection", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.settings_restart_protection), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Needs root that stays after a restart. If the phone restarts twice within 10 minutes of an apply " +
-                    "you have not confirmed, Hex Next turns its overlays off.",
+                stringResource(R.string.settings_restart_protection_summary),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -385,21 +400,21 @@ private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
     val error = purchases.error
     val packCount = purchases.ownedProductIds.count { it.startsWith(ProductIds.PACK_PREFIX) }
     val status = when {
-        purchases.checking -> "Checking your purchases with Google Play…"
+        purchases.checking -> stringResource(R.string.settings_purchases_checking)
         error != null -> error
-        !purchases.ready -> "Your purchases have not been checked yet."
-        purchases.unlockAll -> "All packs are unlocked, including packs added later."
-        packCount == 0 -> "No packs unlocked yet. Unlock packs in Skins."
-        packCount == 1 -> "1 pack unlocked."
-        else -> "$packCount packs unlocked."
+        !purchases.ready -> stringResource(R.string.settings_purchases_unchecked)
+        purchases.unlockAll -> stringResource(R.string.settings_purchases_all_unlocked)
+        packCount == 0 -> stringResource(R.string.settings_purchases_none_unlocked)
+        packCount == 1 -> pluralStringResource(R.plurals.settings_purchases_packs_unlocked, packCount, packCount)
+        else -> pluralStringResource(R.plurals.settings_purchases_packs_unlocked, packCount, packCount)
     }
     val ai = when {
         !purchases.ready -> null
-        purchases.unlocks(PaidFeature.AI_CREATION) -> "AI theme creation: unlocked forever."
-        purchases.isPending(PaidFeature.AI_CREATION) -> "AI theme creation: payment pending."
-        else -> "AI theme creation: locked. Unlock it from Describe your theme on the Studio tab."
+        purchases.unlocks(PaidFeature.AI_CREATION) -> stringResource(R.string.settings_ai_creation_unlocked)
+        purchases.isPending(PaidFeature.AI_CREATION) -> stringResource(R.string.settings_ai_creation_pending)
+        else -> stringResource(R.string.settings_ai_creation_locked)
     }
-    SectionCard("Purchases") {
+    SectionCard(stringResource(R.string.settings_purchases)) {
         Text(
             status,
             style = MaterialTheme.typography.bodySmall,
@@ -409,8 +424,8 @@ private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         NavRow(
-            title = "Restore purchases",
-            summary = "Unlock packs and AI theme creation you bought before on this Google account.",
+            title = stringResource(R.string.settings_restore_purchases),
+            summary = stringResource(R.string.settings_restore_purchases_summary),
             onClick = onRestore,
         )
     }
@@ -421,38 +436,38 @@ private fun AboutCard(onOpenOnboarding: () -> Unit) {
     val uriHandler = rememberSafeUriHandler()
     var showLicences by rememberSaveable { mutableStateOf(false) }
 
-    SectionCard("About") {
+    SectionCard(stringResource(R.string.settings_about)) {
         Column(Modifier.heightIn(min = 48.dp), verticalArrangement = Arrangement.Center) {
-            Text("Hex Next", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.settings_product_name), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                stringResource(R.string.settings_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         NavRow(
-            title = "Setup guide",
-            summary = "See the welcome steps again: compatibility, root or Shizuku, and a first pack.",
+            title = stringResource(R.string.settings_setup_guide),
+            summary = stringResource(R.string.settings_setup_guide_summary),
             onClick = onOpenOnboarding,
         )
         NavRow(
-            title = "Open-source licences",
-            summary = "Third-party libraries used by Hex Next.",
+            title = stringResource(R.string.settings_licences),
+            summary = stringResource(R.string.settings_licences_summary),
             onClick = { showLicences = true },
         )
         NavRow(
-            title = "Privacy policy",
-            summary = "No analytics, no account. AI prompts go to the provider whose key you add; the policy lists what leaves the phone. Opens in the browser.",
+            title = stringResource(R.string.settings_privacy_policy),
+            summary = stringResource(R.string.settings_privacy_policy_summary),
             onClick = { uriHandler.openUri(PRIVACY_POLICY_URL) },
         )
         NavRow(
-            title = "Source code on GitHub",
+            title = stringResource(R.string.settings_source_code),
             summary = GITHUB_URL.removePrefix("https://"),
             onClick = { uriHandler.openUri(GITHUB_URL) },
         )
         NavRow(
-            title = "Hex Installer for older phones",
-            summary = "Android 14 and earlier, One UI 6 and earlier. Opens the Play Store.",
+            title = stringResource(R.string.settings_hex_installer),
+            summary = stringResource(R.string.settings_hex_installer_summary),
             onClick = { uriHandler.openUri(CompatibilityCheck.HEX_INSTALLER_URL) },
         )
     }
@@ -462,25 +477,12 @@ private fun AboutCard(onOpenOnboarding: () -> Unit) {
     }
 }
 
-/** Library · licence, one per line. Kept as plain text so it ships without a licence plugin. */
-private val THIRD_PARTY_LIBRARIES = listOf(
-    "Hex Next · MIT License",
-    "Kotlin standard library and coroutines (JetBrains) · Apache License 2.0",
-    "kotlinx.serialization (JetBrains) · Apache License 2.0",
-    "Jetpack Compose, Material 3 and Material Icons (AndroidX) · Apache License 2.0",
-    "AndroidX Core, Activity and Lifecycle · Apache License 2.0",
-    "Material Components for Android, colour utilities (Google) · Apache License 2.0",
-    "Shizuku API and provider (RikkaApps) · see github.com/RikkaApps/Shizuku-API",
-    "HiddenApiBypass (LSPosed) · Apache License 2.0",
-    "Google Play Billing Library (Play Store build) · Android Software Development Kit License",
-)
-
 @Composable
 private fun LicencesDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text("Open-source licences") },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_close)) } },
+        title = { Text(stringResource(R.string.settings_licences)) },
         text = {
             Column(
                 modifier = Modifier
@@ -489,11 +491,11 @@ private fun LicencesDialog(onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    "Hex Next is built with these open-source projects. Each is used under the licence named.",
+                    stringResource(R.string.settings_licences_intro),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                THIRD_PARTY_LIBRARIES.forEach { line ->
+                stringArrayResource(R.array.settings_third_party_libraries).forEach { line ->
                     Text(line, style = MaterialTheme.typography.bodyMedium)
                 }
             }
