@@ -2,7 +2,6 @@ package com.hexnext.themer.billing
 
 import android.app.Activity
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -45,25 +44,22 @@ import java.net.URL
  * Entitlements are recomputed from `queryPurchasesAsync` on every start, refresh and resume, so
  * a refunded purchase disappears. Only purchases in the PURCHASED state that pass verification
  * unlock anything, and only those are acknowledged; PENDING purchases are shown as pending.
- * Verification uses the license server when [BuildConfig.LICENSE_SERVER_URL] is set (one
- * `/v1/verify-batch` request for a whole restore, see [LicenseServer]), otherwise
- * the purchase signature against [BuildConfig.PLAY_LICENSE_KEY]. Without either, a debuggable
- * build grants with a logged warning and any other build grants nothing.
+ * Verification requires the HTTPS license server (one `/v1/verify-batch` request for a whole
+ * restore, see [LicenseServer]). Neither local purchase signatures nor debug flags grant access.
+ * Account/nonce/Integrity binding and authenticated time-bound grants remain a separate release
+ * gate: a legacy server response is not evidence that those protections have been implemented.
  *
  * Billing callbacks arrive on the main thread; verification runs on [Dispatchers.IO]. Mutable
  * fields are guarded by [lock] and every result is published through [state].
  */
-class PlayEntitlements(private val context: Context) : PackEntitlements {
+class PlayEntitlements(context: Context) : PackEntitlements {
 
+    private val context = context.applicationContext
     private val lock = Any()
     private val main = Handler(Looper.getMainLooper())
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    // Both: BuildConfig.DEBUG is a compile-time false in release builds, so R8 removes the unverified
-    // grant below entirely; a release APK repackaged with android:debuggable="true" gains nothing.
-    private val debuggable = BuildConfig.DEBUG && (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-
-    /** A release build with neither a license server nor a Play license key can verify nothing. */
-    private val unverifiable = !debuggable && BuildConfig.LICENSE_SERVER_URL.isBlank() && BuildConfig.PLAY_LICENSE_KEY.isBlank()
+    private val prefs = this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    /** Console onboarding may precede backend setup. Taking payment then would be unsafe. */
+    private val unverifiable = !ServerPurchasePolicy.isConfigured(BuildConfig.LICENSE_SERVER_URL)
 
     private val current = MutableStateFlow(
         EntitlementState(
@@ -77,14 +73,14 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     /** Verification runs here; an unexpected failure is logged instead of crashing the app. */
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e ->
-            Log.e(TAG, "Purchase handling failed: ${e.javaClass.simpleName}")
+            if (BuildConfig.DEBUG) Log.e(TAG, "Purchase handling failed: ${e.javaClass.simpleName}")
             current.update { it.copy(checking = false, error = "Couldn't check your purchases. Try Restore purchases later.") }
         },
     )
 
-    override val canPurchase: Boolean = true
+    override val canPurchase: Boolean = !unverifiable
 
-    private val client: BillingClient = BillingClient.newBuilder(context)
+    private val client: BillingClient = BillingClient.newBuilder(this.context)
         .setListener(PurchasesUpdatedListener { result, purchases -> onPurchasesUpdated(result, purchases) })
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
@@ -98,9 +94,6 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     private val details = HashMap<String, ProductDetails>()
     private val owned = HashSet<String>()
     private val pending = HashSet<String>()
-
-    /** Purchase token → products it was verified for, so a resume does not verify again. */
-    private val verifiedTokens = HashMap<String, Set<String>>()
 
     /** Grants the purchase listener made while a full query was still in flight. */
     private val listenerGrants = InFlightGrants()
@@ -136,10 +129,15 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             if (started) return
             started = true
         }
+        if (unverifiable) {
+            current.update { it.copy(ready = true, checking = false, error = UNVERIFIABLE) }
+            return
+        }
         connect()
     }
 
     override fun refresh() {
+        if (unverifiable) { start(); return }
         val isStarted = synchronized(lock) { started }
         if (!isStarted) {
             start()
@@ -169,7 +167,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     override fun launchPurchase(activity: Activity, productId: String, grantPackIds: Set<String>) {
         if (unverifiable) {
             // Taking the payment would charge for something this build cannot unlock.
-            Log.e(TAG, "Purchase refused: no license server or Play license key configured")
+            if (BuildConfig.DEBUG) Log.e(TAG, "Purchase refused: verification backend unavailable")
             setError(UNVERIFIABLE)
             return
         }
@@ -213,7 +211,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 connect()
             }
             else -> {
-                Log.w(TAG, "launchBillingFlow failed: ${describe(result)}")
+                if (BuildConfig.DEBUG) Log.w(TAG, "launchBillingFlow failed: ${describe(result)}")
                 setError("The purchase couldn't start. Try again later.")
             }
         }
@@ -238,7 +236,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                         synchronized(lock) { retryDelayMs = INITIAL_RETRY_MS }
                         onConnected()
                     } else {
-                        Log.w(TAG, "Billing setup failed: ${describe(billingResult)}")
+                        if (BuildConfig.DEBUG) Log.w(TAG, "Billing setup failed: ${describe(billingResult)}")
                         if (billingResult.responseCode == BillingClient.BillingResponseCode.BILLING_UNAVAILABLE) {
                             setError("Google Play purchases aren't available on this device.")
                         }
@@ -253,7 +251,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             })
         } catch (e: IllegalStateException) {
             // startConnection while a connection is being set up or after endConnection.
-            Log.w(TAG, "startConnection failed: ${e.message}")
+            if (BuildConfig.DEBUG) Log.w(TAG, "startConnection failed: ${e.message}")
             synchronized(lock) { connecting = false }
             scheduleReconnect()
         }
@@ -300,7 +298,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             // return (not created in Play Console yet, unavailable) are in unfetchedProductList.
             client.queryProductDetailsAsync(params) { result, queryResult ->
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    Log.w(TAG, "queryProductDetails failed: ${describe(result)}")
+                    if (BuildConfig.DEBUG) Log.w(TAG, "queryProductDetails failed: ${describe(result)}")
                     if (result.responseCode == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED) connect()
                     return@queryProductDetailsAsync
                 }
@@ -319,7 +317,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
         client.queryPurchasesAsync(params) { result, purchases ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                Log.w(TAG, "queryPurchases failed: ${describe(result)}")
+                if (BuildConfig.DEBUG) Log.w(TAG, "queryPurchases failed: ${describe(result)}")
                 current.update { it.copy(checking = false, error = "Couldn't check your purchases. Try Restore purchases later.") }
                 if (result.responseCode == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED) connect()
                 return@queryPurchasesAsync
@@ -346,7 +344,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 connect()
             }
             else -> {
-                Log.w(TAG, "Purchase failed: ${describe(result)}")
+                if (BuildConfig.DEBUG) Log.w(TAG, "Purchase failed: ${describe(result)}")
                 setError("The purchase didn't complete. Try again later.")
             }
         }
@@ -400,7 +398,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         synchronized(lock) {
             if (full != null) {
                 if (full.generation <= appliedGeneration) {
-                    Log.i(TAG, "Dropping purchase check ${full.generation}: check $appliedGeneration is newer")
+                    if (BuildConfig.DEBUG) Log.i(TAG, "Dropping purchase check ${full.generation}: check $appliedGeneration is newer")
                     return
                 }
                 appliedGeneration = full.generation
@@ -461,74 +459,39 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
      * verification. [serverAnswers] holds the license server's answers ([verifyOnServer]).
      */
     private fun verify(purchase: Purchase, serverAnswers: Map<ServerKey, Boolean?>): Verdict {
-        synchronized(lock) { verifiedTokens[purchase.purchaseToken] }?.let { return Verdict(it) }
-        if (purchase.packageName != context.packageName) {
-            Log.w(TAG, "Purchase for another package ignored")
-            return Verdict(emptySet())
+        if (unverifiable) return Verdict(emptySet(), UNVERIFIABLE)
+        val answers = purchase.products.associateWith { product ->
+            serverAnswers[ServerKey(purchase.purchaseToken, product)]
         }
-        val serverUrl = BuildConfig.LICENSE_SERVER_URL.trim()
-        val licenseKey = BuildConfig.PLAY_LICENSE_KEY.trim()
-        val products: Set<String> = when {
-            serverUrl.isNotEmpty() -> {
-                val ok = HashSet<String>()
-                for (productId in purchase.products) {
-                    when (serverAnswers[ServerKey(purchase.purchaseToken, productId)]) {
-                        true -> ok += productId
-                        false -> Unit
-                        null -> {
-                            // The server could not say (offline, rate limited, store unreachable).
-                            // A Google-signed purchase still counts when this build has the key.
-                            if (licenseKey.isNotEmpty() && PurchaseSignature.verify(licenseKey, purchase.originalJson, purchase.signature)) {
-                                Log.w(TAG, "License server unavailable: purchase granted on its Play signature")
-                                ok += productId
-                            } else {
-                                return Verdict(emptySet(), "Couldn't verify your purchase. Check your connection, then tap Restore purchases.")
-                            }
-                        }
-                    }
-                }
-                if (ok.isEmpty()) return Verdict(emptySet(), "Your purchase couldn't be verified.")
-                ok
-            }
-            licenseKey.isNotEmpty() -> {
-                if (!PurchaseSignature.verify(licenseKey, purchase.originalJson, purchase.signature)) {
-                    Log.w(TAG, "Purchase signature check failed")
-                    return Verdict(emptySet(), "Your purchase couldn't be verified.")
-                }
-                purchase.products.toSet()
-            }
-            debuggable -> {
-                Log.w(TAG, "No license server or Play license key in this debuggable build: granting the purchase unverified")
-                purchase.products.toSet()
-            }
-            else -> {
-                Log.e(TAG, "No license server or Play license key configured: purchases are not granted")
-                return Verdict(emptySet(), UNVERIFIABLE)
-            }
-        }
-        synchronized(lock) { verifiedTokens[purchase.purchaseToken] = products }
-        return Verdict(products)
+        val products = ServerPurchasePolicy.allowedProducts(
+            configured = !unverifiable,
+            packageMatches = purchase.packageName == context.packageName,
+            products = purchase.products,
+            serverAnswers = answers,
+        )
+        return if (products.isNotEmpty()) Verdict(products)
+        else Verdict(emptySet(), "Couldn't verify your purchase. Check your connection, then tap Restore purchases.")
     }
 
     /**
-     * Asks the license server about every product of [purchases] not verified yet in this run:
+     * Asks the license server about every product of [purchases] on every authoritative query:
      * true or false for an answer, null when the server could not say. Uses `/v1/verify-batch`
      * (one rate-limited request per [LicenseServer.MAX_BATCH] products) and falls back to one
      * `/v1/verify` request per product when the server has no batch endpoint (HTTP 404). Empty
      * when no license server is configured. Runs on [Dispatchers.IO] only.
      */
     private suspend fun verifyOnServer(purchases: List<Purchase>): Map<ServerKey, Boolean?> {
+        if (unverifiable) return emptyMap()
         val serverUrl = BuildConfig.LICENSE_SERVER_URL.trim()
         if (serverUrl.isEmpty()) return emptyMap()
         val keys = LinkedHashSet<ServerKey>()
         for (purchase in purchases) {
             if (purchase.packageName != context.packageName) continue
-            if (synchronized(lock) { purchase.purchaseToken in verifiedTokens }) continue
             purchase.products.forEach { keys += ServerKey(purchase.purchaseToken, it) }
         }
         if (keys.isEmpty()) return emptyMap()
         if (!serverUrl.startsWith("https://", ignoreCase = true)) {
-            Log.e(TAG, "The license server URL is not HTTPS; purchases are not granted")
+            if (BuildConfig.DEBUG) Log.e(TAG, "The license server URL is not HTTPS; purchases are not granted")
             return keys.associateWith { false }
         }
         val answers = HashMap<ServerKey, Boolean?>()
@@ -570,7 +533,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             HttpURLConnection.HTTP_OK -> {
                 val results = runCatching { JSONObject(answer.body).getJSONArray("results") }.getOrNull()
                 if (results == null || results.length() != keys.size) {
-                    Log.w(TAG, "License server batch answer could not be read")
+                    if (BuildConfig.DEBUG) Log.w(TAG, "License server batch answer could not be read")
                     unknown
                 } else {
                     val mapped = HashMap<ServerKey, Boolean?>()
@@ -629,7 +592,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             val answer = postOnce(endpoint, body)
             if (answer.code != HTTP_TOO_MANY_REQUESTS || attempt >= LicenseServer.MAX_RATE_LIMIT_RETRIES) return answer
             val wait = LicenseServer.retryWaitMs(answer.retryAfter, attempt)
-            Log.w(TAG, "License server is rate limiting; retrying in ${wait / 1000} s")
+            if (BuildConfig.DEBUG) Log.w(TAG, "License server is rate limiting; retrying in ${wait / 1000} s")
             delay(wait)
             attempt++
         }
@@ -639,7 +602,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val connection = try {
             URL(endpoint).openConnection() as HttpURLConnection
         } catch (e: Exception) {
-            Log.e(TAG, "Invalid license server URL: ${e.javaClass.simpleName}")
+            if (BuildConfig.DEBUG) Log.e(TAG, "Invalid license server URL: ${e.javaClass.simpleName}")
             return HttpAnswer(CODE_BAD_URL)
         }
         return try {
@@ -655,7 +618,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             connection.outputStream.use { it.write(body) }
             val code = connection.responseCode
             if (code != HttpURLConnection.HTTP_OK) {
-                Log.w(TAG, "License server answered HTTP $code")
+                if (BuildConfig.DEBUG) Log.w(TAG, "License server answered HTTP $code")
                 return HttpAnswer(code, retryAfter = connection.getHeaderField("Retry-After"))
             }
             val text = connection.inputStream.use { input ->
@@ -671,7 +634,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             }
             HttpAnswer(code, text)
         } catch (e: IOException) {
-            Log.w(TAG, "License server unreachable: ${e.javaClass.simpleName}")
+            if (BuildConfig.DEBUG) Log.w(TAG, "License server unreachable: ${e.javaClass.simpleName}")
             HttpAnswer(CODE_UNREACHABLE)
         } finally {
             connection.disconnect()
@@ -685,7 +648,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                     // Not fatal: the next query acknowledges again. Unacknowledged purchases are
                     // refunded by Play after three days, so it must eventually succeed.
-                    Log.w(TAG, "acknowledgePurchase failed: ${describe(result)}")
+                    if (BuildConfig.DEBUG) Log.w(TAG, "acknowledgePurchase failed: ${describe(result)}")
                 }
             }
         }
@@ -812,7 +775,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         return offers.firstOrNull { it.offerId.isNullOrEmpty() } ?: offers.firstOrNull() ?: product.oneTimePurchaseOfferDetails
     }
 
-    private fun describe(result: BillingResult): String = "code ${result.responseCode} ${result.debugMessage}"
+    private fun describe(result: BillingResult): String = "code ${result.responseCode}"
 
     private companion object {
         const val TAG = "HexNextBilling"
@@ -820,7 +783,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         const val KEY_OWNED_HINT = "owned_hint"
         const val KEY_BUNDLE_HINT = "bundle_hint"
         const val KEY_BUNDLE_GRANTS = "bundle_grants"
-        const val UNVERIFIABLE = "Purchases can't be verified in this build"
+        const val UNVERIFIABLE = "Purchases aren't available in this build yet."
         const val INITIAL_RETRY_MS = 1_000L
         const val MAX_RETRY_MS = 5L * 60 * 1000
         const val PRODUCTS_PER_QUERY = 20
