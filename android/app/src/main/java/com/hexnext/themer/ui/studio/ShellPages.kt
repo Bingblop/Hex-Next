@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -200,7 +201,7 @@ internal fun PreviewPeek(
         ) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
             Text(
-                "Live preview · ${preview.tab.label} · ${if (preview.dark) "Dark" else "Light"}",
+                preview.state.highlightedGroup?.let { "Editing: ${it.label}" } ?: "Live preview · tap to edit",
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -240,6 +241,7 @@ internal fun PreviewPeek(
                     modifier = Modifier
                         .fillMaxWidth()
                         .wrapContentHeight(align = Alignment.Top, unbounded = true),
+                    compact = !full,
                 )
                 if (!full) {
                     Box(
@@ -306,7 +308,7 @@ private fun PreviewedPage(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PAGE_PADDING,
+                contentPadding = PREVIEWED_PAGE_PADDING,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item(key = "peek") { PreviewPeek(preview, onElementTap, peekCollapsed, onPeekCollapsed) }
@@ -331,6 +333,9 @@ private fun PreviewedPage(
         if (sheet) PreviewSheet(preview, onElementTap, onDismiss = { sheet = false })
     }
 }
+
+/** [PAGE_PADDING] with room under the last card for the floating Preview button. */
+private val PREVIEWED_PAGE_PADDING = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp)
 
 /** The whole phone in a bottom sheet; a tap on an element closes it and opens that element. */
 @OptIn(ExperimentalMaterial3Api::class)

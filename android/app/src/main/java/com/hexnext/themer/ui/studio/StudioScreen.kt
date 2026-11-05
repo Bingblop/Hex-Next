@@ -456,11 +456,15 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                             SafeModeBanner(banner, failed = ui.safeModeFailed, onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) }, onDismiss = viewModel::dismissSafeMode)
                         }
                     }
-                    StatusStrip(
-                        ui = ui,
-                        onPrivilege = { showPrivilege = true },
-                        onTargets = openTargets,
-                    )
+                    // Colours, Icons and Skins need the room for the preview: the strip shows there
+                    // only when something needs attention.
+                    if (destination == Destination.STUDIO || destination == Destination.SYSTEM || stripNeedsAttention(ui)) {
+                        StatusStrip(
+                            ui = ui,
+                            onPrivilege = { showPrivilege = true },
+                            onTargets = openTargets,
+                        )
+                    }
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         androidx.compose.runtime.CompositionLocalProvider(
                             com.hexnext.themer.ui.preview.LocalIconTap provides { key, label -> iconPick = "$key|$label" },
@@ -642,6 +646,14 @@ private fun StatusStrip(
             )
         }
     }
+}
+
+/** True when a [StatusStrip] chip would not be green: no root, a failed or partial apply, protection armed. */
+private fun stripNeedsAttention(ui: UiState): Boolean {
+    if (ui.capability != Capability.ROOT) return true
+    if (ui.applyUnconfirmed && !ui.applyProtectionExpired) return true
+    val report = ui.lastApply ?: return false
+    return !report.finished || report.partialCount > 0 || report.outcomes.any { it.result == TargetResult.FAILED }
 }
 
 /** One chip of [StatusStrip]: a dot and a word in the tone colour, 32 dp inside a 48 dp target. */
