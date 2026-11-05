@@ -2049,7 +2049,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             ?: productId
     }
 
-    /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
+    /** Updates the Monet secure setting through shell access without creating app overlays. */
     fun applyMonetPalette() = runTask(retry = null) { service, _ ->
         check(service.uid == 2000) { "The connection changed. Use the controls for the current access mode." }
         val seed = _ui.value.seed
@@ -2076,6 +2076,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         restored != false
     }
 
+    /** Removes the compiled theme and gives the targets back to Samsung's SemWT overlays. */
     fun removeTheme() = runTask(retry = NoticeAction.RETRY_REMOVE) { service, _ ->
         val ok = applier.remove(service, ::log)
         // The saved report would otherwise come back as "Applied to N apps" on the next start
