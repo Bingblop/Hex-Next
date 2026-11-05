@@ -147,6 +147,51 @@ describe("googlePlayProvider.verify", () => {
     ).rejects.toBeInstanceOf(ProviderUnavailableError);
   });
 
+  it.each([
+    "http://oauth2.googleapis.com/token",
+    "https://attacker.invalid/token",
+    "https://oauth2.googleapis.com.attacker.invalid/token",
+    "https://oauth2.googleapis.com@attacker.invalid/token",
+    "https://oauth2.googleapis.com/token?forward=attacker",
+    "https://oauth2.googleapis.com/token#ignored",
+    "",
+    null,
+    42,
+  ])("rejects an unapproved OAuth destination before network access: %j", async (tokenUri) => {
+    const account: Record<string, unknown> = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    account.token_uri = tokenUri;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(googlePlayProvider.verify(request, {
+      ...env,
+      GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(account),
+    })).rejects.toBeInstanceOf(ProviderUnavailableError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the fixed Google endpoint when optional token_uri is absent", async () => {
+    const account: Record<string, unknown> = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    delete account.token_uri;
+    const urls = stubFetch(() => Response.json({ purchaseState: 0 }));
+    await googlePlayProvider.verify(request, {
+      ...env,
+      GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify(account),
+    });
+    expect(urls[0]).toBe("https://oauth2.googleapis.com/token");
+  });
+
+  it("never follows a redirect with the bearer token on the Play API call", async () => {
+    const inits: (RequestInit | undefined)[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      inits.push(init);
+      return String(input).startsWith("https://oauth2.googleapis.com/")
+        ? Response.json({ access_token: "token", expires_in: 3600 })
+        : Response.json({ purchaseState: 0 });
+    }));
+    await googlePlayProvider.verify(request, env);
+    expect(inits.map((init) => init?.redirect)).toEqual(["error", "error"]);
+  });
+
   it("uses one OAuth exchange for a cold batch", async () => {
     const urls = stubFetch(() => Response.json({ purchaseState: 0 }));
     const response = await handleRequest(new Request("https://example.test/v1/verify-batch", {
