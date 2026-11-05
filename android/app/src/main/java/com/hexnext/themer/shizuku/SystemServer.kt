@@ -8,7 +8,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import androidx.annotation.Keep
-import java.io.File
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import kotlin.system.exitProcess
 
 /**
@@ -65,15 +67,24 @@ object SystemServer {
         }
         handler.post(send)
 
-        // Gone with the app process that asked for it.
+        // Gone with the app process that asked for it. /proc hides other uids' processes from
+        // UID 1000 (hidepid), so ask the kernel: signal 0 is ESRCH once the pid is gone and EPERM
+        // (or nothing) while it lives.
         val watch = object : Runnable {
             override fun run() {
-                if (!File("/proc/$appPid").exists()) exitProcess(0)
+                if (!alive(appPid)) exitProcess(0)
                 handler.postDelayed(this, WATCH_MS)
             }
         }
         handler.postDelayed(watch, WATCH_MS)
         Looper.loop()
+    }
+
+    private fun alive(pid: Int): Boolean = try {
+        Os.kill(pid, 0)
+        true
+    } catch (e: ErrnoException) {
+        e.errno != OsConstants.ESRCH
     }
 
     /** The system context of a process started with app_process (no Application of its own). */
