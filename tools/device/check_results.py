@@ -135,8 +135,8 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
     return ok, lines
 
 
-# Apps that have no light mode at all.
-DARK_ONLY = {"com.google.android.deskclock"}
+# Apps not to warn about: no light mode at all (Clock), or checked by hand (Chrome).
+DARK_ONLY = {"com.google.android.deskclock", "com.android.chrome"}
 
 
 def mode_warnings(res: Path) -> list[str]:
