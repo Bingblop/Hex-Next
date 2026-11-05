@@ -75,6 +75,8 @@ import com.hexnext.themer.ui.ColorSwatch
 import com.hexnext.themer.ui.RADIO_INDENT
 import com.hexnext.themer.ui.SectionCard
 import com.hexnext.themer.ui.appColorScheme
+import com.hexnext.themer.ui.consoleColorScheme
+import com.hexnext.themer.ui.effectiveContrast
 
 /** The eight seed swatches of the "Custom colour" palette. */
 private val SEED_PRESETS = listOf(
@@ -129,8 +131,8 @@ fun AppSettingsScreen(
             item {
                 SectionCard("AI providers") {
                     NavRow(
-                        title = "API keys",
-                        summary = "Add your own keys to generate icons from a short description.",
+                        title = "AI keys",
+                        summary = "Add your own key to make a theme from a description and to draw icons with AI.",
                         onClick = onOpenAiProviders,
                     )
                 }
@@ -165,7 +167,7 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
 
     SectionCard("Appearance") {
         Text(
-            "How Hex Next itself looks. The theme you apply to the phone is set on the main screen.",
+            "How Hex Next itself looks. The theme for your phone is made in Studio.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -183,6 +185,12 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
         }
 
         Label("Colour palette")
+        ChoiceRow(
+            selected = settings.palette == PaletteSource.CONSOLE,
+            title = PaletteSource.CONSOLE.label,
+            summary = "Navy studio look with cyan and coral accents in the theme editor. Other screens follow the phone's colours.",
+            onClick = { store.setPalette(PaletteSource.CONSOLE) },
+        )
         ChoiceRow(
             selected = settings.palette == PaletteSource.DYNAMIC,
             title = PaletteSource.DYNAMIC.label,
@@ -251,8 +259,14 @@ private fun AppearanceCard(settings: AppSettings, store: AppSettingsStore) {
             }
         }
 
-        val preview = remember(settings.palette, settings.seedArgb, settings.pureBlack, settings.contrast, dark) {
-            appColorScheme(context, settings, dark)
+        // Console styles the editor only, so its swatches show the console scheme the editor draws.
+        val contrast = effectiveContrast(context, settings.contrast)
+        val preview = remember(settings.palette, settings.seedArgb, settings.pureBlack, contrast, dark) {
+            if (settings.palette == PaletteSource.CONSOLE && contrast == ContrastLevel.STANDARD) {
+                consoleColorScheme(dark, settings.pureBlack)
+            } else {
+                appColorScheme(context, settings, dark)
+            }
         }
         Label("Preview")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -347,9 +361,8 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
         Column(Modifier.heightIn(min = 48.dp), verticalArrangement = Arrangement.Center) {
             Text("Restart protection", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Needs root. On a rooted phone, if it restarts twice within 10 minutes of an unconfirmed apply, " +
-                    "Hex Next turns its overlays off and shows a notice. Without root (Shizuku over ADB or " +
-                    "wireless debugging) nothing can do this after a restart, so there is no automatic recovery.",
+                "Needs root that stays after a restart. If the phone restarts twice within 10 minutes of an apply " +
+                    "you have not confirmed, Hex Next turns its overlays off.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -373,7 +386,7 @@ private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
         error != null -> error
         !purchases.ready -> "Your purchases have not been checked yet."
         purchases.unlockAll -> "All packs are unlocked, including packs added later."
-        purchases.ownedProductIds.isEmpty() -> "No packs unlocked yet. Unlock packs from the Theme pack card."
+        purchases.ownedProductIds.isEmpty() -> "No packs unlocked yet. Unlock packs in Skins."
         purchases.ownedProductIds.size == 1 -> "1 pack unlocked."
         else -> "${purchases.ownedProductIds.size} packs unlocked."
     }

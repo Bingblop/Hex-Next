@@ -3,8 +3,15 @@
 
     <!-- BootReceiver records each boot id for the boot-loop safe mode (safety/ApplyGuard). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Only for "Theme restored" after a restart (theme/RestoreNotice); never required. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Theme pack catalogue downloads (theme/PackStore). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The theme restore after a restart runs as a foreground service (theme/RestoreService). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Keeps the CPU on while the restore runs (theme/RestoreService). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Package visibility (targetSdk 30+): lets "Open Shizuku" find the Shizuku manager's
          launch intent instead of falling back to the download page. -->
@@ -13,12 +20,30 @@
         <!-- The Play and owner builds detect each other (safety/OtherBuild.kt). -->
         <package android:name="com.hexnext.themer" />
         <package android:name="com.hexnext.themer.owner" />
+        <!-- The Studio shows an app's preview tab only when the app is installed (PreviewTab). -->
+        <package android:name="com.sec.android.app.myfiles" />
+        <package android:name="com.samsung.android.dialer" />
+        <package android:name="com.samsung.android.honeyboard" />
+        <package android:name="com.samsung.android.app.contacts" />
+        <package android:name="com.sec.android.app.popupcalculator" />
+        <package android:name="com.sec.android.app.voicenote" />
+        <package android:name="com.sec.android.gallery3d" />
+        <package android:name="com.sec.android.app.clockpackage" />
+        <package android:name="com.samsung.android.calendar" />
+        <package android:name="com.samsung.android.app.notes" />
+        <package android:name="com.samsung.android.app.reminder" />
+        <package android:name="com.sec.android.app.sbrowser" />
+        <package android:name="com.samsung.android.email.provider" />
+        <package android:name="com.sec.android.app.music" />
+        <package android:name="com.sec.android.app.shealth" />
+        <package android:name="com.samsung.android.lool" />
     </queries>
 
     <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->
     <!-- dataExtractionRules keeps the encrypted AI provider keys and the device-specific
          scan, reports, packs and apply-guard state out of backups and transfers. -->
     <application
+        android:name=".HexNextApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:largeHeap="true"
@@ -57,6 +82,24 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <service
+            android:name=".theme.ApplyKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's theme apply running when they leave the app mid-apply." />
+        </service>
+
+        <service
+            android:name=".theme.RestoreService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Re-applies the user's theme overlays after Android dropped them on a restart." />
+        </service>
 
         <receiver
             android:name=".safety.BootReceiver"

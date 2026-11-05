@@ -1,0 +1,46 @@
+{
+  "about": "Hex Next's own system mode (UID 1000 through KernelSU, no Shizuku needed): applies over the existing theme (old root copies cleared), checks the look, removes and applies again, then soft-reboots to confirm the overlays stay. Hex Next must be allowed superuser in KernelSU.",
+  "steps": [
+    "install",
+    "overlaystate",
+    "scan",
+    "apply",
+    "overlaystate",
+    "lookup",
+    "capture",
+    "remove",
+    "overlaystate",
+    "apply",
+    "overlaystate",
+    "bootlog",
+    "softreboot",
+    "overlaystate",
+    "bootlog"
+  ],
+  "confirm": true,
+  "modes": [
+    "dark",
+    "light"
+  ],
+  "captures": [
+    "settings",
+    "power"
+  ],
+  "lookups": [
+    "com.android.settings:color/sesl_round_and_bgcolor_light",
+    "com.android.systemui:drawable/tw_ic_do_poweroff",
+    "com.samsung.android.honeyboard:color/keyboard_background_dark",
+    "android:color/system_accent1_600"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "no_crash": true,
+    "service_uid": 1000,
+    "remove_clean": true,
+    "overridden": [
+      "com.android.systemui:drawable/tw_ic_do_poweroff",
+      "com.samsung.android.honeyboard:color/keyboard_background_dark"
+    ],
+    "survives_softreboot": true
+  }
+}

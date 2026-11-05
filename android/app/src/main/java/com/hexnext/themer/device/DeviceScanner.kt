@@ -4,6 +4,12 @@ import android.content.Context
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.Process
+import com.hexnext.engine.arsc.ArscReadOptions
+import com.hexnext.engine.arsc.ArscReader as EngineArscReader
+import com.hexnext.engine.arsc.ResourceValue
+import com.hexnext.engine.compile.Dimens
+import com.hexnext.engine.compile.OneUiRules
+import com.hexnext.engine.compile.ValuePlanner
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayDump
 import com.hexnext.engine.frro.FrroReader
@@ -51,17 +57,29 @@ class DeviceScanner(context: Context) {
         val errors = ArrayList<String>()
         val uid = runCatching { service.uid }.getOrElse { errors.add("getUid: ${it.message}"); -1 }
 
-        progress("Reading package status and device props…")
-        val info = service.packageInfo(TARGETS.map { it.pkg }.toTypedArray())
-        if (info.code() != 0) errors.add("packageInfo: ${info.output()}")
-        val props = ThemeService.DEVICE_PROPS.associateWith { info.getString(it).orEmpty() }
-        val basePackages = parsePackages(info, errors)
-
         progress("Listing overlays…")
         val overlayBundle = service.listOverlays()
         if (overlayBundle.code() != 0) errors.add("listOverlays: ${overlayBundle.output()}")
         val overlays = parseOverlays(overlayBundle, errors)
         val frroPaths = overlayBundle.getStringArray(ThemeService.KEY_FRRO_PATHS)?.toList().orEmpty()
+
+        // Every app the apply can theme gets its full resource table (colours and drawables), not
+        // just the base list: an app known only from its SemWT copy had colour names but no
+        // drawable names, so the pack's switches, checkboxes and dialog art never reached it
+        // (Samsung Health, Cloud, Camera, Bixby, Voice Recorder, Internet, device lab 035).
+        val knownSemWt = File(filesDir, KNOWN_SEMWT_DIR).listFiles { f -> f.isFile && f.name.endsWith(".txt") }
+            ?.map { it.name.removeSuffix(".txt") }.orEmpty().filter { it.contains('.') && !it.startsWith("SemWT_") }
+        val scanPackages = (
+            TARGETS.map { it.pkg } + RULE_TARGETS +
+                overlays.filter { it.isSamsungWallpaperTheme }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) } +
+                knownSemWt
+            ).filter { PACKAGE_NAME.matches(it) }.distinct()
+
+        progress("Reading package status and device props…")
+        val info = service.packageInfo(scanPackages.toTypedArray())
+        if (info.code() != 0) errors.add("packageInfo: ${info.output()}")
+        val props = ThemeService.DEVICE_PROPS.associateWith { info.getString(it).orEmpty() }
+        val basePackages = parsePackages(info, scanPackages, errors)
 
         // A scan whose basic service calls failed must not replace the last good one: the swap
         // below deletes the previous files/scan, and the broken report would become the latest.
@@ -88,9 +106,17 @@ class DeviceScanner(context: Context) {
         progress("Copying SemWT .frro files…")
         val frroCopied = copyFrros(service, frroPaths, File(scanDir, "frro"), errors)
 
+        // Disabled SemWT overlays count too when a mapping for them is remembered: an apply
+        // disables every SemWT overlay it takes over, so a scan after it saw only the 19 base
+        // packages and the next apply themed 17 apps instead of 58 (lab-006).
+        val knownDir = File(filesDir, KNOWN_SEMWT_DIR)
         val semWtTargets = (
             basePackages.map { it.pkg } +
-                overlays.filter { it.isSamsungWallpaperTheme && it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) }
+                overlays.filter { it.isSamsungWallpaperTheme && it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) } +
+                overlays.filter { it.isSamsungWallpaperTheme && !it.enabled }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) }
+                    .filter { File(knownDir, "${sanitize(it)}.txt").isFile } +
+                (knownDir.listFiles { f -> f.isFile && f.name.endsWith(".txt") }?.map { it.name.removeSuffix(".txt") }.orEmpty()
+                    .filter { it.contains('.') && !it.startsWith("SemWT_") })
             ).distinct()
         val semWt = semWtTargets.map { target ->
             progress("Dumping ${OneUi9Facts.semWtOverlayId(target)}…")
@@ -118,7 +144,12 @@ class DeviceScanner(context: Context) {
         }
 
         progress("Reading system colours…")
-        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext, scanDir) }.getOrElse {
+        // Samsung's own palette (SemWT_MonetPalette) is what its per-app SemWT colours are made
+        // from. The live palette is not: once a theme is on it is the theme's (HexNext_android
+        // overrides android:color/system_*), so inference against it matched nothing and the
+        // wallpaper's colours were copied verbatim (lab-004/005). Live colours fill any gap.
+        val samsungPalette = runCatching { readSamsungPalette(service, errors) }.getOrDefault(emptyMap())
+        val shades = runCatching { SnapshotBuilder.saveSystemShades(appContext, scanDir, samsungPalette) }.getOrElse {
             errors.add("system shades: ${it.message}")
             emptyMap()
         }
@@ -198,7 +229,7 @@ class DeviceScanner(context: Context) {
         }
     }
 
-    private fun parsePackages(info: Bundle, errors: MutableList<String>): List<PackageStatus> {
+    private fun parsePackages(info: Bundle, packages: List<String>, errors: MutableList<String>): List<PackageStatus> {
         val byPkg = HashMap<String, PackageStatus>()
         runCatching {
             val array = JSONArray(info.getString(ThemeService.KEY_JSON) ?: "[]")
@@ -215,9 +246,15 @@ class DeviceScanner(context: Context) {
                 )
             }
         }.onFailure { errors.add("packageInfo json: ${it.message}") }
-        return TARGETS.map { t ->
-            (byPkg[t.pkg] ?: PackageStatus(t.pkg, t.deprecated, null, installed = false, debloated = false, error = "no data"))
-                .copy(deprecated = t.deprecated)
+        val deprecated = TARGETS.filter { it.deprecated }.map { it.pkg }.toSet()
+        // The base targets always appear (installed or not); other apps only when installed.
+        val base = TARGETS.map { it.pkg }.toSet()
+        return packages.mapNotNull { pkg ->
+            val status = byPkg[pkg]
+            if (status == null && pkg !in base) return@mapNotNull null
+            if (status != null && !status.installed && pkg !in base) return@mapNotNull null
+            (status ?: PackageStatus(pkg, pkg in deprecated, null, installed = false, debloated = false, error = "no data"))
+                .copy(deprecated = pkg in deprecated)
         }
     }
 
@@ -288,6 +325,9 @@ class DeviceScanner(context: Context) {
                         .writeText(parsed.ofType(type).map { it.name }.distinct().sorted().joinToString("\n"))
                 }
             }
+            // Sizes, numbers and switches (name, configuration, value) of the targets the native
+            // extras tune: the Quick panel shapes and the pack options rebuilt in Hex Next.
+            if (status.pkg in VALUE_SCAN_TARGETS) runCatching { writeValues(out, out.parentFile) }
             status.copy(
                 arscPath = out.absolutePath,
                 arscBytes = out.length(),
@@ -300,6 +340,43 @@ class DeviceScanner(context: Context) {
         }
     }
 
+    /**
+     * Writes every `dimen`, `integer` and `bool` of [arsc] to `names-<type>.txt` in [dir] as
+     * `name<TAB>config<TAB>value`, one line per configured value, in the text
+     * [com.hexnext.engine.compile.ValueNames.parse] reads. Dimensions are decoded from Android's
+     * packed complex form (`12.0dp`, `3.5px` …), floats are written `0.5f`; a reference
+     * (`@0x7f…`) gets a fourth column with the value it resolves to in that configuration, when
+     * it resolves inside the table.
+     */
+    private fun writeValues(arsc: File, dir: File) {
+        val types = setOf("dimen", "integer", "bool")
+        val table = EngineArscReader.read(arsc, ArscReadOptions(types = types, overlayable = false))
+        fun text(v: ResourceValue): String? = when (v) {
+            is ResourceValue.Dimension -> Dimens.format(v.raw)
+            is ResourceValue.IntValue -> v.value.toString()
+            is ResourceValue.BoolValue -> v.value.toString()
+            is ResourceValue.FloatValue -> "${v.value}f"
+            is ResourceValue.Reference -> "@0x" + Integer.toHexString(v.id)
+            else -> null
+        }
+        for (type in types) {
+            val lines = ArrayList<String>()
+            for (entry in table.entries) {
+                if (entry.type != type) continue
+                for (cv in entry.values) {
+                    val v = cv.value
+                    var line = "${entry.name}\t${cv.config.ifEmpty { "default" }}\t${text(v) ?: v.toString()}"
+                    if (v is ResourceValue.Reference) {
+                        val resolved = runCatching { table.resolve(v, cv.config) }.getOrNull()
+                        if (resolved != null && resolved !is ResourceValue.Reference) text(resolved)?.let { line += "\t$it" }
+                    }
+                    lines += line
+                }
+            }
+            File(dir, "names-$type.txt").writeText(lines.sorted().joinToString("\n"))
+        }
+    }
+
     private fun copyZipEntry(input: InputStream, name: String, out: File): Boolean {
         val zip = ZipInputStream(input.buffered())
         while (true) {
@@ -309,6 +386,30 @@ class DeviceScanner(context: Context) {
                 return true
             }
         }
+    }
+
+    /**
+     * The 65 `system_*` colours of Samsung's `android:SemWT_MonetPalette` (enabled or not; a
+     * disabled fabricated overlay still dumps its mapping), keyed `system_accent1_500`. Remembered
+     * in [KNOWN_SEMWT_DIR] like the per-app dumps, and read from there when the overlay is gone.
+     * Empty when neither has it.
+     */
+    private fun readSamsungPalette(service: IThemeService, errors: MutableList<String>): Map<String, Int> {
+        val known = File(File(filesDir, KNOWN_SEMWT_DIR), "$MONET_PALETTE_OVERLAY.txt")
+        fun parse(text: String): Map<String, Int> =
+            OverlayDump.parseAll(text).firstOrNull { it.overlayId == MONET_PALETTE_ID }?.entries.orEmpty()
+                .filter { it.type == "color" && it.name.startsWith("system_") }
+                .mapNotNull { e -> e.defaultColor?.let { e.name to it } }
+                .toMap()
+        val live = runCatching { ExecOutput.fullText(service, service.exec("cmd overlay dump $MONET_PALETTE_ID")) }
+            .onFailure { errors.add("palette dump: ${it.message}") }
+            .getOrNull()
+        val fromLive = live?.let(::parse).orEmpty()
+        if (fromLive.size >= MIN_PALETTE_SHADES) {
+            runCatching { known.parentFile?.mkdirs(); known.writeText(live!!) }
+            return fromLive
+        }
+        return if (known.isFile) runCatching { parse(known.readText()) }.getOrDefault(emptyMap()) else emptyMap()
     }
 
     /**
@@ -371,23 +472,52 @@ class DeviceScanner(context: Context) {
             }
         }
 
+        // Remember every good mapping outside the scan dir (scans replace that dir), and fall back
+        // to the remembered one when the overlay is gone now: Samsung deletes its SemWT overlays
+        // when the colour palette is turned off or the wallpaper changes, and Hex Next itself
+        // keeps them disabled while a theme is on. Without this, a later scan maps nothing and
+        // the theme shrinks to the few resources the rules name directly (device lab, lab-003).
+        val known = File(File(filesDir, KNOWN_SEMWT_DIR), "${sanitize(target)}.txt")
+        var cached: OverlayDump? = null
+        if (source == SemWtStatus.SOURCE_DUMP) {
+            runCatching { known.parentFile?.mkdirs(); dumpFile.copyTo(known, overwrite = true) }
+                .onFailure { problems.add("remember mapping: ${it.message}") }
+        } else if (source == SemWtStatus.SOURCE_NONE && known.isFile) {
+            runCatching {
+                val text = known.readText()
+                cached = OverlayDump.parseAll(text).firstOrNull { it.overlayId == overlayId }?.takeIf { it.entries.isNotEmpty() }
+                cached?.let { old ->
+                    dumpFile.writeText(text)
+                    mappingFile.writeText(mappingJson(old).toString(2))
+                    source = SemWtStatus.SOURCE_CACHED
+                    resourceCount = old.entries.size
+                    valueCount = old.entries.size + old.entries.count { it.nightValue != null }
+                    dumpError = null
+                    problems.add("$overlayId is not on the phone now; used the mapping remembered from an earlier scan")
+                }
+            }.onFailure { problems.add("remembered mapping: ${it.message}") }
+        }
+
         // A dump failure only counts as an error when the .frro fallback did not cover it.
         dumpError?.let { problems.add(0, if (source == SemWtStatus.SOURCE_FRRO) "$it; used the copied .frro" else it) }
 
+        // A remembered mapping stands in for the dump: found (so the target is themed), never
+        // enabled (the live overlay list decides what the apply disables).
+        val shown = dump?.takeIf { it.entries.isNotEmpty() } ?: cached ?: dump
         return SemWtStatus(
             target = target,
             overlayId = overlayId,
-            found = dump != null,
-            owner = dump?.packageName,
-            state = dump?.state,
-            enabled = dump?.isEnabled ?: false,
-            priority = dump?.priority,
-            targetOverlayable = dump?.targetOverlayable,
-            frroPath = dump?.baseCodePath?.ifBlank { null },
+            found = shown != null,
+            owner = shown?.packageName,
+            state = shown?.state,
+            enabled = if (cached != null) false else dump?.isEnabled ?: false,
+            priority = shown?.priority,
+            targetOverlayable = shown?.targetOverlayable,
+            frroPath = if (cached != null) null else dump?.baseCodePath?.ifBlank { null },
             source = source,
             resourceCount = resourceCount,
             valueCount = valueCount,
-            missingCount = dump?.missing?.size ?: 0,
+            missingCount = shown?.missing?.size ?: 0,
             dumpPath = dumpFile.takeIf { it.isFile }?.absolutePath,
             mappingPath = mappingFile.takeIf { it.isFile }?.absolutePath,
             error = problems.takeIf { it.isNotEmpty() }?.joinToString("; "),
@@ -498,9 +628,24 @@ class DeviceScanner(context: Context) {
 
     companion object {
         private const val ARSC = "resources.arsc"
+
+        /** Targets whose sizes, numbers and switches the scan lists (see [writeValues]). */
+        private val VALUE_SCAN_TARGETS = ValuePlanner.VALUE_TARGETS
+
+        /** Decodes a `TYPE_DIMENSION` complex value, e.g. `0x00001001` → `16.0dp`. */
+        internal fun complexDimension(raw: Int): String = Dimens.format(raw)
         private const val SCAN_DIR = "scan"
         /** A scan in progress writes here; it becomes [SCAN_DIR] only when the scan finished. */
         private const val SCAN_STAGING_DIR = "scan.new"
+
+        /** Last good SemWT dump per target; outlives scans (see [scanSemWt]). */
+        const val KNOWN_SEMWT_DIR = "semwt-known"
+
+        private const val MONET_PALETTE_OVERLAY = "SemWT_MonetPalette"
+        private const val MONET_PALETTE_ID = "android:$MONET_PALETTE_OVERLAY"
+
+        /** A palette dump with fewer shades than this is treated as missing (a full one has 65). */
+        private const val MIN_PALETTE_SHADES = 40
         /** The previous [SCAN_DIR] while the finished scan is swapped in. */
         private const val SCAN_OLD_DIR = "scan.old"
         private val SWAP_LOCK = Any()
@@ -514,6 +659,11 @@ class DeviceScanner(context: Context) {
 
         /** Scan reports kept in `files/reports/`; older ones are deleted after each scan. */
         private const val KEEP_REPORTS = 10
+
+        /** Every target of the bundled One UI 7, 8 and 9 rules (a package list; missing ones are skipped). */
+        private val RULE_TARGETS: List<String> by lazy {
+            listOf(7, 8, 9).flatMap { runCatching { OneUiRules.load(it).activeTargets }.getOrDefault(emptyList()) }.distinct()
+        }
 
         /** One UI targets the scan always checks. */
         val TARGETS = listOf(

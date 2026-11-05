@@ -20,6 +20,7 @@ import com.hexnext.themer.ui.HexNextTheme
 import com.hexnext.themer.ui.MainScreen
 import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.studio.StudioTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -36,7 +37,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (compat == Compatibility.Supported) ShizukuManager.init()
+        if (compat == Compatibility.Supported) ShizukuManager.init(this)
         enableEdgeToEdge()
         val settingsStore = AppSettingsStore.get(this)
         setContent {
@@ -52,7 +53,7 @@ class MainActivity : ComponentActivity() {
             HexNextTheme(settings) {
                 when (val gate = compat) {
                     Compatibility.Supported -> MainScreen(viewModel)
-                    else -> BlockedScreen(gate)
+                    else -> StudioTheme { BlockedScreen(gate) }
                 }
             }
         }

@@ -121,7 +121,7 @@ fun DescribeThemeCard(
                 Column(Modifier.weight(1f)) {
                     Text("Turn a sentence into a palette", style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Add an AI key in App settings to get started.",
+                        "Tap here to add an AI key, then describe the theme you want.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -138,7 +138,7 @@ fun DescribeThemeCard(
 
     SectionCard("Describe your theme") {
         Text(
-            "Say what you want in a sentence, such as \"warm sunset, cosy, dark\". The suggestion goes into the editor; nothing changes on the phone until you apply.",
+            "Describe it in a sentence, such as \"warm sunset, cosy, dark\". You get colours, and maybe a pack and a name, in the editor. The phone changes only when you tap Apply theme.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -275,7 +275,7 @@ private fun SuggestionPreview(
         Button(onClick = onApply, enabled = enabled) { Text(if (applied) "Apply again" else "Apply to editor") }
         if (applied) {
             Text(
-                "Applied to the editor. Press Apply at the bottom to put it on the phone.",
+                "Applied to the editor. Tap Apply theme at the bottom to put it on the phone.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

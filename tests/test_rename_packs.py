@@ -60,6 +60,72 @@ class RenamePacksTest(unittest.TestCase):
             self.assertEqual(rc, 1)
             self.assertFalse(out.exists())
 
+    def test_former_catalogue_id_is_renamed(self):
+        # A pack built under an earlier catalogue name (the old packs branch) gets its current one;
+        # option text that named the former pack names the current one.
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp, "in"), Path(tmp, "out")
+            src.mkdir()
+            pack = {"id": "velvet-rope", "name": "Velvet Rope", "author": "Charlie_Dii_", "version": "3.8",
+                    "package": "com.hexnext.pack.velvet_rope", "categories": {"navbar": "Navigation bar"},
+                    "dayNight": False, "previewCount": 0,
+                    "options": [{"type": "switch", "key": "x", "label": "Use Velvet Rope Encore Navbar"}]}
+            with zipfile.ZipFile(src / "velvet-rope.zip", "w") as z:
+                z.writestr("pack.json", json.dumps(pack))
+            rc, _ = run_main(src, out)
+            self.assertEqual(rc, 0)
+            self.assertEqual(sorted(p.name for p in out.iterdir()), ["index.json", "iolite.zip"])
+            with zipfile.ZipFile(out / "iolite.zip") as z:
+                pack = json.loads(z.read("pack.json"))
+        self.assertEqual((pack["id"], pack["name"], pack["version"], pack["author"]), ("iolite", "Iolite", "1.0", ""))
+        self.assertEqual(pack["package"], "com.hexnext.pack.iolite")
+        self.assertEqual(pack["options"][0]["label"], "Use Charoite Navbar")
+
+    def test_author_and_version_never_come_from_the_source(self):
+        source_id, entry = first_mapping()
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp, "in"), Path(tmp, "out")
+            src.mkdir()
+            pack = {"id": source_id, "name": "Original", "author": "Original Author", "version": "Super_9",
+                    "categories": ["settings"], "dayNight": False, "previewCount": 0}
+            with zipfile.ZipFile(src / "x.zip", "w") as z:
+                z.writestr("pack.json", json.dumps(pack))
+            rc, _ = run_main(src, out)
+            self.assertEqual(rc, 0)
+            with zipfile.ZipFile(out / f"{entry['id']}.zip") as z:
+                pack = json.loads(z.read("pack.json"))
+            index = json.loads((out / "index.json").read_text())["packs"]
+        self.assertEqual((pack["author"], pack["version"]), ("", entry["version"]))
+        self.assertEqual([(p["author"], p["version"]) for p in index], [("", entry["version"])])
+        self.assertNotIn("Original", json.dumps(index))
+
+    def test_scrub_removes_authors_brand_and_former_names(self):
+        options = rename_packs.scrub_options([
+            {"type": "switch", "key": "a", "label": "Icons by Timmah"},
+            {"type": "switch", "key": "b", "label": "Gradient Background (hex app style)"},
+            {"type": "switch", "key": "c", "label": "Disable Plugin Custom Clock Font"},
+            {"type": "switch", "key": "d", "label": "Fox Hunt and Owl Hours icons"},
+            {"type": "switch", "key": "e", "label": "Use project.vivid.ui.plugin.spark assets via #hex_pro"},
+            {"type": "switch", "key": "qs", "label": "0style,1quantum,5spark"},
+            {"type": "select", "keys": ["x", "y", "z"], "label": "Style", "choices": [" Madara", " "]},
+        ], "zircon")
+        labels = [o["label"] for o in options]
+        self.assertEqual(labels[:6], ["Icons", "Gradient Background", "Disable Pack Custom Clock Font",
+                                      "Xenotime and Zircon icons", "Use assets", "Quick panel options"])
+        self.assertEqual(options[6]["choices"], [" Scolecite", "Option 2", "Option 3"])
+        self.assertEqual(options[6]["keys"], ["x", "y", "z"])
+        self.assertEqual([o.get("key") for o in options[:6]], ["a", "b", "c", "d", "e", "qs"])
+
+    def test_category_labels_are_scrubbed_and_ids_kept(self):
+        cats = rename_packs.scrub_categories({"navbar": "Navigation bar", "timmah": "timmah",
+                                              "x": "Spark extras"}, "ekanite")
+        self.assertEqual(cats, {"navbar": "Navigation bar", "timmah": "Extra layers", "x": "Ekanite extras"})
+
+    def test_settings_prefixes_are_neutral_and_keep_their_order(self):
+        settings = {"zeta:a": "true", "asylum:b": "true", "drasticko:a": "false", "hex_pro_mix": "false", "gsb": "true"}
+        self.assertEqual(rename_packs.neutral_settings(settings),
+                         {"p03:a": "true", "p01:b": "true", "p02:a": "false", "gsb": "true"})
+
     def test_mapped_pack_is_renamed(self):
         source_id, entry = first_mapping()
         with tempfile.TemporaryDirectory() as tmp:
@@ -71,6 +137,7 @@ class RenamePacksTest(unittest.TestCase):
             with zipfile.ZipFile(out / f"{entry['id']}.zip") as z:
                 pack = json.loads(z.read("pack.json"))
             self.assertEqual((pack["id"], pack["name"]), (entry["id"], entry["name"]))
+            self.assertEqual(pack["package"], "com.hexnext.pack." + entry["id"])
             self.assertNotIn("sourcePackage", pack)
             index = json.loads((out / "index.json").read_text())
             self.assertEqual([p["name"] for p in index["packs"]], [entry["name"]])
@@ -95,30 +162,30 @@ class RenamePacksTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             src, out = Path(tmp, "in"), Path(tmp, "out")
             src.mkdir()
-            pack = {"id": "fever-dream", "name": "Fever Dream", "author": "a", "version": "1",
+            pack = {"id": "peridot", "name": "Peridot", "author": "a", "version": "1",
                     "categories": ["settings"], "dayNight": False, "previewCount": 0,
                     "options": [
                         {"type": "select", "keys": ["natone", "alticon"], "label": "Clock Widget Deliun",
                          "choices": [" Tint", " Deliun App Icons"]},
                         {"type": "switch", "key": "jk", "label": "Use jajanken_ Navbar Icons"},
                         {"type": "switch", "key": "x", "label": "Use AOSP Navbar Icons"}]}
-            with zipfile.ZipFile(src / "fever-dream.zip", "w") as z:
+            with zipfile.ZipFile(src / "peridot.zip", "w") as z:
                 z.writestr("pack.json", json.dumps(pack))
             rc, _ = run_main(src, out)
             self.assertEqual(rc, 0)
-            with zipfile.ZipFile(out / "fever-dream.zip") as z:
+            with zipfile.ZipFile(out / "peridot.zip") as z:
                 options = json.loads(z.read("pack.json"))["options"]
-        self.assertEqual(options[0]["label"], "Clock Widget Lagoon")
-        self.assertEqual(options[0]["choices"], [" Tint", " Lagoon App Icons"])
+        self.assertEqual(options[0]["label"], "Clock Widget Epidote")
+        self.assertEqual(options[0]["choices"], [" Tint", " Epidote App Icons"])
         self.assertEqual(options[0]["keys"], ["natone", "alticon"])
-        self.assertEqual(options[1]["label"], "Use Jackpot Navbar Icons")
-        self.assertEqual(options[2]["label"], "Use AOSP Navbar Icons")
+        self.assertEqual(options[1]["label"], "Use Lepidolite Navbar Icons")
+        self.assertEqual(options[2]["label"], "Use Android Navbar Icons")
 
     def test_own_source_name_becomes_the_pack_name(self):
         options = rename_packs.scrub_options(
             [{"type": "switch", "key": "b", "label": "Use Original Blend Keyboard Style"}],
-            "dusk-and-dawn")
-        self.assertEqual(options[0]["label"], "Use Original Dusk & Dawn Keyboard Style")
+            "olivine")
+        self.assertEqual(options[0]["label"], "Use Original Olivine Keyboard Style")
 
     def test_catalogue_pack_passes_through(self):
         _, entry = first_mapping()

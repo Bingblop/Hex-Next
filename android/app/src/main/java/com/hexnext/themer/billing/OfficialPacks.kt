@@ -1,6 +1,7 @@
 package com.hexnext.themer.billing
 
 import android.content.Context
+import com.hexnext.engine.pack.PackIdAliases
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,18 +21,23 @@ class OfficialPacks private constructor(context: Context) {
     /** Every recorded id. */
     val ids: StateFlow<Set<String>> = current.asStateFlow()
 
-    /** Adds [packIds] to the recorded set and persists it when it grew. */
+    /** Adds [packIds] (former catalogue ids as their current id) to the recorded set and persists it when it grew. */
     fun record(packIds: Collection<String>) {
         synchronized(lock) {
-            val merged = current.value + packIds.filter { it.isNotBlank() }
+            val merged = current.value + packIds.filter { it.isNotBlank() }.map(PackIdAliases::current)
             if (merged.size == current.value.size) return
             prefs.edit().putStringSet(KEY_IDS, HashSet(merged)).apply()
             current.value = merged
         }
     }
 
+    /**
+     * The recorded ids, with an id recorded under a former catalogue id read as its current id
+     * ([PackIdAliases]); the former id itself is kept too, so a check under either id finds it.
+     */
     private fun load(): Set<String> =
         runCatching { prefs.getStringSet(KEY_IDS, null)?.toSet() }.getOrNull().orEmpty()
+            .flatMapTo(LinkedHashSet()) { listOf(it, PackIdAliases.current(it)).distinct() }
 
     companion object {
         private const val PREFS = "hexnext_packs"

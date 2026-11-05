@@ -25,7 +25,7 @@ class ThemeStore(context: Context) {
     @Synchronized
     fun load(): ThemeSpec {
         if (!file.isFile) return ThemeSpec.default()
-        return runCatching { ThemeSpec.fromJson(file.readText()) }.getOrElse { e ->
+        return runCatching { migrate(file.readText()) }.getOrElse { e ->
             val backup = File(file.parentFile, BACKUP_NAME)
             val kept = file.renameTo(backup) || runCatching { file.copyTo(backup, overwrite = true) }.isSuccess
             Log.w(TAG, "Unreadable $FILE_NAME (${e.message}); using the default theme" + if (kept) ", old file kept as $BACKUP_NAME" else "")
@@ -63,6 +63,17 @@ class ThemeStore(context: Context) {
         }
     }
 
+    /**
+     * Decodes [json], turning on [ThemeSpec.builtInIcons] for a file written before the switch
+     * existed, so themes saved by an older build also get the colourful built-in icons new themes
+     * start with. Every save writes the key (defaults are encoded), so a later "off" is kept.
+     * Nothing on the phone changes until the next Apply.
+     */
+    private fun migrate(json: String): ThemeSpec {
+        val spec = ThemeSpec.fromJson(json)
+        return if (BUILT_IN_ICONS_KEY.containsMatchIn(json)) spec else spec.copy(builtInIcons = true)
+    }
+
     /** Loads, transforms with [block] and saves atomically with respect to other callers. */
     @Synchronized
     fun update(block: (ThemeSpec) -> ThemeSpec): ThemeSpec = block(load()).also { save(it) }
@@ -71,5 +82,6 @@ class ThemeStore(context: Context) {
         const val FILE_NAME = "theme.json"
         const val BACKUP_NAME = "theme.json.bad"
         private const val TAG = "ThemeStore"
+        private val BUILT_IN_ICONS_KEY = Regex("\"builtInIcons\"\\s*:")
     }
 }

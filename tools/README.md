@@ -22,11 +22,44 @@ engine (`android/engine/src/main/kotlin/com/hexnext/engine/pack/Pack.kt`).
 
 | Script | Purpose | Usage |
 |---|---|---|
-| `hex_pack_builder.py` | Convert a source plugin directory into Hex Next packs: copies only readable PNG layers, writes `pack.json`, renames every pack to its catalogue identity and writes `index.json` for the pack folder. Encrypted templates are never read. | `python3 tools/hex_pack_builder.py <plugin-dir> <out-dir>` |
+| `hex_pack_builder.py` | Convert a source plugin directory into Hex Next packs: copies only readable PNG layers, writes `pack.json` under the pack's catalogue identity (see below) and writes `index.json` for the pack folder. Encrypted templates are never read. | `python3 tools/hex_pack_builder.py <plugin-dir> <out-dir>` |
 | `hex_plugin_catalog.py` | Build the metadata catalogue in `docs/plugin-catalog/` (feature flags, target categories, resource names). Copies no artwork. The engine test `ElementsTest` reads `catalog.json`. | `python3 tools/hex_plugin_catalog.py <plugin-dir> <out-dir>` |
-| `rename_packs.py` | Give packs built before the naming table their catalogue id, name and `com.hexnext.pack.<id>` package, and regenerate `index.json`. Refuses (exit 1, writes nothing) if any pack id is neither a mapped source id nor a catalogue id. `hex_pack_builder.py` already applies the same table. | `python3 tools/rename_packs.py <in-dir> <out-dir>` |
-| `pack_names.json` | The naming table: source id to Hex Next id, display name and package. Nothing from a source plugin's name or package is shown in the app or written into a pack. | data file |
+| `rename_packs.py` | Give built packs their catalogue identity and scrub their text, and regenerate `index.json`. Accepts a pack under its source id, a former catalogue id or its current id. Refuses (exit 1, writes nothing) if any pack id is none of these. The input folder is only read unless `<in-dir>` is `<out-dir>`. | `python3 tools/rename_packs.py <in-dir> <out-dir>` |
+| `pack_names.json` | The naming table: source id to the Hex Next id, display name and catalogue version, plus `formerIds` (earlier catalogue ids, migration only) and the converter inputs `sourcePackage`, `sourceNames` and `sourceAuthors`. | data file |
 | `make_app_icon.py` | Render the adaptive launcher icon master (1024 px) from the hex artwork: writes `bg.png`, `fg.png`, `full.png` and circle/squircle previews into a directory (created if missing). | `python3 tools/make_app_icon.py <src.png> <out-dir>` |
+
+### Catalogue identity
+
+Every catalogue pack ships under a neutral mineral name (`docs/design/studio-v2-phase2.md`,
+appendix B) that has no link to the source plugin. Both converters write the same `pack.json`:
+
+- `id`, `name` and `version` from `pack_names.json`, package `com.hexnext.pack.<id>`, a blank
+  `author` (the app hides it). The source plugin's name, version, author and package are never
+  written.
+- Option labels and choices and category labels are scrubbed: source plugin names and former
+  catalogue names become the catalogue name of their pack, source authors, the legacy brand
+  (`#hex`, `hex_`, `hex pro`, the bare word "hex", `project.vivid.*`) and a parenthesis naming it
+  are removed, "plugin" becomes "pack" and "AOSP" becomes "Android". A select choice that would be
+  blank gets "Option n" (the app would show the internal key), a switch labelled with a bare key
+  list is labelled after its category, and a category without a label of its own gets
+  "Extra layers".
+- Option keys, category ids, layer paths and resource names stay: the compiler and saved themes
+  reference them. The source prefixes of `settings` keys become `p01`, `p02` … in their original
+  sort order (the only reader, `Pack.defaultOptions`, ranks prefixes by that order), and
+  unprefixed settings keys that name a legacy plugin are dropped (nothing reads them).
+
+`formerIds` are the ids packs shipped under before. The app keeps them working:
+`PackIdAliases.kt` in the engine (generated from them, kept in sync by `tests/test_pack_names.py`)
+maps saved themes, installed zips (rewritten in place by `PackStore`) and purchases of
+`pack_<former id>` products to the current id; a former id is always a paid pack.
+
+`tests/test_pack_names.py` checks the table and audits a generated pack folder when
+`HEXNEXT_PACKS_DIR` points at it:
+
+```bash
+python3 tools/rename_packs.py <packs> <packs-v2>
+HEXNEXT_PACKS_DIR=<packs-v2> python3 -m unittest tests.test_pack_names
+```
 
 Requirements: `pip install androguard loguru colorama` for the catalogue and pack builder,
 `pip install pillow` for the icon script.

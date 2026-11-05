@@ -7,7 +7,14 @@
 set -u
 OUT_DIR="${1:-$PWD}"
 OUT="$OUT_DIR/hexnext-icons.txt"
-PKG=com.hexnext.themer
+# The owner build (com.hexnext.themer.owner) wins when it is installed; set PKG to override.
+if [ -z "${PKG:-}" ]; then
+  if su -c "pm path com.hexnext.themer.owner" 2>/dev/null | grep -q '^package:'; then
+    PKG=com.hexnext.themer.owner
+  else
+    PKG=com.hexnext.themer
+  fi
+fi
 NAMES=/data/data/$PKG/files/scan/com.android.settings/names-drawable.txt
 SHOT=/sdcard/Download/hexnext-settings-restart.png
 

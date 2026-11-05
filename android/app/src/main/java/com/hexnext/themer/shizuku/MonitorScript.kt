@@ -7,12 +7,21 @@ import com.hexnext.themer.BuildConfig
  * in the owner build, see [DIR]) and started
  * detached (setsid + nohup) by [ThemeService.startStabilityMonitor].
  *
- * Usage: `sh monitor.sh <seconds>`. Every 5 s it samples `pidof system_server` and
- * `pidof com.android.systemui`. A pid that changes to a new non-empty value counts as one
+ * Usage: `sh monitor.sh <seconds> [first prefix]`. Every 5 s it samples `pidof system_server`
+ * and `pidof com.android.systemui`. A pid that changes to a new non-empty value counts as one
  * restart (an empty reading while the process is down is ignored). Two or more restarts of
  * either process inside the window disable every `HexNext*` overlay from `cmd overlay list`
- * and write `safe_mode.json` {"reason":"...","time":<epoch>}. `monitor_status.json` is
- * rewritten on every tick and always on exit (completed / safe_mode / stopped).
+ * and write `safe_mode.json` {"reason":"...","time":<epoch>,"stage":"all"}.
+ * `monitor_status.json` is rewritten on every tick and always on exit (completed / safe_mode /
+ * stopped).
+ *
+ * Staged mode (a second argument, `[A-Za-z0-9_]+`, see
+ * [ThemeService.startStabilityMonitorStaged]): the first trip disables only the overlays whose
+ * name starts with that prefix (the `HexNextValues_` size overlays), writes
+ * `values_rollback.json` {"reason","time","stage":"values","prefix"}, resets the restart
+ * counters and keeps watching for a fresh window. Only a second trip disables everything and
+ * writes `safe_mode.json` as above. A colour theme that was stable before the sizes were added
+ * therefore stays on when only the sizes made System UI crash.
  *
  * It runs as root while [DIR] belongs to the shell (uid 2000), so any shell process can put a
  * symlink in it under a name the monitor writes. The script therefore works inside [DIR] only
@@ -36,6 +45,11 @@ internal object MonitorScript {
     const val PID_FILE = "$DIR/monitor.pid"
     const val STATUS_FILE = "$DIR/monitor_status.json"
     const val SAFE_MODE_FILE = "$DIR/safe_mode.json"
+    const val VALUES_ROLLBACK_NAME = "values_rollback.json"
+    const val VALUES_ROLLBACK_FILE = "$DIR/$VALUES_ROLLBACK_NAME"
+
+    /** A prefix the staged monitor accepts as its second argument. */
+    val PREFIX = Regex("^[A-Za-z0-9_]+$")
 
     val text: String by lazy { TEMPLATE.trimIndent().replace('£', '$') + "\n" }
 
@@ -46,6 +60,11 @@ internal object MonitorScript {
         umask 022
         DIR=$DIR
         DURATION=£{1:-120}
+        FIRST_PREFIX=£{2:-}
+        case "£FIRST_PREFIX" in
+          *[!A-Za-z0-9_]*) FIRST_PREFIX="" ;;
+        esac
+        STAGE=1
         INTERVAL=5
         STATUS=monitor_status.json
         PIDFILE=monitor.pid
@@ -88,7 +107,9 @@ internal object MonitorScript {
         }
         trap on_term TERM INT HUP
 
+        # disable_hex [PREFIX]: disables every overlay whose name starts with PREFIX (HexNext).
         disable_hex() {
+          prefix=£{1:-HexNext}
           tries=0
           while [ "£tries" -lt 12 ]; do
             LIST=£(cmd overlay list --user current 2>/dev/null)
@@ -102,7 +123,7 @@ internal object MonitorScript {
                 for word in £line; do id=£word; done
                 name=£{id#*:}
                 case "£name" in
-                  HexNext*) cmd overlay disable --user current "£id" >/dev/null 2>&1 ;;
+                  "£prefix"*) cmd overlay disable --user current "£id" >/dev/null 2>&1 ;;
                 esac
               done
               return 0
@@ -143,10 +164,23 @@ internal object MonitorScript {
               LAST_UI=£UI
             fi
           fi
+          if [ "£STAGE" = 1 ] && [ -n "£FIRST_PREFIX" ] && { [ "£SS_CHANGES" -ge 2 ] || [ "£UI_CHANGES" -ge 2 ]; }; then
+            REASON="system_server restarted £SS_CHANGES times and SystemUI £UI_CHANGES times within £DURATION s of a Hex Next apply; disabled £FIRST_PREFIX overlays first"
+            disable_hex "£FIRST_PREFIX"
+            put values_rollback.json '{"reason":"%s","time":%s,"stage":"values","prefix":"%s"}\n' "£REASON" "£(date +%s)" "£FIRST_PREFIX"
+            STAGE=2
+            SS_CHANGES=0
+            UI_CHANGES=0
+            LAST_SS=£(pidof system_server)
+            LAST_UI=£(pidof com.android.systemui)
+            END=£((£(date +%s) + DURATION))
+            write_status running
+            continue
+          fi
           if [ "£SS_CHANGES" -ge 2 ] || [ "£UI_CHANGES" -ge 2 ]; then
             REASON="system_server restarted £SS_CHANGES times and SystemUI £UI_CHANGES times within £DURATION s of a Hex Next apply"
             disable_hex
-            put safe_mode.json '{"reason":"%s","time":%s}\n' "£REASON" "£(date +%s)"
+            put safe_mode.json '{"reason":"%s","time":%s,"stage":"all"}\n' "£REASON" "£(date +%s)"
             RESULT=safe_mode
             break
           fi

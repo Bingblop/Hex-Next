@@ -9,6 +9,7 @@ import com.hexnext.engine.compile.OverlayLookup
 import com.hexnext.engine.compile.TargetOutcome
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.engine.compile.ThemeCompiler
+import com.hexnext.engine.compile.ValuePlanner
 import com.hexnext.engine.device.LegacyOverlays
 import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.engine.device.OneUi9Facts
@@ -24,6 +25,7 @@ import com.hexnext.themer.overlay.DrawableSpec
 import com.hexnext.themer.overlay.OverlayBuilder
 import com.hexnext.themer.overlay.OverlayColor
 import com.hexnext.themer.overlay.OverlayDrawable
+import com.hexnext.themer.overlay.OverlayValue
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.safety.EarlyRecoveryHook
 import com.hexnext.themer.shizuku.MonitorScript
@@ -86,6 +88,9 @@ class ThemeApplier(context: Context) {
         // cannot unregister or bury the overlays this apply builds; one not yet started sees the
         // new generation and does nothing. The previous apply's trip record goes with it.
         synchronized(TRIP_LOCK) { clearTripWatch() }
+        // A pending value set belongs to the apply that put it on; a trip of this apply (even
+        // before its value pass) must not quarantine the previous apply's sizes.
+        prefs.edit().remove(KEY_VALUES_PENDING).commit()
         var monitorStartedAt = 0L
         val buildLog = BuildLog(appContext)
         val notes = ArrayList<String>()
@@ -206,6 +211,7 @@ class ThemeApplier(context: Context) {
             )
         }
         val owner = if (uid == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
+        if (uid == 0 || uid == 1000) clearOtherOwner(service, owner) { level, text -> say(level, text, emptyMap()) }
         compiled.events.forEach { e -> buildLog.write(e.level.name, e.target, e.message, e.data) }
         packs.errors.forEach { (file, why) -> note(LogLevel.WARN, "Pack $file unreadable: $why") }
         val drawableCount = compiled.targets.sumOf { it.drawables.size }
@@ -323,6 +329,13 @@ class ThemeApplier(context: Context) {
             onSemWt(semwt)
         }
 
+        // Sizes (Quick panel corners, slider thickness, native extras) go last, in their own
+        // HexNextValues_ overlays, under a staged monitor: a System UI crash loop then turns the
+        // sizes off first and keeps the colours that were stable before them.
+        if (watched && monitorTripped(service)) stopAfterSafeMode(service, log, note, onSemWt, semwt)
+        applyValuesPass(service, spec, compiled, capability, before, outcomes, buildLog, log, note, onMonitor)
+        if (watched && monitorTripped(service)) stopAfterSafeMode(service, log, note, onSemWt, semwt)
+
         if (!SemWtController.writeState(service, semwt)) {
             note(LogLevel.WARN, "Could not save ${SemWtState.FILE_NAME}; removal cannot restore SemWT overlays automatically.")
         }
@@ -347,6 +360,158 @@ class ThemeApplier(context: Context) {
         }
 
         applyFont(service, spec, capability, log, note)
+    }
+
+    /**
+     * The value pass: registers `HexNextValues_<pkg>` for every compiled target with
+     * [CompiledTarget.values], verifies one value per target by `cmd overlay lookup`, and removes
+     * value overlays of targets that no longer have any. Root only; skipped (with a note) on the
+     * shell tier, for a value set a System UI crash rollback quarantined, or on a theme service
+     * that predates value overlays. Before any value is written the stability monitor is
+     * restarted in staged mode ([IThemeService.startStabilityMonitorStaged]) and the value set is
+     * recorded as pending, so a trip can tell the sizes were on.
+     */
+    private fun applyValuesPass(
+        service: IThemeService,
+        spec: EngineThemeSpec,
+        compiled: CompiledTheme,
+        capability: Capability,
+        before: List<OverlayListEntry>,
+        outcomes: MutableList<TargetOutcome>,
+        buildLog: BuildLog,
+        log: (LogLine) -> Unit,
+        note: (LogLevel, String) -> Unit,
+        onMonitor: (startedAt: Long) -> Unit,
+    ) {
+        val withValues = compiled.targets.filter { it.hasValues }
+        val existing = before.filter { it.overlayId.substringAfter(':').startsWith(ValuePlanner.OVERLAY_PREFIX) }
+        val keep = HashSet<String>()
+        fun removeStale() {
+            for (row in existing) {
+                val name = row.overlayId.substringAfter(':')
+                if (name in keep) continue
+                val r = runCatching { service.removeOverlay(name) }.getOrNull()
+                buildLog.write("INFO", row.target, "value overlay removed", mapOf("overlay" to name, "code" to r?.code()))
+            }
+        }
+        if (withValues.isEmpty()) {
+            removeStale()
+            compiled.targets.forEach { builder.saveValues(it.packageName, emptyList()) }
+            return
+        }
+        val count = withValues.sumOf { it.values.size }
+        if (capability != Capability.ROOT) {
+            note(LogLevel.WARN, "Quick panel shapes and other sizes need Shizuku running as root; $count sizes were skipped.")
+            return
+        }
+        // The spec's own settings plus the compiled values: pack-driven sizes (native extras)
+        // are not in the spec's shapes, so two packs' sizes never share a quarantine key.
+        val key = valuesKeyHash(spec) + ":" + ValuePlanner.valueHash(withValues.flatMap { it.values })
+        if (prefs.getString(KEY_VALUES_QUARANTINE, null) == key) {
+            note(
+                LogLevel.WARN,
+                "These Quick panel sizes were switched off after System UI restarted repeatedly; change them (or reset them) to try again. Colours were applied.",
+            )
+            removeStale()
+            // Repair re-applies the saved request; it must not bring the quarantined sizes back.
+            compiled.targets.forEach { builder.saveValues(it.packageName, emptyList()) }
+            return
+        }
+        val monitorAt = System.currentTimeMillis()
+        val monitor = try {
+            service.startStabilityMonitorStaged(MONITOR_SECONDS, ValuePlanner.OVERLAY_PREFIX)
+        } catch (t: Throwable) {
+            note(LogLevel.WARN, "Sizes skipped: the theme service is older than this app. Restart Shizuku (or reboot) and apply again.")
+            buildLog.write("WARN", "", "staged monitor unavailable", mapOf("error" to "${t.javaClass.simpleName}: ${t.message}"))
+            return
+        }
+        log(LogLine(LogLevel.INFO, "Stability monitor (sizes first): ${monitor.output()}"))
+        if (monitor.code() != 0 && monitor.code() != ThemeService.MONITOR_PID_MISSING) {
+            note(LogLevel.WARN, "Sizes skipped: the staged stability monitor did not start (${monitor.output().lineSequence().firstOrNull().orEmpty()}).")
+            return
+        }
+        onMonitor(monitorAt)
+        // commit(): a System UI crash loop can take this process down right after the first value.
+        prefs.edit().putString(KEY_VALUES_PENDING, key).commit()
+
+        for (target in withValues) {
+            val pkg = target.packageName
+            val values = target.values.map { OverlayValue(it.resourceName, it.dataType, it.data, it.configuration) }
+            val result = builder.applyValues(service, pkg, values, buildLog) { line -> log(LogLine(LogLevel.INFO, line)) }
+            val index = outcomes.indexOfFirst { it.target == pkg }
+            val base = if (index >= 0) outcomes[index] else TargetOutcome(pkg, TargetResult.EMPTY, target.overlayName)
+            val outcome = if (!result.ok) {
+                val tail = result.output.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty()
+                log(LogLine(LogLevel.WARN, "$pkg: sizes not applied (code ${result.code}): $tail"))
+                base.withValues(0, null, tail, failed = true)
+            } else {
+                keep += target.valueOverlayName
+                builder.saveValues(pkg, values)
+                val probe = OverlayLookup.valueProbe(target)
+                val (match, output) = probe?.let { SemWtController.verifyValue(service, pkg, it) } ?: (null to "")
+                buildLog.write(
+                    if (match == false) "WARN" else "INFO", pkg, "value verification",
+                    mapOf("resource" to probe?.resourceName, "output" to output, "verified" to match),
+                )
+                val detail = if (match == false) "lookup ${probe?.resourceName} = ${output.lineSequence().firstOrNull().orEmpty()}" else ""
+                log(
+                    LogLine(
+                        if (match == false) LogLevel.WARN else LogLevel.OK,
+                        "$pkg: ${result.resourceCount} sizes" + (if (match == true) ", verified" else "") + (if (detail.isNotEmpty()) " ($detail)" else ""),
+                    ),
+                )
+                base.withValues(result.resourceCount, match, detail)
+            }
+            if (index >= 0) outcomes[index] = outcome else outcomes += outcome
+        }
+        // A target whose sizes were dropped or failed loses its live value overlay below, so its
+        // saved request must lose them too, or repair would put them back.
+        compiled.targets.filter { it.valueOverlayName !in keep }.forEach { builder.saveValues(it.packageName, emptyList()) }
+        removeStale()
+    }
+
+    /**
+     * Stage one of the staged monitor fired: it turned the `HexNextValues_` overlays off and
+     * wrote `values_rollback.json`. The pending value set is quarantined (the same sizes are not
+     * applied again until changed), the value overlays are unregistered and the colours stay.
+     * Returns true when it acted.
+     */
+    private fun handleValuesRollback(service: IThemeService, log: (LogLine) -> Unit): Boolean {
+        val read = runCatching { service.readStateFile(MonitorScript.VALUES_ROLLBACK_NAME) }.getOrNull() ?: return false
+        if (read.code() != 0) return false
+        val pending = prefs.getString(KEY_VALUES_PENDING, null) ?: return false
+        prefs.edit().putString(KEY_VALUES_QUARANTINE, pending).remove(KEY_VALUES_PENDING).commit()
+        // The staged monitor now watches a fresh window from the rollback for its second stage;
+        // move the trip watch there so a later full trip is still recognised as this apply's.
+        val rolledBackAt = TRIP_TIME.find(read.getString(ThemeService.KEY_CONTENT).orEmpty())
+            ?.groupValues?.get(1)?.toLongOrNull()?.times(1000L)
+        val applyAt = prefs.getLong(KEY_TRIP_APPLY_AT, 0L)
+        if (rolledBackAt != null && applyAt > 0L && rolledBackAt > prefs.getLong(KEY_TRIP_MONITOR_AT, 0L)) {
+            recordTripWatch(applyAt, rolledBackAt)
+        }
+        removeValueOverlays(service)
+        runCatching {
+            log(LogLine(LogLevel.WARN, "System UI restarted twice after the Quick panel sizes went on; the sizes were switched off and the colours kept."))
+        }
+        return true
+    }
+
+    /** A full trip while sizes were pending: the sizes are quarantined too, they may be the cause. */
+    private fun quarantinePendingValues() {
+        val pending = prefs.getString(KEY_VALUES_PENDING, null) ?: return
+        prefs.edit().putString(KEY_VALUES_QUARANTINE, pending).remove(KEY_VALUES_PENDING).commit()
+    }
+
+    /** Unregisters every `HexNextValues_` overlay the overlay list shows. */
+    private fun removeValueOverlays(service: IThemeService) {
+        val rows = runCatching { SemWtController.listOverlays(service) }.getOrDefault(emptyList())
+        for (row in rows) {
+            val name = row.overlayId.substringAfter(':')
+            if (!name.startsWith(ValuePlanner.OVERLAY_PREFIX)) continue
+            runCatching { service.removeOverlay(name) }
+            // Repair re-applies the saved request; it must not bring the rolled-back sizes back.
+            runCatching { builder.saveValues(row.target, emptyList()) }
+        }
     }
 
     /**
@@ -553,7 +718,12 @@ class ThemeApplier(context: Context) {
             SemWtController.run(service, SemWtPlanner.raiseCycle(hexId), log)
         }
 
-        val probe = OverlayLookup.probe(target)
+        // The device's current mode, so System UI (whose colours all have day and night values) is verified too.
+        val night = runCatching {
+            (android.content.res.Resources.getSystem().configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }.getOrNull()
+        val probe = OverlayLookup.probe(target, night)
         var verified: Boolean? = null
         var verifyDetail = ""
         if (probe != null) {
@@ -604,6 +774,7 @@ class ThemeApplier(context: Context) {
         APPLY_GENERATION.incrementAndGet()
         // Removal turns the theme off itself; a monitor trip left over is not one to recover.
         synchronized(TRIP_LOCK) { clearTripWatch() }
+        prefs.edit().remove(KEY_VALUES_PENDING).apply()
         val buildLog = BuildLog(appContext)
         val say: (LogLevel, String) -> Unit = { level, text ->
             log(LogLine(level, text))
@@ -795,6 +966,23 @@ class ThemeApplier(context: Context) {
     }
 
     /**
+     * Hex overlays an earlier apply made under the other owner (root and Shizuku make them as
+     * `com.android.shell`, system mode as `android`): removed before this apply, so no app carries
+     * two Hex overlays. The shell-owned ones One UI drops at boot anyway (device lab, lab 029).
+     */
+    private fun clearOtherOwner(service: IThemeService, owner: String, say: (LogLevel, String) -> Unit) {
+        val other = if (owner == ThemeService.SYSTEM_OWNER) ThemeService.SHELL_OWNER else ThemeService.SYSTEM_OWNER
+        val stale = SemWtController.listOverlays(service).filter { it.overlayId.startsWith("$other:${ThemeService.HEX_PREFIX}") }
+        if (stale.isEmpty()) return
+        var removed = 0
+        for (entry in stale) if (service.removeOverlay(entry.overlayId).code() == 0) removed++
+        say(
+            if (removed == stale.size) LogLevel.INFO else LogLevel.WARN,
+            "Removed $removed of ${stale.size} Hex Next overlays an earlier apply made as $other",
+        )
+    }
+
+    /**
      * Cleanup of the overlays older Hex Next builds left behind ([LegacyOverlays]: the
      * `com.android.shell:HexNextOneUI9_*` per-app overlays of the old "Build & Apply" path,
      * `HexNextMonetShades` (Monet shades on `android`, which skews the system palette Hex Next
@@ -952,7 +1140,19 @@ class ThemeApplier(context: Context) {
         report: ApplyReport,
         log: (LogLine) -> Unit,
     ) {
-        while (APPLY_GENERATION.get() == generation && System.currentTimeMillis() < deadline) {
+        var valuesHandled = false
+        var until = deadline
+        while (APPLY_GENERATION.get() == generation && System.currentTimeMillis() < until) {
+            if (!valuesHandled) {
+                synchronized(TRIP_LOCK) {
+                    if (APPLY_GENERATION.get() == generation) valuesHandled = handleValuesRollback(service, log)
+                }
+                // Stage two of the staged monitor runs a fresh window from the rollback.
+                if (valuesHandled) {
+                    val from = prefs.getLong(KEY_TRIP_MONITOR_AT, 0L).coerceAtLeast(System.currentTimeMillis())
+                    until = maxOf(until, from + (MONITOR_SECONDS + WATCH_GRACE_SECONDS) * 1000L)
+                }
+            }
             if (monitorTripped(service)) {
                 // Checked again under the lock: an apply or removal started meanwhile owns the overlays.
                 synchronized(TRIP_LOCK) {
@@ -986,6 +1186,7 @@ class ThemeApplier(context: Context) {
     ) {
         guard.markSafeModeEntered(by = "stability monitor")
         clearTripWatch()
+        quarantinePendingValues()
         runCatching { log(LogLine(LogLevel.ERROR, why)) }
         runCatching { service.disableHexOverlays() }
         runCatching { SemWtController.restore(service) { line -> if (line.level != LogLevel.INFO) log(line) } }
@@ -1017,11 +1218,13 @@ class ThemeApplier(context: Context) {
      * gets the same handling as [onTripAfterApply]. Returns true when it acted.
      */
     fun recoverMissedTrip(service: IThemeService, log: (LogLine) -> Unit): Boolean {
+        // An apply running in this process watches its own monitor.
+        if (RUNNING_APPLIES.get() > 0) return false
+        // First: a values rollback moves the trip watch to the staged monitor's second window.
+        synchronized(TRIP_LOCK) { if (RUNNING_APPLIES.get() == 0) handleValuesRollback(service, log) }
         val applyAt = prefs.getLong(KEY_TRIP_APPLY_AT, 0L)
         val monitorAt = prefs.getLong(KEY_TRIP_MONITOR_AT, 0L)
         if (applyAt <= 0L || monitorAt <= 0L) return false
-        // An apply running in this process watches its own monitor.
-        if (RUNNING_APPLIES.get() > 0) return false
         val read = runCatching { service.readStateFile(SAFE_MODE_NAME) }.getOrNull() ?: return false
         val windowEnd = monitorAt + (MONITOR_SECONDS + WATCH_GRACE_SECONDS) * 1000L
         // code 1: the file does not exist. Once the window is over that means no trip: the
@@ -1094,6 +1297,7 @@ class ThemeApplier(context: Context) {
         // As after the apply: the theme is already off, so there is nothing left to confirm.
         guard.markSafeModeEntered(by = "stability monitor")
         clearTripWatch()
+        quarantinePendingValues()
         note(LogLevel.ERROR, why)
         val disabled = runCatching { service.disableHexOverlays() }.getOrNull()
         if (disabled == null || disabled.code() != 0) {
@@ -1135,6 +1339,29 @@ class ThemeApplier(context: Context) {
         private val TRIP_TIME = Regex("\"time\"\\s*:\\s*(\\d+)")
         private const val KEY_TRIP_APPLY_AT = "tripWatchApplyAt"
         private const val KEY_TRIP_MONITOR_AT = "tripWatchMonitorAt"
+
+        /** Hash of the value set the last apply put on, until its monitor window is over. */
+        private const val KEY_VALUES_PENDING = "valuesPending"
+
+        /** Hash of a value set a System UI crash rollback switched off; not applied again. */
+        private const val KEY_VALUES_QUARANTINE = "valuesQuarantine"
+
+        /** SHA-256 of [EngineThemeSpec.valuesKey], the identity of a value set. */
+        fun valuesKeyHash(spec: EngineThemeSpec): String {
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest(spec.valuesKey().toByteArray(Charsets.UTF_8))
+            return digest.joinToString("") { "%02x".format(it) }
+        }
+
+        /** True when [spec]'s sizes are the set a crash rollback switched off. */
+        fun isValuesQuarantined(context: Context, spec: EngineThemeSpec): Boolean =
+            spec.hasValues() &&
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_VALUES_QUARANTINE, null)
+                    ?.substringBefore(':') == valuesKeyHash(spec)
+
+        /** Forgets the quarantined value set, so the next apply tries the sizes again. */
+        fun clearValuesQuarantine(context: Context) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_VALUES_QUARANTINE).apply()
+        }
 
         /**
          * The application context, kept by every entry point that is handed one, so that
@@ -1181,7 +1408,14 @@ class ThemeApplier(context: Context) {
         private val SU_PATHS = listOf("/system/bin/su", "/system/xbin/su", "/sbin/su", "/debug_ramdisk/su")
 
         /** Pack zips (`<id>.zip`, `<id>.hexnext`, optional `index.json`). */
-        fun packsDir(context: Context): File = File(context.filesDir, "packs").apply { mkdirs() }
+        fun packsDir(context: Context): File = File(context.filesDir, PackDirs.APPLY).apply { mkdirs() }
+
+        /**
+         * Locked catalogue packs downloaded for the preview only ([PackDirs.PREVIEW]). The apply,
+         * the overlay builder and Diagnostics' repair never read it: they resolve packs from
+         * [packsDir] alone, so a pack that is not unlocked cannot reach an overlay.
+         */
+        fun previewPacksDir(context: Context): File = File(context.filesDir, PackDirs.PREVIEW).apply { mkdirs() }
 
         fun reportFile(context: Context): File = File(File(context.filesDir, "reports"), "apply-last.json")
 

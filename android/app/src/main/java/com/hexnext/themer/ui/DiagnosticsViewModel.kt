@@ -9,6 +9,7 @@ import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.overlay.BuildResult
 import com.hexnext.themer.overlay.OverlayBuilder
 import com.hexnext.themer.overlay.SettingsTestOverlay
+import com.hexnext.themer.device.BetaBundle
 import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.themer.safety.ApplyGuard
@@ -107,6 +108,15 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
     fun noteShareFailed(file: File?) =
         log(LogLevel.ERROR, if (file == null) "Nothing to share yet." else "Could not share ${file.path}.")
 
+    /** Writes the beta tester bundle ([BetaBundle]) off the main thread and hands it to [onReady]. */
+    fun createBetaBundle(onReady: (File?) -> Unit) {
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) { BetaBundle.create(getApplication()) }
+            if (file == null) log(LogLevel.ERROR, "Could not create the beta report.")
+            onReady(file)
+        }
+    }
+
     fun runScan() = runTask("Scan") { service, ready ->
         val report = scanner.scan(service, ready.viaSu) { step -> _state.update { it.copy(progress = step) } }
         _state.update { it.copy(report = report, latestReportJson = report.jsonPath?.let(::File), scanFinishedId = System.nanoTime()) }
@@ -189,7 +199,7 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
         }
         _state.update { it.copy(lastResult = result ?: it.lastResult) }
         when {
-            result == null -> log(LogLevel.WARN, "Nothing to re-apply; run the Settings test first. To put your theme back, use Apply theme on the main screen.")
+            result == null -> log(LogLevel.WARN, "Nothing to re-apply; run the Settings test first. To put your theme back, tap Apply theme in Studio.")
             result.ok -> log(LogLevel.OK, "Repaired: ${result.resourceCount} resources re-applied.")
             else -> log(LogLevel.ERROR, "Repair code ${result.code}: ${result.output.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty()}")
         }

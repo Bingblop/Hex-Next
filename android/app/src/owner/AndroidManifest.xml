@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Owner build only: the hook tools/device/autotest.sh drives. Not exported, so only
+             root or the shell can start it (su -c am start -n ...). -->
+        <activity
+            android:name="com.hexnext.themer.autotest.AutotestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.HexNext" />
+    </application>
+</manifest>

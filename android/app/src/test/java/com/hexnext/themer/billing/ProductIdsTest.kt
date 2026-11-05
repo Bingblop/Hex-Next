@@ -8,9 +8,9 @@ import org.junit.Test
 class ProductIdsTest {
     @Test
     fun packIdIsLowercasedAndSanitised() {
-        assertEquals("pack_velvet_rope", ProductIds.forPack("Velvet Rope"))
-        assertEquals("pack_particle_zoo", ProductIds.forPack("particle-zoo"))
-        assertEquals("pack_fire.fly_2", ProductIds.forPack("Fire.Fly_2"))
+        assertEquals("pack_blue_moon", ProductIds.forPack("Blue Moon"))
+        assertEquals("pack_some_pack", ProductIds.forPack("some-pack"))
+        assertEquals("pack_gem.stone_2", ProductIds.forPack("Gem.Stone_2"))
     }
 
     @Test
@@ -29,35 +29,43 @@ class ProductIdsTest {
 
     @Test
     fun stateUnlocksByProductIdOrUnlockAll() {
-        val owned = EntitlementState(ready = true, ownedProductIds = setOf("pack_velvet_rope"))
-        assertTrue(owned.unlocks("Velvet Rope"))
-        assertFalse(owned.unlocks("particle-zoo"))
+        val owned = EntitlementState(ready = true, ownedProductIds = setOf("pack_blue_moon"))
+        assertTrue(owned.unlocks("Blue Moon"))
+        assertFalse(owned.unlocks("some-pack"))
         assertTrue(EntitlementState(ready = true, unlockAll = true).unlocks("anything"))
-        assertFalse(EntitlementState().unlocks("velvet_rope"))
+        assertFalse(EntitlementState().unlocks("blue_moon"))
     }
 
     @Test
     fun pendingPurchaseDoesNotUnlock() {
-        val state = EntitlementState(ready = true, pendingProductIds = setOf("pack_zoo"))
-        assertTrue(state.isPending("zoo"))
-        assertFalse(state.unlocks("zoo"))
-        assertFalse(state.looksUnlocked("zoo"))
+        val state = EntitlementState(ready = true, pendingProductIds = setOf("pack_opal"))
+        assertTrue(state.isPending("opal"))
+        assertFalse(state.unlocks("opal"))
+        assertFalse(state.looksUnlocked("opal"))
+    }
+
+    @Test
+    fun pendingAllPacksMarksEveryPackPending() {
+        val state = EntitlementState(ready = true, pendingProductIds = setOf(ProductIds.ALL_PACKS))
+        assertTrue(state.isPending("opal"))
+        assertTrue(state.isPending("a-pack-added-later"))
+        assertFalse(state.unlocks("opal"))
     }
 
     @Test
     fun cachedHintOnlyCountsForDisplayBeforeTheStoreAnswers() {
-        val starting = EntitlementState(ready = false, cachedProductIds = setOf("pack_zoo"))
-        assertTrue(starting.looksUnlocked("zoo"))
-        assertFalse(starting.unlocks("zoo"))
+        val starting = EntitlementState(ready = false, cachedProductIds = setOf("pack_opal"))
+        assertTrue(starting.looksUnlocked("opal"))
+        assertFalse(starting.unlocks("opal"))
         // Once purchases were read, a hint without a verified purchase (a refund) no longer counts.
-        assertFalse(starting.copy(ready = true).looksUnlocked("zoo"))
-        assertTrue(EntitlementState(cachedProductIds = setOf(ProductIds.ALL_PACKS)).looksUnlocked("zoo"))
+        assertFalse(starting.copy(ready = true).looksUnlocked("opal"))
+        assertTrue(EntitlementState(cachedProductIds = setOf(ProductIds.ALL_PACKS)).looksUnlocked("opal"))
     }
 
     @Test
     fun priceComesFromTheStoreMap() {
-        val state = EntitlementState(prices = mapOf("pack_zoo" to "€1.09"))
-        assertEquals("€1.09", state.priceOf("Zoo"))
+        val state = EntitlementState(prices = mapOf("pack_opal" to "€1.09"))
+        assertEquals("€1.09", state.priceOf("Opal"))
         assertEquals(null, state.priceOf("other"))
     }
 }

@@ -159,16 +159,21 @@ show as pending and unlock nothing. A purchase is verified before it is granted 
 `hexnext_billing.xml` caches the owned product ids only as a hint so the pack list does not flash
 locks before Play answers; it never unlocks a download or an apply.
 
-`MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI: a locked pack cannot be
-downloaded, selected (simple or per part) or applied, and `applyTheme` refuses a theme that uses
-one (a pack imported from a file, a refunded pack, a pick from "Describe your theme"). A pack is
+`MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI. A locked pack can be
+downloaded, selected (simple or per part) and fully previewed, but never built or applied:
+`applyTheme` refuses a theme that uses one (a pack imported from a file, a refunded pack, a pick from "Describe your theme"). A pack is
 paid when its id is in `PaidPacks` or in `OfficialPacks` (`hexnext_packs.xml`: every id seen in a
 fetched catalogue, including the default catalogue read once at start-up in the Play build, and
 every pack downloaded from one), so a pack added to the catalogue after the APK shipped is paid
 too; only an imported pack whose id is in neither is free. An imported paid pack is unlocked only
 when its id is. A theme uses a pack only through an enabled part that resolves to it
 (`ThemeSpec.packFor`), so an unused default pack does not block an apply. Test packs bundled under `assets/packs/` count as unlocked
-in debuggable builds only. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
+in debuggable builds only. The live preview renders the theme as it is, locked packs included, so a
+user can see a pack before buying it. A locked pack downloads into `files/packs-preview`, which the
+previewer reads (`LayeredPackResolver`: installed packs first) but the applier never does, so its
+artwork is physically absent at build time even if a gate regressed; it moves into `files/packs`
+once the store confirms the purchase (the cached purchase hint is never enough). Preview zips are
+excluded from backups and pruned after 7 days unused. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
 packs" sits in the Theme pack card and the "Get packs" dialog.
 
 ## Overlay delivery

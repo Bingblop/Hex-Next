@@ -154,7 +154,7 @@ jobs:
           set -euo pipefail
           git fetch --depth 1 origin packs
           mkdir -p app/src/debug/assets/packs
-          for pack in velvet-rope particle-zoo firefly stardust; do
+          for pack in iolite willemite ekanite bixbite; do
             git show "origin/packs:$pack.zip" > "app/src/debug/assets/packs/$pack.zip"
           done
           ls -l app/src/debug/assets/packs
@@ -188,7 +188,9 @@ jobs:
           path: android/app/build/outputs/apk/play/debug/app-play-universal-debug.apk
           if-no-files-found: error
 
+      # Only without the real upload key: the signing step below already runs the same signed path.
       - name: Exercise signed release path with an ephemeral CI-only key
+        if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS != 'true'
         env:
           HEXNEXT_STORE_PASSWORD: ci-test-only
           HEXNEXT_KEY_ALIAS: ci-test
@@ -220,9 +222,9 @@ jobs:
           trap 'rm -f "$HEXNEXT_KEYSTORE_PATH"' EXIT
           printf '%s' "$HEXNEXT_KEYSTORE_BASE64" | base64 --decode > "$HEXNEXT_KEYSTORE_PATH"
           unset HEXNEXT_KEYSTORE_BASE64
+          # One Gradle run for both, so R8 and the configuration are not set up twice.
           ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true \
-            :app:assembleOwnerRelease
-          ./gradlew --no-daemon --console=plain -PrequireReleaseSigning=true :app:bundlePlayRelease
+            :app:assembleOwnerRelease :app:bundlePlayRelease
       - name: Upload owner release APK
         if: env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'
         uses: actions/upload-artifact@v7

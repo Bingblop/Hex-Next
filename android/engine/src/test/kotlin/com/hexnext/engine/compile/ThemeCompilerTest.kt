@@ -27,7 +27,8 @@ class ThemeCompilerTest {
     private val settings = "com.android.settings"
     private val orange = 0xFFFF6A00.toInt()
 
-    private val baseSpec = ThemeSpec.default().copy(source = ThemeSource(0xFF2E9E44.toInt()))
+    // ACCENT: these tests check icons tinted from the derived theme palette (PACK_ORIGINAL is the default).
+    private val baseSpec = ThemeSpec.default().copy(source = ThemeSource(0xFF2E9E44.toInt()), iconStyle = IconColorStyle.ACCENT)
     private val resolved = ThemeResolver.resolve(baseSpec.source)
 
     private val sysuiTable = table(
@@ -93,6 +94,31 @@ class ThemeCompilerTest {
         colors.firstOrNull { it.resourceName == "$packageName:color/$name" && it.configuration == config }
 
     private fun CompiledTarget.reason(name: String): String? = skipped.firstOrNull { it.name == name }?.reason
+
+    @Test
+    fun `old switch and checkbox names land on the One UI 9 names only where the old one is missing`() {
+        val dialer = "com.samsung.android.dialer"
+        val dialerTable = table(dialer, emptyList(), mapOf("sesl_switch_thumb_on" to listOf(480), "sesl_btn_check_to_on_026" to listOf(480)))
+        val keepsOld = table(settings, emptyList(), mapOf("switch_thumb_on" to listOf(480), "sesl_switch_thumb_on" to listOf(480)))
+        val controls = pack(
+            "controls-1",
+            listOf(layer("control", "base", Tint(Tint.SLOT, slot = "xx2"), listOf("switch_thumb_on", "checkbox_026"))),
+            palette = mapOf("xx2" to "#FF00FF00"),
+        )
+        val dev = device(
+            mapOf(
+                dialer to TargetSnapshot(dialer, installed = true, table = dialerTable),
+                settings to TargetSnapshot(settings, installed = true, table = keepsOld),
+            ),
+        )
+        val result = compile(baseSpec.copy(simplePackId = "controls-1"), InMemoryPackResolver(listOf(controls)), dev = dev)
+        val onDialer = result.target(dialer)!!.drawables.map { it.resourceName }.toSet()
+        assertTrue("$dialer:drawable/sesl_switch_thumb_on" in onDialer, onDialer.toString())
+        assertTrue("$dialer:drawable/sesl_btn_check_to_on_026" in onDialer, onDialer.toString())
+        val onSettings = result.target(settings)!!.drawables.map { it.resourceName }.toSet()
+        assertTrue("$settings:drawable/switch_thumb_on" in onSettings, onSettings.toString())
+        assertFalse("$settings:drawable/sesl_switch_thumb_on" in onSettings, onSettings.toString())
+    }
 
     @Test
     fun `recolours SemWT colours by inferred role per mode`() {
@@ -491,6 +517,18 @@ class ThemeCompilerTest {
         val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(settings)!!
         val twin = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "night-xxhdpi" }
         assertEquals(0xFF123456.toInt(), twin.plan.steps.single().tintArgb)
+    }
+
+    @Test
+    fun `the default icon style keeps pack colours for icon elements`() {
+        val spec = baseSpec.copy(simplePackId = "icons-1", iconStyle = ThemeSpec.default().iconStyle)
+        assertEquals(IconColorStyle.PACK_ORIGINAL, spec.iconStyle)
+        val t = compile(spec, InMemoryPackResolver(listOf(iconPack))).target(settings)!!
+        val twin = t.drawables.single { it.resourceName.endsWith("ic_settings_display") && it.configuration == "night-xxhdpi" }
+        assertEquals(0xFF123456.toInt(), twin.plan.steps.single().tintArgb)
+        // ACCENT plans the same artwork with the derived palette, so the content differs.
+        val accent = compile(spec.copy(iconStyle = IconColorStyle.ACCENT), InMemoryPackResolver(listOf(iconPack))).target(settings)!!
+        assertTrue(accent.contentHash != t.contentHash)
     }
 
     @Test

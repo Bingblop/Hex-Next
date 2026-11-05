@@ -18,13 +18,104 @@
     "com.samsung.android.app.aodservice",
     "com.samsung.android.app.smartcapture",
     "com.samsung.android.app.notes",
-    "com.samsung.android.app.reminder"
+    "com.samsung.android.app.reminder",
+    "com.sec.android.app.sbrowser",
+    "com.samsung.android.email.provider",
+    "com.sec.android.app.music",
+    "com.sec.android.app.voicenote",
+    "com.sec.android.app.shealth"
   ],
   "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
   "quickSettings": {
     "layout": "oneui9",
+    "outsideDrawables": [
+      "drawable/sec_ic_wifi_signal_*",
+      "drawable/stat_sys_*",
+      "drawable/tw_ic_do_poweroff",
+      "drawable/tw_ic_do_restart",
+      "drawable/tw_ic_do_emergencymode",
+      "drawable/tw_ic_do_emergencysos",
+      "drawable/tw_ic_do_medicalinfo",
+      "drawable/tw_ic_do_lockdown",
+      "drawable/tw_ic_do_safemode",
+      "drawable/tw_ic_do_mobiledata",
+      "drawable/ic_global_actions_power_off",
+      "drawable/ic_global_actions_restart",
+      "drawable/ic_global_actions_emergency",
+      "drawable/ic_global_actions_lockdown",
+      "drawable/ic_deviceoption_poweroff",
+      "drawable/ic_deviceoption_restart"
+    ],
     "colours": [],
-    "drawablesAllowed": false
+    "extraColours": [
+      "sesl_primary_color_light",
+      "sesl_primary_color_dark",
+      "open_theme_noti_header_color",
+      "basic_token_sys_primary",
+      "basic_list_button_ripple_background_color",
+      "basic_interaction_no_item_text",
+      "control_manage_apps_description",
+      "control_spinner_item_text_color",
+      "sec_wifi_icon_gray_color",
+      "sesl_action_bar_text_color_subtitle_dark",
+      "sesl_action_bar_text_color_subtitle_light",
+      "sesl_extended_appbar_subtitle_dark",
+      "sesl_extended_appbar_subtitle_light",
+      "sesl_list_subheader_text_color",
+      "sesl_list_subheader_text_color_dark"
+    ],
+    "drawablesAllowed": false,
+    "_valuesNote": "Names confirmed on One UI 9.0 (SM-S948U1 scan, hexnext-values.txt 2026-11-03). The planner still writes only names the phone's scan lists, so a name missing on another build is skipped.",
+    "values": {
+      "tileCorner": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/common_tile_default_active_tile_corner_radius",
+          "com.android.systemui:dimen/common_tile_default_inactive_tile_corner_radius",
+          "com.android.systemui:dimen/common_tile_default_active_icon_corner_radius",
+          "com.android.systemui:dimen/common_tile_default_inactive_icon_corner_radius",
+          "com.android.systemui:dimen/qs_corner_radius"
+        ],
+        "min": 0,
+        "max": 40,
+        "unit": "DP"
+      },
+      "panelCorner": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/panel_bar_corner_radius",
+          "com.android.systemui:dimen/panel_radius",
+          "com.android.systemui:dimen/overlay_shade_panel_shape_radius",
+          "com.android.systemui:dimen/notification_scrim_corner_radius"
+        ],
+        "min": 0,
+        "max": 48,
+        "unit": "DP"
+      },
+      "sliderThickness": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/rounded_slider_height",
+          "com.android.systemui:dimen/brightness_slider_height",
+          "com.android.systemui:dimen/brightness_slider_expanded_height",
+          "com.android.systemui:dimen/brightness_tile_layout_height",
+          "com.android.systemui:dimen/brightness_volume_area_height"
+        ],
+        "min": 24,
+        "max": 64,
+        "unit": "DP"
+      },
+      "notificationCorner": {
+        "type": "dimen",
+        "names": [
+          "com.android.systemui:dimen/notification_corner_radius"
+        ],
+        "min": 0,
+        "max": 40,
+        "unit": "DP"
+      }
+    },
+    "valueNames": []
   },
   "renamed": {
     "drawable/ic_settings_display": "drawable/sec_ic_settings_display",
@@ -38,6 +129,108 @@
     "drawable/ic_theme": "drawable/sec_ic_settings_themes",
     "drawable/sec_ic_themes": "drawable/sec_ic_settings_themes",
     "drawable/sec_ic_settings_help": "drawable/sec_ic_settings_user_manual"
+  },
+  "drawableCopies": {
+    "drawable/textinput_qwerty_btn": ["drawable/key_bg", "drawable/normal_key_background_image_open_theme", "drawable/number_key_background_image_open_theme"],
+    "drawable/textinput_qwerty_btn_light": ["drawable/function_key_background_image_open_theme"],
+    "drawable/textinput_qwerty_btn_pressed": ["drawable/key_pressed_background_image_open_theme"],
+    "drawable/0bg": ["drawable/keyboard_background_image", "drawable/keyboard_background_image_open_theme"],
+    "drawable/0preview_bg": ["drawable/preview_bg", "drawable/preview_bubble_background_image_open_theme"],
+    "drawable/tw_ic_do_poweroff": ["drawable/ic_global_actions_power_off", "drawable/ic_deviceoption_poweroff"],
+    "drawable/tw_ic_do_restart": ["drawable/ic_global_actions_restart", "drawable/ic_deviceoption_restart"],
+    "drawable/tw_ic_do_emergencymode": ["drawable/ic_global_actions_emergency"],
+    "drawable/tw_ic_do_lockdown": ["drawable/ic_global_actions_lockdown"],
+    "drawable/dialog_": [
+      "drawable/sesl_dialog_background",
+      "drawable/dialog_background_material",
+      "drawable/sec_dialog_background"
+    ],
+    "drawable/popup_": [
+      "drawable/sesl_menu_popup_background",
+      "drawable/sesl_menu_popup_background_dark",
+      "drawable/popup_background_material",
+      "drawable/sem_popup_background_material",
+      "drawable/sem_popup_background_material_dark",
+      "drawable/sem_list_popup_background_material",
+      "drawable/sem_list_popup_background_material_dark",
+      "drawable/sem_spinner_popup_background_material",
+      "drawable/sem_spinner_popup_background_material_dark"
+    ]
+  },
+  "fallbackRenames": {
+      "drawable/switch_thumb_on": "drawable/sesl_switch_thumb_on",
+      "drawable/switch_track_on": "drawable/sesl_switch_track_on",
+      "drawable/switch_thumb_off": "drawable/sesl_switch_thumb_off",
+      "drawable/switch_track_off": "drawable/sesl_switch_track_off",
+      "drawable/switch_thumb_disabled_on": "drawable/sesl_switch_thumb_disabled_on",
+      "drawable/switch_track_disabled_on": "drawable/sesl_switch_track_disabled_on",
+      "drawable/switch_thumb_disabled_off": "drawable/sesl_switch_thumb_disabled_off",
+      "drawable/switch_track_disabled_off": "drawable/sesl_switch_track_disabled_off",
+      "drawable/switch_thumb_dark_on": "drawable/sesl_switch_thumb_dark_on",
+      "drawable/switch_track_dark_on": "drawable/sesl_switch_track_dark_on",
+      "drawable/switch_thumb_dark_off": "drawable/sesl_switch_thumb_dark_off",
+      "drawable/switch_track_dark_off": "drawable/sesl_switch_track_dark_off",
+      "drawable/switch_thumb_dark_disabled_on": "drawable/sesl_switch_thumb_dark_disabled_on",
+      "drawable/switch_track_dark_disabled_on": "drawable/sesl_switch_track_dark_disabled_on",
+      "drawable/switch_thumb_dark_disabled_off": "drawable/sesl_switch_thumb_dark_disabled_off",
+      "drawable/switch_track_dark_disabled_off": "drawable/sesl_switch_track_dark_disabled_off",
+      "drawable/switch_track_disabled": "drawable/sesl_switch_track_disabled_off",
+      "drawable/switch_track_dark_disabled": "drawable/sesl_switch_track_dark_disabled_off",
+      "drawable/sec_switchbar_background": "drawable/sesl_switchbar_background",
+      "drawable/checkbox_000": "drawable/sesl_btn_check_to_on_000",
+      "drawable/radio_000": "drawable/sesl_btn_radio_to_on_000",
+      "drawable/checkbox_001": "drawable/sesl_btn_check_to_on_001",
+      "drawable/radio_001": "drawable/sesl_btn_radio_to_on_001",
+      "drawable/checkbox_002": "drawable/sesl_btn_check_to_on_002",
+      "drawable/radio_002": "drawable/sesl_btn_radio_to_on_002",
+      "drawable/checkbox_003": "drawable/sesl_btn_check_to_on_003",
+      "drawable/radio_003": "drawable/sesl_btn_radio_to_on_003",
+      "drawable/checkbox_004": "drawable/sesl_btn_check_to_on_004",
+      "drawable/radio_004": "drawable/sesl_btn_radio_to_on_004",
+      "drawable/checkbox_005": "drawable/sesl_btn_check_to_on_005",
+      "drawable/radio_005": "drawable/sesl_btn_radio_to_on_005",
+      "drawable/checkbox_006": "drawable/sesl_btn_check_to_on_006",
+      "drawable/radio_006": "drawable/sesl_btn_radio_to_on_006",
+      "drawable/checkbox_007": "drawable/sesl_btn_check_to_on_007",
+      "drawable/radio_007": "drawable/sesl_btn_radio_to_on_007",
+      "drawable/checkbox_008": "drawable/sesl_btn_check_to_on_008",
+      "drawable/radio_008": "drawable/sesl_btn_radio_to_on_008",
+      "drawable/checkbox_009": "drawable/sesl_btn_check_to_on_009",
+      "drawable/radio_009": "drawable/sesl_btn_radio_to_on_009",
+      "drawable/checkbox_010": "drawable/sesl_btn_check_to_on_010",
+      "drawable/radio_010": "drawable/sesl_btn_radio_to_on_010",
+      "drawable/checkbox_011": "drawable/sesl_btn_check_to_on_011",
+      "drawable/radio_011": "drawable/sesl_btn_radio_to_on_011",
+      "drawable/checkbox_012": "drawable/sesl_btn_check_to_on_012",
+      "drawable/radio_012": "drawable/sesl_btn_radio_to_on_012",
+      "drawable/checkbox_013": "drawable/sesl_btn_check_to_on_013",
+      "drawable/radio_013": "drawable/sesl_btn_radio_to_on_013",
+      "drawable/checkbox_014": "drawable/sesl_btn_check_to_on_014",
+      "drawable/radio_014": "drawable/sesl_btn_radio_to_on_014",
+      "drawable/checkbox_015": "drawable/sesl_btn_check_to_on_015",
+      "drawable/radio_015": "drawable/sesl_btn_radio_to_on_015",
+      "drawable/checkbox_016": "drawable/sesl_btn_check_to_on_016",
+      "drawable/radio_016": "drawable/sesl_btn_radio_to_on_016",
+      "drawable/checkbox_017": "drawable/sesl_btn_check_to_on_017",
+      "drawable/radio_017": "drawable/sesl_btn_radio_to_on_017",
+      "drawable/checkbox_018": "drawable/sesl_btn_check_to_on_018",
+      "drawable/radio_018": "drawable/sesl_btn_radio_to_on_018",
+      "drawable/checkbox_019": "drawable/sesl_btn_check_to_on_019",
+      "drawable/radio_019": "drawable/sesl_btn_radio_to_on_019",
+      "drawable/checkbox_020": "drawable/sesl_btn_check_to_on_020",
+      "drawable/radio_020": "drawable/sesl_btn_radio_to_on_020",
+      "drawable/checkbox_021": "drawable/sesl_btn_check_to_on_021",
+      "drawable/radio_021": "drawable/sesl_btn_radio_to_on_021",
+      "drawable/checkbox_022": "drawable/sesl_btn_check_to_on_022",
+      "drawable/radio_022": "drawable/sesl_btn_radio_to_on_022",
+      "drawable/checkbox_023": "drawable/sesl_btn_check_to_on_023",
+      "drawable/radio_023": "drawable/sesl_btn_radio_to_on_023",
+      "drawable/checkbox_024": "drawable/sesl_btn_check_to_on_024",
+      "drawable/radio_024": "drawable/sesl_btn_radio_to_on_024",
+      "drawable/checkbox_025": "drawable/sesl_btn_check_to_on_025",
+      "drawable/radio_025": "drawable/sesl_btn_radio_to_on_025",
+      "drawable/checkbox_026": "drawable/sesl_btn_check_to_on_026",
+      "drawable/radio_026": "drawable/sesl_btn_radio_to_on_026"
   },
   "dashboardRows": [
     "cloud_and_account",
@@ -67,5 +260,128 @@
     "modes",
     "software_update",
     "tips"
-  ]
+  ],
+  "colorGroups": {
+    "qs_tile_inactive": [
+      "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*(inactive|(^|_)off(_|$)|unavailable|disabled|(^|_)dim(_|$))"
+    ],
+    "qs_tile_active": [
+      "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*((?<!in)active|(^|_)on(_|$)|enabled|activated|checked)",
+      "^(?!.*(icon|label|text|title|stroke|container|search|flashlight))(sec_)?qs_tiles?(_|$)"
+    ],
+    "qs_panel_bg": [
+      "^(?!.*(tile|icon|text|title|label|stroke|divider)).*(^|_)qs_.*(background|bg)",
+      "^(?!.*(tile|icon|text|title|label|stroke|divider))quick_?(settings?|panel).*(background|bg)",
+      "^(?!.*(tile|icon|text|title|label|stroke|divider|volume|power|keyguard|lock)).*(panel_background|panel_bg|shade_background|shade_bg)"
+    ],
+    "notification_bg": [
+      "^(?!.*(icon|text|title|label|stroke|divider|button|btn)).*notifi(cation)?s?_.*(bg|background|card)",
+      "^(?!.*(icon|text|title|label|stroke|divider|button|btn)).*notifi(cation)?s?_?(bg|background)",
+      "notification_guts"
+    ],
+    "system_bars": [
+      "^(?!.*(icon|text|title|label|stroke|divider|button|btn|ripple|shadow)).*(navigation_?bar|nav_?bar|status_?bar)"
+    ],
+    "slider": [
+      "^(?!.*(icon|text|title|label|loading|swipe_refresh|stroke|flashlight)|.*(dialog|panel|window)_?(background|bg)).*(brightness|volume|seek_?bar|slider|progress|tick_?mark|level_control)"
+    ],
+    "switch": [
+      "^(?!.*(text|title|label|icon|flashlight)).*(switch|checkbox|check_box|radio|toggle|(^|_)thumb|(^|_)track|_on_mtrl|_off_mtrl)"
+    ],
+    "button": [
+      "^(?!.*(text|title|label|icon|stroke)).*(button|(^|_)btn)"
+    ],
+    "icon_tint": [
+      "^(?!.*((background|bg|bgcolor)(_color)?(_(dark|light))?$|button|btn)).*(^|_)icons?(_|$)"
+    ],
+    "dialog": [
+      "^(?!.*(text|title|label|icon|stroke|divider|button|btn)).*(dialog|popup|pop_up|bottom_?sheet|menu_(bg|background)|tooltip|snackbar|toast)"
+    ],
+    "accent": [
+      "^(?!.*(background|bg|bgcolor)(_color)?(_(dark|light))?$).*(link|highlight|(?<!un)selected|activated|accent|primary_color|color_primary|primary_dark|control_activated|indicator|loading_progress|swipe_refresh)"
+    ],
+    "text_secondary": [
+      "^(?!.*((background|bg|bgcolor)(_color)?(_(dark|light))?$|icon|button|btn)).*(summary|subtitle|sub_?text|(^|_)sub(_|$)|secondary|hint|description|caption|state_text|chart.*text|empty_text)"
+    ],
+    "text_primary": [
+      "^(?!.*((background|bg|bgcolor)(_color)?(_(dark|light))?$|icon|button|btn|cursor|shadow|stroke)).*(^|_)(text|texts|title|label|primary_text|foreground)(_|$|color)"
+    ],
+    "surface": [
+      "^(?!.*(text|title|label|icon|stroke|divider|shadow|button|btn|thumb|track|seek|progress|tile|ripple|indicator)).*(card|container|list_bg|item_bg|app_?bar|action_?bar|tool_?bar|bottom_navigation|tab_?layout|search_view|cell)"
+    ],
+    "background": [
+      "^(?!.*(text|title|label|icon|stroke|divider|shadow|button|btn|thumb|track|seek|progress|tile|ripple|indicator|highlight|selected)).*(background|bgcolor|(^|_)bg(_|$)|window|screen_bg)"
+    ]
+  },
+  "colorGroupPackages": {
+    "com.samsung.android.honeyboard": "keyboard",
+    "com.sec.android.app.popupcalculator": "calculator",
+    "com.sec.android.gallery3d": "gallery",
+    "com.sec.android.app.voicenote": "voicenote",
+    "com.samsung.android.dialer": "dialer",
+    "com.samsung.android.incallui": "dialer",
+    "com.samsung.android.app.aodservice": "aod",
+    "com.android.systemui": "systemui"
+  },
+  "colorGroupFamilies": {
+    "gallery": {"exact": {"gallery_menu": ["bottom_menu_list_circle_bg_color"]}},
+    "voicenote": {"exact": {"voice_recorder_button": ["basic_token_sys_red", "basic_token_sys_red_light", "basic_token_sys_red_dark"]}},
+    "calculator": {"exact": {"calculator_keys": ["calc_keypad_operation_button_bg", "keypad_equal_bg", "keypad_equal_scientific_bg"], "calculator_symbols": ["keypad_operation", "keypad_equal"]}},
+    "keyboard": {
+      "groups": {
+        "keyboard_key": [
+          "^(?!.*(text|label|symbol|icon|hint|preview|shadow|stroke)).*(^|_)(keys?|keycap|key_cap|keybg|btn|button)(_|$)"
+        ],
+        "keyboard_bg": [
+          "^(?!.*(text|label|symbol|icon|hint|(^|_)keys?(_|$)|btn|button|stroke)).*(background|(^|_)bg(_|$)|bgcolor|board|window|panel|toolbar|candidate)"
+        ]
+      },
+      "exact": {
+        "keyboard_bg": ["keyboard_background", "keyboard_background_dark", "keyboard_background_light", "keyboard_background_dark_solid", "keyboard_background_light_solid", "keyboard_background_color_open_theme"],
+        "keyboard_key": ["text_key_background", "text_key_background_dark", "text_key_background_light", "text_key_background_dark_solid", "text_key_background_light_solid", "number_key_background_dark", "number_key_background_light", "normal_key_background_color_open_theme"],
+        "keyboard_function_key": ["function_key_background", "function_key_background_dark", "function_key_background_light", "function_key_background_dark_solid", "function_key_background_light_solid", "function_key_background_color_open_theme"],
+        "keyboard_label": ["text_key_main_label", "text_key_main_label_dark", "text_key_main_label_light", "text_key_main_label_dark_solid", "text_key_main_label_light_solid", "function_key_main_label", "function_key_main_label_dark", "function_key_main_label_light", "function_key_main_label_dark_solid", "function_key_main_label_light_solid", "text_key_secondary_label", "text_key_secondary_label_dark", "text_key_secondary_label_light", "text_key_secondary_label_dark_solid", "text_key_secondary_label_light_solid", "function_key_secondary_label", "function_key_secondary_label_dark", "function_key_secondary_label_light", "function_key_secondary_label_dark_solid", "function_key_secondary_label_light_solid"]
+      },
+      "remap": {
+        "background": "keyboard_bg",
+        "surface": "keyboard_key"
+      }
+    },
+    "dialer": {
+      "groups": {
+        "dialer": [
+          "^(?!.*(background|(^|_)bg(_|$)|bgcolor|text|title|label|divider|stroke)).*(^|_)(calls?|dial|dialer|dialpad|dial_pad|keypad|key_pad|answer|accept|incall|in_call|ongoing)(_|$)"
+        ]
+      },
+      "remap": {
+        "button": "dialer"
+      }
+    },
+    "aod": {
+      "groups": {
+        "lock_screen": [
+          "^(?!.*(background|(^|_)bg(_|$)|bgcolor|window|scrim|(^|_)dim(_|$)|shadow)).*"
+        ]
+      }
+    },
+    "systemui": {
+      "exact": {
+        "accent": ["sesl_primary_color_light", "sesl_primary_color_dark"],
+        "qs_tile_active": ["qs_tile_round_background_on", "qs_tile_round_background_on_stroke", "subscreen_qs_tile_round_background_on", "soundcraft_volume_progress_color_control", "tw_progress_color_control_activated"],
+        "qs_tile_inactive": ["qs_tile_round_background_dim", "qs_tile_round_background_off", "qs_tile_round_background_off_stroke", "subscreen_qs_tile_round_background_dim", "subscreen_qs_tile_round_background_off", "qs_edit_tile_round_background_available"],
+        "qs_panel_bg": ["qs_tile_container_bg", "sec_panel_background_color", "sec_panel_background_color_tablet", "open_theme_qp_bg_color", "sec_brightness_mirror_background_color", "sec_qs_detail_bg_color", "qs_detail_background_color", "sec_qs_detailed_container_background", "qs_edit_panel_available_background_color"],
+        "qs_tile_icon_on": ["qs_tile_icon_on_dim_tint_color", "subscreen_qs_tile_icon_on_color", "animated_brightness_sun_icon_color", "qs_edit_panel_active_tile_icon_color"],
+        "qs_tile_icon_off": ["qs_tile_icon_off_tint_color", "subscreen_qs_tile_icon_off_color", "qs_edit_panel_tile_icon_color", "qs_edit_tile_icon_available", "qs_edit_panel_available_tile_icon_color"],
+        "qs_text": ["qs_tile_label", "qs_tile_sub_label", "shade_header_clock_color", "shade_header_text_color", "qs_status_bar_clock_color", "sec_qs_header_tint_color", "qs_multisim_carrier_name_color", "qs_edit_tile_available_label_color", "qs_page_indicator_tint_color_selected", "sec_qs_page_indicator_tint_color", "qs_edit_content_text_color", "qs_detail_header_title", "qs_detail_item_name", "sec_qs_detail_header_text_color", "sec_qs_detail_primary_text_color", "sec_qs_detail_item_text_color"],
+        "notification_bg": ["sec_qs_media_player_background_color", "sec_qs_media_player_guts_background_color", "qp_notification_background_color", "open_theme_notification_bg_color"],
+        "text_primary": ["media_primary_text", "qp_notification_title_color", "open_theme_notification_title_text_color"],
+        "text_secondary": ["media_secondary_text", "media_tertiary_text", "qp_notification_content_color", "open_theme_notification_content_text_color"]
+      },
+      "groups": {
+        "lock_screen": [
+          "^(?!.*(background|(^|_)bg(_|$)|bgcolor|scrim|shadow|(^|_)dim(_|$))).*(^|_)(keyguard|lockscreen|lock_screen|kg|aod|lock)(_|$)"
+        ]
+      }
+    }
+  }
 }

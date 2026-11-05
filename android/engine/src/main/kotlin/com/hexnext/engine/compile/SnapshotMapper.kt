@@ -24,6 +24,7 @@ import com.hexnext.engine.frro.FrroEntry
  * @property dump the parsed `cmd overlay dump android:SemWT_<pkg>`, null when there is none.
  * @property table the target's `resources.arsc`, null when it could not be extracted or parsed.
  * @property semwtFrro the copied SemWT `.frro`, the fallback when [dump] has no mapping.
+ * @property values the target's dimens, integers and bools ([TargetSnapshot.values]).
  */
 public data class TargetScan(
     val packageName: String,
@@ -34,6 +35,7 @@ public data class TargetScan(
     val dump: OverlayDump? = null,
     val table: ResourceTable? = null,
     val semwtFrro: FabricatedOverlayFile? = null,
+    val values: Map<String, List<ScannedValue>> = emptyMap(),
 )
 
 /** How a scanned target can be themed; the UI greys everything but [AVAILABLE]. */
@@ -91,6 +93,7 @@ public object SnapshotMapper {
             table = merge(arsc, dumpTable),
             semwt = semwt,
             versionCode = scan.versionCode,
+            values = scan.values,
         )
     }
 

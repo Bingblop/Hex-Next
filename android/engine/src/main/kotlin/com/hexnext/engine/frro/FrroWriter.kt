@@ -14,6 +14,17 @@ public data class FrroColor(
 )
 
 /**
+ * One raw value of a [FrroSpec] (dimension, integer, boolean, float …): `[package:]type/name`,
+ * `Res_value` [dataType] and [data], optional qualifier.
+ */
+public data class FrroValue(
+    val resourceName: String,
+    val dataType: Int,
+    val data: Int,
+    val configuration: String? = null,
+)
+
+/**
  * One file (PNG) value of a [FrroSpec]. [ninePatch] must be false: nine-patch PNGs need the
  * aapt2 `npTc` compilation idmap2d performs, which [FrroWriter] does not implement.
  */
@@ -31,6 +42,7 @@ public class FrroBinary(
  * @property overlayName overlay name, the part after `owner:` in the overlay id.
  * @property targetPackage package whose resources are replaced.
  * @property targetOverlayable `<overlayable>` name, empty for none.
+ * @property values raw values written with their own data types (dimens, integers, bools).
  */
 public data class FrroSpec(
     val ownerPackage: String,
@@ -39,6 +51,7 @@ public data class FrroSpec(
     val targetOverlayable: String = "",
     val colors: List<FrroColor> = emptyList(),
     val binaries: List<FrroBinary> = emptyList(),
+    val values: List<FrroValue> = emptyList(),
 )
 
 /**
@@ -198,6 +211,7 @@ public class FrroWriter(
             require(frroPath.startsWith("/")) { "frro path must be absolute: $frroPath" }
             val w = FrroWriter(spec.ownerPackage, spec.overlayName, spec.targetPackage, spec.targetOverlayable)
             spec.colors.forEach { w.setColor(it.resourceName, it.argb, it.configuration.orEmpty()) }
+            spec.values.forEach { w.setResourceValue(it.resourceName, it.dataType, it.data, it.configuration.orEmpty()) }
             spec.binaries.forEach { w.setBinary(it.resourceName, it.bytes, it.ninePatch, it.configuration.orEmpty()) }
             return w.toByteArray(frroPath)
         }

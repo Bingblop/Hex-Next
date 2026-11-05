@@ -51,7 +51,7 @@ data class SemWtStatus(
     val targetOverlayable: String? = null,
     /** `mBaseCodePath`, the live `.frro` under `/data/resource-cache`. */
     val frroPath: String? = null,
-    /** Where [resourceCount] came from: [SOURCE_DUMP], [SOURCE_FRRO] or [SOURCE_NONE]. */
+    /** Where [resourceCount] came from: [SOURCE_DUMP], [SOURCE_FRRO], [SOURCE_CACHED] or [SOURCE_NONE]. */
     val source: String = SOURCE_NONE,
     /** Distinct resources Samsung themes in the target. */
     val resourceCount: Int = 0,
@@ -71,6 +71,9 @@ data class SemWtStatus(
         const val SOURCE_DUMP = "dump"
         const val SOURCE_FRRO = "frro"
         const val SOURCE_NONE = "none"
+
+        /** The overlay is gone; the mapping is the one remembered from an earlier good scan. */
+        const val SOURCE_CACHED = "cached"
     }
 }
 

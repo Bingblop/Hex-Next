@@ -176,27 +176,27 @@ class PackScriptTest(unittest.TestCase):
             return proc.returncode, log.read_text() if log.exists() else "", proc.stdout
 
     def test_renamed_file_is_stored_under_its_pack_id(self):
-        rc, cmd, out = self.run_pack("velvet-rope-1.zip", json.dumps({"id": "velvet-rope", "name": "V"}, indent=1))
+        rc, cmd, out = self.run_pack("iolite-1.zip", json.dumps({"id": "iolite", "name": "V"}, indent=1))
         self.assertEqual(rc, 0, out)
-        self.assertIn("/files/packs/velvet-rope.zip'", cmd)
-        self.assertIn("rm -f '/data/data/com.hexnext.themer/files/packs/velvet-rope.hexnext'", cmd)
-        self.assertNotIn("packs/velvet-rope-1", cmd)
-        self.assertNotIn("packs/.velvet-rope-1", cmd)
+        self.assertIn("/files/packs/iolite.zip'", cmd)
+        self.assertIn("rm -f '/data/data/com.hexnext.themer/files/packs/iolite.hexnext'", cmd)
+        self.assertNotIn("packs/iolite-1", cmd)
+        self.assertNotIn("packs/.iolite-1", cmd)
 
     def test_copy_is_staged_as_the_apps_part_file(self):
         # PackStore sweeps stale <id>.zip.part at start-up; a failed copy must not leave
         # a file the app never sees.
-        rc, cmd, out = self.run_pack("x.zip", '{"id":"velvet-rope"}')
+        rc, cmd, out = self.run_pack("x.zip", '{"id":"iolite"}')
         self.assertEqual(rc, 0, out)
         self.assertIn("cp '", cmd)
-        self.assertIn("/files/packs/velvet-rope.zip.part'", cmd)
-        self.assertIn("rm -f '/data/data/com.hexnext.themer/files/packs/velvet-rope.zip.part'; false", cmd)
+        self.assertIn("/files/packs/iolite.zip.part'", cmd)
+        self.assertIn("rm -f '/data/data/com.hexnext.themer/files/packs/iolite.zip.part'; false", cmd)
         self.assertNotIn(".tmp", cmd)
 
     def test_minified_pack_json_is_read(self):
-        rc, cmd, out = self.run_pack("download.zip", '{"name":"V","id":"deluxe-3-8","version":"1"}')
+        rc, cmd, out = self.run_pack("download.zip", '{"name":"V","id":"some-pack","version":"1"}')
         self.assertEqual(rc, 0, out)
-        self.assertIn("/files/packs/deluxe-3-8.zip'", cmd)
+        self.assertIn("/files/packs/some-pack.zip'", cmd)
 
     def test_unsafe_or_missing_id_is_refused(self):
         for pack_json in ('{"id":"a b"}', '{"id":"x\'y"}', '{"name":"no id"}', '{"id":"../x"}'):

@@ -108,9 +108,9 @@ internal fun UnlockAllRow(locks: PackLocks, busy: Boolean, onUnlock: (String) ->
     }
 }
 
-/** "Locked" with a lock icon, for a pack row whose pack is not unlocked. */
+/** "Locked" (with [price] when known) and a lock icon, for a pack row whose pack is not unlocked. */
 @Composable
-internal fun LockedLabel(pending: Boolean) {
+internal fun LockedLabel(pending: Boolean, price: String? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Icon(
             Icons.Outlined.Lock,
@@ -119,7 +119,11 @@ internal fun LockedLabel(pending: Boolean) {
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            if (pending) "Locked · payment pending" else "Locked",
+            when {
+                pending -> "Locked · payment pending"
+                price != null -> "Locked · $price"
+                else -> "Locked"
+            },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

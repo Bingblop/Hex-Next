@@ -91,6 +91,9 @@ public sealed class ResourceValue {
     /** A `TYPE_INT_BOOLEAN` value. */
     public data class BoolValue(val value: Boolean) : ResourceValue()
 
+    /** A `TYPE_FLOAT` value (`<item format="float" type="dimen">`). */
+    public data class FloatValue(val value: Float) : ResourceValue()
+
     /** A `TYPE_INT_DEC` / `TYPE_INT_HEX` value. */
     public data class IntValue(val value: Int) : ResourceValue()
 
