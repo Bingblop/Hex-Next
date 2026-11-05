@@ -172,7 +172,7 @@ private fun SettingsRowItem(icon: PreviewIcon, surface: Color, loading: Boolean,
                 .padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PreviewIconImage(icon, loading, scope.reduceMotion, size = 20.dp)
+            PreviewIconImage(icon, loading, scope.reduceMotion, size = 20.dp, slotPackage = "com.android.settings")
             Spacer(Modifier.width(14.dp))
             GroupText(icon.label, ColorGroup.TEXT_PRIMARY, surface, scope, modifier = Modifier.weight(1f), size = 13.sp, weight = FontWeight.Medium)
         }

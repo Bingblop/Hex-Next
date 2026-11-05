@@ -1642,6 +1642,50 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Uses the icon [file] for the drawable [slotKey] (`pkg:drawable/name`); null gives the slot back to the pack. */
     fun assignIcon(slotKey: String, file: String?) = updateSpec { it.withCustomIcon(slotKey, file) }
 
+    /** Every unlocked pack's art for [slotKey], rendered off the main thread (see [ThemePreviewer.iconChoices]). */
+    fun loadIconChoices(slotKey: String, night: Boolean, onResult: (List<ThemePreviewer.IconChoice>) -> Unit) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val choices = withContext(Dispatchers.Default) { previewer.iconChoices(spec, slotKey, night) }
+            onResult(choices)
+        }
+    }
+
+    /** Uses [choice] (another pack's art) for [slotKey]: stored as a custom icon and assigned. */
+    fun useIconChoice(slotKey: String, label: String, choice: ThemePreviewer.IconChoice) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = assets.saveIcon(choice.bitmap, "$label · ${choice.packName}")
+                assignIcon(slotKey, asset.fileName)
+                postNotice(Notice("$label now uses ${choice.packName}", isSuccess = true))
+            } catch (t: Exception) {
+                postNotice(Notice("Couldn't use that icon: ${t.message ?: t.javaClass.simpleName}", isError = true))
+            } finally {
+                refreshAssets()
+            }
+        }
+    }
+
+    /**
+     * Imports the image at [uri] for [slotKey]: cropped to its visible pixels and sized for the
+     * slot, then assigned. A file that cannot be used (not an image, empty, too small or too
+     * large) leaves the slot as it was and says why.
+     */
+    fun importIconFor(slotKey: String, label: String, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = assets.importImage(uri, CustomAssetStore.Kind.ICON)
+                assignIcon(slotKey, asset.fileName)
+                postNotice(Notice("$label now uses ${asset.displayName}", isSuccess = true))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Importing the icon for $label failed: ${t.message ?: t.javaClass.simpleName}"))
+                postNotice(Notice("Couldn't use that image: ${t.message ?: t.javaClass.simpleName}", isError = true))
+            } finally {
+                refreshAssets()
+            }
+        }
+    }
+
     /** Uses the background [file] for [slotKey]; null gives the slot back to the pack or Samsung. */
     fun assignBackground(slotKey: String, file: String?) = updateSpec { it.withCustomBackground(slotKey, file) }
 

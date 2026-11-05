@@ -20,6 +20,23 @@
         <!-- The Play and owner builds detect each other (safety/OtherBuild.kt). -->
         <package android:name="com.hexnext.themer" />
         <package android:name="com.hexnext.themer.owner" />
+        <!-- The Studio shows an app's preview tab only when the app is installed (PreviewTab). -->
+        <package android:name="com.sec.android.app.myfiles" />
+        <package android:name="com.samsung.android.dialer" />
+        <package android:name="com.samsung.android.honeyboard" />
+        <package android:name="com.samsung.android.app.contacts" />
+        <package android:name="com.sec.android.app.popupcalculator" />
+        <package android:name="com.sec.android.app.voicenote" />
+        <package android:name="com.sec.android.gallery3d" />
+        <package android:name="com.sec.android.app.clockpackage" />
+        <package android:name="com.samsung.android.calendar" />
+        <package android:name="com.samsung.android.app.notes" />
+        <package android:name="com.samsung.android.app.reminder" />
+        <package android:name="com.sec.android.app.sbrowser" />
+        <package android:name="com.samsung.android.email.provider" />
+        <package android:name="com.sec.android.app.music" />
+        <package android:name="com.sec.android.app.shealth" />
+        <package android:name="com.samsung.android.lool" />
     </queries>
 
     <!-- largeHeap is a safety margin only; the apply path itself keeps per-target tables small. -->

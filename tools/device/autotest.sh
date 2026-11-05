@@ -532,6 +532,31 @@ step_fabtest() {
   root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/fabtest.txt" 2>&1
 }
 
+# Probe overlays: the job's "probes" list of {"target": pkg, "res": "color/name", "value": "0xAARRGGBB"}
+# becomes one fabricated overlay each (com.android.shell:HexNextProbe_<n>), so a capture shows
+# which resource paints what. "unprobe" turns them off (the shell cannot unregister them; a
+# restart drops them).
+step_probe() {
+  local n=0 target res value
+  jq -r '.probes // [] | .[] | "\(.target) \(.res) \(.value)"' "$JOB" | while read -r target res value; do
+    case "$target$res$value" in *[!A-Za-z0-9._/x]*|'') continue ;; esac
+    n=$((n + 1))
+    root "cmd overlay fabricate --target $target --name HexNextProbe_$n $target:$res 0x1c $value" >>"$RES/probe.txt" 2>&1
+    root "cmd overlay enable --user 0 com.android.shell:HexNextProbe_$n" >>"$RES/probe.txt" 2>&1
+  done
+  root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/probe.txt" 2>&1
+  log "probe: $(grep -c HexNextProbe_ "$RES/probe.txt") overlay lines"
+  local t; for t in $(jq -r '.probes // [] | map(.target) | unique | .[]' "$JOB"); do root "am force-stop $t" 2>/dev/null; done
+}
+
+step_unprobe() {
+  local o
+  for o in $(root "cmd overlay list --user 0" | grep -o 'com.android.shell:HexNextProbe_[0-9]*'); do
+    root "cmd overlay disable --user 0 $o"
+  done
+  log "unprobe: done"
+}
+
 step_shizuku() { restart_shizuku; }
 
 # Waits (up to 10 min) for Hex Next to put its overlays back by itself after a restart
@@ -691,7 +716,17 @@ capture_preview() {
   local tab try
   case "$1" in
     settings) tab=SETTINGS ;; qs) tab=QUICK_PANEL ;; shade) tab=NOTIFICATIONS ;;
-    power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; keyboard) tab=KEYBOARD ;; *) return 0 ;;
+    power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; keyboard) tab=KEYBOARD ;;
+    # app:<pkg>[/activity] beside the Studio tab of that app (PreviewTab.packageName).
+    app:com.samsung.android.app.contacts*) tab=CONTACTS ;; app:com.sec.android.app.popupcalculator*) tab=CALCULATOR ;;
+    app:com.sec.android.app.voicenote*) tab=VOICE_RECORDER ;; app:com.sec.android.gallery3d*) tab=GALLERY ;;
+    app:com.sec.android.app.clockpackage*) tab=CLOCK ;; app:com.samsung.android.calendar*) tab=CALENDAR ;;
+    app:com.samsung.android.app.notes*) tab=NOTES ;; app:com.samsung.android.app.reminder*) tab=REMINDER ;;
+    app:com.sec.android.app.sbrowser*) tab=INTERNET ;; app:com.samsung.android.email.provider*) tab=EMAIL ;;
+    app:com.sec.android.app.music*) tab=MUSIC ;; app:com.sec.android.app.shealth*) tab=HEALTH ;;
+    app:com.samsung.android.lool*) tab=DEVICE_CARE ;; app:com.sec.android.app.myfiles*) tab=MY_FILES ;;
+    app:com.samsung.android.dialer*) tab=DIALER ;;
+    *) return 0 ;;
   esac
   local dark=true; [ "$MODE" = light ] && dark=false
   # The hook's activity can lose the race with a closing panel: retry once, and only screenshot
@@ -755,7 +790,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate|probe|unprobe) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break

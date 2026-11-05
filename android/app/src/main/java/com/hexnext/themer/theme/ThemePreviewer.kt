@@ -145,6 +145,62 @@ class ThemePreviewer(context: Context) {
         }
     }
 
+    /**
+     * Art one unlocked pack has for an icon slot.
+     *
+     * @property packId the pack.
+     * @property packName its display name.
+     * @property bitmap the slot rendered from that pack with the theme's icon style.
+     */
+    data class IconChoice(val packId: String, val packName: String, val bitmap: Bitmap)
+
+    /**
+     * What every unlocked (installed) pack draws for [slotKey] (`pkg:drawable/name`), each
+     * rendered as the theme would: the pack is swapped in for the whole theme, so each pack's own
+     * name mapping and the theme's icon style apply. Packs without art for the slot are left out.
+     * Empty without a scan or when the slot's app is not scanned.
+     */
+    fun iconChoices(spec: ThemeSpec, slotKey: String, night: Boolean = false): List<IconChoice> = synchronized(lock) {
+        try {
+            iconChoicesOrThrow(spec, slotKey, night)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun iconChoicesOrThrow(spec: ThemeSpec, slotKey: String, night: Boolean): List<IconChoice> {
+        val pkg = slotKey.substringBefore(':', "")
+        if (pkg.isEmpty()) return emptyList()
+        val built = snapshot(full = true) ?: return emptyList()
+        val target = built.snapshot.targets[pkg] ?: return emptyList()
+        val single = built.snapshot.copy(targets = mapOf(pkg to target))
+        val rules = OneUiRules.forProfile(single.oneUi)
+        val packs = packResolver()
+        val unlocked = com.hexnext.engine.pack.DirectoryPackResolver(File(appContext.filesDir, PackDirs.APPLY)).availableIds()
+        val customRoot = CustomAssetStore.rootDir(appContext)
+        val out = ArrayList<IconChoice>()
+        DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
+            for (id in unlocked) {
+                val pack = packs.pack(id) ?: continue
+                val one = spec.copy(
+                    mode = com.hexnext.engine.compile.ThemeMode.SIMPLE,
+                    simplePackId = id,
+                    customIcons = emptyMap(),
+                    customBackgrounds = emptyMap(),
+                    synthesizeMissingIcons = false,
+                )
+                val compiled = ThemeCompiler.compile(one, single, packs, rules).target(pkg) ?: continue
+                val jobs = compiled.drawables.filter { it.resourceName == slotKey && it.custom == null && it.synthesis == null }
+                val job = bestOf(jobs, night) ?: continue
+                val bitmap = cachedBitmap(renderer, job, customRoot) ?: continue
+                out += IconChoice(id, pack.name, bitmap)
+            }
+        }
+        return out
+    }
+
     /** The slots of [spec] on this device; empty without a scan, empty with [SlotCatalogue.error] on failure. */
     fun slots(spec: ThemeSpec): SlotCatalogue = synchronized(lock) {
         try {

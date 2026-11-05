@@ -554,13 +554,16 @@ public object ThemeCompiler {
         val reached = LinkedHashSet<Pair<String, String>>()
         // Alpha scales per group: ThemeSpec.groupAlpha, or qsPanelAlpha for the panel backdrop.
         val alphaScales = ColorGroup.ALL.associateWith { g -> groupAlphaScale(spec, g) }.filterValues { it < OPAQUE_ALPHA }
+        val exactHueNames = rules.exactColourNames(pkg)
         for (entry in values.entries) {
             val key = entry.key
             // A colour whose meaning is its hue (error, Sunday red) that no reliable shade explains
             // would match by name alone; it keeps its role-inferred or verbatim value.
             val match = inferred[key]
             val reliable = match != null && match.deltaE <= RoleInference.DEFAULT_MAX_DELTA_E && match.alpha != 0
-            if (!reliable && ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(key.first.substringAfter('/'))) continue
+            if (!reliable && ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(key.first.substringAfter('/')) &&
+                key.first.substringAfter('/').lowercase() !in exactHueNames
+            ) continue
             val m = ColorGroupMatcher.match(pkg, key.first, match, rules) ?: continue
             val group = m.group
             groups[key] = group
@@ -568,7 +571,7 @@ public object ThemeCompiler {
             var changed = false
             // A device-verified exact name takes the group's Auto colour too, as the Studio preview shows it.
             val user = spec.groupColor(group, isNight(key.second))
-                ?: if (m.exact) spec.effectiveGroupColor(group, resolved(), isNight(key.second)) else null
+                ?: if (m.exact && !group.autoKeepsApp) spec.effectiveGroupColor(group, resolved(), isNight(key.second)) else null
             if (user != null) {
                 value = ColorGroupMatcher.groupValue(group, user, observed.getValue(key), inferred[key])
                 reached += key
@@ -596,7 +599,8 @@ public object ThemeCompiler {
                 if (!c.exclusive || c.typeName in known) continue
                 val name = c.typeName.substringAfter('/')
                 if (!anyGroupSet && name.lowercase() !in exactNames) continue
-                if (ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(name)) continue
+                // Device-verified exact names (Voice Recorder's red record button) skip the hue exclusion.
+                if (ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(name) && name.lowercase() !in exactNames) continue
                 if (pkg == SYSTEMUI && !rules.allowsSystemUiColour(name)) continue
                 val forced: Boolean? = when {
                     name.endsWith("_dark") -> true
@@ -616,6 +620,7 @@ public object ThemeCompiler {
                     val mode = forced ?: isNight(config)
                     val user = when {
                         m == null || m.byFallback -> null
+                        m.exact && m.group.autoKeepsApp -> spec.groupColor(m.group, mode)
                         m.exact -> spec.effectiveGroupColor(m.group, resolved(), mode)
                         m.group !in ColorGroupMatcher.TABLE_GROUPS -> null
                         else -> spec.groupColor(m.group, mode)

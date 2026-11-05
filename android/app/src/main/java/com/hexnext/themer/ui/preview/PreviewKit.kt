@@ -112,6 +112,9 @@ internal class PreviewPalette(
 
     operator fun get(group: ColorGroup): Color = colors[group]?.value ?: scheme.color(group).toColor()
 
+    /** True when [group] is on Auto and its app keeps its own colours (Contacts' colourful tiles). */
+    fun keptByApp(group: ColorGroup): Boolean = group in scheme.keptByApp
+
     /** A Monet shade (`accent1_300`) for decorative art, [fallback] when the scheme lacks it. */
     fun shade(key: String, fallback: Color): Color = scheme.shade(key)?.toColor() ?: fallback
 }
@@ -157,6 +160,9 @@ internal class PreviewScope(
     fun myFiles(name: String, fallback: Color): Color = device.myFiles.get(name, dark)?.let { Color(it) } ?: fallback
 
     operator fun get(group: ColorGroup): Color = palette[group]
+
+    /** See [PreviewPalette.keptByApp]. */
+    fun keptByApp(group: ColorGroup): Boolean = palette.keptByApp(group)
 
     /** The contrast pick on [group]'s colour. */
     fun on(group: ColorGroup): Color = contentColorFor(palette[group])
@@ -310,6 +316,12 @@ private object PreviewFontCache {
  * An app icon: the rendered bitmap when present, else a circle in its fallback colour with a
  * simple white glyph. While icons render, fallbacks pulse gently.
  */
+/**
+ * Called with an icon slot (`pkg:drawable/name`) and its label when a preview icon is tapped;
+ * null where icons are not editable (the lab's bare preview, the onboarding peek).
+ */
+internal val LocalIconTap = androidx.compose.runtime.staticCompositionLocalOf<((String, String) -> Unit)?> { null }
+
 @Composable
 internal fun PreviewIconImage(
     icon: PreviewIcon,
@@ -317,7 +329,15 @@ internal fun PreviewIconImage(
     reduceMotion: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 28.dp,
+    slotPackage: String? = null,
 ) {
+    val onIconTap = LocalIconTap.current
+    @Suppress("NAME_SHADOWING")
+    val modifier = if (onIconTap != null && slotPackage != null && !icon.key.startsWith("default:")) {
+        modifier.clickable(onClickLabel = "Change ${icon.label} icon") { onIconTap("$slotPackage:drawable/${icon.key}", icon.label) }
+    } else {
+        modifier
+    }
     val bitmap = icon.bitmap
     if (bitmap != null) {
         Image(
