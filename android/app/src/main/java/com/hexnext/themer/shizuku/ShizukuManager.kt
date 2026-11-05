@@ -8,9 +8,11 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Process
+import android.os.RemoteException
 import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.IThemeService
 import com.hexnext.themer.ServiceTasks
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -159,10 +161,14 @@ object ShizukuManager {
         val context = appContext ?: return
         if (permittedShizukuUid() == 1000) { refresh(); return }
         if (SystemLauncher.failed || !SystemLauncher.suPresent()) return
-        scope.launch {
-            runCatching {
+        scope.launch(Dispatchers.Main.immediate) {
+            try {
                 SystemLauncher.ensure(context) { Handler(Looper.getMainLooper()).post { refresh() } }
-            }.onFailure {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RemoteException) {
+                _rootRequest.value = RootRequest(error = "Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+            } catch (e: SecurityException) {
                 _rootRequest.value = RootRequest(error = "Root access could not be started. Open your root manager, allow Hex Next, then try again.")
             }
         }
@@ -170,15 +176,17 @@ object ShizukuManager {
 
     /** User-initiated retry, including when KernelSU is installed but su is not visible yet. */
     fun requestRootAccess() {
-        val context = appContext ?: return
-        if (permittedShizukuUid() == 1000) { refresh(); return }
-        val previous = _rootRequest.value
-        if (previous.requesting || !_rootRequest.compareAndSet(previous, RootRequest(requesting = true))) return
-        if (!ServiceTasks.tryStart("Requesting root access")) {
-            _rootRequest.value = RootRequest(error = "Wait for the current device task to finish, then try again.")
-            return
-        }
-        scope.launch {
+        // Keep UI-facing state and task ownership on Main without tying this app-scoped flow
+        // to an Activity. ensure() moves privileged process work to Dispatchers.IO.
+        scope.launch(Dispatchers.Main.immediate) {
+            val context = appContext ?: return@launch
+            if (permittedShizukuUid() == 1000) { refresh(); return@launch }
+            val previous = _rootRequest.value
+            if (previous.requesting || !_rootRequest.compareAndSet(previous, RootRequest(requesting = true))) return@launch
+            if (!ServiceTasks.tryStart("Requesting root access")) {
+                _rootRequest.value = RootRequest(error = "Wait for the current device task to finish, then try again.")
+                return@launch
+            }
             try {
                 val connected = SystemLauncher.ensure(context, requestAccess = true)
                 _rootRequest.value = RootRequest(error = if (connected == null) {
@@ -186,9 +194,15 @@ object ShizukuManager {
                         "or connect Shizuku at UID 1000. If you are not rooted, complete manual setup in DirtyFrag first. " +
                         (SystemLauncher.lastError ?: "Neither UID 1000 nor UID 0 access was obtained.")
                 } else null)
-            } catch (e: Exception) {
+            } catch (e: CancellationException) {
+                _rootRequest.value = RootRequest()
+                throw e
+            } catch (e: RemoteException) {
+                _rootRequest.value = RootRequest(error = "Root access could not be started. Check your root manager or Shizuku and try again.")
+            } catch (e: SecurityException) {
                 _rootRequest.value = RootRequest(error = "Root access could not be started. Check your root manager or Shizuku and try again.")
             } finally {
+                _rootRequest.value = _rootRequest.value.copy(requesting = false)
                 ServiceTasks.finish()
                 Handler(Looper.getMainLooper()).post { refresh() }
             }
