@@ -194,7 +194,11 @@ class AutotestActivity : ComponentActivity() {
                     diagnostics.runScan()
                     awaitIdle { diagnostics.state.value.busy }
                     val report = diagnostics.state.value.report
-                    done(cmd, report != null, report?.let { "${it.model} ${it.oneUiVersion}" } ?: "no report")
+                    val mode = (ShizukuManager.state.value as? ShizukuState.Ready)?.let {
+                        "uid=${it.uid}" + (if (it.viaSystem) " system" else if (it.viaSu) " su" else " shizuku")
+                    } ?: "not ready"
+                    val systemError = com.hexnext.themer.shizuku.SystemLauncher.lastError?.let { " systemError=$it" }.orEmpty()
+                    done(cmd, report != null, (report?.let { "${it.model} ${it.oneUiVersion}" } ?: "no report") + " mode=$mode$systemError")
                 }
                 "apply" -> {
                     val asked = System.currentTimeMillis()

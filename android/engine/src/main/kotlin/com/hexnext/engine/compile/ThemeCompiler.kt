@@ -256,6 +256,18 @@ public object ThemeCompiler {
         Regex("qs_|quick|tile|panel|notification|status_bar|statusbar|navigation|nav_bar|volume|power|lock|keyguard|brightness", RegexOption.IGNORE_CASE)
 
     private const val SYSTEMUI = "com.android.systemui"
+
+    /** Settings rows no pack has art for: always drawn in the pack's style (Galaxy AI). */
+    private val ALWAYS_SYNTHESISED_ROWS = listOf("galaxy_ai")
+
+    /** Power menu icons that a pack's Power off / Restart art can stand in for, in that order. */
+    private val POWER_MENU_REFERENCES = listOf("drawable/tw_ic_do_poweroff", "drawable/tw_ic_do_restart")
+
+    /** Power menu buttons drawn in the pack's style when it has no art for them → `hx_glyph_*` key. */
+    private val POWER_MENU_GLYPHS = linkedMapOf(
+        "drawable/tw_ic_do_emergencysos" to "emergency_sos",
+        "drawable/tw_ic_do_medicalinfo" to "medical_info",
+    )
     private const val SETTINGS = "com.android.settings"
     private const val MYFILES = "com.sec.android.app.myfiles"
     private const val SETTINGS_ICONS = "settings_icons"
@@ -542,13 +554,16 @@ public object ThemeCompiler {
         val reached = LinkedHashSet<Pair<String, String>>()
         // Alpha scales per group: ThemeSpec.groupAlpha, or qsPanelAlpha for the panel backdrop.
         val alphaScales = ColorGroup.ALL.associateWith { g -> groupAlphaScale(spec, g) }.filterValues { it < OPAQUE_ALPHA }
+        val exactHueNames = rules.exactColourNames(pkg)
         for (entry in values.entries) {
             val key = entry.key
             // A colour whose meaning is its hue (error, Sunday red) that no reliable shade explains
             // would match by name alone; it keeps its role-inferred or verbatim value.
             val match = inferred[key]
             val reliable = match != null && match.deltaE <= RoleInference.DEFAULT_MAX_DELTA_E && match.alpha != 0
-            if (!reliable && ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(key.first.substringAfter('/'))) continue
+            if (!reliable && ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(key.first.substringAfter('/')) &&
+                key.first.substringAfter('/').lowercase() !in exactHueNames
+            ) continue
             val m = ColorGroupMatcher.match(pkg, key.first, match, rules) ?: continue
             val group = m.group
             groups[key] = group
@@ -556,7 +571,7 @@ public object ThemeCompiler {
             var changed = false
             // A device-verified exact name takes the group's Auto colour too, as the Studio preview shows it.
             val user = spec.groupColor(group, isNight(key.second))
-                ?: if (m.exact) spec.effectiveGroupColor(group, resolved(), isNight(key.second)) else null
+                ?: if (m.exact && !group.autoKeepsApp) spec.effectiveGroupColor(group, resolved(), isNight(key.second)) else null
             if (user != null) {
                 value = ColorGroupMatcher.groupValue(group, user, observed.getValue(key), inferred[key])
                 reached += key
@@ -584,7 +599,8 @@ public object ThemeCompiler {
                 if (!c.exclusive || c.typeName in known) continue
                 val name = c.typeName.substringAfter('/')
                 if (!anyGroupSet && name.lowercase() !in exactNames) continue
-                if (ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(name)) continue
+                // Device-verified exact names (Voice Recorder's red record button) skip the hue exclusion.
+                if (ColorGroupMatcher.TABLE_EXCLUDED.containsMatchIn(name) && name.lowercase() !in exactNames) continue
                 if (pkg == SYSTEMUI && !rules.allowsSystemUiColour(name)) continue
                 val forced: Boolean? = when {
                     name.endsWith("_dark") -> true
@@ -604,6 +620,7 @@ public object ThemeCompiler {
                     val mode = forced ?: isNight(config)
                     val user = when {
                         m == null || m.byFallback -> null
+                        m.exact && m.group.autoKeepsApp -> spec.groupColor(m.group, mode)
                         m.exact -> spec.effectiveGroupColor(m.group, resolved(), mode)
                         m.group !in ColorGroupMatcher.TABLE_GROUPS -> null
                         else -> spec.groupColor(m.group, mode)
@@ -647,6 +664,20 @@ public object ThemeCompiler {
                     tableObserved[c.typeName to config] = literal
                     tableAdded++
                 }
+            }
+        }
+
+        // The system Material You palette apps outside One UI read (ColorBlendr's set), from the
+        // theme; after the groups and extras, before the pins, so a pinned shade still wins.
+        if (pkg == "android" && table != null && spec.systemPalette) {
+            val palette = SystemPalette.colors(
+                resolved(),
+                has = { table.find(it) != null },
+                isReference = { name -> table.find(name)?.values?.firstOrNull()?.value is ResourceValue.Reference },
+            )
+            for ((key, argb) in palette) {
+                values[key] = argb
+                fixed.remove(key)
             }
         }
 
@@ -881,7 +912,10 @@ public object ThemeCompiler {
             val overridden = HashSet<String>()
             customJobs(spec.customIcons, CustomAssets.CATEGORY_ICON, jobs, overridden)
             customJobs(spec.customBackgrounds, CustomAssets.CATEGORY_BACKGROUND, jobs, overridden)
-            if (pkg == SETTINGS && spec.synthesizeMissingIcons) synthesisJobs(jobs, overridden)
+            // Rows no pack draws (Galaxy AI) and the power menu buttons some leave out are drawn in
+            // the pack's style whatever the switch says; the switch covers the other rows.
+            if (pkg == SETTINGS) synthesisJobs(jobs, overridden, if (spec.synthesizeMissingIcons) rules.dashboardRows else ALWAYS_SYNTHESISED_ROWS)
+            if (pkg == SYSTEMUI) powerMenuSynthesisJobs(jobs, overridden)
             if (spec.builtInIcons) {
                 for (j in IconColors.builtInJobs(spec, pkg, table, rules, jobs.keys.toSet(), overridden, resolved())) {
                     jobs.putIfAbsent(j.resourceName to j.configuration, j)
@@ -947,7 +981,11 @@ public object ThemeCompiler {
         }
 
         /** Adds synthesis jobs for dashboard rows the Settings icon pack left out (see [ThemeCompiler], step 4). */
-        private fun synthesisJobs(jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>, overridden: Set<String>) {
+        private fun synthesisJobs(
+            jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>,
+            overridden: Set<String>,
+            rows: List<String> = rules.dashboardRows,
+        ) {
             if (!spec.isElementEnabled(SETTINGS_ICONS)) return
             val packId = spec.packFor(SETTINGS_ICONS) ?: return
             if (packs.pack(packId) == null) return
@@ -958,7 +996,8 @@ public object ThemeCompiler {
                 val reference = group.firstOrNull { it.resourceName == "${prefix}display" }
                     ?: group.firstOrNull { it.resourceName == "${prefix}connections" }
                     ?: group.first()
-                for (row in rules.dashboardRows) {
+                for (row in rows) {
+                    if (row !in rules.dashboardRows) continue
                     val name = DASHBOARD_ICON_PREFIX + row
                     val resourceName = "$pkg:drawable/$name"
                     if (resourceName in overridden || (resourceName to config) in jobs) continue
@@ -973,6 +1012,36 @@ public object ThemeCompiler {
                     event(
                         LogLevel.INFO, pkg, "icon synthesised",
                         mapOf("row" to row, "reference" to reference.resourceName, "configuration" to config),
+                    )
+                }
+            }
+        }
+
+        /**
+         * Power menu buttons the pack draws no art for (Emergency call, Medical info): drawn in the
+         * pack's style from its Power off icon (Restart when Power off is missing) of the same
+         * configuration, so the menu never mixes pack art with the stock red badges.
+         */
+        private fun powerMenuSynthesisJobs(jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>, overridden: Set<String>) {
+            val blocked = !rules.quickSettings.drawablesAllowed
+            val packJobs = jobs.values.filter { it.custom == null && it.synthesis == null && it.badge == null && !it.ninePatch }
+            for ((config, group) in packJobs.groupBy { it.configuration }) {
+                val reference = POWER_MENU_REFERENCES.firstNotNullOfOrNull { ref -> group.firstOrNull { it.resourceName == "$pkg:$ref" } }
+                    ?: continue
+                for ((typeName, glyph) in POWER_MENU_GLYPHS) {
+                    val resourceName = "$pkg:$typeName"
+                    if (resourceName in overridden || (resourceName to config) in jobs) continue
+                    if (blocked && !rules.quickSettings.allowsOutside(typeName)) continue
+                    if (table.find(typeName) == null) continue
+                    jobs[resourceName to config] = PlannedDrawableJob(
+                        resourceName, config, CompositePlan(emptyList()), ninePatch = false,
+                        source = reference.source.copy(resourceName = typeName.substringAfter('/')),
+                        elementId = reference.elementId,
+                        synthesis = IconSynthesis(glyph, reference),
+                    )
+                    event(
+                        LogLevel.INFO, pkg, "icon synthesised",
+                        mapOf("row" to glyph, "reference" to reference.resourceName, "configuration" to config),
                     )
                 }
             }

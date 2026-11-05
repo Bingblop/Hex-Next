@@ -18,7 +18,12 @@
     "com.samsung.android.app.aodservice",
     "com.samsung.android.app.smartcapture",
     "com.samsung.android.app.notes",
-    "com.samsung.android.app.reminder"
+    "com.samsung.android.app.reminder",
+    "com.sec.android.app.sbrowser",
+    "com.samsung.android.email.provider",
+    "com.sec.android.app.music",
+    "com.sec.android.app.voicenote",
+    "com.sec.android.app.shealth"
   ],
   "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
   "quickSettings": {
@@ -43,6 +48,8 @@
     ],
     "colours": [],
     "extraColours": [
+      "sesl_primary_color_light",
+      "sesl_primary_color_dark",
       "open_theme_noti_header_color",
       "basic_token_sys_primary",
       "basic_list_button_ripple_background_color",
@@ -308,12 +315,18 @@
   },
   "colorGroupPackages": {
     "com.samsung.android.honeyboard": "keyboard",
+    "com.sec.android.app.popupcalculator": "calculator",
+    "com.sec.android.gallery3d": "gallery",
+    "com.sec.android.app.voicenote": "voicenote",
     "com.samsung.android.dialer": "dialer",
     "com.samsung.android.incallui": "dialer",
     "com.samsung.android.app.aodservice": "aod",
     "com.android.systemui": "systemui"
   },
   "colorGroupFamilies": {
+    "gallery": {"exact": {"gallery_menu": ["bottom_menu_list_circle_bg_color"]}},
+    "voicenote": {"exact": {"voice_recorder_button": ["basic_token_sys_red", "basic_token_sys_red_light", "basic_token_sys_red_dark"]}},
+    "calculator": {"exact": {"calculator_keys": ["calc_keypad_operation_button_bg", "keypad_equal_bg", "keypad_equal_scientific_bg"], "calculator_symbols": ["keypad_operation", "keypad_equal"]}},
     "keyboard": {
       "groups": {
         "keyboard_key": [
@@ -353,6 +366,7 @@
     },
     "systemui": {
       "exact": {
+        "accent": ["sesl_primary_color_light", "sesl_primary_color_dark"],
         "qs_tile_active": ["qs_tile_round_background_on", "qs_tile_round_background_on_stroke", "subscreen_qs_tile_round_background_on", "soundcraft_volume_progress_color_control", "tw_progress_color_control_activated"],
         "qs_tile_inactive": ["qs_tile_round_background_dim", "qs_tile_round_background_off", "qs_tile_round_background_off_stroke", "subscreen_qs_tile_round_background_dim", "subscreen_qs_tile_round_background_off", "qs_edit_tile_round_background_available"],
         "qs_panel_bg": ["qs_tile_container_bg", "sec_panel_background_color", "sec_panel_background_color_tablet", "open_theme_qp_bg_color", "sec_brightness_mirror_background_color", "sec_qs_detail_bg_color", "qs_detail_background_color", "sec_qs_detailed_container_background", "qs_edit_panel_available_background_color"],

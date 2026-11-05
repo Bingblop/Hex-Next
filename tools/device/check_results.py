@@ -97,7 +97,67 @@ def check(lab: Path, job_id: str, suite: str | None = None) -> tuple[bool, list[
             # so an overridden colour is a literal where Samsung's own is often a reference (@… ->).
             themed = [("HexNext_" in v) or (":color/" in name and "->" not in v and "frro" not in v) for v in values]
             verdict(f"{name} themed", all(themed), values[-1][:90])
+    for line in (res / "hook.jsonl").read_text(errors="replace").splitlines() if (res / "hook.jsonl").exists() else []:
+        if '"cmd":"scan"' in line and "mode=" in line:
+            lines.append("- info: connection " + line.split("mode=", 1)[1].split('"', 1)[0])
+            break
+    if "service_uid" in expect:
+        want = str(expect["service_uid"])
+        # Apply logs only: a remove-N copy can still hold the lines of an older (root) apply.
+        logs = " ".join(f.read_text(errors="replace") for f in res.glob("apply-[0-9]*/apply-log.txt"))
+        logs += " ".join(f.read_text(errors="replace") for f in res.glob("apply-[0-9]*/apply-ui-log.txt"))
+        seen = sorted(set(re.findall(r"\[UID (\d+)\]", logs)))
+        verdict(f"theme service ran as UID {want}", seen == [want], "seen " + (", ".join(seen) or "none"))
+    if expect.get("remove_clean"):
+        # Every overlaystate taken right after a remove: no Hex overlay of any owner left.
+        steps = job.get("steps", [])
+        n = 0
+        for i, step in enumerate(steps):
+            if step != "overlaystate":
+                continue
+            n += 1
+            if i > 0 and steps[i - 1] == "remove":
+                listing = res / f"overlaystate-{n}" / "overlay-list.txt"
+                left = listing.read_text(errors="replace").count(":HexNext") if listing.exists() else -1
+                verdict(f"remove left no Hex overlays (overlay state {n})", left == 0,
+                        "no overlay list" if left < 0 else f"{left} left")
+    if expect.get("survives_softreboot"):
+        # The first overlay state after the soft reboot, before anything could restore the theme.
+        steps = job.get("steps", [])
+        if "softreboot" in steps:
+            n = steps[: steps.index("softreboot")].count("overlaystate") + 1
+            listing = res / f"overlaystate-{n}" / "overlay-list.txt"
+            before = res / f"overlaystate-{n - 1}" / "overlay-list.txt"
+            have = listing.read_text(errors="replace").count(":HexNext_") if listing.exists() else -1
+            had = before.read_text(errors="replace").count(":HexNext_") if before.exists() else -1
+            verdict("Hex overlays survived the soft reboot", have > 0 and have == had, f"{had} before, {have} after")
+    lines.extend(mode_warnings(res))
     return ok, lines
+
+
+# Apps not to warn about: no light mode at all (Clock), or checked by hand (Chrome).
+DARK_ONLY = {"com.google.android.deskclock", "com.android.chrome"}
+
+
+def mode_warnings(res: Path) -> list[str]:
+    """Apps whose light-mode screenshot is still dark: set to Dark in their own settings rather than
+    following the system, so their light previews cannot be compared. Warnings, not failures."""
+    try:
+        from PIL import Image, ImageStat
+    except ImportError:
+        return []
+    out = []
+    for light in sorted((res / "shots").glob("light-real-app-*.jpg")):
+        dark = light.with_name(light.name.replace("light-", "dark-", 1))
+        if not dark.exists():
+            continue
+        lum = [ImageStat.Stat(Image.open(f).convert("L")).mean[0] for f in (light, dark)]
+        if lum[0] < 90 and lum[0] - lum[1] < 25:
+            pkg = light.stem.removeprefix("light-real-app-")
+            if pkg in DARK_ONLY:
+                continue
+            out.append(f"- warn: {pkg} stays dark in light mode (its own theme setting is not System default?)")
+    return out
 
 
 def main() -> int:

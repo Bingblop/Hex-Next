@@ -162,7 +162,7 @@ internal fun PreviewMyFiles(state: StudioPreviewState, scope: PreviewScope, modi
 private fun CategoryIcon(label: String, icon: PreviewIcon?, surface: Color, loading: Boolean, scope: PreviewScope) {
     val bitmap = icon?.bitmap
     if (icon != null && bitmap != null) {
-        PreviewIconImage(icon, loading, scope.reduceMotion, size = 28.dp)
+        PreviewIconImage(icon, loading, scope.reduceMotion, size = 28.dp, slotPackage = "com.sec.android.app.myfiles")
         return
     }
     val tint = gridTint(label)

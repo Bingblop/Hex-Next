@@ -230,3 +230,28 @@ After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle f
 - **Main's CI pack list is stale.** `.github/workflows/android.yml` on main still names legacy packs; build-android on PRs against main fails until this branch merges.
 - **AI theme creation is paid** (2026-11-04, Kyle's request; changed the same day). `PaidFeature.AI_CREATION` in `billing/Entitlements.kt` gates "Describe your theme" and AI icon generation (`ui/ai/AiPaywall.kt`). One product: `ai_lifetime`, a one-time $4.99 that unlocks AI forever. There is NO subscription and NO "everything" product (Kyle dropped `ai_monthly` and `everything`). Packs: `pack_<id>` $0.99 each; `all_packs` $19.99 covers every current and future pack. `all_packs` does not unlock AI and `ai_lifetime` unlocks no pack. Prices live in Play Console only; the code shows Play's formatted price. Create `ai_lifetime` in Play Console and set `all_packs` to $19.99.
 - **AI chat with live preview** (2026-11-04, Kyle). "Describe your theme" is a chat: every AI answer goes straight into the editor (`DescribeThemeCard` → `MainViewModel.setSeed` + `replaceSpec`), so the live phone shows it at once. On phone width the Studio's phone moves into the chat card while a chat is open (one preview, tabs per overlay, the message box right under it); wide screens keep the phone in the left pane. Follow-ups use `ThemeSuggester.refine`, which sends the original description, earlier changes and the current theme JSON (providers are single-turn). The card's Apply theme calls the same `MainViewModel.applyTheme` as the bottom bar, so locked packs are still refused there; Undo AI changes restores the editor from before the chat. The AI still only picks from unlocked packs.
+
+## 12. 2026-11-05 — app previews, app colour groups, icon chooser, beta report
+
+- Studio tabs per themed Samsung app (`PreviewTab.packageName`), shown only when the app is installed
+  (`visiblePreviewTabs`, `<queries>` in the manifest). Screens are in `ui/preview/PreviewApps.kt`; every
+  coloured element uses `fill`/`themed`/`GroupText`, so tapping it opens its colour picker.
+- App colour groups: `calculator_keys` + `calculator_symbols`, `gallery_menu`, `voice_recorder_button`
+  (Voice Recorder's `basic_token_sys_red*`). Exact names skip the red/green hue exclusion
+  (`TABLE_EXCLUDED`). Contacts' letter tiles: lab-038's probe recoloured every `color_palette_*`
+  and the tiles did not change, so the app draws them in code; no tile control until the dex
+  (lab `dex` list) shows where they come from. `ColorGroup.autoKeepsApp` is ready for it.
+- App mockups paint backgrounds and cards with the colours the overlay plans for that app
+  (`DeviceColors.apps`, `PreviewScope.appColor`, Samsung's `sesl_round_and_bgcolor` /
+  `basic_token_sys_*`): on the phone those come from SemWT role inference, not the Background group.
+- Tapping a Settings or My Files icon on the phone opens `IconChooserSheet`: that slot drawn from every
+  unlocked pack (`ThemePreviewer.iconChoices`), the user's images, or a file (cropped to visible pixels,
+  min 24 px, sized for the slot; errors are shown).
+- Diagnostics > Share beta report: zip of device info, scan/apply reports and newest logs (`BetaBundle`).
+- Lab: `probe` step (fabricated shell overlays from `job.probes`, captures `probe_captures`, then off).
+- Samsung Internet's settings switches are Material (`mtrl_switch_*`, tinted in code): they follow the
+  Material You palette, pack art can't reach them.
+- Samsung Calendar's own "Dark mode" setting was "On" on Kyle's phone (`preferences_dark_mode=1`); that,
+  not Hex, kept it dark.
+- To do after #43 merges: default AI agent dropdown (Settings) used by Generate in the icon chooser and
+  colour picker, on top of the AI paywall in #47.

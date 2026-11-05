@@ -18,7 +18,12 @@
     "com.samsung.android.app.aodservice",
     "com.samsung.android.app.smartcapture",
     "com.samsung.android.app.notes",
-    "com.samsung.android.app.reminder"
+    "com.samsung.android.app.reminder",
+    "com.sec.android.app.sbrowser",
+    "com.samsung.android.email.provider",
+    "com.sec.android.app.music",
+    "com.sec.android.app.voicenote",
+    "com.sec.android.app.shealth"
   ],
   "deprecated": ["com.samsung.android.messaging", "com.samsung.android.app.spage", "com.samsung.android.app.sbrowser.news", "com.samsung.android.app.quickmeasure", "com.samsung.android.ardrawing", "com.samsung.android.aremoji"],
   "drawableCopies": {
@@ -138,12 +143,18 @@
   },
   "colorGroupPackages": {
     "com.samsung.android.honeyboard": "keyboard",
+    "com.sec.android.app.popupcalculator": "calculator",
+    "com.sec.android.gallery3d": "gallery",
+    "com.sec.android.app.voicenote": "voicenote",
     "com.samsung.android.dialer": "dialer",
     "com.samsung.android.incallui": "dialer",
     "com.samsung.android.app.aodservice": "aod",
     "com.android.systemui": "systemui"
   },
   "colorGroupFamilies": {
+    "gallery": {"exact": {"gallery_menu": ["bottom_menu_list_circle_bg_color"]}},
+    "voicenote": {"exact": {"voice_recorder_button": ["basic_token_sys_red", "basic_token_sys_red_light", "basic_token_sys_red_dark"]}},
+    "calculator": {"exact": {"calculator_keys": ["calc_keypad_operation_button_bg", "keypad_equal_bg", "keypad_equal_scientific_bg"], "calculator_symbols": ["keypad_operation", "keypad_equal"]}},
     "keyboard": {
       "groups": {
         "keyboard_key": [
@@ -182,6 +193,7 @@
       }
     },
     "systemui": {
+      "exact": {"accent": ["sesl_primary_color_light", "sesl_primary_color_dark"]},
       "groups": {
         "lock_screen": [
           "^(?!.*(background|(^|_)bg(_|$)|bgcolor|scrim|shadow|(^|_)dim(_|$))).*(^|_)(keyguard|lockscreen|lock_screen|kg|aod|lock)(_|$)"

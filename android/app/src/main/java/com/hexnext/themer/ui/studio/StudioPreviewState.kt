@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Density
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.DimenUnit
+import com.hexnext.engine.compile.groupColor
 import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.ShapeControls
 import com.hexnext.engine.compile.ThemeSpec
@@ -22,14 +23,33 @@ import com.hexnext.engine.palette.ThemeResolver
  */
 
 /** The screens the phone mockup can show, in tab order. */
-enum class PreviewTab(val label: String) {
+enum class PreviewTab(val label: String, val packageName: String? = null) {
     SETTINGS("Settings"),
     QUICK_PANEL("Quick panel"),
     NOTIFICATIONS("Notifications"),
-    MY_FILES("My Files"),
-    DIALER("Dialer"),
-    KEYBOARD("Keyboard"),
+    MY_FILES("My Files", "com.sec.android.app.myfiles"),
+    DIALER("Dialer", "com.samsung.android.dialer"),
+    KEYBOARD("Keyboard", "com.samsung.android.honeyboard"),
     POWER_MENU("Power menu"),
+    CONTACTS("Contacts", "com.samsung.android.app.contacts"),
+    CALCULATOR("Calculator", "com.sec.android.app.popupcalculator"),
+    VOICE_RECORDER("Voice Recorder", "com.sec.android.app.voicenote"),
+    GALLERY("Gallery", "com.sec.android.gallery3d"),
+    CLOCK("Clock", "com.sec.android.app.clockpackage"),
+    CALENDAR("Calendar", "com.samsung.android.calendar"),
+    NOTES("Notes", "com.samsung.android.app.notes"),
+    REMINDER("Reminder", "com.samsung.android.app.reminder"),
+    INTERNET("Internet", "com.sec.android.app.sbrowser"),
+    EMAIL("Email", "com.samsung.android.email.provider"),
+    MUSIC("Music", "com.sec.android.app.music"),
+    HEALTH("Health", "com.sec.android.app.shealth"),
+    DEVICE_CARE("Device care", "com.samsung.android.lool"),
+    ;
+
+    companion object {
+        /** The tab that previews [packageName], null when none does. */
+        fun forPackage(packageName: String): PreviewTab? = entries.firstOrNull { it.packageName == packageName }
+    }
 }
 
 /**
@@ -60,6 +80,8 @@ data class PreviewScheme(
     val dark: Boolean,
     val groups: Map<ColorGroup, Int>,
     val shades: Map<String, Int>,
+    /** Groups on Auto whose app keeps its own colours ([ColorGroup.autoKeepsApp]). */
+    val keptByApp: Set<ColorGroup> = emptySet(),
 ) {
     /** The colour of [group]; every group is present. */
     fun color(group: ColorGroup): Int = groups.getValue(group)
@@ -70,7 +92,12 @@ data class PreviewScheme(
     companion object {
         /** The scheme of [spec] for one mode, from an already resolved [scheme]. */
         fun of(spec: ThemeSpec, scheme: ResolvedScheme, theme: ResolvedTheme): PreviewScheme =
-            PreviewScheme(scheme.isDark, spec.effectiveGroupColors(theme, scheme.isDark), scheme.shades)
+            PreviewScheme(
+                scheme.isDark,
+                spec.effectiveGroupColors(theme, scheme.isDark),
+                scheme.shades,
+                ColorGroup.ALL.filterTo(HashSet()) { it.autoKeepsApp && spec.groupColor(it, scheme.isDark) == null },
+            )
     }
 }
 
@@ -200,4 +227,11 @@ data class DeviceColors(
     val systemUi: ResourceColors = ResourceColors(),
     val settings: ResourceColors = ResourceColors(),
     val myFiles: ResourceColors = ResourceColors(),
+    val keyboard: ResourceColors = ResourceColors(),
+    /** Planned colours of the apps with their own Studio tab, by package. */
+    val apps: Map<String, ResourceColors> = emptyMap(),
+    /** The key art Samsung Keyboard gets (`key_bg`, a nine-patch with its guides), or null. */
+    val keyboardKey: ImageBitmap? = null,
+    /** Pack art for the power menu buttons by drawable name (`tw_ic_do_poweroff` …); missing ones stay stock. */
+    val powerIcons: Map<String, ImageBitmap> = emptyMap(),
 )

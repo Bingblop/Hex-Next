@@ -2,6 +2,7 @@ package com.hexnext.themer.theme
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import com.hexnext.engine.compile.CompiledTarget
@@ -144,6 +145,62 @@ class ThemePreviewer(context: Context) {
         }
     }
 
+    /**
+     * Art one unlocked pack has for an icon slot.
+     *
+     * @property packId the pack.
+     * @property packName its display name.
+     * @property bitmap the slot rendered from that pack with the theme's icon style.
+     */
+    data class IconChoice(val packId: String, val packName: String, val bitmap: Bitmap)
+
+    /**
+     * What every unlocked (installed) pack draws for [slotKey] (`pkg:drawable/name`), each
+     * rendered as the theme would: the pack is swapped in for the whole theme, so each pack's own
+     * name mapping and the theme's icon style apply. Packs without art for the slot are left out.
+     * Empty without a scan or when the slot's app is not scanned.
+     */
+    fun iconChoices(spec: ThemeSpec, slotKey: String, night: Boolean = false): List<IconChoice> = synchronized(lock) {
+        try {
+            iconChoicesOrThrow(spec, slotKey, night)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun iconChoicesOrThrow(spec: ThemeSpec, slotKey: String, night: Boolean): List<IconChoice> {
+        val pkg = slotKey.substringBefore(':', "")
+        if (pkg.isEmpty()) return emptyList()
+        val built = snapshot(full = true) ?: return emptyList()
+        val target = built.snapshot.targets[pkg] ?: return emptyList()
+        val single = built.snapshot.copy(targets = mapOf(pkg to target))
+        val rules = OneUiRules.forProfile(single.oneUi)
+        val packs = packResolver()
+        val unlocked = com.hexnext.engine.pack.DirectoryPackResolver(File(appContext.filesDir, PackDirs.APPLY)).availableIds()
+        val customRoot = CustomAssetStore.rootDir(appContext)
+        val out = ArrayList<IconChoice>()
+        DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
+            for (id in unlocked) {
+                val pack = packs.pack(id) ?: continue
+                val one = spec.copy(
+                    mode = com.hexnext.engine.compile.ThemeMode.SIMPLE,
+                    simplePackId = id,
+                    customIcons = emptyMap(),
+                    customBackgrounds = emptyMap(),
+                    synthesizeMissingIcons = false,
+                )
+                val compiled = ThemeCompiler.compile(one, single, packs, rules).target(pkg) ?: continue
+                val jobs = compiled.drawables.filter { it.resourceName == slotKey && it.custom == null && it.synthesis == null }
+                val job = bestOf(jobs, night) ?: continue
+                val bitmap = cachedBitmap(renderer, job, customRoot) ?: continue
+                out += IconChoice(id, pack.name, bitmap)
+            }
+        }
+        return out
+    }
+
     /** The slots of [spec] on this device; empty without a scan, empty with [SlotCatalogue.error] on failure. */
     fun slots(spec: ThemeSpec): SlotCatalogue = synchronized(lock) {
         try {
@@ -185,6 +242,12 @@ class ThemePreviewer(context: Context) {
         val synthesised = HashSet<String>()
         val builtIn = HashSet<String>()
         var background: Bitmap? = null
+        var keyboardKey: Bitmap? = null
+        val keyboardTarget = compiled.target(KEYBOARD)
+        val keyJob = keyboardTarget?.let { bestJobs(it, setOf("key_bg"), night)["key_bg"] }
+        // Power menu buttons: pack art (or art synthesised in its style) replaces the stock round badges.
+        val powerJobs = compiled.target(SYSTEM_UI)?.let { bestJobs(it, POWER_MENU_ICONS.toSet(), night) }.orEmpty()
+        val powerIcons = HashMap<String, Bitmap>()
         var failed = 0
         val customRoot = CustomAssetStore.rootDir(appContext)
         DrawableRenderer(packs, customRoot, synthesizer).use { renderer ->
@@ -211,6 +274,9 @@ class ThemePreviewer(context: Context) {
                 if (job.badge != null) builtIn += name
                 myFiles += PreviewIcon(name, label, bitmapOf(job))
             }
+            // The pack's key art, as Samsung Keyboard draws it under every key (lab-024).
+            if (keyJob != null) keyboardKey = bitmapOf(keyJob)
+            for ((name, job) in powerJobs) bitmapOf(job)?.let { powerIcons[name] = it }
             if (backgroundJob != null) {
                 checkCancelled()
                 background = backgroundBitmap(renderer, backgroundJob, customRoot)
@@ -228,6 +294,10 @@ class ThemePreviewer(context: Context) {
             systemUi = colorsOf(compiled.target(SYSTEM_UI)),
             settings = colorsOf(settings),
             myFiles = colorsOf(myFilesTarget),
+            keyboard = colorsOf(keyboardTarget),
+            apps = APP_PREVIEW_PACKAGES.mapNotNull { pkg -> compiled.target(pkg)?.let { pkg to colorsOf(it) } }.toMap(),
+            keyboardKey = keyboardKey?.asImageBitmap(),
+            powerIcons = powerIcons.mapValues { it.value.asImageBitmap() },
         )
         return Preview(icons, accent, note, background, myFiles, fontFile, fontName, synthesised, builtIn, spec.iconStyle, deviceColors)
     }
@@ -552,7 +622,13 @@ class ThemePreviewer(context: Context) {
         private const val TARGET = "com.android.settings"
         private const val MY_FILES = "com.sec.android.app.myfiles"
         private const val SYSTEM_UI = "com.android.systemui"
-        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI)
+        private const val KEYBOARD = "com.samsung.android.honeyboard"
+        /** Apps with a Studio tab ([com.hexnext.themer.ui.studio.PreviewTab.packageName]): their planned colours paint the mockups. */
+        val APP_PREVIEW_PACKAGES: Set<String> = com.hexnext.themer.ui.studio.PreviewTab.entries.mapNotNullTo(LinkedHashSet()) { it.packageName } - setOf(MY_FILES, KEYBOARD)
+        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI, KEYBOARD) + APP_PREVIEW_PACKAGES
+
+        /** System UI power menu drawables, in grid order: Power off, Restart, Emergency call, Medical info. */
+        val POWER_MENU_ICONS = listOf("tw_ic_do_poweroff", "tw_ic_do_restart", "tw_ic_do_emergencysos", "tw_ic_do_medicalinfo")
         private const val ACCENT_COLOR = "sec_widget_round_and_bgcolor"
         /** [com.hexnext.engine.compile.Element.id] of the Settings row icons. */
         private const val ICONS_ELEMENT = "settings_icons"

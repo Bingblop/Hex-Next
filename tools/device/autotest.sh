@@ -207,6 +207,35 @@ restart_shizuku() {
   return 1
 }
 
+# Starts the Shizuku server as system (UID 1000) through root: first its own starter under
+# su 1000, then (the starter accepts only root and shell) app_process with the manager APK, the way
+# the starter launches it. Writes shizuku-1000.txt; fails, and the job stops, unless the running
+# server's uid is 1000. Step "shizuku" puts the usual root server back.
+step_shizuku1000() {
+  local apk dir lib out="$RES/shizuku-1000.txt" try uid
+  apk=$(root "pm path moe.shizuku.privileged.api" | sed -n 's/^package://p' | head -1)
+  [ -n "$apk" ] || { log "shizuku1000: Shizuku is not installed"; return 1; }
+  dir="${apk%/base.apk}"; lib=""
+  for abi in arm64 arm64-v8a; do root "test -x $dir/lib/$abi/libshizuku.so" && lib="$dir/lib/$abi/libshizuku.so" && break; done
+  server_uid() { root "ps -A -o UID,NAME" 2>/dev/null | awk '$2 ~ /shizuku_server/ {print $1; exit}'; }
+  for try in starter app_process; do
+    root "pkill -f shizuku_server" >/dev/null 2>&1; sleep 2
+    echo "== $try" >>"$out"
+    case "$try" in
+      starter) [ -n "$lib" ] || continue
+               root "su 1000 -c '$lib'" >>"$out" 2>&1 ;;
+      app_process)
+               root "su 1000 -c 'CLASSPATH=$apk setsid app_process -Djava.class.path=$apk /system/bin --nice-name=shizuku_server moe.shizuku.server.ShizukuService </dev/null >/dev/null 2>&1 &'" >>"$out" 2>&1 ;;
+    esac
+    sleep 6
+    uid=$(server_uid); echo "server uid: ${uid:-none}" >>"$out"
+    if [ "$uid" = 1000 ]; then log "shizuku1000: server running as UID 1000 ($try)"; return 0; fi
+  done
+  log "shizuku1000: could not start Shizuku as UID 1000 (see shizuku-1000.txt); putting the root server back"
+  restart_shizuku
+  return 1
+}
+
 # ---- steps ----------------------------------------------------------------------------------
 step_install() {
   local run_id want info branch concl aid got zip="$HOME/hexnext-apk/owner.zip"
@@ -241,7 +270,9 @@ step_install() {
   su -c "pm install -r -S $size" <"$apk" >"$RES/install.txt" 2>&1
   grep -q Success "$RES/install.txt" || { log "install failed: $(tail -1 "$RES/install.txt")"; return 1; }
   root "dumpsys package $PKG | grep -E 'versionName|versionCode|lastUpdateTime' | head -3" >>"$RES/install.txt"
-  restart_shizuku
+  # A job that tests Shizuku as another uid (system, 1000) keeps the server the user started.
+  if [ "$(jq -r '.keep_shizuku // false' "$JOB")" = true ]; then log "install: keeping the running Shizuku"
+  else restart_shizuku; fi
 }
 
 step_theme() {
@@ -335,7 +366,13 @@ setprop ctl.restart zygote
 i=0
 while [ \$i -lt 900 ]; do
   sleep 5; i=\$((i + 5))
-  pidof com.android.systemui >/dev/null || continue
+  if ! pidof com.android.systemui >/dev/null; then
+    # Not back after 4 minutes with Galaxy Themes Service parts off: switch them on again.
+    if [ \$i -ge 240 ] && [ -f /data/local/tmp/hexnext-undo ]; then
+      while read -r line; do [ -n "\$line" ] && sh -c "\$line"; done </data/local/tmp/hexnext-undo
+    fi
+    continue
+  fi
   dumpsys window | grep -qE 'mDreamingLockscreen=true|isKeyguardShowing=true|mShowingLockscreen=true' && continue
   break
 done
@@ -364,10 +401,126 @@ step_overlaystate() {
   } >"$d/when.txt" 2>&1
   root "ls -la /data/resource-cache/" >"$d/resource-cache.txt" 2>&1
   root "cmd overlay list --user 0" >"$d/overlay-list.txt" 2>&1
+  # Which uid Shizuku's server runs as (0 root, 1000 system, 2000 shell) and who owns our overlays.
+  root "ps -A -o USER,UID,PID,NAME" 2>/dev/null | grep -iE 'shizuku|hexnext_system' >"$d/shizuku-uid.txt" || true
+  { grep -oE '[a-z.]+:HexNext[A-Za-z_]*' "$d/overlay-list.txt" || true; } | cut -d: -f1 | sort | uniq -c >"$d/owners.txt"
   root "grep -c . /data/system/overlays.xml; grep -iE 'fabricated|HexNext|SemWT' /data/system/overlays.xml | head -200" >"$d/overlays-xml.txt" 2>&1
   root "logcat -d -b main -b system -b crash | grep -iE 'overlay|idmap|fabricat|frro' | tail -400" >"$d/logcat-overlay.txt" 2>&1
   root "settings get secure theme_customization_overlay_packages" >"$d/theme_customization.txt" 2>&1
   root "pidof moe.shizuku.privileged.api shizuku_server; ps -A | grep -i shizuku" >"$d/shizuku.txt" 2>&1
+  # A snapshot is a record, not a check: zero Hex overlays or no Shizuku is a valid state.
+  return 0
+}
+
+# Each package in the job's "pkginfo" list: its full package dump (components, intent filters,
+# enabled state), its scheduled jobs and alarms (pkginfo/<pkg>.txt). Read-only.
+step_pkginfo() {
+  local pkg; mkdir -p "$RES/pkginfo"
+  for pkg in $(jq -r '.pkginfo // [] | .[]' "$JOB"); do
+    case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    {
+      echo "== dumpsys package"; root "dumpsys package $pkg"
+      echo "== jobs"; root "dumpsys jobscheduler" | grep -A6 "$pkg" | head -300
+      echo "== alarms"; root "dumpsys alarm" | grep -B2 -A4 "$pkg" | head -200
+      echo "== disabled components"; root "pm list packages -d" | grep "$pkg"
+      root "cat /data/system/users/0/package-restrictions.xml" 2>/dev/null | grep -A40 "name=\"$pkg\"" | head -60
+    } >"$RES/pkginfo/$pkg.txt" 2>&1
+  done
+}
+
+# Galaxy Themes Service experiments, all undone by the same runner: compoff disables the job's
+# "components" (pkg/class) and suspend suspends its "suspend" packages (pm suspend, then a
+# force-stop); compon / unsuspend (or "undo") put everything back. Each change writes its undo
+# command to ~/.hexnext-undo, which run_job replays when a job ends with anything still changed,
+# and root keeps a copy for guards that work without Termux: the soft reboot helper replays it if
+# System UI is not back after 4 minutes, and a KernelSU boot script replays it on any full boot
+# until the undo has run. States are in components.txt.
+THEMES_PKGS="com.samsung.android.themecenter com.samsung.android.themestore"
+undo_add() {
+  printf '%s\n' "$1" >>"$HOME/.hexnext-undo"
+  root "cat > /data/local/tmp/hexnext-undo" <"$HOME/.hexnext-undo"
+  cat <<'GUARD' | su -c "mkdir -p /data/adb/service.d && cat > /data/adb/service.d/hexnext-undo.sh && chmod 755 /data/adb/service.d/hexnext-undo.sh"
+#!/system/bin/sh
+# Hex Next lab: put Galaxy Themes Service back after a boot (replays the lab's undo list).
+f=/data/local/tmp/hexnext-undo
+[ -f $f ] || exit 0
+i=0
+while [ $i -lt 600 ]; do
+  ok=1
+  while read -r line; do [ -n "$line" ] && { sh -c "$line" >/dev/null 2>&1 || ok=0; }; done <$f
+  [ $ok = 1 ] && { rm -f $f /data/adb/service.d/hexnext-undo.sh; exit 0; }
+  sleep 5; i=$((i + 5))
+done
+GUARD
+}
+step_compoff() {
+  local c
+  for c in $(jq -r '.components // [] | .[]' "$JOB"); do
+    case "$c" in *[!A-Za-z0-9._/\$]*|''|*/*/*) continue ;; esac
+    case "$c" in com.samsung.android.themecenter/*|com.samsung.android.themestore/*) ;;
+      *) log "compoff: $c is not a Galaxy Themes package; skipped"; continue ;; esac
+    { echo "== disable $c"; root "pm disable --user 0 '$c'"; } >>"$RES/components.txt" 2>&1
+    undo_add "pm enable --user 0 '$c'"
+  done
+  log "compoff: $(jq -r '.components // [] | join(" ")' "$JOB")"
+}
+step_suspend() {
+  local p
+  for p in $(jq -r '.suspend // [] | .[]' "$JOB"); do
+    case " $THEMES_PKGS " in *" $p "*) ;; *) log "suspend: $p is not a Galaxy Themes package; skipped"; continue ;; esac
+    { echo "== suspend $p"; root "pm suspend --user 0 $p && am force-stop $p"; } >>"$RES/components.txt" 2>&1
+    undo_add "pm unsuspend --user 0 $p"
+  done
+  log "suspend: $(jq -r '.suspend // [] | join(" ")' "$JOB")"
+}
+step_undo() {
+  [ -f "$HOME/.hexnext-undo" ] || return 0
+  local line
+  while read -r line; do
+    [ -n "$line" ] || continue
+    { echo "== $line"; root "$line"; } >>"$RES/components.txt" 2>&1
+  done <"$HOME/.hexnext-undo"
+  log "undo: $(tr '\n' ';' <"$HOME/.hexnext-undo")"
+  rm -f "$HOME/.hexnext-undo"
+  su -c "rm -f /data/local/tmp/hexnext-undo /data/adb/service.d/hexnext-undo.sh" >/dev/null 2>&1
+}
+step_compon() { step_undo; }
+step_unsuspend() { step_undo; }
+# State of the Galaxy Themes packages: suspended / disabled components (components.txt).
+step_themestate() {
+  local p
+  for p in $THEMES_PKGS; do
+    { echo "== $p"; root "dumpsys package $p" | grep -iE 'suspended|disabledComponents|enabledComponents|enabled=' | head -40
+      root "dumpsys package $p" | sed -n '/disabledComponents:/,/^ *[a-zA-Z]*:$/p' | head -40; } >>"$RES/components.txt" 2>&1
+  done
+}
+
+# Per-app light/dark state: the system UI mode with any per-app night modes (dumpsys uimode), and
+# for each package in the job's "prefs" list only the theme-related lines of its saved settings
+# (theme|dark|night|mode), not the rest of its data (appstate.txt).
+step_appstate() {
+  local pkg
+  {
+    echo "== cmd uimode night: $(root "cmd uimode night")"
+    echo "== dumpsys uimode"; root "dumpsys uimode"
+    for pkg in $(jq -r '.prefs // [] | .[]' "$JOB"); do
+      case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+      echo "== $pkg shared_prefs (theme lines)"
+      root "grep -iHE 'theme|dark|night|mode' /data/user/0/$pkg/shared_prefs/*.xml /data/user_de/0/$pkg/shared_prefs/*.xml 2>/dev/null" | cut -c1-300 | head -200
+      echo "== $pkg configuration"; root "dumpsys activity processes $pkg" 2>/dev/null | grep -iE 'uiMode|night' | head -20
+    done
+  } >"$RES/appstate.txt" 2>&1
+  return 0
+}
+
+# Everything the system and Samsung's theme apps logged about overlays and themes since the
+# buffers began (a soft reboot keeps them): bootlog-<n>.txt.
+step_bootlog() {
+  local n=1; while [ -f "$RES/bootlog-$n.txt" ]; do n=$((n + 1)); done
+  log "boot log $n"
+  root "logcat -d -v threadtime -b main -b system -b events -b crash" 2>/dev/null \
+    | grep -iE 'themecenter|thememanager|colortheme|ThemeManager|OverlayManager|OMS|fabricat|frro|idmap|HexNext|SemWT|resource-cache' \
+    | tail -6000 >"$RES/bootlog-$n.txt"
 }
 
 # A minimal fabricated overlay made with Android's own shell command (owner com.android.shell,
@@ -377,6 +530,34 @@ step_fabtest() {
   root "cmd overlay fabricate --target android --name HexNextProbe android:color/system_accent1_10 0x1c 0xffff00ff" >"$RES/fabtest.txt" 2>&1
   root "cmd overlay enable --user 0 com.android.shell:HexNextProbe" >>"$RES/fabtest.txt" 2>&1
   root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/fabtest.txt" 2>&1
+}
+
+# Probe overlays: the job's "probes" list of {"target": pkg, "res": "color/name", "value": "0xAARRGGBB"}
+# becomes one fabricated overlay each (com.android.shell:HexNextProbe_<n>), so a capture shows
+# which resource paints what. "unprobe" turns them off (the shell cannot unregister them; a
+# restart drops them).
+step_probe() {
+  local n=0 target res value
+  jq -r '.probes // [] | .[] | "\(.target) \(.res) \(.value)"' "$JOB" | while read -r target res value; do
+    case "$target$res$value" in *[!A-Za-z0-9._/x]*|'') continue ;; esac
+    n=$((n + 1))
+    root "cmd overlay fabricate --target $target --name HexNextProbe_$n $target:$res 0x1c $value" >>"$RES/probe.txt" 2>&1
+    root "cmd overlay enable --user 0 com.android.shell:HexNextProbe_$n" >>"$RES/probe.txt" 2>&1
+  done
+  root "cmd overlay list --user 0 | grep -i HexNextProbe" >>"$RES/probe.txt" 2>&1
+  log "probe: $(grep -c HexNextProbe_ "$RES/probe.txt") overlay lines"
+  local t; for t in $(jq -r '.probes // [] | map(.target) | unique | .[]' "$JOB"); do root "am force-stop $t" 2>/dev/null; done
+  # The job's "probe_captures" are taken with the probes on (probe-<mode>-real-*), then the probes go.
+  local caps; caps=$(jq -r '.probe_captures // [] | join(" ")' "$JOB")
+  if [ -n "$caps" ]; then PHASE="probe-"; step_capture "$caps"; PHASE=""; step_unprobe; fi
+}
+
+step_unprobe() {
+  local o
+  for o in $(root "cmd overlay list --user 0" | grep -o 'com.android.shell:HexNextProbe_[0-9]*'); do
+    root "cmd overlay disable --user 0 $o"
+  done
+  log "unprobe: done"
 }
 
 step_shizuku() { restart_shizuku; }
@@ -432,11 +613,30 @@ step_arsc() {
   mkdir -p "$RES/arsc"
   jq -r '.arsc // [] | .[]' "$JOB" | while read -r pkg; do
     case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    # base.apk, or the app's only APK when it is not split (Samsung Keyboard's is named after it).
     apk=$(root "pm path $pkg" | sed -n 's/^package://p' | grep -m1 'base.apk')
+    [ -n "$apk" ] || apk=$(root "pm path $pkg" | sed -n 's/^package://p' | head -1)
     [ -n "$apk" ] || { log "arsc: $pkg not installed"; continue; }
     root "cat '$apk'" >"$HOME/.hexnext-arsc.apk" 2>/dev/null
     unzip -p "$HOME/.hexnext-arsc.apk" resources.arsc 2>/dev/null | gzip -9 >"$RES/arsc/$pkg.arsc.gz"
+    # The compiled XML too (manifest, colour selectors, layouts, drawables), so the lab host can
+    # read what a FAB or widget is tinted with (aapt2 dump xmltree). No images.
+    local xdir="$HOME/.hexnext-arsc-xml"
+    rm -rf "$xdir"; mkdir -p "$xdir"
+    unzip -Z1 "$HOME/.hexnext-arsc.apk" 2>/dev/null | grep -E '^(AndroidManifest\.xml|res/.*\.xml)$' >"$xdir.list"
+    if [ -s "$xdir.list" ]; then
+      (cd "$xdir" && tr '\n' '\0' <"$xdir.list" | xargs -0 unzip -q -o "$HOME/.hexnext-arsc.apk" 2>/dev/null)
+      tar -czf "$RES/arsc/$pkg.xml.tgz" -C "$xdir" . 2>/dev/null
+    fi
+    rm -rf "$xdir" "$xdir.list"
     root "dumpsys package $pkg" 2>/dev/null | grep -m3 -E 'versionName|versionCode' >"$RES/arsc/$pkg.version.txt"
+    # The job's "dex" list also keeps the app's code (classes*.dex, gzipped), to find colours an
+    # app sets in code rather than in its resources.
+    if jq -e --arg p "$pkg" '(.dex // []) | index($p)' "$JOB" >/dev/null 2>&1; then
+      local d; for d in $(unzip -Z1 "$HOME/.hexnext-arsc.apk" 2>/dev/null | grep -E '^classes[0-9]*\.dex$'); do
+        unzip -p "$HOME/.hexnext-arsc.apk" "$d" 2>/dev/null | gzip -9 >"$RES/arsc/$pkg.$d.gz"
+      done
+    fi
     rm -f "$HOME/.hexnext-arsc.apk"
     log "arsc: $pkg $(du -k "$RES/arsc/$pkg.arsc.gz" | cut -f1) KB"
   done
@@ -453,7 +653,24 @@ step_pack() {
 
 step_wait() { log "wait 180 s"; sleep 180; }
 
-step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; }
+step_remove() { log "remove"; hook remove >>"$RES/hook.jsonl"; sleep 10; save_app_state "remove"; }
+
+# The apps in the job's "bare" list with their Hex overlay switched off (bare-<mode>-real-app-<pkg>),
+# to tell the app's own look from the theme's. The overlays are switched back on afterwards.
+step_bare() {
+  local pkg ov list="" caps=""
+  for pkg in $(jq -r '.bare // [] | .[]' "$JOB"); do
+    case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+    ov="com.android.shell:HexNext_$(echo "$pkg" | tr . _)"
+    root "cmd overlay disable --user 0 $ov" >>"$RES/bare.txt" 2>&1 && list="$list $ov"
+    caps="$caps app:$pkg"
+  done
+  [ -n "$caps" ] || return 0
+  log "bare:$caps"
+  sleep 2
+  PHASE="bare-"; step_capture "$caps"; PHASE=""
+  for ov in $list; do root "cmd overlay enable --user 0 $ov" >>"$RES/bare.txt" 2>&1; done
+}
 
 # capture_real <what>: drives One UI to the screen and screenshots it.
 capture_real() {
@@ -475,11 +692,32 @@ capture_real() {
               if tap_text 'Force stop'; then sleep 2; shot "$PHASE$MODE-real-dialog"; tap_text 'Cancel' || root "input keyevent KEYCODE_BACK"; fi
               root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
               if tap_desc 'More options'; then sleep 2; shot "$PHASE$MODE-real-popup"; root "input keyevent KEYCODE_BACK"; fi ;;
-    keyboard) # Samsung Keyboard over a text field (Settings search), then closed.
+    keyboard|gboard) # A keyboard over a text field (Settings search), then closed. "keyboard" is
+              # Samsung Keyboard, "gboard" is Gboard; the user's own keyboard is put back after.
+              local want=com.samsung.android.honeyboard/.service.HoneyBoardService name=keyboard ime
+              [ "$1" = gboard ] && want=com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME name=gboard
+              ime=$(root "settings get secure default_input_method")
+              if [ "$ime" != "$want" ]; then root "ime enable '$want' && ime set '$want'" >/dev/null 2>&1; sleep 1; fi
               root "am start -W -a android.settings.SETTINGS" >/dev/null 2>&1; sleep 3
-              if tap_desc 'Search[^"]*' || tap_text 'Search'; then sleep 3; shot "$PHASE$MODE-real-keyboard"; fi
-              root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK" ;;
+              if tap_desc 'Search[^"]*' || tap_text 'Search'; then sleep 3; shot "$PHASE$MODE-real-$name"; fi
+              root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK"
+              if [ -n "$ime" ] && [ "$ime" != null ] && [ "$ime" != "$want" ]; then root "ime set '$ime'" >/dev/null 2>&1; fi ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
+    app:*)    # Any installed app by package (app:com.sec.android.app.sbrowser): its launcher screen;
+              # app:<pkg>/<activity> opens that screen (apps without a launcher entry, Device Care).
+              local spec="${1#app:}" pkg="${1#app:}"; pkg="${pkg%%/*}"
+              if root "pm path $pkg" 2>/dev/null | grep -q package:; then
+                local how
+                if [ "$spec" != "$pkg" ]; then how=$(root "am start -n $spec" 2>&1)
+                else how=$(root "monkey -p $pkg -c android.intent.category.LAUNCHER 1" 2>&1); fi
+                if echo "$how" | grep -qiE 'No activities found|Error|does not exist'; then
+                  log "capture: $spec did not open; its activities are in activities-$pkg.txt"
+                  root "dumpsys package $pkg" 2>/dev/null | grep -oE "$pkg/[A-Za-z0-9_.\$]+" | sort -u >"$RES/activities-$pkg.txt"
+                fi
+                sleep 4
+                shot "$PHASE$MODE-real-app-$pkg"
+                root "am force-stop $pkg" >/dev/null 2>&1
+              else log "capture: $pkg not installed"; fi ;;
   esac
   home
 }
@@ -488,7 +726,17 @@ capture_preview() {
   local tab try
   case "$1" in
     settings) tab=SETTINGS ;; qs) tab=QUICK_PANEL ;; shade) tab=NOTIFICATIONS ;;
-    power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; keyboard) tab=KEYBOARD ;; *) return 0 ;;
+    power) tab=POWER_MENU ;; myfiles) tab=MY_FILES ;; dialer) tab=DIALER ;; keyboard) tab=KEYBOARD ;;
+    # app:<pkg>[/activity] beside the Studio tab of that app (PreviewTab.packageName).
+    app:com.samsung.android.app.contacts*) tab=CONTACTS ;; app:com.sec.android.app.popupcalculator*) tab=CALCULATOR ;;
+    app:com.sec.android.app.voicenote*) tab=VOICE_RECORDER ;; app:com.sec.android.gallery3d*) tab=GALLERY ;;
+    app:com.sec.android.app.clockpackage*) tab=CLOCK ;; app:com.samsung.android.calendar*) tab=CALENDAR ;;
+    app:com.samsung.android.app.notes*) tab=NOTES ;; app:com.samsung.android.app.reminder*) tab=REMINDER ;;
+    app:com.sec.android.app.sbrowser*) tab=INTERNET ;; app:com.samsung.android.email.provider*) tab=EMAIL ;;
+    app:com.sec.android.app.music*) tab=MUSIC ;; app:com.sec.android.app.shealth*) tab=HEALTH ;;
+    app:com.samsung.android.lool*) tab=DEVICE_CARE ;; app:com.sec.android.app.myfiles*) tab=MY_FILES ;;
+    app:com.samsung.android.dialer*) tab=DIALER ;;
+    *) return 0 ;;
   esac
   local dark=true; [ "$MODE" = light ] && dark=false
   # The hook's activity can lose the race with a closing panel: retry once, and only screenshot
@@ -506,7 +754,7 @@ capture_preview() {
 
 step_capture() {
   local orig captures modes
-  captures=$(jq -r '(.captures // ["settings","qs","shade","power","myfiles"]) | join(" ")' "$JOB")
+  captures=${1:-$(jq -r '(.captures // ["settings","qs","shade","power","myfiles"]) | join(" ")' "$JOB")}
   modes=$(jq -r '(.modes // ["dark"]) | join(" ")' "$JOB")
   orig=$(root "cmd uimode night" | sed 's/.*: //')
   case "$orig" in yes|no|auto) ;; *) orig=auto ;; esac
@@ -552,11 +800,15 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate|probe|unprobe) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
+    # Without a UID 1000 server the rest of a UID 1000 job would only repeat the root tests.
+    case " $failed " in *" shizuku1000 "*) log "stopping: no UID 1000 server"; break ;; esac
   done
+  # Never leave Galaxy Themes Service components off after a job, whatever happened.
+  [ -f "$HOME/.hexnext-undo" ] && step_undo
   # Any app crash during the job: the app's own record and the system crash log.
   root "cat $(app_dir)/last-crash.txt" >"$RES/app-crash.txt" 2>/dev/null; [ -s "$RES/app-crash.txt" ] || rm -f "$RES/app-crash.txt"
   root "logcat -d -b crash" >"$RES/crash-log.txt" 2>/dev/null; [ -s "$RES/crash-log.txt" ] || rm -f "$RES/crash-log.txt"

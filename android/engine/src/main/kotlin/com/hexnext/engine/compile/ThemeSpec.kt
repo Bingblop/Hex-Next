@@ -142,6 +142,12 @@ public data class ThemeSpec(
     val customBackgrounds: Map<String, String> = emptyMap(),
     val customFont: CustomFont? = null,
     val synthesizeMissingIcons: Boolean = true,
+    /**
+     * When true (the default) the `android` overlay carries the system Material You palette
+     * ([SystemPalette]: shades and Material 3 roles from [source]), so Google and other Material
+     * You apps follow the Hex Next colours the way ColorBlendr makes them.
+     */
+    val systemPalette: Boolean = true,
     val colorGroups: Map<String, GroupColor> = emptyMap(),
     val iconStyle: IconColorStyle = IconColorStyle.PACK_ORIGINAL,
     val builtInIcons: Boolean = false,

@@ -188,6 +188,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     var showPrivilege by rememberSaveable { mutableStateOf(false) }
     // The Studio's tap-to-edit sheet: "<group id>:<night>".
     var studioPick by rememberSaveable { mutableStateOf<String?>(null) }
+    // The icon tapped on the phone ("pkg:drawable/name|Label"), for IconChooserSheet.
+    var iconPick by rememberSaveable { mutableStateOf<String?>(null) }
     var elementsTick by remember { mutableIntStateOf(0) }
     // The last phone tap the Colours page has scrolled for; only a newer tap scrolls again.
     var elementsTickHandled by remember { mutableIntStateOf(0) }
@@ -424,6 +426,9 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         onTargets = openTargets,
                     )
                     Box(Modifier.weight(1f).fillMaxWidth()) {
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            com.hexnext.themer.ui.preview.LocalIconTap provides { key, label -> iconPick = "$key|$label" },
+                        ) {
                         pages.SaveableStateProvider(
                             when (destination) {
                                 Destination.COLOURS -> "COLOURS:${coloursTab.name}"
@@ -484,6 +489,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                 )
                             }
                         }
+                        }
                     }
                 }
             }
@@ -496,6 +502,16 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     }
     if (pick != null) {
         StudioPickSheet(viewModel, ui, previewModel, pick.first, pick.second, onClose = { studioPick = null })
+    }
+
+    iconPick?.let { saved ->
+        IconChooserSheet(
+            viewModel, ui,
+            slotKey = saved.substringBefore('|'),
+            label = saved.substringAfter('|'),
+            night = previewDark,
+            onClose = { iconPick = null },
+        )
     }
 
     if (showPrivilege) {
