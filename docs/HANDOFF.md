@@ -256,3 +256,10 @@ After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle f
   not Hex, kept it dark.
 - To do after #43 merges: default AI agent dropdown (Settings) used by Generate in the icon chooser and
   colour picker, on top of the AI paywall in #47.
+
+### 12.1 Release hardening and compact chrome (PRs #51, #52)
+- Owner APK CI artifact is encrypted to `tools/device/lab-pubkey.pem`; the lab decrypts it on the phone (verified lab-042/043).
+- Lint runs as a parallel `lint-android` job; build-android went from ~15 to ~13.5 min.
+- Default AI agent (AI providers > Default agent) is preselected by every Generate; the icon chooser has "Generate with AI".
+- Colours/Icons/Skins: the preview peek puts tabs and Light/Dark on one row and shows "Editing: <element>" in its header; the status strip shows there only when something is not green; apply summary is two lines; lists leave room for the Preview button.
+- Still needs the owner: `HEXNEXT_PLAY_LICENSE_KEY` or `HEXNEXT_LICENSE_SERVER_URL`, branch protection on main, and the R2 pack bucket (paid packs are still public on `packs`).
