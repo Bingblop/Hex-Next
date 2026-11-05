@@ -295,6 +295,7 @@ class ThemePreviewer(context: Context) {
             settings = colorsOf(settings),
             myFiles = colorsOf(myFilesTarget),
             keyboard = colorsOf(keyboardTarget),
+            apps = APP_PREVIEW_PACKAGES.mapNotNull { pkg -> compiled.target(pkg)?.let { pkg to colorsOf(it) } }.toMap(),
             keyboardKey = keyboardKey?.asImageBitmap(),
             powerIcons = powerIcons.mapValues { it.value.asImageBitmap() },
         )
@@ -622,7 +623,9 @@ class ThemePreviewer(context: Context) {
         private const val MY_FILES = "com.sec.android.app.myfiles"
         private const val SYSTEM_UI = "com.android.systemui"
         private const val KEYBOARD = "com.samsung.android.honeyboard"
-        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI, KEYBOARD)
+        /** Apps with a Studio tab ([com.hexnext.themer.ui.studio.PreviewTab.packageName]): their planned colours paint the mockups. */
+        val APP_PREVIEW_PACKAGES: Set<String> = com.hexnext.themer.ui.studio.PreviewTab.entries.mapNotNullTo(LinkedHashSet()) { it.packageName } - setOf(MY_FILES, KEYBOARD)
+        private val PREVIEW_TARGETS = setOf(TARGET, MY_FILES, SYSTEM_UI, KEYBOARD) + APP_PREVIEW_PACKAGES
 
         /** System UI power menu drawables, in grid order: Power off, Restart, Emergency call, Medical info. */
         val POWER_MENU_ICONS = listOf("tw_ic_do_poweroff", "tw_ic_do_restart", "tw_ic_do_emergencysos", "tw_ic_do_medicalinfo")

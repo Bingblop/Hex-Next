@@ -99,10 +99,6 @@ public enum class ColorGroup(
         "voice_recorder_button", "Voice Recorder record button", "The big round record button and its microphone",
         ColorGroupSection.APPS, PaletteRole.ACCENT1, 600, 200,
     ),
-    CONTACT_TILES(
-        "contact_tiles", "Contact letter tiles", "Circles behind the initials of contacts without a photo. Auto keeps Samsung's colourful gradients",
-        ColorGroupSection.APPS, PaletteRole.ACCENT1, 200, 700, autoKeepsApp = true,
-    ),
     DIALER("dialer", "Dialer and in-call", "Phone dialpad, call buttons and the in-call screen", ColorGroupSection.APPS, PaletteRole.ACCENT1, 600, 200),
     LOCK_SCREEN("lock_screen", "Lock screen and AOD clock", "Lock screen and Always On Display clock and text", ColorGroupSection.SYSTEM, PaletteRole.ACCENT1, 100, 100),
     SYSTEM_BARS("system_bars", "Navigation and status bar", "Navigation bar and status bar backgrounds", ColorGroupSection.SYSTEM, PaletteRole.NEUTRAL1, 50, 900),

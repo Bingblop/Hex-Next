@@ -146,7 +146,6 @@
     "com.sec.android.app.popupcalculator": "calculator",
     "com.sec.android.gallery3d": "gallery",
     "com.sec.android.app.voicenote": "voicenote",
-    "com.samsung.android.app.contacts": "contacts",
     "com.samsung.android.dialer": "dialer",
     "com.samsung.android.incallui": "dialer",
     "com.samsung.android.app.aodservice": "aod",
@@ -155,7 +154,6 @@
   "colorGroupFamilies": {
     "gallery": {"exact": {"gallery_menu": ["bottom_menu_list_circle_bg_color"]}},
     "voicenote": {"exact": {"voice_recorder_button": ["basic_token_sys_red", "basic_token_sys_red_light", "basic_token_sys_red_dark"]}},
-    "contacts": {"exact": {"contact_tiles": ["color_palette_1", "color_palette_2", "color_palette_3", "color_palette_4", "color_palette_5", "color_palette_6_1", "color_palette_6_2", "color_palette_6_3", "color_palette_7_1", "color_palette_7_2", "color_palette_7_3", "color_palette_8_1", "color_palette_8_2", "color_palette_8_3", "color_palette_9_1", "color_palette_9_2", "color_palette_9_3", "color_palette_10_1", "color_palette_10_2", "color_palette_10_3"]}},
     "calculator": {"exact": {"calculator_keys": ["calc_keypad_operation_button_bg", "keypad_equal_bg", "keypad_equal_scientific_bg"], "calculator_symbols": ["keypad_operation", "keypad_equal"]}},
     "keyboard": {
       "groups": {
@@ -178,7 +176,6 @@
       }
     },
     "dialer": {
-      "exact": {"contact_tiles": ["color_palette_1", "color_palette_2", "color_palette_3", "color_palette_4", "color_palette_5", "color_palette_6_1", "color_palette_6_2", "color_palette_6_3", "color_palette_7_1", "color_palette_7_2", "color_palette_7_3", "color_palette_8_1", "color_palette_8_2", "color_palette_8_3", "color_palette_9_1", "color_palette_9_2", "color_palette_9_3", "color_palette_10_1", "color_palette_10_2", "color_palette_10_3"]},
       "groups": {
         "dialer": [
           "^(?!.*(background|(^|_)bg(_|$)|bgcolor|text|title|label|divider|stroke)).*(^|_)(calls?|dial|dialer|dialpad|dial_pad|keypad|key_pad|answer|accept|incall|in_call|ongoing)(_|$)"

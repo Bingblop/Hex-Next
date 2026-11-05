@@ -630,6 +630,13 @@ step_arsc() {
     fi
     rm -rf "$xdir" "$xdir.list"
     root "dumpsys package $pkg" 2>/dev/null | grep -m3 -E 'versionName|versionCode' >"$RES/arsc/$pkg.version.txt"
+    # The job's "dex" list also keeps the app's code (classes*.dex, gzipped), to find colours an
+    # app sets in code rather than in its resources.
+    if jq -e --arg p "$pkg" '(.dex // []) | index($p)' "$JOB" >/dev/null 2>&1; then
+      local d; for d in $(unzip -Z1 "$HOME/.hexnext-arsc.apk" 2>/dev/null | grep -E '^classes[0-9]*\.dex$'); do
+        unzip -p "$HOME/.hexnext-arsc.apk" "$d" 2>/dev/null | gzip -9 >"$RES/arsc/$pkg.$d.gz"
+      done
+    fi
     rm -f "$HOME/.hexnext-arsc.apk"
     log "arsc: $pkg $(du -k "$RES/arsc/$pkg.arsc.gz" | cut -f1) KB"
   done

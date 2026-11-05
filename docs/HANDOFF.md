@@ -235,9 +235,13 @@ After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle f
   (`visiblePreviewTabs`, `<queries>` in the manifest). Screens are in `ui/preview/PreviewApps.kt`; every
   coloured element uses `fill`/`themed`/`GroupText`, so tapping it opens its colour picker.
 - App colour groups: `calculator_keys` + `calculator_symbols`, `gallery_menu`, `voice_recorder_button`
-  (Voice Recorder's `basic_token_sys_red*`), `contact_tiles` (Contacts/Dialer `color_palette_*`,
-  `autoKeepsApp`: on Auto Samsung's colourful gradients stay). Exact names skip the red/green hue
-  exclusion (`TABLE_EXCLUDED`).
+  (Voice Recorder's `basic_token_sys_red*`). Exact names skip the red/green hue exclusion
+  (`TABLE_EXCLUDED`). Contacts' letter tiles: lab-038's probe recoloured every `color_palette_*`
+  and the tiles did not change, so the app draws them in code; no tile control until the dex
+  (lab `dex` list) shows where they come from. `ColorGroup.autoKeepsApp` is ready for it.
+- App mockups paint backgrounds and cards with the colours the overlay plans for that app
+  (`DeviceColors.apps`, `PreviewScope.appColor`, Samsung's `sesl_round_and_bgcolor` /
+  `basic_token_sys_*`): on the phone those come from SemWT role inference, not the Background group.
 - Tapping a Settings or My Files icon on the phone opens `IconChooserSheet`: that slot drawn from every
   unlocked pack (`ThemePreviewer.iconChoices`), the user's images, or a file (cropped to visible pixels,
   min 24 px, sized for the slot; errors are shown).

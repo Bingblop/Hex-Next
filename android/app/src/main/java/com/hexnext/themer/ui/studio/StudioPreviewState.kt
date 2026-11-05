@@ -228,6 +228,8 @@ data class DeviceColors(
     val settings: ResourceColors = ResourceColors(),
     val myFiles: ResourceColors = ResourceColors(),
     val keyboard: ResourceColors = ResourceColors(),
+    /** Planned colours of the apps with their own Studio tab, by package. */
+    val apps: Map<String, ResourceColors> = emptyMap(),
     /** The key art Samsung Keyboard gets (`key_bg`, a nine-patch with its guides), or null. */
     val keyboardKey: ImageBitmap? = null,
     /** Pack art for the power menu buttons by drawable name (`tw_ic_do_poweroff` …); missing ones stay stock. */

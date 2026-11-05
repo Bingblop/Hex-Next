@@ -6,7 +6,6 @@ import com.hexnext.engine.palette.ThemeSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 
 /** Samsung Calculator's operator and = keys follow the primary (accent) colour, with readable symbols. */
 class CalculatorColorsTest {
@@ -45,18 +44,5 @@ class CalculatorColorsTest {
         val c = compileApp("com.sec.android.app.voicenote", listOf("basic_token_sys_red", "basic_token_sys_red_light", "basic_token_sys_red_dark"))
         assertEquals(ColorGroup.VOICE_RECORDER_BUTTON.auto(theme, night = false), c["color/basic_token_sys_red_light" to ""])
         assertEquals(ColorGroup.VOICE_RECORDER_BUTTON.auto(theme, night = true), c["color/basic_token_sys_red_dark" to "night"] ?: c["color/basic_token_sys_red_dark" to ""])
-    }
-
-    @Test
-    fun `contact tiles keep Samsung's colours on Auto and take the user's colour when set`() {
-        val pkg = "com.samsung.android.app.contacts"
-        val names = listOf("color_palette_3", "color_palette_7_2")
-        val auto = compileApp(pkg, names)
-        assertNull(auto["color/color_palette_3" to ""], "Auto leaves the colourful tiles alone")
-        val red = 0xFFE53935.toInt()
-        val spec = ThemeSpec.default().copy(source = source).withGroupColor(ColorGroup.CONTACT_TILES, false, red).withGroupColor(ColorGroup.CONTACT_TILES, true, red)
-        val set = compileApp(pkg, names, spec)
-        assertEquals(red, set["color/color_palette_3" to ""])
-        assertEquals(red, set["color/color_palette_7_2" to ""])
     }
 }

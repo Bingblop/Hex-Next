@@ -56,10 +56,33 @@ import com.hexnext.engine.compile.ColorGroup
 
 // ---------------------------------------------------------------- shared One UI app parts
 
+/** The package whose planned colours paint the mockup being drawn (see [PreviewScope.appColor]). */
+private val LocalAppPackage = androidx.compose.runtime.staticCompositionLocalOf<String?> { null }
+
+/** The app's real window background: its overlay's colour when planned, else [ColorGroup.BACKGROUND]. */
+@Composable
+private fun appBg(scope: PreviewScope): Color {
+    val pkg = LocalAppPackage.current ?: return scope[ColorGroup.BACKGROUND]
+    return scope.appColor(pkg, APP_BACKGROUND_NAMES, scope[ColorGroup.BACKGROUND])
+}
+
+/** The app's real card colour: its overlay's colour when planned, else [ColorGroup.SURFACE]. */
+@Composable
+private fun appSurface(scope: PreviewScope): Color {
+    val pkg = LocalAppPackage.current ?: return scope[ColorGroup.SURFACE]
+    return scope.appColor(pkg, APP_SURFACE_NAMES, scope[ColorGroup.SURFACE])
+}
+
+/** Draws [content] with [pkg]'s planned colours. */
+@Composable
+private fun ForApp(pkg: String, content: @Composable () -> Unit) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalAppPackage provides pkg, content = content)
+}
+
 /** One UI's big centred title over the app bar, with an optional count line. */
 @Composable
 private fun AppTitle(title: String, subtitle: String?, scope: PreviewScope) {
-    val background = scope[ColorGroup.BACKGROUND]
+    val background = appBg(scope)
     Column(
         Modifier
             .fillMaxWidth()
@@ -77,7 +100,7 @@ private fun AppTitle(title: String, subtitle: String?, scope: PreviewScope) {
 /** The app bar row: [leading] icon (or none), then [actions] on the right, all in [ColorGroup.ICON_TINT]. */
 @Composable
 private fun AppBar(scope: PreviewScope, leading: ImageVector? = null, actions: List<ImageVector> = listOf(Icons.Filled.Search, Icons.Filled.MoreVert)) {
-    val background = scope[ColorGroup.BACKGROUND]
+    val background = appBg(scope)
     val tint = scope.text(background, ColorGroup.ICON_TINT)
     Row(Modifier.fillMaxWidth().height(30.dp), verticalAlignment = Alignment.CenterVertically) {
         if (leading != null) BarIcon(leading, tint, scope)
@@ -105,7 +128,7 @@ private fun AppCard(scope: PreviewScope, modifier: Modifier = Modifier, content:
     Column(
         modifier
             .fillMaxWidth()
-            .fill(ColorGroup.SURFACE, scope, RoundedCornerShape(18.dp))
+            .fill(ColorGroup.SURFACE, scope, RoundedCornerShape(18.dp), color = appSurface(scope))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         content = content,
     )
@@ -120,7 +143,7 @@ private fun CardRow(
     summaryGroup: ColorGroup = ColorGroup.TEXT_SECONDARY,
     switch: Boolean? = null,
 ) {
-    val surface = scope[ColorGroup.SURFACE]
+    val surface = appSurface(scope)
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             GroupText(title, ColorGroup.TEXT_PRIMARY, surface, scope, size = 12.5.sp, weight = FontWeight.Medium)
@@ -148,7 +171,7 @@ private fun AppScreen(scope: PreviewScope, modifier: Modifier = Modifier, conten
     Column(
         modifier
             .fillMaxSize()
-            .fill(ColorGroup.BACKGROUND, scope)
+            .fill(ColorGroup.BACKGROUND, scope, color = appBg(scope))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         content = content,
     )
@@ -166,8 +189,11 @@ private val CalcRows = listOf(
 
 /** Calculator: the display and the keypad; the ÷ × − + = keys are [ColorGroup.CALCULATOR_KEYS]. */
 @Composable
-internal fun PreviewCalculator(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewCalculator(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.app.popupcalculator") { PreviewCalculatorBody(scope, modifier) }
+
+@Composable
+private fun PreviewCalculatorBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     AppScreen(scope, modifier) {
         AppBar(scope, actions = listOf(Icons.Filled.MoreVert))
         Spacer(Modifier.weight(1f))
@@ -199,8 +225,8 @@ private fun CalcKey(label: String, scope: PreviewScope, modifier: Modifier) {
             )
         }
     } else {
-        val key = scope[ColorGroup.SURFACE]
-        Box(box.fill(ColorGroup.SURFACE, scope, CircleShape), contentAlignment = Alignment.Center) {
+        val key = scope.appColor("com.sec.android.app.popupcalculator", listOf("calc_keypad_number_button_bg"), appSurface(scope))
+        Box(box.fill(ColorGroup.SURFACE, scope, CircleShape, color = key), contentAlignment = Alignment.Center) {
             val ink = if (function) scope.text(key, ColorGroup.ACCENT) else scope.text(key)
             PText(label, ink, scope, size = if (function) 15.sp else 19.sp, align = TextAlign.Center)
         }
@@ -211,8 +237,11 @@ private fun CalcKey(label: String, scope: PreviewScope, modifier: Modifier) {
 
 /** Voice Recorder: the recordings list and the big record button ([ColorGroup.VOICE_RECORDER_BUTTON]). */
 @Composable
-internal fun PreviewVoiceRecorder(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val surface = scope[ColorGroup.SURFACE]
+internal fun PreviewVoiceRecorder(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.app.voicenote") { PreviewVoiceRecorderBody(scope, modifier) }
+
+@Composable
+private fun PreviewVoiceRecorderBody(scope: PreviewScope, modifier: Modifier) {
+    val surface = appSurface(scope)
     AppScreen(scope, modifier) {
         AppTitle("All recordings", "2 recordings", scope)
         AppBar(scope, leading = Icons.Filled.Menu)
@@ -269,12 +298,15 @@ private val SamsungTiles = listOf(
 ).map { stops -> stops.map { Color(it) } }
 
 /**
- * Contacts: favourites, then the list. Contacts without a photo get a letter tile in
- * [ColorGroup.CONTACT_TILES]; on Auto the tiles keep Samsung's colourful gradients.
+ * Contacts: favourites, then the list. Contacts without a photo get Samsung's colourful letter
+ * tiles, which the app draws itself (no resource reaches them, lab-038 probe).
  */
 @Composable
-internal fun PreviewContacts(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewContacts(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.samsung.android.app.contacts") { PreviewContactsBody(scope, modifier) }
+
+@Composable
+private fun PreviewContactsBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     AppScreen(scope, modifier) {
         AppTitle("Contacts", "128 contacts", scope)
         AppBar(scope, actions = listOf(Icons.Filled.Add, Icons.Filled.Search, Icons.Filled.MoreVert))
@@ -288,12 +320,12 @@ internal fun PreviewContacts(scope: PreviewScope, modifier: Modifier = Modifier)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for ((i, name) in listOf("Mina", "Jae", "Rosa").withIndex()) {
                 Column(
-                    Modifier.weight(1f).fill(ColorGroup.SURFACE, scope, RoundedCornerShape(14.dp)).padding(vertical = 10.dp),
+                    Modifier.weight(1f).fill(ColorGroup.SURFACE, scope, RoundedCornerShape(14.dp), color = appSurface(scope)).padding(vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     LetterTile(name.take(1), i, scope, 40.dp)
                     Spacer(Modifier.height(6.dp))
-                    PText(name, scope.text(scope[ColorGroup.SURFACE]), scope, size = 11.sp, weight = FontWeight.Medium)
+                    PText(name, scope.text(appSurface(scope)), scope, size = 11.sp, weight = FontWeight.Medium)
                 }
             }
         }
@@ -308,18 +340,12 @@ internal fun PreviewContacts(scope: PreviewScope, modifier: Modifier = Modifier)
     }
 }
 
-/** One letter tile: Samsung's gradient [index] on Auto, else the group colour. Tappable as the tiles. */
+/** One letter tile in Samsung's colourful gradient [index] (Contacts draws these itself). */
 @Composable
 private fun LetterTile(letter: String, index: Int, scope: PreviewScope, size: Dp) {
-    val kept = scope.keptByApp(ColorGroup.CONTACT_TILES)
     val stops = SamsungTiles[index % SamsungTiles.size]
-    val fill = if (kept) Modifier.background(Brush.linearGradient(stops)) else Modifier.background(scope[ColorGroup.CONTACT_TILES])
-    val ink = if (kept) Color.White else scope.on(ColorGroup.CONTACT_TILES)
-    Box(
-        Modifier.size(size).clip(CircleShape).then(fill).themed(ColorGroup.CONTACT_TILES, scope, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        PText(letter, ink, scope, size = (size.value * 0.42f).sp, weight = FontWeight.SemiBold, align = TextAlign.Center)
+    Box(Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(stops)), contentAlignment = Alignment.Center) {
+        PText(letter, Color.White, scope, size = (size.value * 0.42f).sp, weight = FontWeight.SemiBold, align = TextAlign.Center)
     }
 }
 
@@ -327,8 +353,11 @@ private fun LetterTile(letter: String, index: Int, scope: PreviewScope, size: Dp
 
 /** Gallery: the photo grid, the bottom tabs and the Menu sheet's round buttons ([ColorGroup.GALLERY_MENU]). */
 @Composable
-internal fun PreviewGallery(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewGallery(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.gallery3d") { PreviewGalleryBody(scope, modifier) }
+
+@Composable
+private fun PreviewGalleryBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     val photos = listOf(
         0xFF8FB8DE, 0xFFE9B384, 0xFF9AD0A0, 0xFFC7A2E0, 0xFFE58F8F, 0xFF8ED1CF,
         0xFFDCC48E, 0xFFA3B1E6, 0xFFB7D88F,
@@ -356,7 +385,7 @@ internal fun PreviewGallery(scope: PreviewScope, modifier: Modifier = Modifier) 
                             Icon(icon, contentDescription = null, tint = scope.on(ColorGroup.GALLERY_MENU), modifier = Modifier.size(18.dp))
                         }
                         Spacer(Modifier.height(4.dp))
-                        PText(label, scope.text(scope[ColorGroup.SURFACE]), scope, size = 9.5.sp)
+                        PText(label, scope.text(appSurface(scope)), scope, size = 9.5.sp)
                     }
                 }
             }
@@ -369,9 +398,9 @@ internal fun PreviewGallery(scope: PreviewScope, modifier: Modifier = Modifier) 
 /** One UI's floating bottom tab pill; [selected] is drawn in [ColorGroup.ACCENT]. */
 @Composable
 private fun BottomPill(labels: List<String>, selected: Int, scope: PreviewScope) {
-    val surface = scope[ColorGroup.SURFACE]
+    val surface = appSurface(scope)
     Row(
-        Modifier.fillMaxWidth().fill(ColorGroup.SURFACE, scope, CircleShape).padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().fill(ColorGroup.SURFACE, scope, CircleShape, color = appSurface(scope)).padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         for ((i, label) in labels.withIndex()) {
@@ -387,8 +416,11 @@ private fun BottomPill(labels: List<String>, selected: Int, scope: PreviewScope)
 
 /** Clock: alarms with switches and the add button. */
 @Composable
-internal fun PreviewClock(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val surface = scope[ColorGroup.SURFACE]
+internal fun PreviewClock(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.app.clockpackage") { PreviewClockBody(scope, modifier) }
+
+@Composable
+private fun PreviewClockBody(scope: PreviewScope, modifier: Modifier) {
+    val surface = appSurface(scope)
     AppScreen(scope, modifier) {
         AppTitle("Alarm in 7 hours\n30 minutes", null, scope)
         AppBar(scope, actions = listOf(Icons.Filled.Add, Icons.Filled.MoreVert))
@@ -419,8 +451,11 @@ internal fun PreviewClock(scope: PreviewScope, modifier: Modifier = Modifier) {
 
 /** Calendar: a month grid with today in [ColorGroup.ACCENT] and an event list. */
 @Composable
-internal fun PreviewCalendar(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewCalendar(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.samsung.android.calendar") { PreviewCalendarBody(scope, modifier) }
+
+@Composable
+private fun PreviewCalendarBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     AppScreen(scope, modifier) {
         AppBar(scope, leading = Icons.Filled.Menu, actions = listOf(Icons.Filled.Search, Icons.Filled.MoreVert))
         GroupText("November", ColorGroup.TEXT_PRIMARY, background, scope, size = 20.sp, weight = FontWeight.SemiBold)
@@ -460,8 +495,11 @@ internal fun PreviewCalendar(scope: PreviewScope, modifier: Modifier = Modifier)
 
 /** Samsung Notes: note cards and the compose button. */
 @Composable
-internal fun PreviewNotes(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val surface = scope[ColorGroup.SURFACE]
+internal fun PreviewNotes(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.samsung.android.app.notes") { PreviewNotesBody(scope, modifier) }
+
+@Composable
+private fun PreviewNotesBody(scope: PreviewScope, modifier: Modifier) {
+    val surface = appSurface(scope)
     AppScreen(scope, modifier) {
         AppTitle("All notes", "6 notes", scope)
         AppBar(scope, leading = Icons.Filled.Menu)
@@ -469,7 +507,7 @@ internal fun PreviewNotes(scope: PreviewScope, modifier: Modifier = Modifier) {
         for (row in listOf(listOf("Groceries" to "Milk, eggs, basil", "Trip ideas" to "Lisbon in May"), listOf("Gift list" to "Books for Sam", "Meeting" to "Q3 roadmap"))) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((title, body) in row) {
-                    Column(Modifier.weight(1f).height(92.dp).fill(ColorGroup.SURFACE, scope, RoundedCornerShape(14.dp)).padding(10.dp)) {
+                    Column(Modifier.weight(1f).height(92.dp).fill(ColorGroup.SURFACE, scope, RoundedCornerShape(14.dp), color = appSurface(scope)).padding(10.dp)) {
                         GroupText(title, ColorGroup.TEXT_PRIMARY, surface, scope, size = 12.sp, weight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
                         GroupText(body, ColorGroup.TEXT_SECONDARY, surface, scope, size = 10.sp, maxLines = 3)
@@ -487,8 +525,11 @@ internal fun PreviewNotes(scope: PreviewScope, modifier: Modifier = Modifier) {
 
 /** Reminder: a list with round check marks in [ColorGroup.ACCENT]. */
 @Composable
-internal fun PreviewReminder(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val surface = scope[ColorGroup.SURFACE]
+internal fun PreviewReminder(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.samsung.android.app.reminder") { PreviewReminderBody(scope, modifier) }
+
+@Composable
+private fun PreviewReminderBody(scope: PreviewScope, modifier: Modifier) {
+    val surface = appSurface(scope)
     AppScreen(scope, modifier) {
         AppTitle("Reminders", "3 to do", scope)
         AppBar(scope, leading = Icons.Filled.Menu)
@@ -519,7 +560,10 @@ internal fun PreviewReminder(scope: PreviewScope, modifier: Modifier = Modifier)
 
 /** Samsung Internet settings: its Material switches follow [ColorGroup.SWITCH]. */
 @Composable
-internal fun PreviewInternet(scope: PreviewScope, modifier: Modifier = Modifier) {
+internal fun PreviewInternet(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.app.sbrowser") { PreviewInternetBody(scope, modifier) }
+
+@Composable
+private fun PreviewInternetBody(scope: PreviewScope, modifier: Modifier) {
     AppScreen(scope, modifier) {
         AppTitle("Settings", null, scope)
         Spacer(Modifier.height(4.dp))
@@ -541,8 +585,11 @@ internal fun PreviewInternet(scope: PreviewScope, modifier: Modifier = Modifier)
 
 /** Samsung Email: inbox rows and the compose button. */
 @Composable
-internal fun PreviewEmail(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewEmail(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.samsung.android.email.provider") { PreviewEmailBody(scope, modifier) }
+
+@Composable
+private fun PreviewEmailBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     AppScreen(scope, modifier) {
         AppTitle("Inbox", "3 unread", scope)
         AppBar(scope, leading = Icons.Filled.Menu)
@@ -566,8 +613,11 @@ internal fun PreviewEmail(scope: PreviewScope, modifier: Modifier = Modifier) {
 
 /** Samsung Music: the player with its seek bar ([ColorGroup.SLIDER]) and play button. */
 @Composable
-internal fun PreviewMusic(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewMusic(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.app.music") { PreviewMusicBody(scope, modifier) }
+
+@Composable
+private fun PreviewMusicBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     AppScreen(scope, modifier) {
         AppBar(scope, actions = listOf(Icons.Filled.MoreVert))
         Spacer(Modifier.height(10.dp))
@@ -590,8 +640,11 @@ internal fun PreviewMusic(scope: PreviewScope, modifier: Modifier = Modifier) {
 
 /** Samsung Health: the step ring in [ColorGroup.ACCENT] and summary cards. */
 @Composable
-internal fun PreviewHealth(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val surface = scope[ColorGroup.SURFACE]
+internal fun PreviewHealth(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.sec.android.app.shealth") { PreviewHealthBody(scope, modifier) }
+
+@Composable
+private fun PreviewHealthBody(scope: PreviewScope, modifier: Modifier) {
+    val surface = appSurface(scope)
     AppScreen(scope, modifier) {
         AppBar(scope, actions = listOf(Icons.Filled.Add, Icons.Filled.MoreVert))
         AppCard(scope) {
@@ -626,8 +679,11 @@ internal fun PreviewHealth(scope: PreviewScope, modifier: Modifier = Modifier) {
 
 /** Device care: the score and the optimise button. */
 @Composable
-internal fun PreviewDeviceCare(scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
+internal fun PreviewDeviceCare(scope: PreviewScope, modifier: Modifier = Modifier) = ForApp("com.samsung.android.lool") { PreviewDeviceCareBody(scope, modifier) }
+
+@Composable
+private fun PreviewDeviceCareBody(scope: PreviewScope, modifier: Modifier) {
+    val background = appBg(scope)
     AppScreen(scope, modifier) {
         AppTitle("Device care", null, scope)
         GroupText("Excellent", ColorGroup.ACCENT, background, scope, Modifier.fillMaxWidth(), size = 18.sp, weight = FontWeight.SemiBold, align = TextAlign.Center)

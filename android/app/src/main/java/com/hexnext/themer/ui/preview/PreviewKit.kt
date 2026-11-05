@@ -156,6 +156,20 @@ internal class PreviewScope(
     /** As [ui], for Settings resources. */
     fun settings(name: String, fallback: Color): Color = device.settings.get(name, dark)?.let { Color(it) } ?: fallback
 
+    /**
+     * The first of [names] the overlay for [pkg] writes (each tried as `<name>_light` /
+     * `<name>_dark` first, then bare), else [fallback]: what the phone really paints there.
+     */
+    fun appColor(pkg: String, names: List<String>, fallback: Color): Color {
+        val colors = device.apps[pkg] ?: (if (pkg == SETTINGS_PACKAGE) device.settings else null) ?: return fallback
+        val suffix = if (dark) "_dark" else "_light"
+        for (n in names) {
+            val v = colors.get(n + suffix, dark) ?: colors.get(n, dark)
+            if (v != null) return Color(v)
+        }
+        return fallback
+    }
+
     /** As [ui], for My Files resources. */
     fun myFiles(name: String, fallback: Color): Color = device.myFiles.get(name, dark)?.let { Color(it) } ?: fallback
 
@@ -821,3 +835,11 @@ internal fun PreviewSwitch(
         )
     }
 }
+
+internal const val SETTINGS_PACKAGE = "com.android.settings"
+
+/** Samsung's window background colours, most specific first. */
+internal val APP_BACKGROUND_NAMES = listOf("sesl_round_and_bgcolor", "basic_token_sys_background", "sesl_background_color")
+
+/** Samsung's rounded list / card colours, most specific first. */
+internal val APP_SURFACE_NAMES = listOf("basic_token_sys_surface_brightest", "sesl_list_bg_color", "basic_token_sys_surface_container_lowest")
