@@ -735,6 +735,13 @@ capture_real() {
               root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK"
               if [ -n "$ime" ] && [ "$ime" != null ] && [ "$ime" != "$want" ]; then root "ime set '$ime'" >/dev/null 2>&1; fi ;;
     dialer)   root "monkey -p com.samsung.android.dialer -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-dialer" ;;
+    hexnext:*) # A Hex Next page (hexnext:COLOURS, a Destination name), top then scrolled once.
+              local dest="${1#hexnext:}"
+              case "$dest" in *[!A-Z_]*|'') log "capture: bad page $dest"; return 0 ;; esac
+              root "am start -S -W -n $PKG/com.hexnext.themer.MainActivity --es hexnext.destination $dest" >/dev/null 2>&1
+              sleep 5; shot "$PHASE$MODE-hexnext-$dest"
+              root "input swipe 540 1800 540 700 300"; sleep 2; shot "$PHASE$MODE-hexnext-$dest-2"
+              root "am force-stop $PKG" >/dev/null 2>&1 ;;
     app:*)    # Any installed app by package (app:com.sec.android.app.sbrowser): its launcher screen;
               # app:<pkg>/<activity> opens that screen (apps without a launcher entry, Device Care).
               local spec="${1#app:}" pkg="${1#app:}"; pkg="${pkg%%/*}"
