@@ -376,6 +376,8 @@ internal fun StudioPage(
     onElementTap: (ColorGroup) -> Unit,
     wide: Boolean,
     applyBlockedReason: String?,
+    /** The Theme tab's section row, shown above the phone. */
+    sectionTabs: (@Composable () -> Unit)? = null,
 ) {
     // "Describe your theme" may only pick packs this install can apply.
     val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
@@ -434,6 +436,7 @@ internal fun StudioPage(
                     contentPadding = PAGE_PADDING,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    sectionTabs?.let { tabs -> item(key = "sections") { tabs() } }
                     item(key = "describe") { describe() }
                 }
             }
@@ -445,6 +448,7 @@ internal fun StudioPage(
             contentPadding = PAGE_PADDING,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            sectionTabs?.let { tabs -> item(key = "sections") { tabs() } }
             if (!phoneInChat) item(key = "phone") { phoneCard() }
             item(key = "describe") { describe() }
         }
@@ -479,6 +483,9 @@ internal fun SkinsPage(
     }
     val previewOnly = remember(ui.spec, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.previewOnlyPacksInTheme() }
     val listState = rememberLazyListState()
+    // Pack options with no target on this phone are hidden once the last scan is read.
+    val optionReach by viewModel.optionReach.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { viewModel.loadGroupCounts() }
     val content: LazyListScope.() -> Unit = {
         if (previewOnly.isNotEmpty()) {
             item(key = "preview-only") {
@@ -514,6 +521,7 @@ internal fun SkinsPage(
                 onLoadCatalogue = viewModel::loadCatalogue,
                 onDownload = { viewModel.downloadPack(it) },
                 onPreviewCatalogue = viewModel::previewCataloguePack,
+                optionReach = optionReach,
             )
         }
     }
@@ -556,6 +564,8 @@ internal fun ColoursPage(
     peekCollapsed: Boolean,
     onPeekCollapsed: (Boolean) -> Unit,
     wide: Boolean,
+    /** Replaces the sub-tabs with the Theme tab's section row. */
+    sectionTabs: (@Composable () -> Unit)? = null,
 ) {
     val counts by viewModel.groupCounts.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -581,7 +591,7 @@ internal fun ColoursPage(
         onPeekCollapsed = onPeekCollapsed,
         wide = wide,
         listState = listState,
-        tabs = { SubTabs(ColoursTab.entries, tab, { it.label }, onTab) },
+        tabs = sectionTabs ?: { SubTabs(ColoursTab.entries, tab, { it.label }, onTab) },
     ) {
         when (tab) {
             ColoursTab.ENGINE -> item(key = "engine") {
@@ -632,6 +642,8 @@ internal fun IconsPage(
     peekCollapsed: Boolean,
     onPeekCollapsed: (Boolean) -> Unit,
     wide: Boolean,
+    /** Replaces the sub-tabs with the Theme tab's section row. */
+    sectionTabs: (@Composable () -> Unit)? = null,
 ) {
     val listState = rememberLazyListState()
     val needsRoot = ui.capability == Capability.SHELL
@@ -647,7 +659,7 @@ internal fun IconsPage(
         onPeekCollapsed = onPeekCollapsed,
         wide = wide,
         listState = listState,
-        tabs = { SubTabs(IconsTab.entries, tab, { it.label }, onTab) },
+        tabs = sectionTabs ?: { SubTabs(IconsTab.entries, tab, { it.label }, onTab) },
     ) {
         when (tab) {
             IconsTab.STYLE -> item(key = "iconStyle") { IconStyleCard(viewModel, ui.spec, preview.state, ui.busy, ui.capability) }

@@ -167,6 +167,7 @@ and earlier sessions' notes never count as approval.
   - Phone mockup with QS/Settings/Files/Power/Dialer/Keys tabs.
   - Colour engine card and per-resource colour list.
   - Use the system font, not the AI Studio font. The wording must describe what each feature really does.
+- **Navigation (2026-11-05):** four tabs, Theme, Packs, Library, Settings. Theme has one row of sections (Overview, Colours, Elements, Quick panel, Shades, Icons, Custom icons, Fonts, Backgrounds); Library holds the theme file and backups; Settings has General (App settings), Themed apps (targets, restart protection) and Tools (log, safe mode, diagnostics, device). Preview and Apply are pinned on Theme and Packs only. A tap on the phone edits in place (colour sheet), except on Elements and Quick panel where it scrolls to the row; it never switches tabs. `hexnext.destination` still accepts the old lab page names (STUDIO, SKINS, COLOURS, ICONS, SYSTEM) plus `THEME:<section>` / `SETTINGS:<section>`.
 - **Main files:** `ui/studio/StudioScreen.kt`, `ui/studio/ShellPages.kt` (Studio / Colours / Skins / … pages, PreviewPeek, PreviewedPage), `ui/MainScreen.kt` (PackCard, PackRow, CatalogueSkinRow, OptionList), `ui/MainViewModel.kt`.
 - **All 44 packs** are listed in Skins. Locked packs download to `files/packs-preview` and are **fully previewable**. Building or applying an overlay needs a verified purchase.
 - **Live preview:**
@@ -326,3 +327,9 @@ to test it. Encrypted Owner artifacts follow rule 13 instead.
 - Rewiring is engine-wide (`oneui/9.json` `renamed` / `fallbackRenames` / `drawableCopies`), not per pack, and the live preview runs the same compiler; a pack is rewired like Willemite wherever it uses Willemite's legacy names.
 - Offline audit of every pack against the real One UI 9 drawable tables (device lab name dumps + `.arsc`): `docs/device/oneui9-pack-rewiring-audit-20261105.md`. Names Willemite never shipped were unmapped; 9.json now maps them (Wi-Fi status icons, `buttons` back/overflow, dialpad Wi-Fi calling, slot templates `*_`, dark/light sesl splits). 39 packs gain names, Willemite is unchanged.
 - Not verified on the phone yet: run a lab pass with kunzite/sodalite (status bar + templates), axinite/citrine (`buttons`) and apatite/charoite (dialpad).
+
+### 12.3 All 44 packs on Willemite's wiring, four-tab navigation (2026-11-05)
+- Carnelian's Settings icons failed in dark mode: `_alt` categories are each pack's dark twin, but the engine read `_alt` as an option nobody turned on. `_alt` is now a night category; dark-only `_alt` art with palette tints also themes light mode; dead select defaults fall back to a choice with art; options with no art (or, after a scan, no target on the phone) are hidden. Details and per-pack table: `docs/device/all-packs-willemite-wiring-20261105.md`.
+- The name rewiring from 12.2 is merged with it.
+- Navigation rebuilt as four tabs (see section 7).
+- No lab jobs were posted. Kyle tests the owner APK on his phone: Carnelian Settings dark mode first, then Morganite light mode and a few other packs.
