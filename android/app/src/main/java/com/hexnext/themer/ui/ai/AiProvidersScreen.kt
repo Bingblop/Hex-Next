@@ -31,6 +31,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -147,6 +149,29 @@ fun AiProvidersScreen(onBack: () -> Unit) {
                             "encrypted by its hardware key store, and are left out of backups. Each request is billed to your own account.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            item {
+                val default by keys.defaultProvider.collectAsStateWithLifecycle()
+                val withKeys = AiProviders.all.filter { it.id in configured }
+                SectionCard("Default agent") {
+                    Text(
+                        if (withKeys.size > 1) {
+                            "Used first by Generate in the icon picker, the colour picker and Describe your theme. You can still switch there."
+                        } else {
+                            "Add keys for two or more services to choose which one the AI buttons start with."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ProviderPicker(
+                        label = "Default agent",
+                        options = withKeys.map { it.id to it.displayName },
+                        selectedId = keys.choose(withKeys.map { it.id }, default),
+                        enabled = withKeys.size > 1,
+                        onSelect = { keys.setDefaultProvider(it) },
                     )
                 }
             }

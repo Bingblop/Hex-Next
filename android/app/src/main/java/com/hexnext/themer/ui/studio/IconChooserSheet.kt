@@ -71,6 +71,30 @@ internal fun IconChooserSheet(
     onClose: () -> Unit,
 ) {
     var choices by remember(slotKey) { mutableStateOf<List<ThemePreviewer.IconChoice>?>(null) }
+    var generating by remember(slotKey) { mutableStateOf(false) }
+    if (generating) {
+        val paletteHint = remember(ui.packs, ui.spec.simplePackId) {
+            ui.packs.firstOrNull { it.id == ui.spec.simplePackId }
+                ?.pack?.paletteArgb?.values?.map { it or 0xFF000000.toInt() }?.take(6).orEmpty()
+        }
+        // Uses the default agent (AI providers > Default agent); the sheet can still switch.
+        com.hexnext.themer.ui.ai.GenerateIconSheet(
+            slotLabel = label,
+            paletteHint = paletteHint,
+            onUse = { asset ->
+                viewModel.assignIcon(slotKey, asset.fileName)
+                generating = false
+                onClose()
+            },
+            onOpenProviders = {
+                generating = false
+                onClose()
+                viewModel.navigate(com.hexnext.themer.ui.Screen.AI_PROVIDERS)
+            },
+            onDismiss = { generating = false },
+        )
+        return
+    }
     LaunchedEffect(slotKey, night) { viewModel.loadIconChoices(slotKey, night) { choices = it } }
     val assigned = ui.spec.customIcons[slotKey]
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -139,6 +163,10 @@ internal fun IconChooserSheet(
             Spacer(Modifier.height(20.dp))
             FilledTonalButton(onClick = { picker.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) {
                 Text("Choose from files")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { generating = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Generate with AI")
             }
             Text(
                 "PNG, JPEG or WebP. Empty margins are cropped and the image is sized for this spot; " +

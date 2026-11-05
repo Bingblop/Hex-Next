@@ -136,7 +136,7 @@ fun GenerateIconSheet(
 
     val providers = remember(configured) { AiProviders.all.filter { it.id in configured } }
     LaunchedEffect(providers) {
-        if (providers.none { it.id == state.providerId }) state.providerId = providers.firstOrNull()?.id
+        state.providerId = keys.choose(providers.map { it.id }, state.providerId)
     }
     val provider = providers.firstOrNull { it.id == state.providerId }
     val canGenerate = provider != null && state.prompt.isNotBlank() && !state.busy
