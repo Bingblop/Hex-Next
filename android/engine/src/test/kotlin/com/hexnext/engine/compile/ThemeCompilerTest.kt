@@ -361,6 +361,58 @@ class ThemeCompilerTest {
     }
 
     @Test
+    fun `an _alt category is the dark-mode twin of its base category`() {
+        // Carnelian: light art tints the frame lxx1 with a black glyph, the `_alt` twin tints it
+        // xx1 with a white glyph. Before the fix `_alt` was an option nobody switched on, so dark
+        // mode drew the black glyph on a dark card.
+        val carnelian = pack(
+            "carnelian-like",
+            listOf(
+                layer("settingsicon-1sett", "base", Tint(Tint.SLOT, slot = "lxx1"), listOf("ic_settings_wifi")),
+                layer("settingsicon-1sett", "first", Tint(Tint.SLOT, slot = "H000000"), listOf("ic_settings_wifi")),
+                layer("settingsicon_alt-1sett", "base", Tint(Tint.SLOT, slot = "xx1"), listOf("ic_settings_wifi")),
+                layer("settingsicon_alt-1sett", "first", Tint(Tint.SLOT, slot = "Hffffff"), listOf("ic_settings_wifi")),
+            ),
+        ).copy(options = listOf(com.hexnext.engine.pack.PackOption("select", "Style", keys = listOf("1sett", "2sett", "3sett"))))
+        val t = compile(baseSpec.copy(simplePackId = "carnelian-like"), InMemoryPackResolver(listOf(carnelian))).target(settings)!!
+        fun wifi(config: String) = t.drawables.single { it.resourceName.endsWith("/ic_settings_wifi") && it.configuration == config }
+        val light = SlotPalette.derive(resolved)
+        assertEquals("settingsicon-1sett", wifi("xxhdpi").source.category)
+        assertEquals(listOf(light.getValue("lxx1"), 0xFF000000.toInt()), wifi("xxhdpi").plan.steps.map { it.tintArgb })
+        assertEquals("settingsicon_alt-1sett", wifi("night-xxhdpi").source.category)
+        assertEquals(listOf(light.getValue("xx1"), 0xFFFFFFFF.toInt()), wifi("night-xxhdpi").plan.steps.map { it.tintArgb })
+        assertEquals("settingsicon_alt-1sett", wifi("night-xxxhdpi").source.category)
+    }
+
+    @Test
+    fun `dark-only _alt artwork also themes light mode when it uses palette slots only`() {
+        // Morganite ships its Settings icons only as `settingsicon_alt` (untinted base + xx3).
+        val morganite = pack(
+            "morganite-like",
+            listOf(
+                layer("settingsicon_alt", "base", Tint(Tint.NONE), listOf("ic_settings_wifi")),
+                layer("settingsicon_alt", "first", Tint(Tint.SLOT, slot = "xx3"), listOf("ic_settings_wifi")),
+            ),
+        )
+        val t = compile(baseSpec.copy(simplePackId = "morganite-like"), InMemoryPackResolver(listOf(morganite))).target(settings)!!
+        val light = SlotPalette.derive(resolved)
+        val day = t.drawables.single { it.resourceName.endsWith("/ic_settings_wifi") && it.configuration == "xxhdpi" }
+        assertEquals("settingsicon_alt", day.source.category)
+        assertEquals(listOf(null, light.getValue("lxx3")), day.plan.steps.map { it.tintArgb })
+        val night = t.drawables.single { it.resourceName.endsWith("/ic_settings_wifi") && it.configuration == "night-xxhdpi" }
+        assertEquals(listOf(null, light.getValue("xx3")), night.plan.steps.map { it.tintArgb })
+
+        // A fixed white glyph was drawn for a dark background: no light twin.
+        val white = pack(
+            "white-alt",
+            listOf(layer("settingsicon_alt", "base", Tint(Tint.SLOT, slot = "Hffffff"), listOf("ic_settings_wifi"))),
+        )
+        val w = compile(baseSpec.copy(simplePackId = "white-alt"), InMemoryPackResolver(listOf(white))).target(settings)!!
+        val wifi = w.drawables.filter { it.resourceName.endsWith("/ic_settings_wifi") }.map { it.configuration }.toSet()
+        assertEquals(setOf("night-xxhdpi", "night-xxxhdpi"), wifi)
+    }
+
+    @Test
     fun `landscape RTL and screen-width categories are not used and port loses to neutral`() {
         val qualified = pack(
             "qualified-1",
@@ -459,6 +511,7 @@ class ThemeCompilerTest {
     fun `pack defaults follow the plugin settings`() {
         val p = iconPack.copy(
             id = "settings-1",
+            layers = iconPack.layers + layer("settingsicon-2sett", "base", Tint(Tint.SLOT, slot = "xx5"), listOf("ic_settings_display")),
             options = listOf(
                 com.hexnext.engine.pack.PackOption("select", "Dashboard icon style", keys = listOf("1sett", "2sett")),
                 com.hexnext.engine.pack.PackOption("switch", "Frame", key = "settframe"),

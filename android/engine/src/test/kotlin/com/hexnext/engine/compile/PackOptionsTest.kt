@@ -21,6 +21,7 @@ class PackOptionsTest {
         listOf(
             Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic_a")),
             Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic_a")),
+            Fixtures.layer("settingsicon-3sett", "base", none, listOf("ic_a")),
             Fixtures.layer("pref-2sett", "base", none, listOf("bg")),
             Fixtures.layer("misc-wabubble", "base", none, listOf("bubble")),
             Fixtures.layer("navbar-addbackground", "base", none, listOf("nav_bg")),
@@ -42,13 +43,59 @@ class PackOptionsTest {
     }
 
     @Test
-    fun `select with a single live key is still live`() {
+    fun `a select keeps only choices with artwork and needs two of them`() {
+        // One choice with art: nothing to choose (the element switch turns the art off).
         val p = Fixtures.pack("p2", listOf(Fixtures.layer("settingsicon-3sett", "base", none, listOf("ic"))))
             .copy(options = listOf(iconStyle))
-        val live = PackOptions.live(p)
-        assertEquals(1, live.size)
-        assertEquals(setOf("settings_icons"), live.single().elementIds)
+        assertTrue(PackOptions.live(p).isEmpty())
         assertTrue(PackOptions.live(Fixtures.pack("p3", emptyList()).copy(options = listOf(iconStyle))).isEmpty())
+        // Carnelian: "OG Type" (3sett) has no artwork, so it is not offered; labels follow their keys.
+        val two = Fixtures.pack(
+            "p4",
+            listOf(
+                Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic")),
+                Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic")),
+            ),
+        ).copy(options = listOf(iconStyle))
+        val live = PackOptions.live(two).single()
+        assertEquals(listOf("1sett", "2sett"), live.keys)
+        assertEquals(listOf("Flat", "Tinted"), live.option.choices)
+    }
+
+    @Test
+    fun `a default choice without artwork falls back to the first choice with art`() {
+        val p = Fixtures.pack(
+            "p5",
+            listOf(
+                Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic")),
+                Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic")),
+            ),
+        ).copy(
+            options = listOf(iconStyle),
+            settings = mapOf("plug:3sett" to kotlinx.serialization.json.JsonPrimitive("true")),
+        )
+        assertEquals(mapOf("1sett" to "true"), p.defaultOptions)
+        // With no choice carrying art the plugin's default stays.
+        val none = Fixtures.pack("p6", listOf(Fixtures.layer("settingsicon", "base", none, listOf("ic"))))
+            .copy(options = listOf(iconStyle), settings = mapOf("plug:3sett" to kotlinx.serialization.json.JsonPrimitive("true")))
+        assertEquals(mapOf("3sett" to "true"), none.defaultOptions)
+    }
+
+    @Test
+    fun `with a scan options whose artwork reaches nothing on the phone are hidden`() {
+        val media = PackOption(PackOption.SWITCH, "Use QsMediaButtons (max One UI 3.1)", key = "qsmb1")
+        val p = Fixtures.pack(
+            "p7",
+            listOf(
+                Fixtures.layer("navbar-addbackground", "base", none, listOf("ic_sysbar_back")),
+                Fixtures.layer("control-qsmb1", "base", none, listOf("qs_media_button_gone_in_9")),
+            ),
+        ).copy(options = listOf(background, media))
+        assertEquals(listOf("addbackground", "qsmb1"), PackOptions.live(p).flatMap { it.keys })
+        val reach = OptionReach(setOf("drawable/ic_sysbar_back"), OneUiRules.load(9))
+        assertEquals(listOf("addbackground"), PackOptions.live(p, reach).flatMap { it.keys })
+        assertTrue(reach.reaches(p, "navbar-addbackground"))
+        assertFalse(reach.reaches(p, "control-qsmb1"))
     }
 
     @Test
@@ -132,7 +179,8 @@ class PackOptionsTest {
     @Test
     fun `pack options parse from pack json`() {
         val json = """{"id":"x","name":"X","options":[{"type":"select","label":"Style","keys":["a","b"],"choices":["A","B"]},{"type":"switch","label":"Flag","key":"f"}],
-            "layers":[{"pass":"once","stage":"base","category":"navbar-b","tint":{"kind":"none"},"path":"l","resources":["r"]}]}"""
+            "layers":[{"pass":"once","stage":"base","category":"navbar-b","tint":{"kind":"none"},"path":"l","resources":["r"]},
+            {"pass":"once","stage":"base","category":"navbar-a","tint":{"kind":"none"},"path":"l","resources":["r"]}]}"""
         val p = com.hexnext.engine.pack.PackReader.parse(json)
         val live = PackOptions.live(p)
         assertEquals(1, live.size)

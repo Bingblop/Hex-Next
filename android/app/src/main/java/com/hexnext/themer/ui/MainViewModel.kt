@@ -19,6 +19,7 @@ import com.hexnext.engine.compile.IconColorStyle
 import com.hexnext.engine.compile.LiveOption
 import com.hexnext.engine.compile.CustomFont
 import com.hexnext.engine.compile.OneUiRules
+import com.hexnext.engine.compile.OptionReach
 import com.hexnext.engine.compile.ThemeExport
 import com.hexnext.engine.compile.ThemeFormatException
 import com.hexnext.engine.compile.ThemeMode
@@ -421,6 +422,13 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      */
     private val _valueControls = MutableStateFlow<Map<String, ValueControl>>(emptyMap())
     val valueControls: StateFlow<Map<String, ValueControl>> = _valueControls.asStateFlow()
+
+    /**
+     * Which pack artwork has a target on this phone, over the last scan ([OptionReach]), loaded
+     * with [loadGroupCounts]; null without a scan. Pack option lists hide options it rules out.
+     */
+    private val _optionReach = MutableStateFlow<OptionReach?>(null)
+    val optionReach: StateFlow<OptionReach?> = _optionReach.asStateFlow()
 
     /** The scan stamp [_groupCounts] was computed from; null before the first count. Main thread only. */
     private var groupCountsStamp: String? = null
@@ -1561,6 +1569,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val known = groupCountsStamp
         groupCountsJob = viewModelScope.launch {
             val app = getApplication<Application>()
+            var reach: OptionReach? = null
             val result = withContext<Triple<String?, Map<ColorGroup, GroupCount>, Map<String, ValueControl>>?>(Dispatchers.IO) {
                 val stamp = SnapshotBuilder.scanStamp(app)
                 when {
@@ -1572,6 +1581,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                         val counts = built?.let { ColorGroupMatcher.groupCounts(it.snapshot, rules!!) }.orEmpty()
                         // The Quick panel shape controls: which candidate names this phone defines.
                         val controls = if (built != null && rules != null) ValuePlanner.availableControls(built.snapshot, rules) else emptyMap()
+                        // Pack options whose artwork reaches nothing on this phone are hidden.
+                        reach = if (built != null && rules != null) OptionReach.of(built.snapshot, rules) else null
                         Triple(stamp, counts, controls)
                     }.getOrElse {
                         log(LogLine(LogLevel.WARN, "Counting element colours failed: ${it.javaClass.simpleName}: ${it.message}"))
@@ -1582,6 +1593,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             groupCountsStamp = result.first
             _groupCounts.value = result.second
             _valueControls.value = result.third
+            _optionReach.value = reach
         }
     }
 

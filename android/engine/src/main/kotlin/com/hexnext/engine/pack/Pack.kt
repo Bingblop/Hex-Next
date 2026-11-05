@@ -1,5 +1,6 @@
 package com.hexnext.engine.pack
 
+import com.hexnext.engine.compile.CategoryName
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -55,6 +56,11 @@ public data class Pack(
      * [com.hexnext.engine.compile.ThemeSpec.elementOptions] on these, so a pack whose only
      * Settings icons live under `settingsicon-1sett` still themes the dashboard by default.
      */
+    /** Option tokens that gate at least one layer category ([CategoryName.optionTokens]). */
+    internal val gatingTokens: Set<String> by lazy {
+        layers.map { it.category }.distinct().flatMapTo(HashSet()) { CategoryName.parse(it).optionTokens }
+    }
+
     public val defaultOptions: Map<String, String> by lazy {
         val optionKeys = options.flatMapTo(HashSet()) { if (it.type == PackOption.SELECT) it.keys else listOfNotNull(it.key) }
         val byPrefix = LinkedHashMap<String, MutableMap<String, String>>()
@@ -74,7 +80,13 @@ public data class Pack(
             when (option.type) {
                 PackOption.SELECT -> {
                     val chosen = ranked.firstNotNullOfOrNull { values -> option.keys.firstOrNull { values[it] == "true" } }
-                    (chosen ?: option.keys.firstOrNull())?.let { result[it] = "true" }
+                        ?: option.keys.firstOrNull()
+                    // A default choice that gates no artwork (Carnelian's "OG Type", artwork only in
+                    // the plugin's encrypted templates) would leave the element unthemed although
+                    // another choice has art: the first choice with art becomes the default.
+                    val live = chosen?.takeIf { it in gatingTokens || option.keys.none(gatingTokens::contains) }
+                        ?: option.keys.first(gatingTokens::contains)
+                    live?.let { result[it] = "true" }
                 }
                 PackOption.SWITCH -> {
                     val key = option.key

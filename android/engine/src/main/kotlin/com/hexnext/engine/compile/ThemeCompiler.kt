@@ -398,6 +398,18 @@ public object ThemeCompiler {
     }
 
     /** Day-versus-night precedence: option-token count, then Android release rank. */
+    private val FIXED_SLOT = Regex("^H[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$")
+
+    /** True when every layer of [category] in [pack] is untinted or tinted by a palette slot (no fixed colour). */
+    internal fun paletteOnly(pack: Pack, category: String): Boolean =
+        pack.layers.filter { it.category == category }.all { l ->
+            when (l.tint.kind) {
+                "none" -> true
+                "slot" -> l.tint.slot?.let { !FIXED_SLOT.matches(it) } ?: false
+                else -> false
+            }
+        }
+
     private val NIGHT_PRECEDENCE: Comparator<CategoryName> =
         compareBy<CategoryName>({ it.optionTokens.size }, { it.androidRank })
 
@@ -1080,6 +1092,8 @@ public object ThemeCompiler {
             val dayWinners = LinkedHashMap<Pair<String, String>, Pair<PlannedDrawable, CategoryName>>()
             // The category that wrote each night job, to compare it with the day winner.
             val nightSources = HashMap<Pair<String, String>, CategoryName>()
+            // Night jobs from `_alt` dark twins, by (resource, density), for the light twin below.
+            val altWinners = LinkedHashMap<Pair<String, String>, Pair<PlannedDrawable, CategoryName>>()
 
             fun job(pd: PlannedDrawable, category: CategoryName, night: Boolean, density: String): PlannedDrawableJob? {
                 val plan = IconColors.style(
@@ -1120,8 +1134,12 @@ public object ThemeCompiler {
                     for (density in pd.configs) {
                         val j = job(pd, category, category.night, density) ?: continue
                         jobs[j.resourceName to j.configuration] = j
-                        if (category.night) nightSources[j.resourceName to j.configuration] = category
-                        else dayWinners[pd.resourceName to density] = pd to category
+                        if (category.night) {
+                            nightSources[j.resourceName to j.configuration] = category
+                            if (category.alt) altWinners[pd.resourceName to density] = pd to category
+                        } else {
+                            dayWinners[pd.resourceName to density] = pd to category
+                        }
                     }
                 }
             }
@@ -1134,6 +1152,18 @@ public object ThemeCompiler {
                 val nightSource = nightSources[name to configFor(true, density)]
                 if (nightSource != null && NIGHT_PRECEDENCE.compare(nightSource, category) >= 0) continue
                 job(pd, category, night = true, density = density)?.let { jobs[it.resourceName to it.configuration] = it }
+            }
+            // An `_alt` dark twin with no light artwork for the resource (Kornerupine's and
+            // Morganite's Settings icons) also themes light mode, planned with light tints (`xx3`
+            // → `lxx3`), as a day category without a night counterpart gets a dark twin. Only
+            // when every layer is untinted or palette-tinted: a fixed colour (`Hffffff` white
+            // glyph) was chosen for a dark background and would vanish on a light one.
+            for ((key, winner) in altWinners) {
+                val (name, density) = key
+                if (jobs.containsKey(name to configFor(false, density))) continue
+                val (pd, category) = winner
+                if (!paletteOnly(pack, category.raw)) continue
+                job(pd, category, night = false, density = density)?.let { jobs[it.resourceName to it.configuration] = it }
             }
             return jobs
         }
