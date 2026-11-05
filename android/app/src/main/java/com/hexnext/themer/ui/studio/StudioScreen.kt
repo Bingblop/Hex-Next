@@ -111,6 +111,9 @@ import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.ui.statusPillText
 
 /** The bottom-navigation destinations of the shell (§ 1.2), in order. Saved by name. */
+/** Intent extra naming the [Destination] to open first. */
+internal const val EXTRA_DESTINATION = "hexnext.destination"
+
 internal enum class Destination(val label: String, val icon: ImageVector) {
     STUDIO("Studio", Icons.Outlined.Home),
     SKINS("Skins", Icons.Outlined.Star),
@@ -176,7 +179,12 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val activity = remember(context) { context.findActivity() }
     LaunchedEffect(activity) { viewModel.bindBillingActivity(activity) }
 
-    var destination by rememberSaveable { mutableStateOf(Destination.STUDIO) }
+    // `hexnext.destination` (a Destination name) opens that page first: the device lab
+    // screenshots every page this way. Unknown or missing names open the Studio.
+    var destination by rememberSaveable {
+        val asked = activity?.intent?.getStringExtra(EXTRA_DESTINATION)
+        mutableStateOf(Destination.entries.firstOrNull { it.name == asked } ?: Destination.STUDIO)
+    }
     var coloursTab by rememberSaveable { mutableStateOf(ColoursTab.ENGINE) }
     var iconsTab by rememberSaveable { mutableStateOf(IconsTab.STYLE) }
     var systemTab by rememberSaveable { mutableStateOf(SystemTab.TARGETS) }

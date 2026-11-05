@@ -53,6 +53,29 @@ jobs:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
 
+  # Lint runs beside the build instead of inside it (about 3 minutes off the critical path).
+  lint-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools"
+      - name: Install SDK 36 and build-tools 36.0.0
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+      - name: Lint the Play release
+        run: ./gradlew --no-daemon --console=plain :app:lintPlayRelease
+
   build-android:
     runs-on: ubuntu-latest
     env:
@@ -163,7 +186,7 @@ jobs:
       - name: Test and build unsigned universal candidate
         run: >-
           ./gradlew --no-daemon --console=plain :engine:test :app:verifyAndroidSdkTools
-          :app:testPlayDebugUnitTest :app:lintPlayRelease
+          :app:testPlayDebugUnitTest
           :app:assemblePlayRelease :app:assembleOwnerRelease
           :app:assemblePlayDebug :app:assembleOwnerDebug
           && ./gradlew --no-daemon --console=plain :app:bundlePlayRelease
