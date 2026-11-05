@@ -37,10 +37,12 @@ and its `xx1`/`xx2` equal `lxx1`/`lxx2`, so either source renders the same pixel
    themes light mode, planned with light tints (`xx3` → `lxx3`), when every layer is untinted or
    palette-tinted. A fixed colour (`Hffffff`) was chosen for a dark background, so such art stays
    dark-only. This mirrors the existing rule that a day category without a night twin gets one.
-3. `Pack.defaultOptions`: a select whose default choice gates no artwork (Carnelian's "OG Type",
-   whose art only exists in the plugin's encrypted templates) defaults to the first choice with art.
-4. `PackOptions.live`: a select offers only choices with artwork and needs two of them. With a
-   scan, `OptionReach` also hides options whose artwork maps to no drawable on this phone (One UI 3
+3. (Reverted after 2.3.1.) A select default with no categories of its own was moved to the first
+   choice with categories, and such choices were hidden. That was wrong: a choice without
+   categories selects the base art. Willemite's "OG Pastel color" (`multicolor`) is the base
+   `settingsicon`, so 2.3.1 changed its Settings icons to "Primary tint". Defaults and choices are
+   again exactly the plugin's.
+4. `PackOptions.live`: with a scan, `OptionReach` also hides options whose artwork maps to no drawable on this phone (One UI 3
    media buttons, One UI 4-6 brightness bars, WhatsApp bubbles when WhatsApp is not scanned).
    The app passes it from the last scan (`MainViewModel.optionReach`).
 

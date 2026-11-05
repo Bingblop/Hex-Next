@@ -43,42 +43,32 @@ class PackOptionsTest {
     }
 
     @Test
-    fun `a select keeps only choices with artwork and needs two of them`() {
-        // One choice with art: nothing to choose (the element switch turns the art off).
+    fun `a select keeps every choice, one with art is enough`() {
+        // Carnelian: "OG Type" (3sett) has no categories; choosing it leaves the phone's icons.
         val p = Fixtures.pack("p2", listOf(Fixtures.layer("settingsicon-3sett", "base", none, listOf("ic"))))
             .copy(options = listOf(iconStyle))
-        assertTrue(PackOptions.live(p).isEmpty())
+        assertEquals(listOf("1sett", "2sett", "3sett"), PackOptions.live(p).single().keys)
         assertTrue(PackOptions.live(Fixtures.pack("p3", emptyList()).copy(options = listOf(iconStyle))).isEmpty())
-        // Carnelian: "OG Type" (3sett) has no artwork, so it is not offered; labels follow their keys.
-        val two = Fixtures.pack(
-            "p4",
-            listOf(
-                Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic")),
-                Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic")),
-            ),
-        ).copy(options = listOf(iconStyle))
-        val live = PackOptions.live(two).single()
-        assertEquals(listOf("1sett", "2sett"), live.keys)
-        assertEquals(listOf("Flat", "Tinted"), live.option.choices)
     }
 
     @Test
-    fun `a default choice without artwork falls back to the first choice with art`() {
+    fun `a default choice without categories of its own stays the default`() {
+        // Willemite: "OG Pastel color" (multicolor) means the base settingsicon art. 2.3.1 moved
+        // the default to "Primary tint" and the Settings icons changed colour.
+        val willemiteStyle = PackOption(PackOption.SELECT, "Settings icon style", keys = listOf("primarytint", "accenttint", "multicolor"))
         val p = Fixtures.pack(
             "p5",
             listOf(
-                Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic")),
-                Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic")),
+                Fixtures.layer("settingsicon", "base", none, listOf("ic")),
+                Fixtures.layer("settingsicon-v28-primarytint", "base", none, listOf("ic")),
+                Fixtures.layer("settingsicon-v28-accenttint", "base", none, listOf("ic")),
             ),
         ).copy(
-            options = listOf(iconStyle),
-            settings = mapOf("plug:3sett" to kotlinx.serialization.json.JsonPrimitive("true")),
+            options = listOf(willemiteStyle),
+            settings = mapOf("p03:multicolor" to kotlinx.serialization.json.JsonPrimitive("true")),
         )
-        assertEquals(mapOf("1sett" to "true"), p.defaultOptions)
-        // With no choice carrying art the plugin's default stays.
-        val none = Fixtures.pack("p6", listOf(Fixtures.layer("settingsicon", "base", none, listOf("ic"))))
-            .copy(options = listOf(iconStyle), settings = mapOf("plug:3sett" to kotlinx.serialization.json.JsonPrimitive("true")))
-        assertEquals(mapOf("3sett" to "true"), none.defaultOptions)
+        assertEquals(mapOf("multicolor" to "true"), p.defaultOptions)
+        assertEquals(listOf("primarytint", "accenttint", "multicolor"), PackOptions.live(p).single().keys)
     }
 
     @Test
@@ -86,24 +76,6 @@ class PackOptionsTest {
         val p = Fixtures.pack("p8", listOf(Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic"))))
             .copy(options = listOf(PackOption(PackOption.SELECT, "Empty")))
         assertEquals(emptyMap(), p.defaultOptions)
-    }
-
-    @Test
-    fun `choosing an offered choice switches off the hidden ones too`() {
-        // The user once chose "OG Type" (3sett, no art); picking 1sett must clear it.
-        val p = Fixtures.pack(
-            "p9",
-            listOf(
-                Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic")),
-                Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic")),
-            ),
-        ).copy(options = listOf(iconStyle))
-        val live = PackOptions.live(p).single()
-        assertEquals(listOf("1sett", "2sett", "3sett"), live.declaredKeys)
-        val old = ThemeSpec(id = "t", name = "t", source = com.hexnext.engine.palette.ThemeSource(0), elementOptions = mapOf("settings_icons" to mapOf("3sett" to "true")))
-        val spec = old.withOption(p, live, "1sett")
-        assertEquals(mapOf("1sett" to "true", "2sett" to "false", "3sett" to "false"), spec.elementOptions["settings_icons"])
-        assertEquals("1sett", PackOptions.value(spec, p, live.option, "settings_icons"))
     }
 
     @Test
