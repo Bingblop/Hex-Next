@@ -402,12 +402,14 @@ step_overlaystate() {
   root "ls -la /data/resource-cache/" >"$d/resource-cache.txt" 2>&1
   root "cmd overlay list --user 0" >"$d/overlay-list.txt" 2>&1
   # Which uid Shizuku's server runs as (0 root, 1000 system, 2000 shell) and who owns our overlays.
-  root "ps -A -o USER,UID,PID,NAME" 2>/dev/null | grep -i shizuku >"$d/shizuku-uid.txt"
-  grep -oE '[a-z.]+:HexNext[A-Za-z_]*' "$d/overlay-list.txt" | cut -d: -f1 | sort | uniq -c >"$d/owners.txt"
+  root "ps -A -o USER,UID,PID,NAME" 2>/dev/null | grep -iE 'shizuku|hexnext_system' >"$d/shizuku-uid.txt" || true
+  { grep -oE '[a-z.]+:HexNext[A-Za-z_]*' "$d/overlay-list.txt" || true; } | cut -d: -f1 | sort | uniq -c >"$d/owners.txt"
   root "grep -c . /data/system/overlays.xml; grep -iE 'fabricated|HexNext|SemWT' /data/system/overlays.xml | head -200" >"$d/overlays-xml.txt" 2>&1
   root "logcat -d -b main -b system -b crash | grep -iE 'overlay|idmap|fabricat|frro' | tail -400" >"$d/logcat-overlay.txt" 2>&1
   root "settings get secure theme_customization_overlay_packages" >"$d/theme_customization.txt" 2>&1
   root "pidof moe.shizuku.privileged.api shizuku_server; ps -A | grep -i shizuku" >"$d/shizuku.txt" 2>&1
+  # A snapshot is a record, not a check: zero Hex overlays or no Shizuku is a valid state.
+  return 0
 }
 
 # Each package in the job's "pkginfo" list: its full package dump (components, intent filters,
