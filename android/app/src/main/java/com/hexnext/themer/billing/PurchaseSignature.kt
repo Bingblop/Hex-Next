@@ -11,8 +11,10 @@ import java.util.Base64
  * Checks a Play purchase signature: SHA1withRSA over the purchase's original JSON, against the
  * app's base64 X.509 RSA public key from Play Console (Monetization setup > Licensing).
  *
- * Pure JVM, so it is unit-tested; the Play build calls it when no license server is configured.
+ * Legacy compatibility utility only. The Play entitlement flow never uses local signature
+ * verification as authority; unreferenced compatibility code is removed by release shrinking.
  */
+@Deprecated("Local purchase signatures must not grant entitlements; use the verification backend.")
 object PurchaseSignature {
     private const val KEY_ALGORITHM = "RSA"
     private const val SIGNATURE_ALGORITHM = "SHA1withRSA"
