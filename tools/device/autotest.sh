@@ -495,6 +495,24 @@ step_themestate() {
   done
 }
 
+# Per-app light/dark state: the system UI mode with any per-app night modes (dumpsys uimode), and
+# for each package in the job's "prefs" list only the theme-related lines of its saved settings
+# (theme|dark|night|mode), not the rest of its data (appstate.txt).
+step_appstate() {
+  local pkg
+  {
+    echo "== cmd uimode night: $(root "cmd uimode night")"
+    echo "== dumpsys uimode"; root "dumpsys uimode"
+    for pkg in $(jq -r '.prefs // [] | .[]' "$JOB"); do
+      case "$pkg" in *[!A-Za-z0-9._]*|'') continue ;; esac
+      echo "== $pkg shared_prefs (theme lines)"
+      root "grep -iHE 'theme|dark|night|mode' /data/user/0/$pkg/shared_prefs/*.xml /data/user_de/0/$pkg/shared_prefs/*.xml 2>/dev/null" | cut -c1-300 | head -200
+      echo "== $pkg configuration"; root "dumpsys activity processes $pkg" 2>/dev/null | grep -iE 'uiMode|night' | head -20
+    done
+  } >"$RES/appstate.txt" 2>&1
+  return 0
+}
+
 # Everything the system and Samsung's theme apps logged about overlays and themes since the
 # buffers began (a soft reboot keeps them): bootlog-<n>.txt.
 step_bootlog() {
@@ -737,7 +755,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break
