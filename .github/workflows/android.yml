@@ -102,8 +102,8 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       # Test builds must keep one debug certificate across runs, or `pm install -r` over another
-      # run's build fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE and the tester has to uninstall
-      # (losing themes, packs, keys and settings). AGP signs debug builds with
+      # run's build fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE. Preserve tester data rather
+      # than defaulting to an uninstall. AGP signs debug builds with
       # ~/.android/debug.keystore, so pin it. The HEXNEXT_DEBUG_KEYSTORE_BASE64 secret (store/key
       # password "android", alias "androiddebugkey") is the only durable pin. Without it the
       # keystore lives in the Actions cache, which GitHub evicts (7 days unread, or LRU over the
@@ -128,9 +128,9 @@ jobs:
           mkdir -p ~/.android
           printf '%s' "$HEXNEXT_DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
           chmod 600 ~/.android/debug.keystore
-      # A newly generated key also fails the run at its end ("Fail when the debug build ...") and is
-      # never cached outside a bootstrap run, so an evicted pin keeps every build red, even while
-      # debug-keystore.sha256 is still empty, until the secret is set or a bootstrap run re-pins.
+      # A generated key is never cached outside a deliberate bootstrap. The later APK guard
+      # requires a committed public pin even during bootstrap: an empty pin prints metadata and
+      # permits cache seeding, but never permits an installable debug artifact to be uploaded.
       - name: Check debug keystore against the pinned certificate
         id: debug-keystore-check
         run: |
@@ -150,9 +150,11 @@ jobs:
           if [ -z "$expected" ]; then
             echo "::warning::tools/device/debug-keystore.sha256 is empty, so a replaced debug key would go unnoticed. Commit this certificate's SHA-256 there: $actual"
           elif [ "$actual" != "$expected" ]; then
-            echo "::error::The debug keystore's certificate ($actual) is not the pinned one ($expected). The cached pin was probably evicted; set the HEXNEXT_DEBUG_KEYSTORE_BASE64 secret to the original debug.keystore, or update tools/device/debug-keystore.sha256 if the key change is intended (testers must then uninstall once)."
+            echo "::error::The debug keystore's certificate ($actual) is not the pinned one ($expected). Restore the original debug.keystore through HEXNEXT_DEBUG_KEYSTORE_BASE64 so its certificate matches the pin. Preserve tester data: do not uninstall the app or change tools/device/debug-keystore.sha256 without an intentional owner-approved signing migration."
             exit 1
           fi
+          # Bind AGP to this exact checked path, independent of its default user-home resolution.
+          echo "HEXNEXT_CI_DEBUG_KEYSTORE_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
       # Only a deliberate bootstrap run on the default branch caches a key generated in this run.
       # PR and release/** refs never save a pin the default branch cannot see, and an ordinary push
       # after an eviction does not quietly turn its new key into the pin (its run fails below).
@@ -203,6 +205,12 @@ jobs:
           if-no-files-found: error
 
       # The PLAY debug APK, so tools/device/install.sh keeps installing com.hexnext.themer.
+      - name: Verify Play debug APK signer continuity
+        run: |
+          python3 ../bin/verify-debug-apk-signer.py \
+            app/build/outputs/apk/play/debug/app-play-universal-debug.apk \
+            --pin ../tools/device/debug-keystore.sha256 \
+            --apksigner "$ANDROID_HOME/build-tools/36.0.0/apksigner"
       - name: Upload installable debug-signed test build
         uses: actions/upload-artifact@v7
         with:
@@ -292,11 +300,9 @@ jobs:
           path: android/app/build/outputs/bundle/playRelease/*.aab
           if-no-files-found: error
 
-      # Last, so the artifacts above are still uploaded: a debug build signed with a key generated
-      # in this run cannot update over any installed test build and is not cached, so the next run
-      # signs with yet another key. Fail instead of passing with only a warning.
-      # A release validation (workflow_call with concurrency_key) is not blocked by the debug key,
-      # and a bootstrap run on the default branch passes because it just cached its key as the pin.
+      # Additional generated-key defense. Its release/bootstrap exclusions do not bypass the
+      # earlier mandatory certificate check: bootstrap can seed the cache but cannot bypass the APK guard.
+      # No installable debug artifact is uploaded without a valid committed public pin.
       - name: Fail when the debug build was signed with a new, unpinned key
         if: >-
           steps.debug-keystore-check.outputs.generated == 'true'
@@ -305,11 +311,10 @@ jobs:
             && github.event_name == 'workflow_dispatch'
             && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
         run: |
-          # Until the first pin exists (tools/device/debug-keystore.sha256 still empty, as on the PR
-          # branch before the default-branch bootstrap) there is nothing to drift from: warn only.
+          # The mandatory earlier APK guard already withholds an artifact when this pin is empty.
           if [ -z "$(grep -v '^#' ../tools/device/debug-keystore.sha256 | tr -d '[:space:]' || true)" ]; then
-            echo "::warning::No debug keystore pin exists yet, so this test build has its own key and testers must uninstall before installing it. After merging, run this workflow on the default branch with bootstrap_debug_keystore and commit the certificate SHA-256 to tools/device/debug-keystore.sha256."
+            echo "::warning::No debug keystore pin exists yet; the earlier APK guard withholds the debug artifact. An intentional default-branch bootstrap may seed the cache, but commit its verified public fingerprint before expecting an installable debug artifact. Preserve tester data; do not uninstall to work around a signing mismatch."
             exit 0
           fi
-          echo "::error::This run's debug build is signed with a newly generated key (no HEXNEXT_DEBUG_KEYSTORE_BASE64 secret and no cached pin), so it will not install over earlier test builds. Set the secret to the original debug.keystore, or (no key worth keeping yet) run this workflow on the default branch with bootstrap_debug_keystore, then commit the certificate SHA-256 to tools/device/debug-keystore.sha256 and pin that run in tools/device/install.sh."
+          echo "::error::This run generated a new debug key, which cannot update earlier test builds. Restore the original debug.keystore through HEXNEXT_DEBUG_KEYSTORE_BASE64 and preserve tester data. Only for an intentional first bootstrap, seed the default-branch cache, commit its verified public fingerprint, then start a new build; an unpinned bootstrap does not provide an installable debug artifact."
           exit 1

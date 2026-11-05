@@ -28,6 +28,15 @@ val releaseStoreFile = releaseStorePath?.let { rootProject.file(it) }
 require(releaseStoreFile == null || releaseStoreFile.isFile) {
     "The configured release keystore does not exist."
 }
+// CI binds debug signing to the same store checked by the workflow. Unset locally, AGP's
+// developer default is unchanged; release signing never consumes this override.
+val ciDebugStoreFile = providers.environmentVariable("HEXNEXT_CI_DEBUG_KEYSTORE_PATH").orNull?.let { path ->
+    val store = File(path)
+    require(store.isAbsolute && store.isFile) {
+        "HEXNEXT_CI_DEBUG_KEYSTORE_PATH must name an existing absolute file."
+    }
+    store
+}
 // Play build only: the license server URL and the Play Console base64 RSA public key used to
 // check purchase signatures. Neither is a secret, but both stay out of the repository and come
 // from the environment or keystore.properties; empty when not configured.
@@ -114,6 +123,7 @@ android {
     }
 
     signingConfigs {
+        ciDebugStoreFile?.let { getByName("debug").storeFile = it }
         if (releaseSigningConfigured) {
             create("release") {
                 storeFile = releaseStoreFile
