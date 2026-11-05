@@ -17,6 +17,12 @@ public data class LiveOption(
     val option: PackOption,
     val elementIds: Set<String>,
     val extra: String? = null,
+    /**
+     * Every key the pack declares for this option. A select offers only its choices with art
+     * ([option] keeps those), but reads and writes state over all of them, so a choice hidden now
+     * (no art, or no target until the next scan) never stays switched on behind the offered ones.
+     */
+    val declaredKeys: List<String> = if (option.type == PackOption.SELECT) option.keys else listOfNotNull(option.key),
 ) {
     /** The keys this option toggles: [PackOption.keys] for a select, the single [PackOption.key] for a switch. */
     public val keys: List<String>
@@ -68,7 +74,7 @@ public object PackOptions {
             for (key in keysOf(option)) gated[key]?.let(elementIds::addAll)
             if (elementIds.isEmpty()) continue
             val label = option.label.trim().ifEmpty { keys.first() }
-            result += LiveOption(option.copy(label = label), elementIds)
+            result += LiveOption(option.copy(label = label), elementIds, declaredKeys = keys)
         }
         return result
     }
@@ -95,8 +101,9 @@ public object PackOptions {
      */
     public fun value(spec: ThemeSpec, pack: Pack, option: PackOption, elementId: String? = null): String {
         val keys = keysOf(option)
-        val element = elementId ?: live(pack).firstOrNull { it.option.type == option.type && keysOf(it.option) == keys }
-            ?.elementIds?.firstOrNull()
+        val element = elementId ?: live(pack).firstOrNull {
+            it.option.type == option.type && (keysOf(it.option) == keys || it.declaredKeys == keys)
+        }?.elementIds?.firstOrNull()
         val effective = pack.defaultOptions + spec.elementOptions[element].orEmpty()
         return if (option.type == PackOption.SELECT) {
             keys.firstOrNull { effective[it] == "true" } ?: keys.firstOrNull().orEmpty()
@@ -133,7 +140,7 @@ public fun ThemeSpec.withOption(
 ): ThemeSpec {
     val option = live.option
     val writes: Map<String, String> = if (option.type == PackOption.SELECT) {
-        option.keys.associateWith { if (it == value) "true" else "false" }
+        (live.declaredKeys + option.keys).distinct().associateWith { if (it == value) "true" else "false" }
     } else {
         val key = option.key ?: return this
         mapOf(key to if (value == "true") "true" else "false")

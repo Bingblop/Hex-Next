@@ -112,6 +112,7 @@ Notes:
 writes per-target counts and the option lists:
 
 ```
+cd android
 HEX_PACKS=<dir with the packs branch zips and index.json> \
 HEX_NAMES=<hexnext-device-lab>/results/lab-010/dumps/names \
 HEX_DETAIL=1 HEX_OUT=/tmp/audit.tsv \

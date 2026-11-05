@@ -15,6 +15,7 @@ import com.hexnext.engine.map.ThemeRequest
 import com.hexnext.engine.pack.CompositePlan
 import com.hexnext.engine.pack.LayerPlanner
 import com.hexnext.engine.pack.Pack
+import com.hexnext.engine.pack.Tint
 import com.hexnext.engine.palette.ColorMath
 import com.hexnext.engine.palette.InferredColor
 import com.hexnext.engine.palette.ResolvedTheme
@@ -398,14 +399,19 @@ public object ThemeCompiler {
     }
 
     /** Day-versus-night precedence: option-token count, then Android release rank. */
-    private val FIXED_SLOT = Regex("^H[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$")
-
-    /** True when every layer of [category] in [pack] is untinted or tinted by a palette slot (no fixed colour). */
+    /**
+     * True when every layer of [category] in [pack] is untinted or tinted by a palette slot: no
+     * fixed colour, and no slot the planner reads as a fixed colour ([LayerPlanner.fixedSlotColor]:
+     * `H000000`, `#ffffff`, `FF33BEA2`) unless the pack's palette defines it.
+     */
     internal fun paletteOnly(pack: Pack, category: String): Boolean =
         pack.layers.filter { it.category == category }.all { l ->
             when (l.tint.kind) {
-                "none" -> true
-                "slot" -> l.tint.slot?.let { !FIXED_SLOT.matches(it) } ?: false
+                Tint.NONE -> true
+                Tint.SLOT -> {
+                    val slot = l.tint.slot ?: return@all false
+                    slot in pack.paletteArgb || "l$slot" in pack.paletteArgb || LayerPlanner.fixedSlotColor(slot) == null
+                }
                 else -> false
             }
         }

@@ -85,7 +85,7 @@ public data class Pack(
                     // the plugin's encrypted templates) would leave the element unthemed although
                     // another choice has art: the first choice with art becomes the default.
                     val live = chosen?.takeIf { it in gatingTokens || option.keys.none(gatingTokens::contains) }
-                        ?: option.keys.first(gatingTokens::contains)
+                        ?: option.keys.firstOrNull(gatingTokens::contains)
                     live?.let { result[it] = "true" }
                 }
                 PackOption.SWITCH -> {

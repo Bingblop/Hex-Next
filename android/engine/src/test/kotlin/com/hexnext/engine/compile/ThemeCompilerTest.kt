@@ -402,6 +402,11 @@ class ThemeCompilerTest {
         val night = t.drawables.single { it.resourceName.endsWith("/ic_settings_wifi") && it.configuration == "night-xxhdpi" }
         assertEquals(listOf(null, light.getValue("xx3")), night.plan.steps.map { it.tintArgb })
 
+        // A bare-hex slot is a fixed colour too unless the palette defines it.
+        val bare = pack("bare-alt", listOf(layer("settingsicon_alt", "base", Tint(Tint.SLOT, slot = "FFFFFF"), listOf("ic_settings_wifi"))))
+        assertFalse(ThemeCompiler.paletteOnly(bare, "settingsicon_alt"))
+        assertTrue(ThemeCompiler.paletteOnly(morganite, "settingsicon_alt"))
+
         // A fixed white glyph was drawn for a dark background: no light twin.
         val white = pack(
             "white-alt",

@@ -82,6 +82,31 @@ class PackOptionsTest {
     }
 
     @Test
+    fun `an empty select does not break the defaults`() {
+        val p = Fixtures.pack("p8", listOf(Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic"))))
+            .copy(options = listOf(PackOption(PackOption.SELECT, "Empty")))
+        assertEquals(emptyMap(), p.defaultOptions)
+    }
+
+    @Test
+    fun `choosing an offered choice switches off the hidden ones too`() {
+        // The user once chose "OG Type" (3sett, no art); picking 1sett must clear it.
+        val p = Fixtures.pack(
+            "p9",
+            listOf(
+                Fixtures.layer("settingsicon-1sett", "base", none, listOf("ic")),
+                Fixtures.layer("settingsicon-2sett", "base", none, listOf("ic")),
+            ),
+        ).copy(options = listOf(iconStyle))
+        val live = PackOptions.live(p).single()
+        assertEquals(listOf("1sett", "2sett", "3sett"), live.declaredKeys)
+        val old = ThemeSpec(id = "t", name = "t", source = com.hexnext.engine.palette.ThemeSource(0), elementOptions = mapOf("settings_icons" to mapOf("3sett" to "true")))
+        val spec = old.withOption(p, live, "1sett")
+        assertEquals(mapOf("1sett" to "true", "2sett" to "false", "3sett" to "false"), spec.elementOptions["settings_icons"])
+        assertEquals("1sett", PackOptions.value(spec, p, live.option, "settings_icons"))
+    }
+
+    @Test
     fun `with a scan options whose artwork reaches nothing on the phone are hidden`() {
         val media = PackOption(PackOption.SWITCH, "Use QsMediaButtons (max One UI 3.1)", key = "qsmb1")
         val p = Fixtures.pack(
