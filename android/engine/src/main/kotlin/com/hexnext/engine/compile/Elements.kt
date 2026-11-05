@@ -216,6 +216,7 @@ public object Elements {
         Element("email", "Samsung Email", listOf("com.samsung.android.email.provider"), listOf("email")),
         Element("music", "Samsung Music", listOf("com.sec.android.app.music"), listOf("music")),
         Element("voice_recorder", "Voice Recorder", listOf("com.sec.android.app.voicenote"), listOf("voicerecorder", "voicenote")),
+        Element("health", "Samsung Health", listOf("com.sec.android.app.shealth"), listOf("health", "shealth")),
         Element("backgrounds", "Backgrounds", listOf(ANDROID, SETTINGS, DIALER, CONTACTS), listOf("background")),
         Element("dialogs", "Dialogs and buttons", listOf(ANDROID, SETTINGS), listOf("box", "buttons")),
         Element(SYSTEM_DRAWABLES, "Framework and app drawables", emptyList(), listOf("drawable", "mipmap")),

@@ -17,6 +17,7 @@ class OneUiRulesTest {
         "com.samsung.android.lool", "com.samsung.android.app.aodservice", "com.samsung.android.app.smartcapture",
         "com.samsung.android.app.notes", "com.samsung.android.app.reminder",
         "com.sec.android.app.sbrowser", "com.samsung.android.email.provider", "com.sec.android.app.music", "com.sec.android.app.voicenote",
+        "com.sec.android.app.shealth",
     )
 
     @Test
