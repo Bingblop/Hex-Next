@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Face
@@ -132,7 +132,7 @@ private fun KeyboardArea(scope: PreviewScope) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            for (icon in listOf(Icons.Filled.Settings, Icons.Filled.Edit, Icons.Filled.Face, Icons.Filled.Star, Icons.Filled.List, Icons.Filled.MoreVert)) {
+            for (icon in listOf(Icons.Filled.Settings, Icons.Filled.Edit, Icons.Filled.Face, Icons.Filled.Star, Icons.AutoMirrored.Filled.List, Icons.Filled.MoreVert)) {
                 ToolIcon(icon, board, scope)
             }
         }

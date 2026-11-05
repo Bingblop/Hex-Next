@@ -327,7 +327,7 @@ class DeviceScanner(context: Context) {
             }
             // Sizes, numbers and switches (name, configuration, value) of the targets the native
             // extras tune: the Quick panel shapes and the pack options rebuilt in Hex Next.
-            if (status.pkg in VALUE_SCAN_TARGETS) runCatching { writeValues(out, out.parentFile) }
+            if (status.pkg in VALUE_SCAN_TARGETS) runCatching { writeValues(out, outDir) }
             status.copy(
                 arscPath = out.absolutePath,
                 arscBytes = out.length(),

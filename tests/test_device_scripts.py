@@ -130,12 +130,35 @@ class FlavorWorkflowTest(unittest.TestCase):
 
     def test_gradle_tasks_carry_the_flavor(self):
         text = self.workflow()
-        for task in (":app:testPlayDebugUnitTest", ":app:lintPlayRelease", ":app:assemblePlayRelease",
-                     ":app:assembleOwnerRelease", ":app:bundlePlayRelease", ":app:assemblePlayDebug"):
+        for task in (":app:testPlayDebugUnitTest", ":app:testOwnerDebugUnitTest",
+                     ":app:lintPlayRelease", ":app:assemblePlayRelease",
+                     ":app:assembleOwnerRelease", ":app:bundlePlayRelease",
+                     ":app:assemblePlayDebug", ":app:assembleOwnerDebug"):
             self.assertIn(task, text)
         for old in (":app:testDebugUnitTest", ":app:lintRelease", ":app:assembleRelease ",
                     ":app:assembleDebug\n", "outputs/apk/release/", "outputs/apk/debug/"):
             self.assertNotIn(old, text)
+
+    def test_candidate_step_runs_owner_and_play_unit_tests(self):
+        text = self.workflow()
+        match = re.search(
+            r"- name: Test and build unsigned universal candidate\n\s+run: >-\n((?:\s{10,}.*\n)+)",
+            text,
+        )
+        self.assertIsNotNone(match)
+        cmd = match.group(1)
+        for task in (":engine:test", ":app:testPlayDebugUnitTest", ":app:testOwnerDebugUnitTest"):
+            self.assertIn(task, cmd)
+
+    def test_pull_request_trigger_runs_on_stacked_base_branches(self):
+        text = self.workflow()
+        self.assertRegex(
+            text,
+            r"(?m)^on:\n  push:\n    branches: \[main, master, \"release/\*\*\"\]\n  pull_request:\n  workflow_dispatch:\n",
+        )
+        self.assertNotIn("pull_request_target", text)
+        self.assertRegex(text, r"(?m)^permissions:\n  contents: read\n")
+        self.assertIn("cache-read-only: ${{ github.event_name == 'pull_request' }}", text)
 
     def test_debug_test_artifact_is_the_play_debug_apk(self):
         text = self.workflow()

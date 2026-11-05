@@ -1,0 +1,7 @@
+---
+description: Canonical Hex Next repository instructions
+alwaysApply: true
+---
+
+Read and follow AGENTS.md before making changes. It is the single source of repository
+constraints, documentation pointers, compatibility rules and verification commands.

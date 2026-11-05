@@ -10,6 +10,7 @@ import java.security.KeyPairGenerator
 import java.security.Signature
 import java.util.Base64
 
+@Suppress("DEPRECATION") // Compatibility behavior remains tested; production grants never call it.
 class PurchaseSignatureTest {
     private val keys: KeyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
     private val publicKey: String = Base64.getEncoder().encodeToString(keys.public.encoded)
