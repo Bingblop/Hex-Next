@@ -3,6 +3,7 @@ package com.hexnext.themer.theme
 import android.content.Context
 import android.provider.Settings
 import android.util.Log
+import androidx.core.content.edit
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.safety.ApplyGuard
 import com.hexnext.themer.safety.OtherBuild
@@ -41,6 +42,7 @@ object ThemeRestorer {
     /** Restores that may fail in a row before Hex Next waits for a manual apply. */
     private const val MAX_FAILURES = 2
     private const val TASK = "Restoring your theme"
+    private const val OVERLAY_LIST = "cmd overlay list --user 0"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var watching = false
@@ -54,7 +56,7 @@ object ThemeRestorer {
             val tmp = File(f.parentFile, "${f.name}.part")
             tmp.writeText(spec.toJson())
             if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_FAILURES).apply()
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { remove(KEY_FAILURES) }
         }.onFailure { Log.w(TAG, "Could not save the applied theme", it) }
     }
 
@@ -83,10 +85,25 @@ object ThemeRestorer {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getInt(KEY_FAILURES, 0) >= MAX_FAILURES) return false
         if (ApplyGuard(app).safeModeActive() || OtherBuild.isInstalled(app)) return false
-        val service = ShizukuManager.service()
-        val list = ExecOutput.fullText(service, service.exec("cmd overlay list --user 0"))
-        return list.lines().none { it.contains(":HexNext_") }
+        val (code, list) = ExecOutput.exec(ShizukuManager.service(), OVERLAY_LIST)
+        return overlaysGone(code, list)
     }
+
+    /**
+     * True only when `cmd overlay list` exited 0 and lists no Hex Next overlay. A failed or
+     * incomplete list (nonzero code, including ExecOutput's 125) proves nothing is missing, so it
+     * must not start a restore or count as a failed one.
+     */
+    internal fun overlaysGone(code: Int, list: String): Boolean =
+        code == 0 && list.lines().none { it.contains(":HexNext_") }
+
+    /**
+     * A failed service-start command must not be mistaken for an active foreground service:
+     * a nonzero exit is a failure regardless of its text. Retain the error-text check as a
+     * compatibility fallback for tools that print an error despite exiting 0.
+     */
+    internal fun foregroundStartFailed(code: Int, output: String): Boolean =
+        code != 0 || output.contains("Error", ignoreCase = true)
 
     /**
      * The restore runs in [RestoreService] so Android does not freeze the process halfway. A
@@ -101,11 +118,10 @@ object ThemeRestorer {
         }
         Log.i(TAG, "Starting the restore service through the root shell (${direct.exceptionOrNull()?.javaClass?.simpleName})")
         val service = ShizukuManager.service()
-        val out = ExecOutput.fullText(
-            service,
-            service.exec("am start-foreground-service --user 0 -n ${app.packageName}/${RestoreService::class.java.name}"),
+        val (code, out) = ExecOutput.exec(
+            service, "am start-foreground-service --user 0 -n ${app.packageName}/${RestoreService::class.java.name}",
         )
-        if (out.contains("Error", ignoreCase = true)) {
+        if (foregroundStartFailed(code, out)) {
             Log.w(TAG, "Root start of the restore service failed: ${out.trim()}; restoring without it")
             restoreIfNeeded(app)
         }
@@ -150,14 +166,18 @@ object ThemeRestorer {
         if (!ServiceTasks.startBlocking(TASK, 120_000)) return
         try {
             val service = ShizukuManager.service()
-            val list = ExecOutput.fullText(service, service.exec("cmd overlay list --user 0"))
-            val ours = list.lines().count { it.contains(":HexNext_") }
-            if (ours > 0) return
+            val (code, list) = ExecOutput.exec(service, OVERLAY_LIST)
+            if (!overlaysGone(code, list)) {
+                if (code != 0) Log.w(TAG, "Overlay list failed (code $code); not restoring")
+                return
+            }
             val spec = runCatching { EngineThemeSpec.fromJson(file.readText()) }.getOrNull() ?: return
             Log.i(TAG, "Theme overlays are gone (boot $boot); applying \"${spec.name}\" again")
             val report = ThemeApplier(app).apply(service, spec) { line -> Log.i(TAG, line.text) }
             Log.i(TAG, "Restore finished: success=${report.success}, ${report.okCount} apps")
-            prefs.edit().putInt(KEY_FAILURES, if (report.success) 0 else prefs.getInt(KEY_FAILURES, 0) + 1).apply()
+            prefs.edit {
+                putInt(KEY_FAILURES, if (report.success) 0 else prefs.getInt(KEY_FAILURES, 0) + 1)
+            }
             RestoreNotice.post(app, report.success, spec.name)
         } finally {
             ServiceTasks.finish()
