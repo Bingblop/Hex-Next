@@ -44,13 +44,13 @@ class PowerMenuSynthesisTest {
     }
 
     @Test
-    fun `pack art wins, Restart stands in for Power off, and the switch turns it off`() {
+    fun `pack art wins, Restart stands in for Power off, and the switch never turns it off`() {
         val full = compile(listOf("tw_ic_do_poweroff", "tw_ic_do_restart", "tw_ic_do_emergencysos", "tw_ic_do_medicalinfo"))
         assertTrue(full.none { it.synthesis != null })
         val restartOnly = compile(listOf("tw_ic_do_restart")).filter { it.synthesis != null }
         assertTrue(restartOnly.isNotEmpty())
         assertTrue(restartOnly.all { it.synthesis!!.reference.resourceName == "$sysui:drawable/tw_ic_do_restart" })
-        assertTrue(compile(listOf("tw_ic_do_poweroff"), synthesize = false).none { it.synthesis != null })
+        assertTrue(compile(listOf("tw_ic_do_poweroff"), synthesize = false).any { it.synthesis != null })
         assertTrue(compile(emptyList()).none { it.synthesis != null })
     }
 }

@@ -257,6 +257,9 @@ public object ThemeCompiler {
 
     private const val SYSTEMUI = "com.android.systemui"
 
+    /** Settings rows no pack has art for: always drawn in the pack's style (Galaxy AI). */
+    private val ALWAYS_SYNTHESISED_ROWS = listOf("galaxy_ai")
+
     /** Power menu icons that a pack's Power off / Restart art can stand in for, in that order. */
     private val POWER_MENU_REFERENCES = listOf("drawable/tw_ic_do_poweroff", "drawable/tw_ic_do_restart")
 
@@ -904,8 +907,10 @@ public object ThemeCompiler {
             val overridden = HashSet<String>()
             customJobs(spec.customIcons, CustomAssets.CATEGORY_ICON, jobs, overridden)
             customJobs(spec.customBackgrounds, CustomAssets.CATEGORY_BACKGROUND, jobs, overridden)
-            if (pkg == SETTINGS && spec.synthesizeMissingIcons) synthesisJobs(jobs, overridden)
-            if (pkg == SYSTEMUI && spec.synthesizeMissingIcons) powerMenuSynthesisJobs(jobs, overridden)
+            // Rows no pack draws (Galaxy AI) and the power menu buttons some leave out are drawn in
+            // the pack's style whatever the switch says; the switch covers the other rows.
+            if (pkg == SETTINGS) synthesisJobs(jobs, overridden, if (spec.synthesizeMissingIcons) rules.dashboardRows else ALWAYS_SYNTHESISED_ROWS)
+            if (pkg == SYSTEMUI) powerMenuSynthesisJobs(jobs, overridden)
             if (spec.builtInIcons) {
                 for (j in IconColors.builtInJobs(spec, pkg, table, rules, jobs.keys.toSet(), overridden, resolved())) {
                     jobs.putIfAbsent(j.resourceName to j.configuration, j)
@@ -971,7 +976,11 @@ public object ThemeCompiler {
         }
 
         /** Adds synthesis jobs for dashboard rows the Settings icon pack left out (see [ThemeCompiler], step 4). */
-        private fun synthesisJobs(jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>, overridden: Set<String>) {
+        private fun synthesisJobs(
+            jobs: LinkedHashMap<Pair<String, String>, PlannedDrawableJob>,
+            overridden: Set<String>,
+            rows: List<String> = rules.dashboardRows,
+        ) {
             if (!spec.isElementEnabled(SETTINGS_ICONS)) return
             val packId = spec.packFor(SETTINGS_ICONS) ?: return
             if (packs.pack(packId) == null) return
@@ -982,7 +991,8 @@ public object ThemeCompiler {
                 val reference = group.firstOrNull { it.resourceName == "${prefix}display" }
                     ?: group.firstOrNull { it.resourceName == "${prefix}connections" }
                     ?: group.first()
-                for (row in rules.dashboardRows) {
+                for (row in rows) {
+                    if (row !in rules.dashboardRows) continue
                     val name = DASHBOARD_ICON_PREFIX + row
                     val resourceName = "$pkg:drawable/$name"
                     if (resourceName in overridden || (resourceName to config) in jobs) continue
