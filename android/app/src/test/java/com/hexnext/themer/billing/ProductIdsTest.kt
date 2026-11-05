@@ -63,6 +63,17 @@ class ProductIdsTest {
     }
 
     @Test
+    fun aBundlePurchaseUnlocksOnlyThePacksItNames() {
+        val state = EntitlementState(ready = true, ownedProductIds = setOf("packs_2"), bundlePackIds = setOf("iolite", "ametrine"))
+        assertTrue(state.unlocks("iolite"))
+        assertTrue(state.unlocks("velvet-rope"))
+        assertFalse(state.unlocks("kyanite"))
+        val hint = EntitlementState(cachedBundlePackIds = setOf("iolite"))
+        assertTrue(hint.looksUnlocked("velvet-rope"))
+        assertFalse(hint.unlocks("iolite"))
+    }
+
+    @Test
     fun priceComesFromTheStoreMap() {
         val state = EntitlementState(prices = mapOf("pack_opal" to "€1.09"))
         assertEquals("€1.09", state.priceOf("Opal"))

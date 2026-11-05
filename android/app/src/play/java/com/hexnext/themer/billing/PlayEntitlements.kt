@@ -64,7 +64,11 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     private val unverifiable = !debuggable && BuildConfig.LICENSE_SERVER_URL.isBlank() && BuildConfig.PLAY_LICENSE_KEY.isBlank()
 
     private val current = MutableStateFlow(
-        EntitlementState(cachedProductIds = loadHint(), error = if (unverifiable) UNVERIFIABLE else null),
+        EntitlementState(
+            cachedProductIds = loadHint(),
+            cachedBundlePackIds = loadBundleHint(),
+            error = if (unverifiable) UNVERIFIABLE else null,
+        ),
     )
     override val state: StateFlow<EntitlementState> = current.asStateFlow()
 
@@ -98,6 +102,23 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
 
     /** Grants the purchase listener made while a full query was still in flight. */
     private val listenerGrants = InFlightGrants()
+
+    /**
+     * Purchase token → the packs a verified bundle purchase unlocked. Rebuilt from Play on every
+     * full query, so a refund drops the packs. [storedGrants] is the same map from the last run,
+     * used only when Play does not echo the pack ids back on the purchase.
+     */
+    private val bundleByToken = HashMap<String, Set<String>>()
+    private val storedGrants = loadStoredGrants()
+
+    /** Token → [sequence] when the purchase listener recorded it, so a full query does not drop it. */
+    private val bundleListenerSince = HashMap<String, Long>()
+
+    /** Product id → packs the purchase just launched should unlock, until Play returns them. */
+    private val launchGrants = HashMap<String, Set<String>>()
+
+    /** Packs [bundleByToken] currently unlocks. Published by [publishLocked]. */
+    private val bundlePackIdsNow = HashSet<String>()
 
     /** Generation of the newest full purchase query started, and of the newest one applied. */
     private var queryGeneration = 0L
@@ -143,7 +164,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         if (client.isReady) queryProducts()
     }
 
-    override fun launchPurchase(activity: Activity, productId: String) {
+    override fun launchPurchase(activity: Activity, productId: String, grantPackIds: Set<String>) {
         if (unverifiable) {
             // Taking the payment would charge for something this build cannot unlock.
             Log.e(TAG, "Purchase refused: no license server or Play license key configured")
@@ -170,8 +191,15 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         offerOf(productDetails)?.offerToken?.takeIf { it.isNotBlank() }?.let { productParams.setOfferToken(it) }
         val params = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(listOf(productParams.build()))
-            .build()
-        val result = client.launchBillingFlow(activity, params)
+        val grant = grantPackIds.map { PackIdAliases.current(it) }.filter { it.isNotBlank() }.toSet()
+        if (grant.isNotEmpty() && PackPricing.countOf(productDetails.productId) != null) {
+            synchronized(lock) { launchGrants[productDetails.productId] = grant }
+            val fields = BundleGrant.fields(grant)
+            if (fields.profile.isNotEmpty()) params.setObfuscatedProfileId(fields.profile)
+            if (fields.account.isNotEmpty()) params.setObfuscatedAccountId(fields.account)
+        }
+        val built = params.build()
+        val result = client.launchBillingFlow(activity, built)
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> setError(baseError())
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
@@ -254,6 +282,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         // (ProductIds.allForPack), so a pack bought before it was renamed still shows its price.
         val ids = synchronized(lock) { catalogueIds.flatMapTo(LinkedHashSet()) { ProductIds.allForPack(it) } }
         ids.addAll(ProductIds.ONE_TIME_EXTRAS)
+        ids.addAll(PackPricing.allProductIds())
         ids.chunked(PRODUCTS_PER_QUERY).forEach { chunk ->
             val params = QueryProductDetailsParams.newBuilder()
                 .setProductList(
@@ -345,6 +374,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         val serverAnswers = verifyOnServer(purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED })
         val granted = HashSet<String>()
         val pendingNow = HashSet<String>()
+        val grantedBundles = HashMap<String, Set<String>>()
+        val snapshotTokens = purchases.mapTo(HashSet()) { it.purchaseToken }
         var failure: String? = null
         for (purchase in purchases) {
             when (purchase.purchaseState) {
@@ -353,6 +384,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                     val verdict = verify(purchase, serverAnswers)
                     if (verdict.products.isNotEmpty()) {
                         granted += verdict.products
+                        val packs = bundlePacksOf(purchase)
+                        if (packs.isNotEmpty()) grantedBundles[purchase.purchaseToken] = packs
                         if (!purchase.isAcknowledged) acknowledge(purchase)
                     } else if (verdict.error != null) {
                         failure = verdict.error
@@ -382,16 +415,26 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 owned += kept.kept
                 pending.clear()
                 pending += pendingNow
+                val keep = bundleListenerSince.filterValues { it > full.since }.keys
+                bundleByToken.keys.retainAll(grantedBundles.keys + keep)
+                bundleByToken.putAll(grantedBundles)
+                bundleListenerSince.keys.retainAll(bundleByToken.keys)
                 recheck = kept.unconfirmed.isNotEmpty()
             } else {
                 listenerGrants.note(granted)
                 owned += granted
                 pending -= granted
                 pending += pendingNow
+                grantedBundles.forEach { (token, ids) ->
+                    bundleByToken[token] = ids
+                    bundleListenerSince[token] = listenerGrants.sequence
+                }
                 // A full answer applied while this grant was verifying may not list it.
                 recheck = granted.isNotEmpty() && appliedGeneration != appliedAtStart
             }
             pending -= owned
+            recomputeBundleIdsLocked()
+            saveStoredGrantsLocked(if (full != null) snapshotTokens else snapshotTokens + storedGrants.keys)
             // Still checking while a newer full query has not answered yet.
             val newestAnswered = full != null && full.generation == queryGeneration
             publishLocked(
@@ -673,13 +716,83 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 checking = if (checkingDone) false else it.checking,
                 unlockAll = unlockAll,
                 ownedProductIds = ownedNow,
-                ownedPackIds = packIds.filterTo(HashSet()) { id -> unlockAll || ProductIds.allForPack(id).any { it in ownedNow } },
+                ownedPackIds = packIds.filterTo(HashSet()) { id ->
+                    unlockAll || ProductIds.allForPack(id).any { it in ownedNow } || PackIdAliases.current(id) in bundlePackIdsNow
+                },
+                bundlePackIds = bundlePackIdsNow.toSet(),
                 pendingProductIds = pendingNow,
                 prices = prices,
                 error = error ?: if (clearError) baseError() else it.error,
             )
         }
-        if (current.value.ready) saveHint(ownedNow)
+        if (current.value.ready) {
+            saveHint(ownedNow)
+            saveBundleHint(bundlePackIdsNow)
+        }
+    }
+
+    /**
+     * Packs [purchase] unlocks when one of its products is a bundle. The ids Play stored on the
+     * purchase win; the set remembered at launch, then the set from the last run, fill in when
+     * Play did not echo them. Never more packs than the product was sold for.
+     */
+    private fun bundlePacksOf(purchase: Purchase): Set<String> {
+        val product = purchase.products.firstOrNull { PackPricing.countOf(it) != null } ?: return emptySet()
+        val count = PackPricing.countOf(product) ?: return emptySet()
+        val echoed = purchase.accountIdentifiers?.let { BundleGrant.decode(it.obfuscatedProfileId, it.obfuscatedAccountId) }.orEmpty()
+        val stored = synchronized(lock) { storedGrants[purchase.purchaseToken].orEmpty() }
+        val launched = synchronized(lock) { launchGrants[product].orEmpty() }
+        // The ids on this purchase win. The last run's copy of the same token fills a gap (Play
+        // sometimes omits the fields). The set from the launch is only for a purchase that has
+        // neither, so an older purchase of the same product is not relabelled.
+        val base = when {
+            stored.size > echoed.size && (echoed.isEmpty() || echoed.all { it in stored }) -> stored
+            echoed.isNotEmpty() -> echoed
+            stored.isNotEmpty() -> stored
+            else -> launched
+        }
+        return BundleGrant.limit(base, count)
+    }
+
+    /** Recomputes [bundlePackIdsNow] from [bundleByToken]. Holds [lock]. */
+    private fun recomputeBundleIdsLocked() {
+        bundlePackIdsNow.clear()
+        bundleByToken.values.forEach { ids -> ids.forEach { bundlePackIdsNow += PackIdAliases.current(it) } }
+    }
+
+    private fun loadBundleHint(): Set<String> =
+        runCatching { prefs.getStringSet(KEY_BUNDLE_HINT, null)?.toSet() }.getOrNull().orEmpty()
+
+    private fun saveBundleHint(packs: Set<String>) {
+        if (loadBundleHint() != packs) prefs.edit().putStringSet(KEY_BUNDLE_HINT, HashSet(packs)).apply()
+    }
+
+    /** Token → pack ids from the last run. Not an unlock until Play still owns that purchase. */
+    private fun loadStoredGrants(): HashMap<String, Set<String>> {
+        val out = HashMap<String, Set<String>>()
+        val raw = prefs.getString(KEY_BUNDLE_GRANTS, null) ?: return out
+        raw.lineSequence().forEach { line ->
+            val parts = line.split('|', limit = 2)
+            if (parts.size == 2 && parts[0].isNotBlank()) {
+                val ids = parts[1].split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                if (ids.isNotEmpty()) out[parts[0]] = ids
+            }
+        }
+        return out
+    }
+
+    /**
+     * Writes verified bundles plus any stored grant whose purchase is still in [keepTokens]
+     * (a check that could not verify it yet). A token Play no longer returns is dropped, so a
+     * refund locks those packs. Holds [lock].
+     */
+    private fun saveStoredGrantsLocked(keepTokens: Set<String>) {
+        val kept = storedGrants.filterKeys { it in keepTokens && it !in bundleByToken }
+        storedGrants.clear()
+        storedGrants.putAll(bundleByToken)
+        storedGrants.putAll(kept)
+        val text = storedGrants.entries.joinToString("\n") { (token, ids) -> "$token|${ids.joinToString(",")}" }
+        prefs.edit().putString(KEY_BUNDLE_GRANTS, text).apply()
     }
 
     private fun loadHint(): Set<String> = runCatching { prefs.getStringSet(KEY_OWNED_HINT, null)?.toSet() }.getOrNull().orEmpty()
@@ -703,6 +816,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         const val TAG = "HexNextBilling"
         const val PREFS = "hexnext_billing"
         const val KEY_OWNED_HINT = "owned_hint"
+        const val KEY_BUNDLE_HINT = "bundle_hint"
+        const val KEY_BUNDLE_GRANTS = "bundle_grants"
         const val UNVERIFIABLE = "Purchases can't be verified in this build"
         const val INITIAL_RETRY_MS = 1_000L
         const val MAX_RETRY_MS = 5L * 60 * 1000

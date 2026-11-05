@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -52,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.TargetOutcome
+import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.device.ReportSharer
@@ -81,10 +83,17 @@ internal fun SystemPage(
     viewModel: MainViewModel,
     ui: UiState,
     shizuku: ShizukuState,
+    preview: PreviewModel,
+    onElementTap: (ColorGroup) -> Unit,
+    peekCollapsed: Boolean,
+    onPeekCollapsed: (Boolean) -> Unit,
     tab: SystemTab,
     onTab: (SystemTab) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
+        Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)) {
+            PreviewPeek(preview, onElementTap, peekCollapsed, onPeekCollapsed)
+        }
         SubTabs(
             SystemTab.entries,
             tab,
@@ -92,9 +101,11 @@ internal fun SystemPage(
             onTab,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         )
-        when (tab) {
-            SystemTab.TARGETS -> TargetsTab(viewModel, ui)
-            SystemTab.TOOLS -> ToolsTab(viewModel, ui, shizuku)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (tab) {
+                SystemTab.TARGETS -> TargetsTab(viewModel, ui)
+                SystemTab.TOOLS -> ToolsTab(viewModel, ui, shizuku)
+            }
         }
     }
 }

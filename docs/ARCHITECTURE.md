@@ -125,9 +125,15 @@ Release signing applies to both. Gradle tasks carry the flavor: `testPlayDebugUn
 `bundlePlayRelease`; outputs live under `outputs/apk/<flavor>/<type>/`.
 
 Every theme pack is a one-time Play purchase (product id `pack_<id>`, the pack id lowercased with
-anything outside `[a-z0-9._]` turned into `_`), plus `all_packs`, which also covers packs added
-later. Prices come from Play (formatted), never from the code. Free features (default theme,
-custom colours, icons, fonts, backgrounds) are never gated.
+anything outside `[a-z0-9._]` turned into `_`, created in Play at $0.99), plus `all_packs` at
+$19.99, which also covers packs added later. A theme that applies several locked packs is one
+purchase: $0.99 for the first and $1.00 more for each extra (`packs_2` at $1.99 through `packs_19`
+at $18.99, each with slots `packs_N_2` … `packs_N_4` so the same size can be bought again). Twenty or
+more locked packs, or no free slot, buys `all_packs`. The pack ids travel on the purchase
+(`BundleGrant`: comma-separated names, or a `~` hex bitset when the names do not fit the two
+64-character Play fields) and stay unlocked after a reinstall; a refund locks them again. The UI shows
+Play's formatted price once it has arrived, and these amounts until then. Free features (default
+theme, custom colours, icons, fonts, backgrounds) are never gated.
 
 AI theme creation ("Describe your theme" and AI icon generation, both with the user's own AI key)
 is the paid feature `PaidFeature.AI_CREATION`, unlocked forever by the one-time product
@@ -149,8 +155,9 @@ per process.
 
 `PlayEntitlements` connects with `enablePendingPurchases(...enableOneTimeProducts())`, reconnects
 with a doubling backoff (1 s up to 5 min), loads prices with `queryProductDetailsAsync` for
-`all_packs` plus `pack_<id>` of every pack the app knows (`setCatalogue`: installed packs and the
-remote catalogue) and reads purchases with `queryPurchasesAsync(INAPP)` on start, on every
+`all_packs`, the bundle products (`PackPricing.allProductIds`) plus `pack_<id>` of every pack the
+app knows (`setCatalogue`: installed packs and the remote catalogue) and reads purchases with
+`queryPurchasesAsync(INAPP)` on start, on every
 activity resume and on "Restore purchases" (App settings). Owned products are recomputed from
 that answer each time, so a refund disappears. Each full query has a growing generation: one that
 finishes verifying after a newer one was applied is dropped, state is published under the lock in
@@ -174,7 +181,8 @@ locks before Play answers; it never unlocks a download or an apply.
 
 `MainViewModel` enforces the gate (`billing/PackAccess`), not only the UI. A locked pack can be
 downloaded, selected (simple or per part) and fully previewed, but never built or applied:
-`applyTheme` refuses a theme that uses one (a pack imported from a file, a refunded pack, a pick from "Describe your theme"). A pack is
+`applyTheme` opens Play billing for the locked packs the theme uses (one pack at $0.99, a bundle
+for several, `all_packs` from twenty) and does not build until those purchases are owned. A pack is
 paid when its id is in `PaidPacks` or in `OfficialPacks` (`hexnext_packs.xml`: every id seen in a
 fetched catalogue, including the default catalogue read once at start-up in the Play build, and
 every pack downloaded from one), so a pack added to the catalogue after the APK shipped is paid
@@ -186,8 +194,10 @@ user can see a pack before buying it. A locked pack downloads into `files/packs-
 previewer reads (`LayeredPackResolver`: installed packs first) but the applier never does, so its
 artwork is physically absent at build time even if a gate regressed; it moves into `files/packs`
 once the store confirms the purchase (the cached purchase hint is never enough). Preview zips are
-excluded from backups and pruned after 7 days unused. Locked packs show a lock, the Play price and "Unlock"; "Unlock all
-packs" sits in the Theme pack card and the "Get packs" dialog.
+excluded from backups and pruned after 7 days unused. Packs sit in one menu on Skins. A pack that is not downloaded yet has a download icon in that
+menu, including locked packs. After download a locked pack shows a lock, and tapping it buys that
+pack. An installed pack also has an uninstall icon; confirming it deletes the pack file from this
+phone. "Unlock all packs" sits above the menu while any catalogue pack is still locked ($19.99).
 
 ## Overlay delivery
 

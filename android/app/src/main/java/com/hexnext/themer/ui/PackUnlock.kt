@@ -20,9 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.hexnext.engine.pack.PackIdAliases
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.PackAccess
+import com.hexnext.themer.billing.PackPricing
+import com.hexnext.themer.billing.PaidPacks
 import com.hexnext.themer.billing.ProductIds
+import com.hexnext.themer.theme.CatalogueEntry
+import com.hexnext.themer.theme.InstalledPack
 
 /**
  * What the pack lists show about unlocks. Every theme pack is a one-time purchase; the view model
@@ -41,10 +46,26 @@ internal data class PackLocks(
 
     fun price(id: String): String? = entitlement.priceOf(id)
 
-    val allPacksPrice: String? get() = entitlement.prices[ProductIds.ALL_PACKS]
+    val allPacksPrice: String? get() = entitlement.prices[ProductIds.ALL_PACKS] ?: PackPricing.ALL_LABEL
+
+    /** The price of one pack: Play's price when it has arrived, otherwise $0.99. */
+    fun singlePrice(id: String): String = price(id) ?: PackPricing.SINGLE_LABEL
 
     /** True when "Unlock all packs" is on offer: a store build without it. */
     val offerUnlockAll: Boolean get() = canPurchase && !entitlement.unlockAll
+
+    /**
+     * True when some catalogue pack is still locked, so "Unlock all packs" belongs above the
+     * pack menu. Packs the user built are not catalogue packs and do not count.
+     */
+    fun anyStillLocked(packs: List<InstalledPack>, entries: List<CatalogueEntry>): Boolean {
+        if (!offerUnlockAll) return false
+        val ids = LinkedHashSet<String>()
+        ids += PaidPacks.IDS
+        packs.forEach { ids += PackIdAliases.current(it.id) }
+        entries.forEach { ids += PackIdAliases.current(it.id) }
+        return ids.any { locked(it) }
+    }
 
     companion object {
         fun of(ui: UiState) = PackLocks(ui.entitlement, ui.bundledPackIds, ui.officialPackIds, ui.canPurchase)
@@ -52,8 +73,8 @@ internal data class PackLocks(
 }
 
 /**
- * "Unlock · $0.99": starts the store purchase. The price comes from the store and the button stays
- * off until it is known (or while [pending], which reads "Payment pending").
+ * "Unlock · $0.99": starts the store purchase. [price] is Play's price when it is known, otherwise
+ * the catalogue price. The button stays off while [pending] ("Payment pending").
  */
 @Composable
 internal fun UnlockButton(
@@ -92,7 +113,7 @@ internal fun UnlockAllRow(locks: PackLocks, busy: Boolean, onUnlock: (String) ->
         Column(Modifier.weight(1f)) {
             Text("Unlock all packs", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Every pack, including packs added later. One-time purchase.",
+                "Every pack, including packs added later. One-time purchase, ${locks.allPacksPrice}.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
