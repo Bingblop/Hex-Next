@@ -119,11 +119,11 @@ class AppSettingsStore private constructor(context: Context) {
         val o = runCatching { org.json.JSONObject(json) }.getOrNull() ?: return
         update { s ->
             s.copy(
-                themeMode = enumOrDefault(o.optString(KEY_THEME_MODE, null), s.themeMode),
-                palette = enumOrDefault(o.optString(KEY_PALETTE, null), s.palette),
+                themeMode = enumOrDefault(jsonString(o.opt(KEY_THEME_MODE)), s.themeMode),
+                palette = enumOrDefault(jsonString(o.opt(KEY_PALETTE)), s.palette),
                 seedArgb = (if (o.has(KEY_SEED)) o.optInt(KEY_SEED) else s.seedArgb) or 0xFF000000.toInt(),
                 pureBlack = o.optBoolean(KEY_PURE_BLACK, s.pureBlack),
-                contrast = enumOrDefault(o.optString(KEY_CONTRAST, null), s.contrast),
+                contrast = enumOrDefault(jsonString(o.opt(KEY_CONTRAST)), s.contrast),
                 haptics = o.optBoolean(KEY_HAPTICS, s.haptics),
                 reduceMotion = o.optBoolean(KEY_REDUCE_MOTION, s.reduceMotion),
             )
@@ -157,10 +157,14 @@ class AppSettingsStore private constructor(context: Context) {
             .apply()
     }
 
-    private inline fun <reified E : Enum<E>> enumOrDefault(name: String?, default: E): E =
-        enumValues<E>().firstOrNull { it.name == name } ?: default
-
     companion object {
+        /** [value] when it is a JSON string; null for an absent key, JSON null or any other type. */
+        internal fun jsonString(value: Any?): String? = value as? String
+
+        /** The [E] constant named [name]; [default] when [name] is null or names no constant. */
+        internal inline fun <reified E : Enum<E>> enumOrDefault(name: String?, default: E): E =
+            enumValues<E>().firstOrNull { it.name == name } ?: default
+
         private const val PREFS = "hexnext_app_settings"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_PALETTE = "palette"

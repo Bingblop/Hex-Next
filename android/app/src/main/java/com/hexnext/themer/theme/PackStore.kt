@@ -586,6 +586,13 @@ class PackStore(
             formerNames.fold(text) { acc, (pattern, name) -> pattern.replace(acc, name) }
 
         /**
+         * The migrated form of an option's raw `label` value: a string label with former pack names
+         * replaced, or null for an absent label, JSON null or any non-string value, which the
+         * migration leaves exactly as it is.
+         */
+        internal fun migratedLabel(label: Any?): String? = (label as? String)?.let { replaceFormerNames(it) }
+
+        /**
          * `pack.json` [json] under catalogue id [newId]: id, name, package, catalogue version and a
          * blank author set, `sourcePackage` dropped, former pack names in option labels and choices
          * and in category labels replaced. Keys, layers and every other field stay as they are.
@@ -605,7 +612,7 @@ class PackStore(
             obj.optJSONArray("options")?.let { options ->
                 for (i in 0 until options.length()) {
                     val option = options.optJSONObject(i) ?: continue
-                    option.optString("label", null)?.let { option.put("label", replaceFormerNames(it)) }
+                    migratedLabel(option.opt("label"))?.let { option.put("label", it) }
                     val choices = option.optJSONArray("choices") ?: continue
                     val scrubbed = JSONArray()
                     for (j in 0 until choices.length()) {
