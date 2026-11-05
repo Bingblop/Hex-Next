@@ -121,12 +121,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Typeface
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -257,7 +253,6 @@ private fun ScreenContent(target: Screen, viewModel: MainViewModel, ui: UiState,
         OnboardingScreen(
             shizuku = shizuku,
             versionLine = ui.versionLine,
-            rootToolLinks = ui.rootToolLinks,
             packs = ui.packs,
             selectedPackId = ui.spec.simplePackId,
             onSelectPack = viewModel::selectPack,
@@ -524,7 +519,6 @@ internal fun StatusCard(
     state: ShizukuState,
     capability: Capability,
     versionLine: String,
-    rootToolLinks: Map<String, String>,
     onRequestPermission: () -> Unit,
 ) {
     // Never the raw handler: it throws out of the click when no browser is enabled.
@@ -547,6 +541,7 @@ internal fun StatusCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        ManualRootSetup(state)
         when (state) {
             ShizukuState.NotRunning, ShizukuState.TooOld ->
                 OutlinedButton(onClick = { uriHandler.openUri(SHIZUKU_DOWNLOAD_URL) }) {
@@ -566,14 +561,6 @@ internal fun StatusCard(
                 OutlinedButton(onClick = { openShizuku(context, uriHandler) }) { Text("Open Shizuku") }
             }
         }
-        val needsRoot = when (state) {
-            ShizukuState.NotRunning, ShizukuState.PermissionNeeded, ShizukuState.PermissionDenied -> true
-            is ShizukuState.Ready -> !state.isPrivileged
-            ShizukuState.TooOld -> false
-        }
-        if (needsRoot) {
-            RootGuide(rootToolLinks)
-        }
     }
 }
 
@@ -586,12 +573,14 @@ internal fun connectionSummary(state: ShizukuState): String = when (state) {
     ShizukuState.PermissionDenied -> "Shizuku access was denied. Open Shizuku and allow Hex Next under Authorised apps."
     is ShizukuState.Ready -> when {
         state.viaSu ->
-            "Root (su) was found, but Shizuku is not running. Applying a theme needs Hex Next's theme service, " +
-                "which Shizuku starts: start Shizuku with root, then come back."
+            "A root setup was found, but Hex Next's system service is not connected. Request root access below, " +
+                "then allow Hex Next in your root manager. Shizuku with root is an alternative."
         state.isSystemUid1000 ->
-            "Connected with system access. Apply builds one overlay for each scanned One UI app and takes over from Samsung's built-in theme overlays."
+            "Connected as UID 1000${if (state.viaSystem) " through the system service" else " through Shizuku"}. " +
+                "System-owned overlays remain after reboot on the tested Samsung firmware."
         state.isRoot ->
-            "Connected with root access. Apply builds one overlay for each scanned One UI app and takes over from Samsung's built-in theme overlays."
+            "Connected as UID 0${if (state.viaSystem) " through the root fallback" else " through Shizuku"}. " +
+                "Theme changes work now, but UID 0-owned overlays may not survive reboot; use UID 1000 when available."
         Capability.fromUid(state.uid) == Capability.SHELL ->
             "Connected through Shizuku without root. Your accent colour applies as the system palette only. " +
                 "For per-app colours, icons, backgrounds and fonts, start Shizuku with root."
@@ -639,61 +628,73 @@ internal fun NeedsRootReason(text: String) {
 
 /**
  * The "No root yet?" block of [StatusCard] and of the setup guide: how to get Samsung-compatible
- * temporary root with Diabl0w's DFRoot and KernelSU forks. Title, body and the two APK download
- * buttons always show; the four steps with their screenshots unfold behind "What is this?"
+ * manual root setup with DirtyFrag and the Samsung KernelSU fork. Only missing helpers get download
+ * prompts; the steps with their screenshots unfold behind "What is this?"
  * (or right away with [startExpanded]).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RootGuide(links: Map<String, String>, startExpanded: Boolean = false) {
-    // Never the raw handler: it throws out of the click when no browser is enabled.
-    val uriHandler = rememberSafeUriHandler()
+internal fun RootGuide(missingTools: List<RootTools.Tool>, startExpanded: Boolean = false) {
     var expanded by rememberSaveable { mutableStateOf(startExpanded) }
-    val emphasis = SpanStyle(fontWeight = FontWeight.SemiBold)
-    val body = buildAnnotatedString {
-        append("Hex Next needs root. On Samsung, Diabl0w's DFRoot and KernelSU forks are ")
-        withStyle(emphasis) { append("the only compatible option") }
-        append(". They are built for Samsung and ")
-        withStyle(emphasis) { append("work on most phones running Android 15 to 17") }
-        append(
-            ". It is a temporary, system-less root that clears when the phone restarts. It does not trip Knox or " +
-                "void your warranty, and banking apps keep working. Your theme stays after a restart.",
-        )
-    }
     val downloads: @Composable () -> Unit = {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            RootTools.ALL.forEach { tool ->
-                OutlinedButton(onClick = { uriHandler.openUri(links[tool.name] ?: tool.pinnedApk) }) {
-                    Text("Download ${tool.name}")
-                }
-            }
+            missingTools.forEach { tool -> ManualRootDownload(tool) }
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("No root yet? Four easy steps", style = MaterialTheme.typography.titleSmall)
-        Text(body, style = MaterialTheme.typography.bodySmall)
+        Text("Temporary root, lasting theme", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "DirtyFrag root is temporary and is lost after a full reboot. Theme overlays created as UID 1000 " +
+                "remain applied after reboot. You only need access again to change or remove the theme. " +
+                "UID 0 is a fallback: those overlays do not have reboot persistence.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "Already rooted another way? Keep your existing root manager. Shizuku at UID 1000 also works. " +
+                "The steps below are optional for phones without a working root setup; install only missing apps. " +
+                "Hex Next will not run DirtyFrag or restart your phone.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            "No bootloader unlock or firmware flashing required. Compatibility and device security still depend " +
+                "on your phone and firmware; review the upstream release before proceeding.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (!expanded) {
             downloads()
         }
         Reveal(visible = expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("1. Download and install both APKs.", style = MaterialTheme.typography.bodyMedium)
+                Text("1. Download and manually install DirtyFrag and the Samsung KernelSU app (unless already installed).", style = MaterialTheme.typography.bodyMedium)
                 downloads()
-                Text("2. Open DFRoot. Above the Root button, tap and select KernelSU.", style = MaterialTheme.typography.bodyMedium)
+                Text("2. Open DirtyFrag. Check that SU Manager shows KernelSU, then press the Root button at the bottom of the page.", style = MaterialTheme.typography.bodyMedium)
                 Image(
-                    painter = painterResource(R.drawable.hx_guide_dfroot),
-                    contentDescription = "DFRoot: Select a SU Manager, KernelSU",
+                    painter = painterResource(R.drawable.hx_guide_dirtyfrag),
+                    contentDescription = "DirtyFrag screen with KernelSU selected as SU Manager and Root button at bottom",
                     contentScale = ContentScale.FillWidth,
                     modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium),
                 )
-                Text("3. Press Root and wait for success. KernelSU opens.", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "4. In KernelSU, open the Superuser tab at the bottom, find Hex Next, tap it and turn on Superuser. Done.",
+                    "3. Wait for KernelSU to open. Confirm it reports Working with Jailbreak mode enabled. " +
+                        "If it does not, do not assume root was granted.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Image(
+                    painter = painterResource(R.drawable.hx_guide_kernelsu_home),
+                    contentDescription = "KernelSU home screen reporting Working and Jailbreak mode enabled, with Superuser tab at bottom",
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium),
+                )
+                Text(
+                    "4. Open the Superuser tab at the bottom of KernelSU. Select Hex Next (or Hex Next Owner if " +
+                        "you use the private test build) and grant Superuser. Return here and tap Request root access. " +
+                        "UID 1000 is preferred for overlays that survive reboot; UID 0 is a fallback and may not persist.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Image(
                     painter = painterResource(R.drawable.hx_guide_kernelsu),
-                    contentDescription = "KernelSU app profile for Hex Next with Superuser on",
+                    contentDescription = "KernelSU Superuser app profile showing Hex Next with Superuser enabled",
                     contentScale = ContentScale.FillWidth,
                     modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium),
                 )
@@ -1921,10 +1922,10 @@ internal fun restartProtectionText(unconfirmed: Boolean, expired: Boolean): Stri
     expired -> "Applied and not confirmed. Restart protection ended 10 minutes after the apply, so restarts " +
         "no longer turn the theme off. Tap \"It works\" to clear this."
     // Phone restarts are only caught when root is still there after the restart. The temporary
-    // DFRoot root that RootGuide recommends is gone by then, so promise only what the in-session
+    // Temporary root from DirtyFrag is gone by then, so promise only what the in-session
     // watchdog (120 s, System UI or system server restarts) does.
     else -> "Not confirmed yet. For 2 minutes, the theme turns off if System UI keeps crashing. A temporary " +
-        "root such as DFRoot is gone after a restart, so check the phone before you restart, then tap \"It works\"."
+        "root such as DirtyFrag is gone after a restart, so check the phone before you restart, then tap \"It works\"."
 }
 
 /**

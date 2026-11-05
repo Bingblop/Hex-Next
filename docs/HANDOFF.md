@@ -80,7 +80,7 @@ Paste this whole file into a new agent. It covers the project from the start (20
     - **Settings icons:** generated Settings icons when a pack lacks some.
     - **Imports:** custom icon, font and background import.
     - **App theme:** an App settings screen with a Material 3 theme for the app itself.
-    - **Root guide:** the no-root guide uses Diabl0w's DFRoot + KernelSU.
+    - **Root guide:** the no-root guide now uses mitschud's DirtyFrag + the Samsung KernelSU fork.
     - **Privacy:** the privacy link in About.
 
 ## 4. How to build and test
@@ -263,3 +263,19 @@ After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle f
 - Default AI agent (AI providers > Default agent) is preselected by every Generate; the icon chooser has "Generate with AI".
 - Colours/Icons/Skins: the preview peek puts tabs and Light/Dark on one row and shows "Editing: <element>" in its header; the status strip shows there only when something is not green; apply summary is two lines; lists leave room for the Preview button.
 - Still needs the owner: `HEXNEXT_PLAY_LICENSE_KEY` or `HEXNEXT_LICENSE_SERVER_URL`, branch protection on main, and the R2 pack bucket (paid packs are still public on `packs`).
+
+### Manual root setup and permission retry
+
+- The separate temporary-root integration experiment was cancelled and reverted. Do not recreate its session controller, embedded rooting helper, automatic cleanup, fork, or reboot flow.
+- The narrower replacement request uses DirtyFrag (`mitschud/DirtyFrag`, package `df.root`) and the Samsung KernelSU fork (`diabl0w/KernelSU`, package `me.weishu.kernelsu`). Show upstream release/install confirmation for missing helpers only when no root setup is detected; offer root-access requests through any existing su provider.
+- Connection and the setup guide share passive checks and refresh on resume. The four-step DirtyFrag guide includes the user's DirtyFrag screenshot and KernelSU “Working / Jailbreak mode” screenshot, plus the existing Superuser profile illustration. DirtyFrag's APK retains the `df.root` application ID.
+- Explain clearly: DirtyFrag root is temporary and lost after a full reboot; UID 1000-owned overlays stay applied on the tested firmware. Users need access again to change/remove the theme. UID 0 is explicitly a fallback without that persistence.
+- Manual prompts open upstream release pages. No background APK download, silent installer invocation, rooting-tool execution, package removal, reboot, or Accessibility-driven Superuser approval is performed. The old background APK lookup and unsupported Knox/warranty/banking assurances are removed.
+- Root requests are serialized against device work, can explicitly retry a previous denial, and try su even when a visible path is unavailable. The su timeout no longer waits for EOF before terminating an unanswered command.
+- Prefer any authorized UID 1000 service, including Shizuku. The su launcher tries UID 1000 first and UID 0 second, recording the actual UID; it must never label the UID 0 fallback as system access.
+- UID 2000 has a separate “System palette” page: seed picker, hex input, preset colours, Apply palette, Restore previous palette, result/error feedback and optional connection upgrade. No Studio navigation, app previews, packs, icons, fonts or One UI element controls. Both its direct actions and the legacy theme entry points are Monet-only through secure settings. Skip startup overlay re-assertions in shell mode.
+- No billing or entitlement changes. Native Compose compile/unit checks are not a substitute for device interaction testing of the new prompts and pages.
+- Knox/warranty copy must not promise immunity: Samsung's public Knox FAQ and US warranty terms expressly warn of consequences for rooting and unauthorized root access. DirtyFrag's claimed no-bootloader-unlock/no-firmware-flash design is not proof that Knox fuses, Samsung services or warranty coverage are unaffected. No Accessibility service is added to auto-approve Superuser.
+- Supporting references: https://github.com/mitschud/DirtyFrag ; https://docs.samsungknox.com/admin/knox-platform-for-enterprise/faq/ ; https://www.samsung.com/us/support/legal/mobile/?r=true&referrer=usnewsroom .
+- Explicit root requests allow 45 seconds for the root-manager prompt, rather than the 8-second background startup timeout. A legacy “DFRoot” label sharing `df.root` is not falsely presented as an installed DirtyFrag app.
+- Latest copy preference: omit warranty discussion from the in-app guide and download prompt. State “No bootloader unlock or firmware flashing required”; do not replace that with an unverified “won't trip Knox” guarantee.

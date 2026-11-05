@@ -15,12 +15,8 @@ import org.json.JSONObject
  * - [ROOT] (uid 0 or 1000): everything. Fabricated overlays with colours and PNG drawables, the
  *   `.frro` rewrite, fonts and backgrounds.
  * - [SHELL] (uid 2000: Shizuku started over ADB or wireless debugging, no root): the system
- *   palette only. The shell may enable and disable overlays and write secure settings, so Hex Next
- *   sets the Monet seed ([MonetSeed]). It still tries `cmd overlay fabricate` for the per-app
- *   colour overlays, but AOSP's shell command refuses that to every caller but root ("must be
- *   root to fabricate overlays through the shell"), so on stock builds those are skipped too.
- *   Anything that rewrites files as root (PNG drawables, fonts, backgrounds) is skipped with a
- *   "Needs root" note.
+ *   palette only through secure settings ([MonetSeed]). Hex Next never attempts per-app overlay
+ *   fabrication, takeover, removal, PNG rewrites, fonts or backgrounds in this tier.
  * - [NONE]: no usable service.
  */
 enum class Capability {
@@ -28,7 +24,7 @@ enum class Capability {
     SHELL,
     ROOT;
 
-    /** The Monet seed, and colour overlays where the shell is allowed to fabricate them (root, in practice). */
+    /** The Monet seed at UID 2000; per-app colour overlays at UID 0 or UID 1000. */
     val canApplyColours: Boolean get() = this != NONE
 
     /** PNG drawables (custom icons, backgrounds) and fonts: the root `.frro` rewrite and `/data` writes. */

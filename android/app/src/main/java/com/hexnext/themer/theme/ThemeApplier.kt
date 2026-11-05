@@ -185,6 +185,20 @@ class ThemeApplier(context: Context) {
         onMonitor: (startedAt: Long) -> Unit,
         onSemWt: (SemWtState) -> Unit,
     ) {
+        // Return before pack compilation, overlay takeover/cleanup, monitors, fonts or values.
+        if (service.uid == 2000) {
+            val seeded = MonetSeed.apply(service, spec.source.seedArgb, log)
+            note(LogLevel.INFO, "UID 2000: Monet seed only through secure settings; no One UI overlays were changed.")
+            outcomes += TargetOutcome(
+                MonetSeed.TARGET, if (seeded) TargetResult.OK else TargetResult.FAILED, MonetSeed.SETTING,
+                colorCount = 2, resourceCount = if (seeded) 2 else 0,
+                message = if (seeded) "" else "The secure setting did not read back the requested seed.",
+            )
+            return
+        }
+        if (service.uid == 0) {
+            note(LogLevel.WARN, "UID 0 root fallback: overlays may not survive reboot. Use UID 1000 when available.")
+        }
         say(LogLevel.INFO, "Applying theme \"${spec.name}\" (${spec.id})", emptyMap())
         val packs = DirectoryPackResolver(packsDir(appContext))
         spec.simplePackId?.let { packId ->
@@ -622,6 +636,7 @@ class ThemeApplier(context: Context) {
         log: (LogLine) -> Unit,
         recordTakeover: (target: String, hexOverlayId: String, semwtEnabledBefore: Boolean) -> Boolean,
     ): TargetOutcome {
+        check(capability == Capability.ROOT) { "Per-app overlays require UID 1000 or UID 0; UID 2000 is Monet-only." }
         val pkg = target.packageName
         if (target.isEmpty) {
             buildLog.write("INFO", pkg, "nothing to build", mapOf("skipped" to target.skipped.size))
@@ -770,6 +785,10 @@ class ThemeApplier(context: Context) {
      * palette was put back (or never changed) and no Hex Next font is left installed.
      */
     fun remove(service: IThemeService, log: (LogLine) -> Unit): Boolean {
+        if (service.uid == 2000) {
+            log(LogLine(LogLevel.INFO, "UID 2000: restoring Monet only; no One UI overlays are touched."))
+            return MonetSeed.restore(service, log) != false
+        }
         // Ends the post-apply monitor watch: a trip after Remove has nothing left to turn off.
         APPLY_GENERATION.incrementAndGet()
         // Removal turns the theme off itself; a monitor trip left over is not one to recover.
