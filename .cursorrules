@@ -1,0 +1,3 @@
+Read AGENTS.md before acting. It is the repository's canonical working agreement.
+Follow its module-specific documentation pointers, compatibility rules and pre-push checks.
+Use .cursorignore to keep generated context out; inspect lockfiles deliberately for dependency audits.
