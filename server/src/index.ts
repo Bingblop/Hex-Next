@@ -11,6 +11,7 @@ import { cacheRateLimiter, secondsUntilNextWindow, type RateLimiter } from "./ra
 import {
   MAX_BATCH_BODY_BYTES,
   MAX_BODY_BYTES,
+  BodyReadError,
   readBodyLimited,
   validateBatchBody,
   validateVerifyBody,
@@ -76,7 +77,14 @@ export async function handleRequest(request: Request, env: Env, deps: Deps = {})
     );
   }
 
-  const text = await readBodyLimited(request, batch ? MAX_BATCH_BODY_BYTES : MAX_BODY_BYTES);
+  let text: string | null;
+  try {
+    text = await readBodyLimited(request, batch ? MAX_BATCH_BODY_BYTES : MAX_BODY_BYTES);
+  } catch (error) {
+    // A client stream failure is the client's problem, not a Worker exception.
+    if (error instanceof BodyReadError) return invalid(400, "invalid_body_stream");
+    throw error;
+  }
   if (text === null) {
     return invalid(413, "body_too_large");
   }

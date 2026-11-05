@@ -83,11 +83,23 @@ export function validateBatchBody(body: unknown, expectedPackageName: string): B
   return { ok: true, value };
 }
 
+/** The request body stream failed or yielded something other than bytes; the client sent no usable body. */
+export class BodyReadError extends Error {
+  constructor(options?: { cause?: unknown }) {
+    super("Request body could not be read", options);
+    this.name = "BodyReadError";
+  }
+}
+
 /**
  * Reads the request body as text, stopping as soon as it exceeds `limit` bytes.
- * Returns null when the body is too large.
+ * Returns null when the body is too large. Throws [BodyReadError] when the body stream fails, and
+ * a RangeError for a `limit` that is not a positive safe integer. The stream lock is always released.
  */
 export async function readBodyLimited(request: Request, limit = MAX_BODY_BYTES): Promise<string | null> {
+  if (!Number.isSafeInteger(limit) || limit <= 0) {
+    throw new RangeError("Body limit must be a positive safe integer");
+  }
   const declared = request.headers.get("Content-Length");
   if (declared !== null && Number(declared) > limit) {
     return null;
@@ -98,15 +110,31 @@ export async function readBodyLimited(request: Request, limit = MAX_BODY_BYTES):
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > limit) {
-      await reader.cancel();
-      return null;
+  try {
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        throw new BodyReadError({ cause: error });
+      }
+      if (chunk.done) break;
+      const value: unknown = chunk.value;
+      // A non-byte chunk has no byteLength: the size check would compare NaN and never trip.
+      if (!(value instanceof Uint8Array)) {
+        await reader.cancel().catch(() => undefined);
+        throw new BodyReadError();
+      }
+      total += value.byteLength;
+      if (total > limit) {
+        // Best effort: an oversized body is still answered 413 when cancelling fails.
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
   const bytes = new Uint8Array(total);
   let offset = 0;

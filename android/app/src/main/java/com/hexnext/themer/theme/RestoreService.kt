@@ -7,15 +7,16 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import com.hexnext.themer.R
+import java.io.Closeable
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Runs the background theme restore ([ThemeRestorer]) as a foreground service.
@@ -28,37 +29,57 @@ import kotlinx.coroutines.launch
  * through the root shell (`am start-foreground-service`), which it always lets through.
  */
 class RestoreService : Service() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    @Volatile private var running = false
+    private val scope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate + CoroutineExceptionHandler { _, error ->
+            Log.e(TAG, "Restore failed (${error.javaClass.simpleName})")
+        },
+    )
+    private val taskOwner = RestoreTaskOwner(scope) {
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } finally {
+            stopSelf()
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val ok = runCatching { goForeground() }.onFailure { Log.w(TAG, "Could not go foreground", it) }.isSuccess
-        if (!ok || running) {
-            if (!running) stopSelf(startId)
+        if (!ok || taskOwner.running) {
+            if (!taskOwner.running) stopSelf(startId)
             return START_NOT_STICKY
         }
-        running = true
-        val wake = runCatching {
-            getSystemService(android.os.PowerManager::class.java)
-                ?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "HexNext:restore")
-                ?.apply { acquire(15 * 60_000L) }
-        }.getOrNull()
-        scope.launch {
-            runCatching { ThemeRestorer.restoreIfNeeded(applicationContext) }
-                .onFailure { Log.w(TAG, "Restore failed", it) }
-            runCatching { if (wake?.isHeld == true) wake.release() }
-            running = false
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+        val wake = try {
+            getSystemService(PowerManager::class.java)
+                ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "HexNext:restore")
+                ?.apply {
+                    setReferenceCounted(false)
+                    acquire(15 * 60_000L)
+                }
+        } catch (error: SecurityException) {
+            Log.w(TAG, "Wake lock unavailable (${error.javaClass.simpleName})")
+            null
+        }
+        val lease = wake?.let { acquired ->
+            Closeable { if (acquired.isHeld) acquired.release() }
+        }
+        taskOwner.start(lease) {
+            withContext(Dispatchers.IO) {
+                ThemeRestorer.restoreIfNeeded(applicationContext)
+            }
         }
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
+        try {
+            taskOwner.close()
+        } catch (error: RuntimeException) {
+            Log.e(TAG, "Restore cleanup failed (${error.javaClass.simpleName})")
+        } finally {
+            super.onDestroy()
+        }
     }
 
     private fun goForeground() {
@@ -74,11 +95,7 @@ class RestoreService : Service() {
             .setContentText("Hex Next is putting your theme back after the restart.")
             .setOngoing(true)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(ID, notification)
-        }
+        startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
     }
 
     companion object {

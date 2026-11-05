@@ -55,7 +55,8 @@ export const googlePlayProvider: PurchaseProvider = {
 
     let response: Response;
     try {
-      response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      // Never follow a redirect with the bearer token attached.
+      response = await fetch(url, { redirect: "error", headers: { Authorization: `Bearer ${accessToken}` } });
     } catch {
       throw new ProviderUnavailableError("Google Play API unreachable");
     }
@@ -112,10 +113,15 @@ function parseServiceAccount(json: string | undefined): ServiceAccount {
   if (typeof parsed !== "object" || parsed === null || typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key");
   }
+  // The signed assertion is a credential: only Google's token endpoint may receive it, whatever the
+  // configuration says. Service-account keys Google issues carry exactly this token_uri.
+  if (parsed.token_uri !== undefined && parsed.token_uri !== DEFAULT_TOKEN_URI) {
+    throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON names an unsupported token_uri");
+  }
   return {
     client_email: parsed.client_email,
     private_key: parsed.private_key,
-    token_uri: typeof parsed.token_uri === "string" ? parsed.token_uri : undefined,
+    token_uri: DEFAULT_TOKEN_URI,
   };
 }
 
@@ -127,13 +133,15 @@ async function getAccessToken(account: ServiceAccount): Promise<string> {
     return cachedToken.accessToken;
   }
 
-  const tokenUri = account.token_uri ?? DEFAULT_TOKEN_URI;
+  const tokenUri = DEFAULT_TOKEN_URI;
   const assertion = await createSignedJwt(account, tokenUri, now);
 
   let response: Response;
   try {
     response = await fetch(tokenUri, {
       method: "POST",
+      // A 307/308 would re-send the assertion to wherever it points.
+      redirect: "error",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
