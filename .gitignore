@@ -35,6 +35,8 @@ dist/
 *.jks
 *.p12
 *.pem
+# The device lab's PUBLIC key (CI encrypts the owner APK to it); private keys stay ignored.
+!tools/device/lab-pubkey.pem
 *.secrets.properties
 keystore.properties
 android/keystore.properties

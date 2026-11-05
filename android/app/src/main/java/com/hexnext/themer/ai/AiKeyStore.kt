@@ -39,6 +39,27 @@ class AiKeyStore(context: Context) {
     /** Provider ids that currently have a key. */
     val configured: StateFlow<Set<String>> = _configured.asStateFlow()
 
+    // Not a secret: which configured provider the AI buttons start with. Kept apart from the keys.
+    private val settings: SharedPreferences =
+        context.applicationContext.getSharedPreferences(SETTINGS_NAME, Context.MODE_PRIVATE)
+
+    private val _defaultProvider = MutableStateFlow(settings.getString(KEY_DEFAULT_PROVIDER, null))
+
+    /** The provider the user picked as their default agent, or null for "first with a key". */
+    val defaultProvider: StateFlow<String?> = _defaultProvider.asStateFlow()
+
+    fun setDefaultProvider(providerId: String?) {
+        settings.edit().apply { if (providerId == null) remove(KEY_DEFAULT_PROVIDER) else putString(KEY_DEFAULT_PROVIDER, providerId) }.apply()
+        _defaultProvider.value = providerId
+    }
+
+    /**
+     * The provider to use among [available] (ids with a key, in display order): [current] when it
+     * is still available, else the default agent, else the first.
+     */
+    fun choose(available: List<String>, current: String?): String? =
+        current?.takeIf { it in available } ?: _defaultProvider.value?.takeIf { it in available } ?: available.firstOrNull()
+
     /** True when [providerId] has a stored key (no decryption). */
     fun has(providerId: String): Boolean = prefs.contains(providerId)
 
@@ -170,6 +191,8 @@ class AiKeyStore(context: Context) {
     companion object {
         /** Preferences file name (`hexnext_ai_keys.xml`); referenced by the data extraction rules. */
         const val PREFS_NAME = "hexnext_ai_keys"
+        private const val SETTINGS_NAME = "hexnext_ai_settings"
+        private const val KEY_DEFAULT_PROVIDER = "default_provider"
         private const val KEY_ALIAS = "hexnext_ai_keys"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"

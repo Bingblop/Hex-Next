@@ -2,6 +2,8 @@
 # No secrets live here. Set them with `wrangler secret put` (see README.md).
 name = "hexnext-licence-server"
 main = "src/index.ts"
+# Only the custom route serves requests; the public *.workers.dev URL is off.
+workers_dev = false
 compatibility_date = "2025-09-01"
 
 [vars]
@@ -12,3 +14,9 @@ PROVIDER = "google_play"
 # Naive per-IP limit on POST /v1/verify and /v1/verify-batch (a batch counts as one request),
 # per minute, per Cloudflare location.
 RATE_LIMIT_PER_MINUTE = "60"
+
+# Paid pack zips for POST /v1/pack live in a private R2 bucket (never public). Create it with
+# `wrangler r2 bucket create hexnext-packs`, upload `<packId>.zip`, then uncomment:
+# [[r2_buckets]]
+# binding = "PACKS"
+# bucket_name = "hexnext-packs"

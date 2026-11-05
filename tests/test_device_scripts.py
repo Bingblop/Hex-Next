@@ -145,13 +145,25 @@ class FlavorWorkflowTest(unittest.TestCase):
 
     def test_owner_release_is_uploaded_only_with_upload_key_secrets(self):
         text = self.workflow()
-        match = re.search(r"- name: Upload owner release APK\n\s+if: (.+)\n", text)
+        match = re.search(r"- name: Upload owner release APK \(encrypted\)\n\s+if: (.+)\n", text)
         self.assertIsNotNone(match)
-        self.assertEqual(match.group(1).strip(), "env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true'")
+        self.assertEqual(
+            match.group(1).strip(),
+            "env.HEXNEXT_HAS_RELEASE_SIGNING_SECRETS == 'true' && hashFiles('tools/device/lab-pubkey.pem') != ''",
+        )
         self.assertIn("name: HexNext-Owner-Release", text)
-        self.assertIn("android/app/build/outputs/apk/owner/release/*.apk", text)
         self.assertIn("name: HexNext-Play-AAB", text)
         self.assertIn("android/app/build/outputs/bundle/playRelease/*.aab", text)
+
+    def test_owner_release_is_never_uploaded_in_the_clear(self):
+        """The repository is public: the all-packs owner APK leaves CI only encrypted."""
+        text = self.workflow()
+        self.assertNotIn("path: android/app/build/outputs/apk/owner/release/*.apk", text)
+        self.assertIn("openssl pkeyutl -encrypt -pubin -inkey ../tools/device/lab-pubkey.pem", text)
+        self.assertIn("owner-enc/*", text)
+        key = Path(__file__).resolve().parents[1] / "tools/device/lab-pubkey.pem"
+        self.assertTrue(key.read_text().startswith("-----BEGIN PUBLIC KEY-----"))
+        self.assertNotIn("PRIVATE", key.read_text())
 
 
 @unittest.skipUnless(shutil.which("unzip"), "unzip is not installed")

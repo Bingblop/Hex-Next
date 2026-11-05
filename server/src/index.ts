@@ -15,6 +15,7 @@ import {
   validateBatchBody,
   validateVerifyBody,
 } from "./validate";
+import { PACK_PATH, servePack, validatePackBody, type PackEnv } from "./packs";
 
 const DEFAULT_RATE_LIMIT = 60;
 /** Store lookups run at most this many at a time for one batch. */
@@ -55,7 +56,8 @@ function invalid(status: number, reason: string): Response {
 export async function handleRequest(request: Request, env: Env, deps: Deps = {}): Promise<Response> {
   const url = new URL(request.url);
   const batch = url.pathname === VERIFY_BATCH_PATH;
-  if (!batch && url.pathname !== VERIFY_PATH) {
+  const pack = url.pathname === PACK_PATH;
+  if (!batch && !pack && url.pathname !== VERIFY_PATH) {
     return invalid(404, "not_found");
   }
   if (request.method !== "POST") {
@@ -86,6 +88,17 @@ export async function handleRequest(request: Request, env: Env, deps: Deps = {})
   }
 
   const provider = deps.provider ?? selectProvider(env);
+
+  if (pack) {
+    const validation = validatePackBody(body, env.PACKAGE_NAME);
+    if (!validation.ok) {
+      return invalid(400, validation.reason);
+    }
+    if (!provider) {
+      return invalid(503, "unknown_provider");
+    }
+    return servePack(validation.value, env as PackEnv, provider);
+  }
 
   if (batch) {
     const validation = validateBatchBody(body, env.PACKAGE_NAME);

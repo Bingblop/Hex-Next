@@ -117,7 +117,7 @@ fun DescribeThemeCard(
 
     val providers = remember(configured) { AiProviders.text.filter { it.id in configured } }
     LaunchedEffect(providers) {
-        if (providers.none { it.id == providerId }) providerId = providers.firstOrNull()?.id
+        providerId = keys.choose(providers.map { it.id }, providerId)
     }
     val provider = providers.firstOrNull { it.id == providerId }
 
