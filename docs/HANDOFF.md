@@ -228,3 +228,24 @@ After each green build, pin it in install.sh and test-overlay.sh, and ask Kyle f
 - **Device-lab scripts come from one trusted ref.** `tools/device/autotest.sh` downloads `collect.sh` and its own updates only from `TRUSTED_REF` (commit 39ffdb6). A job's `ref` is only logged. Never run code fetched from a job-supplied ref as root. Change `TRUSTED_REF` to `main` once this branch merges.
 - **Licence replies are parsed strictly** (PR #45, commit 21f492b). `LicenseServer.bodyVerdict` accepts only one well-formed flat JSON object; anything else is "unknown" and falls back to the Play signature check. The full purchase query passes every product Play listed (pending included) to `InFlightGrants.applySnapshot`, not just verified ones.
 - **Main's CI pack list is stale.** `.github/workflows/android.yml` on main still names legacy packs; build-android on PRs against main fails until this branch merges.
+
+## 12. 2026-11-05 — app previews, app colour groups, icon chooser, beta report
+
+- Studio tabs per themed Samsung app (`PreviewTab.packageName`), shown only when the app is installed
+  (`visiblePreviewTabs`, `<queries>` in the manifest). Screens are in `ui/preview/PreviewApps.kt`; every
+  coloured element uses `fill`/`themed`/`GroupText`, so tapping it opens its colour picker.
+- App colour groups: `calculator_keys` + `calculator_symbols`, `gallery_menu`, `voice_recorder_button`
+  (Voice Recorder's `basic_token_sys_red*`), `contact_tiles` (Contacts/Dialer `color_palette_*`,
+  `autoKeepsApp`: on Auto Samsung's colourful gradients stay). Exact names skip the red/green hue
+  exclusion (`TABLE_EXCLUDED`).
+- Tapping a Settings or My Files icon on the phone opens `IconChooserSheet`: that slot drawn from every
+  unlocked pack (`ThemePreviewer.iconChoices`), the user's images, or a file (cropped to visible pixels,
+  min 24 px, sized for the slot; errors are shown).
+- Diagnostics > Share beta report: zip of device info, scan/apply reports and newest logs (`BetaBundle`).
+- Lab: `probe` step (fabricated shell overlays from `job.probes`, captures `probe_captures`, then off).
+- Samsung Internet's settings switches are Material (`mtrl_switch_*`, tinted in code): they follow the
+  Material You palette, pack art can't reach them.
+- Samsung Calendar's own "Dark mode" setting was "On" on Kyle's phone (`preferences_dark_mode=1`); that,
+  not Hex, kept it dark.
+- To do after #43 merges: default AI agent dropdown (Settings) used by Generate in the icon chooser and
+  colour picker, on top of the AI paywall in #47.
