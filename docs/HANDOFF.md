@@ -24,7 +24,7 @@ Paste this whole file into a new agent. It covers the project from the start (20
 
 ## 2. Repos and where things live
 - **App repo:** `Bingblop/Hex-Next`.
-  - Active branch: `claude/project-thread-rje8bm`, draft **PR #43 "Studio v2"**. PR #5 (billing, licence server, owner flavor, Play .aab CI) was merged earlier.
+  - Main is the working branch (PR #43 "Studio v2" merged 2026-11-05; the device lab runner follows `main`). PR #5 (billing, licence server, owner flavor, Play .aab CI) was merged earlier.
   - `android/app`: the app. It compiles **only in GitHub Actions**, because the cloud container cannot reach Google Maven or the Android SDK.
   - `android/engine`: a pure JVM engine (arsc/frro readers and writers, colour engine, theme compiler, `oneui/7|8|9.json` rules, native extras table `engine/resources/extras/native.json`). Tested locally with `cd android/engine && gradle test --offline`.
   - `tests/` holds Python tests: `python3 -m unittest discover -s tests`.
@@ -96,7 +96,7 @@ Paste this whole file into a new agent. It covers the project from the start (20
   - Heavily debloated: no Clock, Calculator, Calendar, Notes or Messages.
   - Kyle resets his Samsung theme to default before tests.
 - **Route:** Kyle runs scripts in Termux and attaches the output files. Uploads land in `/mnt/project-files/uploads/hearth/`.
-  - Install: `curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/claude/project-thread-rje8bm/tools/device/install.sh && sh install.sh`, then **restart Shizuku**.
+  - Install: `curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/main/tools/device/install.sh && sh install.sh`, then **restart Shizuku**.
   - Collect: same pattern with `collect.sh` (use `PKG=com.hexnext.themer.owner`). It writes `hexnext-collect.txt`, settings-drawables, systemui-colors and values files.
   - Also available: `diag.sh`, `icons-probe.sh`, `test-overlay.sh`.
 - Only one of the Play build and the owner build can theme at a time; uninstall the other.

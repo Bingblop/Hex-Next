@@ -58,7 +58,9 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     private val lock = Any()
     private val main = Handler(Looper.getMainLooper())
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    private val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    // Both: BuildConfig.DEBUG is a compile-time false in release builds, so R8 removes the unverified
+    // grant below entirely; a release APK repackaged with android:debuggable="true" gains nothing.
+    private val debuggable = BuildConfig.DEBUG && (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     /** A release build with neither a license server nor a Play license key can verify nothing. */
     private val unverifiable = !debuggable && BuildConfig.LICENSE_SERVER_URL.isBlank() && BuildConfig.PLAY_LICENSE_KEY.isBlank()
