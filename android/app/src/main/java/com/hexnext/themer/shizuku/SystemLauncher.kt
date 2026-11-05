@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.Process
 import androidx.core.content.ContextCompat
 import com.hexnext.themer.IThemeService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -17,7 +18,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.security.SecureRandom
-import java.util.concurrent.TimeUnit
 
 /**
  * Starts [SystemServer] as UID 1000 through any compatible su provider, or UID 0 as fallback.
@@ -62,7 +62,18 @@ object SystemLauncher {
         // Only an explicit user request retries a denial or tries su when its path is hidden.
         if (requestAccess) reset()
         if (failed || (!requestAccess && !suPresent())) return null
-        val started = withContext(Dispatchers.IO) { start(context.applicationContext, requestAccess) }
+        var startFinished = false
+        val started = try {
+            withContext(Dispatchers.IO) { start(context.applicationContext, requestAccess) }
+                .also { startFinished = true }
+        } catch (e: CancellationException) {
+            // A queued background ensure() must not reopen prompts after this request is cancelled.
+            lastError = "Root access request was cancelled; request access explicitly to retry."
+            throw e
+        } finally {
+            // Known platform failures and unexpected errors also cannot silently reopen prompts.
+            if (!startFinished) failed = true
+        }
         if (started == null) failed = true
         service = started
         started?.asBinder()?.linkToDeath({
@@ -75,15 +86,28 @@ object SystemLauncher {
 
     private suspend fun start(context: Context, interactive: Boolean): IThemeService? {
         val errors = mutableListOf<String>()
-        for (uid in listOf(1000, 0)) {
-            startAsUid(context, uid, interactive)?.let { return it }
-            errors += "UID $uid: ${lastError ?: "service unavailable"}"
+        val result = RootLaunchPolicy.firstSuccessful(listOf(1000, 0)) { uid ->
+            startAsUid(context, uid, interactive).also {
+                if (it is RootLaunchPolicy.Failed) errors += "UID $uid: ${it.message}"
+            }
         }
-        lastError = errors.joinToString("; ")
-        return null
+        return when (result) {
+            is RootLaunchPolicy.Started -> {
+                lastError = null
+                result.value
+            }
+            is RootLaunchPolicy.Failed -> {
+                lastError = errors.joinToString("; ")
+                null
+            }
+        }
     }
 
-    private suspend fun startAsUid(context: Context, expectedUid: Int, interactive: Boolean): IThemeService? {
+    private suspend fun startAsUid(
+        context: Context,
+        expectedUid: Int,
+        interactive: Boolean,
+    ): RootLaunchPolicy.Attempt<IThemeService> {
         val token = token()
         val received = CompletableDeferred<IBinder>()
         val receiver = object : BroadcastReceiver() {
@@ -97,31 +121,34 @@ object SystemLauncher {
         ContextCompat.registerReceiver(context, receiver, IntentFilter(SystemServer.ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
         try {
             val launch = launch(context, token, expectedUid, interactive)
-            if (launch != null) {
-                lastError = launch
-                return null
-            }
+            if (launch is RootLaunchPolicy.Failed) return launch
             val binder = withTimeoutOrNull(WAIT_MS) { received.await() }
             if (binder == null) {
-                lastError = "the system service did not answer within ${WAIT_MS / 1000} s"
-                return null
+                return RootLaunchPolicy.Failed(
+                    "the system service did not answer within ${WAIT_MS / 1000} s",
+                    retryAllowed = false,
+                )
             }
             val bound = IThemeService.Stub.asInterface(binder)
             val uid = runCatching { bound.uid }.getOrDefault(-1)
             if (uid != expectedUid) {
-                lastError = "the service runs as UID $uid, not $expectedUid"
                 runCatching { bound.destroy() }
-                return null
+                return RootLaunchPolicy.Failed("the service runs as UID $uid, not $expectedUid")
             }
-            lastError = null
-            return bound
+            return RootLaunchPolicy.Started(bound)
         } finally {
+            received.cancel()
             runCatching { context.unregisterReceiver(receiver) }
         }
     }
 
-    /** Runs the start command through su; null when su accepted it, else what went wrong. */
-    private fun launch(context: Context, token: String, uid: Int, interactive: Boolean): String? {
+    /** Try compatible su forms, but never open another prompt after timeout or cancellation. */
+    private suspend fun launch(
+        context: Context,
+        token: String,
+        uid: Int,
+        interactive: Boolean,
+    ): RootLaunchPolicy.Attempt<Unit> {
         val apk = context.applicationInfo.sourceDir
         val pkg = context.packageName
         val main = SystemServer::class.java.name
@@ -137,26 +164,11 @@ object SystemLauncher {
             arrayOf("su", "0", "-c", script),
             arrayOf("su", "-c", script),
         )
-        var last = "su not found"
-        for (cmd in attempts) {
-            val result = runCatching {
-                val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
-                val done = p.waitFor(if (interactive) 45L else 8L, TimeUnit.SECONDS)
-                if (!done) {
-                    // Do not read to EOF before killing a su process still waiting on its prompt.
-                    p.destroyForcibly()
-                    -1 to "su did not return; check the root manager and try again"
-                } else {
-                    val out = p.inputStream.use { input ->
-                        String(input.readNBytes(minOf(input.available(), 4096)), Charsets.UTF_8).trim()
-                    }
-                    p.exitValue() to out
-                }
-            }.getOrElse { -1 to (it.message ?: it.javaClass.simpleName) }
-            if (result.first == 0) return null
-            last = "su exit ${result.first}: ${result.second.take(200)}"
+        return RootLaunchPolicy.firstSuccessful(attempts) { cmd ->
+            RootLaunchPolicy.runCommand(if (interactive) 45L else 8L) {
+                ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            }
         }
-        return last
     }
 
     private fun token(): String {
