@@ -13,6 +13,7 @@ unchanged on One UI 7, 8 and 9: a resource a phone does not have is reported as 
 | `uid1000` | Shizuku as system (UID 1000): remove the root overlays, apply, capture, remove, apply | no |
 | `themes-service` | Read-only: Galaxy Themes Service components and the overlay log around a soft reboot | yes (soft) |
 | `system-mode` | Hex Next's own UID 1000 service through KernelSU: apply, remove, apply, soft reboot | yes (soft) |
+| `material-you` | System Material You palette from Hex Next; Google apps light and dark | no |
 | `statusbar` | Pack status bar icons (selects a pack with indicator art) | no |
 | `restore` | The theme comes back by itself after a soft reboot | yes |
 
