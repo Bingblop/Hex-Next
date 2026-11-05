@@ -96,9 +96,8 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     /** Purchase token → products it was verified for, so a resume does not verify again. */
     private val verifiedTokens = HashMap<String, Set<String>>()
 
-    /** Product → [sequence] at which the purchase listener granted it in this run. */
-    private val listenerGrants = HashMap<String, Long>()
-    private var sequence = 0L
+    /** Grants the purchase listener made while a full query was still in flight. */
+    private val listenerGrants = InFlightGrants()
 
     /** Generation of the newest full purchase query started, and of the newest one applied. */
     private var queryGeneration = 0L
@@ -285,7 +284,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
 
     private fun queryPurchases() {
         current.update { it.copy(checking = true) }
-        val query = synchronized(lock) { FullQuery(generation = ++queryGeneration, since = sequence) }
+        val query = synchronized(lock) { FullQuery(generation = ++queryGeneration, since = listenerGrants.sequence) }
         val params = QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
         client.queryPurchasesAsync(params) { result, purchases ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
@@ -303,7 +302,11 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 val snapshot = purchases.orEmpty().toList()
-                if (snapshot.isNotEmpty()) scope.launch { handlePurchases(snapshot, full = null) }
+                if (snapshot.isNotEmpty()) {
+                    // Taken on receipt: a full answer applied before the coroutine starts still counts.
+                    val appliedAtReceipt = synchronized(lock) { appliedGeneration }
+                    scope.launch { handlePurchases(snapshot, full = null, appliedAtStart = appliedAtReceipt) }
+                }
             }
             BillingClient.BillingResponseCode.USER_CANCELED -> setError(baseError())
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> queryPurchases()
@@ -319,20 +322,26 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
     }
 
     /**
-     * One full `queryPurchasesAsync` call: [generation] grows with every call, [since] is the
-     * listener [sequence] when it started.
+     * One full `queryPurchasesAsync` call: [generation] grows with every call, [since] is
+     * [InFlightGrants.sequence] when it started.
      */
     private class FullQuery(val generation: Long, val since: Long)
 
     /**
      * Verifies [purchases] and publishes the result. [full] is non-null for a full
      * `queryPurchasesAsync` answer: owned products are then replaced by what it holds (refunds
-     * disappear), keeping only listener grants made after that query started. Verification can
-     * take a while, so full answers can finish out of order: one older than the newest full answer
-     * already applied is dropped, and the state is published under [lock] so publications keep
-     * the order of the updates.
+     * disappear), keeping only listener grants made after that query started. A kept grant the
+     * snapshot does not contain starts one more full query, so a purchase refunded before this
+     * answer was applied does not stay unlocked until the next resume.
+     * Verification can take a while, so full answers can finish out of order: one older than the
+     * newest full answer already applied is dropped, and the state is published under [lock] so
+     * publications keep the order of the updates.
      */
-    private suspend fun handlePurchases(purchases: List<Purchase>, full: FullQuery?) {
+    private suspend fun handlePurchases(
+        purchases: List<Purchase>,
+        full: FullQuery?,
+        appliedAtStart: Long = synchronized(lock) { appliedGeneration },
+    ) {
         val serverAnswers = verifyOnServer(purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED })
         val granted = HashSet<String>()
         val pendingNow = HashSet<String>()
@@ -352,6 +361,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 else -> Unit
             }
         }
+        var recheck = false
         synchronized(lock) {
             if (full != null) {
                 if (full.generation <= appliedGeneration) {
@@ -359,18 +369,27 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                     return
                 }
                 appliedGeneration = full.generation
-                listenerGrants.values.removeAll { it <= full.since }
+                // Every product Play listed as purchased, verified or not: a listener grant the
+                // snapshot lists is not missing from it, so it is not rechecked and dropped when
+                // the server is briefly unavailable. A stale PENDING entry does not confirm a
+                // grant (the purchase may have completed and been refunded since), so it gets a
+                // recheck. Refunded purchases leave the list entirely.
+                val listed = purchases.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
+                    .flatMapTo(HashSet()) { it.products }
+                val kept = listenerGrants.applySnapshot(full.since, listed)
                 owned.clear()
                 owned += granted
-                owned += listenerGrants.keys
+                owned += kept.kept
                 pending.clear()
                 pending += pendingNow
+                recheck = kept.unconfirmed.isNotEmpty()
             } else {
-                sequence++
-                granted.forEach { listenerGrants[it] = sequence }
+                listenerGrants.note(granted)
                 owned += granted
                 pending -= granted
                 pending += pendingNow
+                // A full answer applied while this grant was verifying may not list it.
+                recheck = granted.isNotEmpty() && appliedGeneration != appliedAtStart
             }
             pending -= owned
             // Still checking while a newer full query has not answered yet.
@@ -382,6 +401,9 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
                 clearError = full != null || granted.isNotEmpty(),
             )
         }
+        // After the lock: queryPurchases takes it too. A purchase Play has not listed yet stays
+        // owned for this one extra check; the next snapshot is authoritative.
+        if (recheck) main.post { queryPurchases() }
     }
 
     private class Verdict(val products: Set<String>, val error: String? = null)
@@ -529,8 +551,9 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
 
     /**
      * POSTs one product to `/v1/verify` and expects `{"valid":true,"productId":...}`. True or
-     * false for an answer (HTTP 200, or 400 for a request the server rejects), null when the
-     * server could not say (unreachable, 429 after the retries, 5xx).
+     * false for an answer (HTTP 200 with a readable verdict, or 400 for a request the server
+     * rejects), null when the server could not say (unreachable, 429 after the retries, 5xx,
+     * or an HTTP 200 body that is not the documented JSON).
      */
     private suspend fun verifyOne(endpoint: String, key: ServerKey): Boolean? {
         val body = JSONObject()
@@ -540,10 +563,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
             .toString()
         val answer = postJson(endpoint, body)
         return when (answer.code) {
-            HttpURLConnection.HTTP_OK -> {
-                val json = runCatching { JSONObject(answer.body) }.getOrNull() ?: return false
-                json.optBoolean("valid", false) && json.optString("productId") == key.productId
-            }
+            HttpURLConnection.HTTP_OK -> LicenseServer.bodyVerdict(answer.body, key.productId)
             HttpURLConnection.HTTP_BAD_REQUEST, CODE_BAD_URL -> false
             else -> null
         }

@@ -52,4 +52,116 @@ object LicenseServer {
         reason == "provider_unavailable" || reason == "internal_error" -> null
         else -> false
     }
+
+    /**
+     * One `/v1/verify` body: the same yes / no / unknown split as [itemVerdict]. A body that is
+     * not a flat JSON object, or that has no boolean `valid` field, is unknown. Treating that as
+     * "not purchased" would drop a paid pack when a proxy or a glitch returned HTTP 200 with
+     * something other than the documented answer, and it would skip the Play-signature fallback.
+     *
+     * The documented body is a flat object (`valid`, `productId`, `reason`, `orderId`). Nested
+     * values are treated as unknown rather than guessed.
+     */
+    fun bodyVerdict(body: String, requestedProductId: String): Boolean? {
+        val fields = parseFlatObject(body) ?: return null
+        val valid = fields["valid"] as? Boolean ?: return null
+        // The server always names the product of a yes and the reason for a no; a reply missing
+        // the one its verdict needs is not the documented answer, so it is unknown.
+        val productId = fields["productId"] as? String
+        val reason = fields["reason"] as? String
+        if (valid && productId == null || !valid && reason == null) return null
+        return itemVerdict(valid, productId, reason, requestedProductId)
+    }
+
+    /**
+     * Strictly parses one flat JSON object whose values are strings, booleans, numbers or null.
+     * Returns null for anything else: nesting, trailing garbage, a duplicate key, a bad escape.
+     * Numbers are kept as [JsonNumber], never as strings; only `valid`, `productId` and `reason` are read.
+     */
+    internal fun parseFlatObject(body: String): Map<String, Any?>? {
+        val p = FlatParser(body)
+        return try { p.parse() } catch (_: IllegalArgumentException) { null }
+    }
+
+    private class FlatParser(private val s: String) {
+        private var i = 0
+
+        fun parse(): Map<String, Any?> {
+            val out = LinkedHashMap<String, Any?>()
+            skipWs(); expect('{'); skipWs()
+            if (peek() == '}') { i++ } else {
+                while (true) {
+                    skipWs()
+                    val key = string()
+                    require(key !in out)
+                    skipWs(); expect(':'); skipWs()
+                    out[key] = value()
+                    skipWs()
+                    when (next()) {
+                        ',' -> continue
+                        '}' -> break
+                        else -> throw IllegalArgumentException()
+                    }
+                }
+            }
+            skipWs()
+            require(i == s.length)
+            return out
+        }
+
+        private fun value(): Any? = when (peek()) {
+            '"' -> string()
+            't' -> literal("true", true)
+            'f' -> literal("false", false)
+            'n' -> literal("null", null)
+            else -> number()
+        }
+
+        private fun literal(word: String, v: Any?): Any? {
+            require(s.startsWith(word, i)); i += word.length; return v
+        }
+
+        private fun number(): JsonNumber {
+            val m = NUMBER.find(s, i)?.takeIf { it.range.first == i } ?: throw IllegalArgumentException()
+            i += m.value.length
+            return JsonNumber(m.value)
+        }
+
+        private fun string(): String {
+            expect('"')
+            val sb = StringBuilder()
+            while (true) {
+                val c = next()
+                when {
+                    c == '"' -> return sb.toString()
+                    c == '\\' -> when (val e = next()) {
+                        '"', '\\', '/' -> sb.append(e)
+                        'b' -> sb.append('\b')
+                        'f' -> sb.append('\u000C')
+                        'n' -> sb.append('\n')
+                        'r' -> sb.append('\r')
+                        't' -> sb.append('\t')
+                        'u' -> {
+                            require(i + 4 <= s.length && s.substring(i, i + 4).all { it in HEX })
+                            sb.append(s.substring(i, i + 4).toInt(16).toChar()); i += 4
+                        }
+                        else -> throw IllegalArgumentException()
+                    }
+                    c < ' ' -> throw IllegalArgumentException()
+                    else -> sb.append(c)
+                }
+            }
+        }
+
+        private fun skipWs() { while (i < s.length && s[i] in " \t\r\n") i++ }
+        private fun peek(): Char { require(i < s.length); return s[i] }
+        private fun next(): Char { require(i < s.length); return s[i++] }
+        private fun expect(c: Char) { require(next() == c) }
+    }
+
+    /** A JSON number, kept as its text so it can never pass for a string field. */
+    internal data class JsonNumber(val text: String)
+
+    private const val HEX = "0123456789abcdefABCDEF"
+    private val NUMBER = Regex("""-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?""")
 }
