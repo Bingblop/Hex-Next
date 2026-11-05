@@ -143,12 +143,16 @@
   },
   "colorGroupPackages": {
     "com.samsung.android.honeyboard": "keyboard",
+    "com.sec.android.app.popupcalculator": "calculator",
+    "com.sec.android.gallery3d": "gallery",
     "com.samsung.android.dialer": "dialer",
     "com.samsung.android.incallui": "dialer",
     "com.samsung.android.app.aodservice": "aod",
     "com.android.systemui": "systemui"
   },
   "colorGroupFamilies": {
+    "gallery": {"exact": {"accent_container": ["bottom_menu_list_circle_bg_color"]}},
+    "calculator": {"exact": {"accent": ["calc_keypad_operation_button_bg", "keypad_equal_bg", "keypad_equal_scientific_bg"], "on_accent": ["keypad_operation", "keypad_equal"]}},
     "keyboard": {
       "groups": {
         "keyboard_key": [

@@ -50,6 +50,14 @@ public enum class ColorGroup(
     ICON_TINT("icon_tint", "Icon tint", "Tinted vector icons in toolbars and lists", ColorGroupSection.TEXT_AND_ICONS, PaletteRole.ACCENT2, 600, 200),
     SWITCH("switch", "Switches and toggles", "Switch thumbs and tracks, checkboxes, radio buttons", ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 600, 300),
     BUTTON("button", "Buttons", "Filled and text buttons", ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 600, 200),
+    ACCENT_CONTAINER(
+        "accent_container", "Accent buttons", "Round buttons filled with a soft accent (Gallery menu); icons on them keep their own colour",
+        ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 100, 700,
+    ),
+    ON_ACCENT(
+        "on_accent", "Text on accent keys", "Symbols and labels on accent-coloured keys (Calculator operators and =)",
+        ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 0, 900, contrastOn = ACCENT,
+    ),
     SLIDER("slider", "Brightness and volume sliders", "Seek bars, brightness and volume sliders", ColorGroupSection.CONTROLS, PaletteRole.ACCENT1, 500, 300),
     QS_PANEL_BG("qs_panel_bg", "Quick panel background", "Quick panel and expanded detail backdrop", ColorGroupSection.QUICK_PANEL, PaletteRole.NEUTRAL1, 100, 900, quickSettings = true),
     QS_TILE_ACTIVE("qs_tile_active", "Quick panel tiles: on", "Tiles that are switched on", ColorGroupSection.QUICK_PANEL, PaletteRole.ACCENT1, 500, 300, quickSettings = true),
