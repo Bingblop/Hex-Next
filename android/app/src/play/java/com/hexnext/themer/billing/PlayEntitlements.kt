@@ -38,7 +38,8 @@ import java.net.URL
 
 /**
  * Play Billing (library 8.x) for the one-time pack unlocks: one INAPP product per pack
- * ([ProductIds.forPack]) and [ProductIds.ALL_PACKS], which also covers packs added later. A
+ * ([ProductIds.forPack]), [ProductIds.ALL_PACKS], which also covers packs added later, and
+ * [ProductIds.AI_LIFETIME] for AI theme creation. A
  * product of a pack's former catalogue id ([ProductIds.allForPack]) still unlocks that pack.
  *
  * Entitlements are recomputed from `queryPurchasesAsync` on every start, refresh and resume, so
@@ -253,7 +254,7 @@ class PlayEntitlements(private val context: Context) : PackEntitlements {
         // Each pack's current product and the products of its former catalogue ids
         // (ProductIds.allForPack), so a pack bought before it was renamed still shows its price.
         val ids = synchronized(lock) { catalogueIds.flatMapTo(LinkedHashSet()) { ProductIds.allForPack(it) } }
-        ids.add(ProductIds.ALL_PACKS)
+        ids.addAll(ProductIds.ONE_TIME_EXTRAS)
         ids.chunked(PRODUCTS_PER_QUERY).forEach { chunk ->
             val params = QueryProductDetailsParams.newBuilder()
                 .setProductList(

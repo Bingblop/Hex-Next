@@ -46,6 +46,7 @@ import com.hexnext.themer.billing.EntitlementsProvider
 import com.hexnext.themer.billing.OfficialPacks
 import com.hexnext.themer.billing.PackAccess
 import com.hexnext.themer.billing.ProductIds
+import com.hexnext.themer.billing.PaidFeature
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.device.RootTools
 import com.hexnext.themer.safety.ApplyGuard
@@ -1911,7 +1912,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     // ---- Pack unlocks ----
 
-    /** Starts the store purchase of [productId] ([ProductIds.forPack] or [ProductIds.ALL_PACKS]). */
+    /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS] or [ProductIds.AI_LIFETIME]). */
     fun unlock(activity: Activity, productId: String) {
         if (!entitlements.canPurchase) return
         entitlements.launchPurchase(activity, productId)
@@ -1971,20 +1972,26 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         }
         if (!before.ready) return
         val newlyOwned = state.ownedProductIds - before.ownedProductIds
+        val aiNow = state.unlocks(PaidFeature.AI_CREATION)
         when {
             state.unlockAll && !before.unlockAll -> postNotice(Notice("All packs unlocked. Thank you!", isSuccess = true))
+            aiNow && !before.unlocks(PaidFeature.AI_CREATION) ->
+                postNotice(Notice("AI theme creation unlocked. Thank you!", isSuccess = true))
             newlyOwned.isNotEmpty() -> {
                 val names = newlyOwned.map { productId -> productName(productId) }
                 log(LogLine(LogLevel.OK, "Unlocked ${names.joinToString()}"))
                 postNotice(Notice("${names.joinToString()} unlocked. Thank you!", isSuccess = true))
             }
             (state.pendingProductIds - before.pendingProductIds).isNotEmpty() ->
-                postNotice(Notice("Payment pending. The pack unlocks once Google Play confirms it"))
+                postNotice(Notice("Payment pending. It unlocks once Google Play confirms it"))
         }
     }
 
     private fun productName(productId: String): String {
-        if (productId == ProductIds.ALL_PACKS) return "All packs"
+        when (productId) {
+            ProductIds.ALL_PACKS -> return "All packs"
+            ProductIds.AI_LIFETIME -> return "AI theme creation"
+        }
         val state = _ui.value
         // allForPack also matches a purchase made under a former product id, so the user sees
         // the pack's current name instead of the raw id.

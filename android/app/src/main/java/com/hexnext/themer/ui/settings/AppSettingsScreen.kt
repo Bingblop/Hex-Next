@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.billing.EntitlementState
+import com.hexnext.themer.billing.PaidFeature
+import com.hexnext.themer.billing.ProductIds
 import com.hexnext.themer.device.CompatibilityCheck
 import com.hexnext.themer.theme.parseHexColor
 import com.hexnext.themer.theme.toHex
@@ -375,20 +377,27 @@ private fun BehaviourCard(settings: AppSettings, store: AppSettingsStore) {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Theme packs are one-time purchases on Google Play. "Restore purchases" reads them from Play
- * again, for a new phone, a reinstall or a purchase made on another device.
+ * Theme packs and AI theme creation are one-time purchases on Google Play. "Restore purchases"
+ * reads them from Play again, for a new phone, a reinstall or a purchase made on another device.
  */
 @Composable
 private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
     val error = purchases.error
+    val packCount = purchases.ownedProductIds.count { it.startsWith(ProductIds.PACK_PREFIX) }
     val status = when {
         purchases.checking -> "Checking your purchases with Google Play…"
         error != null -> error
         !purchases.ready -> "Your purchases have not been checked yet."
         purchases.unlockAll -> "All packs are unlocked, including packs added later."
-        purchases.ownedProductIds.isEmpty() -> "No packs unlocked yet. Unlock packs in Skins."
-        purchases.ownedProductIds.size == 1 -> "1 pack unlocked."
-        else -> "${purchases.ownedProductIds.size} packs unlocked."
+        packCount == 0 -> "No packs unlocked yet. Unlock packs in Skins."
+        packCount == 1 -> "1 pack unlocked."
+        else -> "$packCount packs unlocked."
+    }
+    val ai = when {
+        !purchases.ready -> null
+        purchases.unlocks(PaidFeature.AI_CREATION) -> "AI theme creation: unlocked forever."
+        purchases.isPending(PaidFeature.AI_CREATION) -> "AI theme creation: payment pending."
+        else -> "AI theme creation: locked. Unlock it from Describe your theme on the Studio tab."
     }
     SectionCard("Purchases") {
         Text(
@@ -396,9 +405,12 @@ private fun PurchasesCard(purchases: EntitlementState, onRestore: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = if (error != null && !purchases.checking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        ai?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         NavRow(
             title = "Restore purchases",
-            summary = "Unlock packs you bought before on this Google account.",
+            summary = "Unlock packs and AI theme creation you bought before on this Google account.",
             onClick = onRestore,
         )
     }

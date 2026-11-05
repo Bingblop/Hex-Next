@@ -80,6 +80,9 @@ import com.hexnext.themer.ui.PackLocks
 import com.hexnext.themer.ui.Screen
 import com.hexnext.themer.ui.UiState
 import com.hexnext.themer.ui.ai.DescribeThemeCard
+import com.hexnext.themer.ui.ai.DescribeThemeModel
+import com.hexnext.engine.compile.ThemeSpec
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hexnext.themer.ui.findActivity
 import com.hexnext.themer.ui.preview.PhonePreview
 
@@ -356,7 +359,14 @@ private fun PreviewSheet(preview: PreviewModel, onElementTap: (ColorGroup) -> Un
  * "Describe your theme" (unlocked packs only). From 840 dp the phone sits left, the rest right.
  */
 @Composable
-internal fun StudioPage(viewModel: MainViewModel, ui: UiState, preview: PreviewModel, onElementTap: (ColorGroup) -> Unit, wide: Boolean) {
+internal fun StudioPage(
+    viewModel: MainViewModel,
+    ui: UiState,
+    preview: PreviewModel,
+    onElementTap: (ColorGroup) -> Unit,
+    wide: Boolean,
+    applyBlockedReason: String?,
+) {
     // "Describe your theme" may only pick packs this install can apply.
     val unlockedPacks = remember(ui.packs, ui.entitlement, ui.bundledPackIds, ui.officialPackIds) { ui.packs.filter { ui.isPackUnlocked(it.id) } }
     val phoneCard: @Composable () -> Unit = {
@@ -369,17 +379,31 @@ internal fun StudioPage(viewModel: MainViewModel, ui: UiState, preview: PreviewM
             PreviewScanNote(preview.state, preview.onScan)
         }
     }
+    // While the AI chat is open on a phone-width screen, the phone moves into the chat card, so
+    // there is one preview with the chat right under it. Wide screens keep the phone beside it.
+    val aiChat: DescribeThemeModel = viewModel()
+    val phoneInChat = !wide && aiChat.suggestion != null
+    val putInEditor: (ThemeSpec) -> Unit = { newSpec ->
+        // The apply path reads the seed from the preference, so both must move.
+        viewModel.setSeed(newSpec.source.seedArgb)
+        viewModel.replaceSpec(newSpec)
+    }
     val describe: @Composable () -> Unit = {
         DescribeThemeCard(
             packs = unlockedPacks,
             spec = ui.spec,
             busy = ui.busy,
-            onApply = { _, newSpec ->
-                // The apply path reads the seed from the preference, so both must move.
-                viewModel.setSeed(newSpec.source.seedArgb)
-                viewModel.replaceSpec(newSpec)
-            },
+            onApply = { _, newSpec -> putInEditor(newSpec) },
             onOpenProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
+            onRestore = putInEditor,
+            livePreview = if (phoneInChat) {
+                {
+                    FullPhone(preview, onElementTap)
+                    PreviewScanNote(preview.state, preview.onScan)
+                }
+            } else null,
+            onApplyTheme = viewModel::applyTheme,
+            applyBlockedReason = applyBlockedReason,
         )
     }
     val listState = rememberLazyListState()
@@ -411,7 +435,7 @@ internal fun StudioPage(viewModel: MainViewModel, ui: UiState, preview: PreviewM
             contentPadding = PAGE_PADDING,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(key = "phone") { phoneCard() }
+            if (!phoneInChat) item(key = "phone") { phoneCard() }
             item(key = "describe") { describe() }
         }
     }

@@ -55,6 +55,55 @@ object ThemeSuggester {
             parse(provider.complete(SYSTEM_PROMPT, text, apiKey))
         }
 
+    /**
+     * Changes [current] as [request] asks ("warmer", "less green", "make it dark"). The model gets
+     * the original description, the earlier changes in order and the current theme as JSON, and
+     * answers with the whole theme again, so anything the request does not mention stays as it
+     * was. Providers are single-turn, so the conversation travels in the user message.
+     * Throws [AiProviderException].
+     */
+    suspend fun refine(
+        keys: AiKeyStore,
+        provider: TextProvider,
+        original: String,
+        earlierChanges: List<String>,
+        current: ThemeSuggestion,
+        request: String,
+    ): ThemeSuggestion = withContext(Dispatchers.IO) {
+        val apiKey = keys.get(provider.id) ?: throw AiProviderException("No key for ${provider.displayName}. Add one in Settings > AI providers.")
+        val change = request.trim()
+        if (change.isEmpty()) throw AiProviderException("Say what to change first.")
+        parse(provider.complete(SYSTEM_PROMPT, refinePrompt(original, earlierChanges, current, change), apiKey))
+    }
+
+    /** The user message of [refine]; separate for tests. */
+    fun refinePrompt(original: String, earlierChanges: List<String>, current: ThemeSuggestion, request: String): String = buildString {
+        append("Original description: ").append(original.trim().take(MAX_TEXT)).append('\n')
+        val earlier = earlierChanges.map { it.trim().take(MAX_TEXT) }.filter { it.isNotEmpty() }.takeLast(MAX_HISTORY)
+        if (earlier.isNotEmpty()) {
+            append("Changes already made, in order:\n")
+            earlier.forEach { append("- ").append(it).append('\n') }
+        }
+        append("Current theme: ").append(toJson(current)).append('\n')
+        append("Change the current theme as follows and keep everything this does not mention: ")
+        append(request.trim().take(MAX_TEXT)).append('\n')
+        append("Answer with the complete theme in the same JSON format.")
+    }
+
+    /** [suggestion] in the reply format of [SYSTEM_PROMPT]. */
+    fun toJson(suggestion: ThemeSuggestion): String = JsonObject(
+        mapOf(
+            "name" to JsonPrimitive(suggestion.name),
+            "seed" to JsonPrimitive(hex(suggestion.seedArgb)),
+            "accents" to JsonArray(suggestion.accents.map { JsonPrimitive(hex(it)) }),
+            "mode" to JsonPrimitive(suggestion.mode),
+            "packStyle" to JsonPrimitive(suggestion.packStyle),
+            "notes" to JsonPrimitive(suggestion.notes),
+        ),
+    ).toString()
+
+    private fun hex(argb: Int): String = String.format("#%06X", argb and 0xFFFFFF)
+
     /** Parses a model reply (fences and surrounding prose tolerated). Throws [AiProviderException]. */
     fun parse(reply: String): ThemeSuggestion {
         val root = try {
@@ -157,5 +206,7 @@ object ThemeSuggester {
 
     private val MODES = setOf("light", "dark", "system")
     private const val MAX_ACCENTS = 6
+    private const val MAX_TEXT = 300
+    private const val MAX_HISTORY = 8
     private const val OPAQUE: Int = 0xFF000000.toInt()
 }

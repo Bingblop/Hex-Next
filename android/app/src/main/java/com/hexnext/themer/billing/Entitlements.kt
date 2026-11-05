@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Shared code only talks to this interface. Each store flavor provides its own
  * [EntitlementsFactory] (src/play and src/owner), so flavor-specific unlock logic never reaches
  * the other build. Free features (default theme, custom colours, custom icons, fonts and
- * backgrounds, AI) are never gated by it.
+ * backgrounds) are never gated by it. AI creation is a [PaidFeature] ([EntitlementState.unlocks]).
  */
 interface PackEntitlements {
     val state: StateFlow<EntitlementState>
@@ -49,6 +49,8 @@ data class EntitlementState(
     val error: String? = null,
     /** Verified, owned product ids of this app run; recomputed from the store on every start. */
     val ownedProductIds: Set<String> = emptySet(),
+    /** True when this build unlocks every [PaidFeature] without a purchase (the owner build only). */
+    val allFeatures: Boolean = false,
     /** Product ids whose payment is still pending; they are not unlocked. */
     val pendingProductIds: Set<String> = emptySet(),
     /**
@@ -69,7 +71,15 @@ data class EntitlementState(
     fun looksUnlocked(packId: String): Boolean = unlocks(packId) ||
         (!ready && (ProductIds.ALL_PACKS in cachedProductIds || ProductIds.allForPack(packId).any { it in cachedProductIds }))
 
-    /** A pending "Unlock all packs" counts for every pack, as it will unlock them all. */
+    /** True when [feature] may be used: a verified purchase of [PaidFeature.productId], or [allFeatures]. */
+    fun unlocks(feature: PaidFeature): Boolean = allFeatures || feature.productId in ownedProductIds
+
+    /** [unlocks], or before [ready] the [cachedProductIds] hint: for display only. */
+    fun looksUnlocked(feature: PaidFeature): Boolean = unlocks(feature) || (!ready && feature.productId in cachedProductIds)
+
+    fun isPending(feature: PaidFeature): Boolean = feature.productId in pendingProductIds
+
+    /** A pending purchase of the pack itself, or of "Unlock all packs", which will cover it. */
     fun isPending(packId: String): Boolean =
         ProductIds.ALL_PACKS in pendingProductIds || ProductIds.allForPack(packId).any { it in pendingProductIds }
 
@@ -80,14 +90,29 @@ data class EntitlementState(
     fun priceOf(packId: String): String? = ProductIds.allForPack(packId).firstNotNullOfOrNull { prices[it] }
 }
 
+/** A paid app feature (not a pack), unlocked forever by one one-time product. */
+enum class PaidFeature(val productId: String) {
+    /** "Describe your theme" and AI icon generation with the user's own AI key. */
+    AI_CREATION(ProductIds.AI_LIFETIME),
+}
+
 object ProductIds {
-    /** One-time unlock of every pack, including packs added later. */
+    /** One-time unlock of every pack, including packs added later. Not AI. */
     const val ALL_PACKS = "all_packs"
+
+    /** One-time, forever unlock of [PaidFeature.AI_CREATION]. */
+    const val AI_LIFETIME = "ai_lifetime"
+
+    /** The one-time products that are not packs. */
+    val ONE_TIME_EXTRAS: List<String> = listOf(ALL_PACKS, AI_LIFETIME)
 
     private val disallowed = Regex("[^a-z0-9._]")
 
+    /** The prefix of every per-pack product id ([forPack]). */
+    const val PACK_PREFIX = "pack_"
+
     /** "pack_" + the pack id lowercased, with every character outside [a-z0-9._] replaced by '_'. */
-    fun forPack(packId: String): String = "pack_" + packId.lowercase().replace(disallowed, "_")
+    fun forPack(packId: String): String = PACK_PREFIX + packId.lowercase().replace(disallowed, "_")
 
     /**
      * Every product that unlocks pack [packId]: [forPack] of its current id first (what a new

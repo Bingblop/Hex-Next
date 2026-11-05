@@ -127,7 +127,18 @@ Release signing applies to both. Gradle tasks carry the flavor: `testPlayDebugUn
 Every theme pack is a one-time Play purchase (product id `pack_<id>`, the pack id lowercased with
 anything outside `[a-z0-9._]` turned into `_`), plus `all_packs`, which also covers packs added
 later. Prices come from Play (formatted), never from the code. Free features (default theme,
-custom colours, icons, fonts, backgrounds, AI) are never gated.
+custom colours, icons, fonts, backgrounds) are never gated.
+
+AI theme creation ("Describe your theme" and AI icon generation, both with the user's own AI key)
+is the paid feature `PaidFeature.AI_CREATION`, unlocked forever by the one-time product
+`ai_lifetime` ($4.99). There is no subscription. `all_packs` ($19.99, every current and future
+pack) does not unlock AI, and `ai_lifetime` unlocks no pack. A new paid feature only needs an enum
+entry (with its product id) and its UI gate. The gate is `ui/ai/AiPaywall.kt`: the Describe card
+and the icon sheet show the paywall instead of the prompt, and both request models re-check
+`unlocks(PaidFeature.AI_CREATION)` right before calling the provider, so a refund takes effect at
+once. `PlayEntitlements` loads `ProductIds.ONE_TIME_EXTRAS` (`all_packs`, `ai_lifetime`) next to
+the pack ids, and the license server verifies `ai_lifetime` like any other one-time product.
+App settings → Purchases shows the AI status. The owner build sets `EntitlementState.allFeatures`.
 
 Shared code only sees `billing/Entitlements.kt` (`PackEntitlements`, `EntitlementState`,
 `ProductIds`) and calls `EntitlementsFactory.create(context)`, which each flavor defines in its
