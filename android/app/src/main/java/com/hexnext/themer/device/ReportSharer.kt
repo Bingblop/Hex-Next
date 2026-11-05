@@ -13,11 +13,11 @@ object ReportSharer {
     fun authority(context: Context): String = "${context.packageName}.files"
 
     /** Returns false when the file is missing or outside the provider's paths. */
-    fun share(context: Context, file: File): Boolean {
+    fun share(context: Context, file: File, mime: String = if (file.extension == "zip") "application/zip" else "text/plain"): Boolean {
         if (!file.isFile) return false
         val uri = runCatching { FileProvider.getUriForFile(context, authority(context), file) }.getOrNull() ?: return false
         val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
+            type = mime
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "Hex Next ${file.name}")
             clipData = ClipData.newRawUri(file.name, uri)

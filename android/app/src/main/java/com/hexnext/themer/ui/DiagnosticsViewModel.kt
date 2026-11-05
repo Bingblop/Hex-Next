@@ -9,6 +9,7 @@ import com.hexnext.themer.ServiceTasks
 import com.hexnext.themer.overlay.BuildResult
 import com.hexnext.themer.overlay.OverlayBuilder
 import com.hexnext.themer.overlay.SettingsTestOverlay
+import com.hexnext.themer.device.BetaBundle
 import com.hexnext.themer.device.DeviceReport
 import com.hexnext.themer.device.DeviceScanner
 import com.hexnext.themer.safety.ApplyGuard
@@ -106,6 +107,15 @@ class DiagnosticsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun noteShareFailed(file: File?) =
         log(LogLevel.ERROR, if (file == null) "Nothing to share yet." else "Could not share ${file.path}.")
+
+    /** Writes the beta tester bundle ([BetaBundle]) off the main thread and hands it to [onReady]. */
+    fun createBetaBundle(onReady: (File?) -> Unit) {
+        viewModelScope.launch {
+            val file = withContext(Dispatchers.IO) { BetaBundle.create(getApplication()) }
+            if (file == null) log(LogLevel.ERROR, "Could not create the beta report.")
+            onReady(file)
+        }
+    }
 
     fun runScan() = runTask("Scan") { service, ready ->
         val report = scanner.scan(service, ready.viaSu) { step -> _state.update { it.copy(progress = step) } }

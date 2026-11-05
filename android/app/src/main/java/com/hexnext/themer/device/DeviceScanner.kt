@@ -8,6 +8,7 @@ import com.hexnext.engine.arsc.ArscReadOptions
 import com.hexnext.engine.arsc.ArscReader as EngineArscReader
 import com.hexnext.engine.arsc.ResourceValue
 import com.hexnext.engine.compile.Dimens
+import com.hexnext.engine.compile.OneUiRules
 import com.hexnext.engine.compile.ValuePlanner
 import com.hexnext.engine.device.OneUi9Facts
 import com.hexnext.engine.device.OverlayDump
@@ -56,17 +57,29 @@ class DeviceScanner(context: Context) {
         val errors = ArrayList<String>()
         val uid = runCatching { service.uid }.getOrElse { errors.add("getUid: ${it.message}"); -1 }
 
-        progress("Reading package status and device props…")
-        val info = service.packageInfo(TARGETS.map { it.pkg }.toTypedArray())
-        if (info.code() != 0) errors.add("packageInfo: ${info.output()}")
-        val props = ThemeService.DEVICE_PROPS.associateWith { info.getString(it).orEmpty() }
-        val basePackages = parsePackages(info, errors)
-
         progress("Listing overlays…")
         val overlayBundle = service.listOverlays()
         if (overlayBundle.code() != 0) errors.add("listOverlays: ${overlayBundle.output()}")
         val overlays = parseOverlays(overlayBundle, errors)
         val frroPaths = overlayBundle.getStringArray(ThemeService.KEY_FRRO_PATHS)?.toList().orEmpty()
+
+        // Every app the apply can theme gets its full resource table (colours and drawables), not
+        // just the base list: an app known only from its SemWT copy had colour names but no
+        // drawable names, so the pack's switches, checkboxes and dialog art never reached it
+        // (Samsung Health, Cloud, Camera, Bixby, Voice Recorder, Internet, device lab 035).
+        val knownSemWt = File(filesDir, KNOWN_SEMWT_DIR).listFiles { f -> f.isFile && f.name.endsWith(".txt") }
+            ?.map { it.name.removeSuffix(".txt") }.orEmpty().filter { it.contains('.') && !it.startsWith("SemWT_") }
+        val scanPackages = (
+            TARGETS.map { it.pkg } + RULE_TARGETS +
+                overlays.filter { it.isSamsungWallpaperTheme }.mapNotNull { OneUi9Facts.semWtTarget(it.overlayId) } +
+                knownSemWt
+            ).filter { PACKAGE_NAME.matches(it) }.distinct()
+
+        progress("Reading package status and device props…")
+        val info = service.packageInfo(scanPackages.toTypedArray())
+        if (info.code() != 0) errors.add("packageInfo: ${info.output()}")
+        val props = ThemeService.DEVICE_PROPS.associateWith { info.getString(it).orEmpty() }
+        val basePackages = parsePackages(info, scanPackages, errors)
 
         // A scan whose basic service calls failed must not replace the last good one: the swap
         // below deletes the previous files/scan, and the broken report would become the latest.
@@ -216,7 +229,7 @@ class DeviceScanner(context: Context) {
         }
     }
 
-    private fun parsePackages(info: Bundle, errors: MutableList<String>): List<PackageStatus> {
+    private fun parsePackages(info: Bundle, packages: List<String>, errors: MutableList<String>): List<PackageStatus> {
         val byPkg = HashMap<String, PackageStatus>()
         runCatching {
             val array = JSONArray(info.getString(ThemeService.KEY_JSON) ?: "[]")
@@ -233,9 +246,15 @@ class DeviceScanner(context: Context) {
                 )
             }
         }.onFailure { errors.add("packageInfo json: ${it.message}") }
-        return TARGETS.map { t ->
-            (byPkg[t.pkg] ?: PackageStatus(t.pkg, t.deprecated, null, installed = false, debloated = false, error = "no data"))
-                .copy(deprecated = t.deprecated)
+        val deprecated = TARGETS.filter { it.deprecated }.map { it.pkg }.toSet()
+        // The base targets always appear (installed or not); other apps only when installed.
+        val base = TARGETS.map { it.pkg }.toSet()
+        return packages.mapNotNull { pkg ->
+            val status = byPkg[pkg]
+            if (status == null && pkg !in base) return@mapNotNull null
+            if (status != null && !status.installed && pkg !in base) return@mapNotNull null
+            (status ?: PackageStatus(pkg, pkg in deprecated, null, installed = false, debloated = false, error = "no data"))
+                .copy(deprecated = pkg in deprecated)
         }
     }
 
@@ -640,6 +659,11 @@ class DeviceScanner(context: Context) {
 
         /** Scan reports kept in `files/reports/`; older ones are deleted after each scan. */
         private const val KEEP_REPORTS = 10
+
+        /** Every target of the bundled One UI 7, 8 and 9 rules (a package list; missing ones are skipped). */
+        private val RULE_TARGETS: List<String> by lazy {
+            listOf(7, 8, 9).flatMap { runCatching { OneUiRules.load(it).activeTargets }.getOrDefault(emptyList()) }.distinct()
+        }
 
         /** One UI targets the scan always checks. */
         val TARGETS = listOf(

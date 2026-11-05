@@ -52,7 +52,7 @@ internal data class PackLocks(
     fun singlePrice(id: String): String = price(id) ?: PackPricing.SINGLE_LABEL
 
     /** True when "Unlock all packs" is on offer: a store build without it. */
-    val offerUnlockAll: Boolean get() = canPurchase && !entitlement.unlockAll && !entitlement.everything
+    val offerUnlockAll: Boolean get() = canPurchase && !entitlement.unlockAll
 
     /**
      * True when some catalogue pack is still locked, so "Unlock all packs" belongs above the

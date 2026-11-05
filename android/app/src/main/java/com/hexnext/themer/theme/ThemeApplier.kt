@@ -211,6 +211,7 @@ class ThemeApplier(context: Context) {
             )
         }
         val owner = if (uid == 1000) ThemeService.SYSTEM_OWNER else ThemeService.SHELL_OWNER
+        if (uid == 0 || uid == 1000) clearOtherOwner(service, owner) { level, text -> say(level, text, emptyMap()) }
         compiled.events.forEach { e -> buildLog.write(e.level.name, e.target, e.message, e.data) }
         packs.errors.forEach { (file, why) -> note(LogLevel.WARN, "Pack $file unreadable: $why") }
         val drawableCount = compiled.targets.sumOf { it.drawables.size }
@@ -962,6 +963,23 @@ class ThemeApplier(context: Context) {
             )
         }
         return if (retired.isEmpty()) semwt else semwt.without(retired, System.currentTimeMillis())
+    }
+
+    /**
+     * Hex overlays an earlier apply made under the other owner (root and Shizuku make them as
+     * `com.android.shell`, system mode as `android`): removed before this apply, so no app carries
+     * two Hex overlays. The shell-owned ones One UI drops at boot anyway (device lab, lab 029).
+     */
+    private fun clearOtherOwner(service: IThemeService, owner: String, say: (LogLevel, String) -> Unit) {
+        val other = if (owner == ThemeService.SYSTEM_OWNER) ThemeService.SHELL_OWNER else ThemeService.SYSTEM_OWNER
+        val stale = SemWtController.listOverlays(service).filter { it.overlayId.startsWith("$other:${ThemeService.HEX_PREFIX}") }
+        if (stale.isEmpty()) return
+        var removed = 0
+        for (entry in stale) if (service.removeOverlay(entry.overlayId).code() == 0) removed++
+        say(
+            if (removed == stale.size) LogLevel.INFO else LogLevel.WARN,
+            "Removed $removed of ${stale.size} Hex Next overlays an earlier apply made as $other",
+        )
     }
 
     /**

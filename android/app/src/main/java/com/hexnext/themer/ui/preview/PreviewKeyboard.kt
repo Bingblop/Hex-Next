@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
@@ -120,23 +123,20 @@ private fun KeyboardArea(scope: PreviewScope) {
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        // Toolbar: tool icons and word suggestions.
+        // Toolbar as the phone shows it over an empty field: tools spread across, More at the end.
         Row(
             Modifier
                 .fillMaxWidth()
                 .height(26.dp)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            ToolIcon(Icons.Filled.Face, board, scope)
-            Spacer(Modifier.width(10.dp))
-            for (word in listOf("Sounds", "great", "good")) {
-                GroupText(word, ColorGroup.TEXT_PRIMARY, board, scope, Modifier.weight(1f), size = 11.5.sp, align = TextAlign.Center)
+            for (icon in listOf(Icons.Filled.Settings, Icons.Filled.Edit, Icons.Filled.Face, Icons.Filled.Star, Icons.Filled.List, Icons.Filled.MoreVert)) {
+                ToolIcon(icon, board, scope)
             }
-            ToolIcon(Icons.Filled.Settings, board, scope)
-            Spacer(Modifier.width(8.dp))
-            ToolIcon(Icons.Filled.MoreVert, board, scope)
         }
+        KeyRow { for (c in "1234567890") Key(c.toString(), scope, Modifier.weight(1f)) }
         KeyRow { for (c in KeyRows[0]) Key(c.toString(), scope, Modifier.weight(1f)) }
         KeyRow(Modifier.padding(horizontal = 12.dp)) { for (c in KeyRows[1]) Key(c.toString(), scope, Modifier.weight(1f)) }
         KeyRow {
@@ -160,30 +160,42 @@ private fun KeyRow(modifier: Modifier = Modifier, content: @Composable RowScope.
 }
 
 @Composable
-private fun Key(label: String, scope: PreviewScope, modifier: Modifier = Modifier, size: TextUnit = 13.sp, special: Boolean = false) {
+private fun Key(
+    label: String,
+    scope: PreviewScope,
+    modifier: Modifier = Modifier,
+    size: TextUnit = 13.sp,
+    special: Boolean = false,
+    icon: ImageVector? = null,
+) {
     // Letters and the special keys (Shift, Backspace, symbols, Enter) are separate groups, and the
     // labels on both are the "Keyboard letters" group, as Samsung Keyboard draws them.
     val group = if (special) ColorGroup.KEYBOARD_FUNCTION_KEY else ColorGroup.KEYBOARD_KEY
+    // With pack key art the phone draws it (key_bg) under every key instead of the flat colour.
+    val art = scope.device.keyboardKey?.let { image -> androidx.compose.runtime.remember(image) { NinePatchArt.of(image) } }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
     Box(
         modifier
             .height(36.dp)
-            .fill(group, scope, RoundedCornerShape(8.dp)),
+            .then(
+                if (art != null) Modifier.ninePatch(art, density / 3f * 0.75f).themed(group, scope, RoundedCornerShape(8.dp))
+                else Modifier.fill(group, scope, RoundedCornerShape(8.dp)),
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        PText(label, scope[ColorGroup.KEYBOARD_LABEL], scope, size = size, align = TextAlign.Center)
+        if (icon != null) {
+            // The action key: its icon in the accent over the key art (a filled accent key without art).
+            val tint = if (art != null) scope[ColorGroup.ACCENT] else scope[ColorGroup.KEYBOARD_LABEL]
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        } else {
+            PText(label, scope[ColorGroup.KEYBOARD_LABEL], scope, size = size, align = TextAlign.Center)
+        }
     }
 }
 
 @Composable
 private fun EnterKey(scope: PreviewScope, modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .height(36.dp)
-            .fill(ColorGroup.KEYBOARD_FUNCTION_KEY, scope, RoundedCornerShape(8.dp)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Icons.Filled.Done, contentDescription = null, tint = scope[ColorGroup.KEYBOARD_LABEL], modifier = Modifier.size(18.dp))
-    }
+    Key("", scope, modifier, special = true, icon = Icons.Filled.Search)
 }
 
 @Composable

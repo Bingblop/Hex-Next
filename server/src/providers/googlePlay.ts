@@ -25,29 +25,8 @@ interface ProductPurchase {
   productId?: string;
 }
 
-/**
- * Products sold as auto-renewing subscriptions. They are checked with the subscriptionsv2 API;
- * every other product id is a one-time product. Keep in sync with ProductIds in the app.
- */
-export const SUBSCRIPTION_PRODUCTS: ReadonlySet<string> = new Set(["ai_monthly"]);
-
-/** The fields of Google's SubscriptionPurchaseV2 resource that are used here. */
-interface SubscriptionPurchaseV2 {
-  subscriptionState?: string;
-  latestOrderId?: string;
-  lineItems?: { productId?: string; expiryTime?: string }[];
-}
-
-/** States in which the subscriber keeps access until the line item's expiryTime. */
-const ENTITLED_STATES = new Set([
-  "SUBSCRIPTION_STATE_ACTIVE",
-  "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
-  // Cancelled: auto-renew is off, but the paid period has not ended yet.
-  "SUBSCRIPTION_STATE_CANCELED",
-]);
-
 interface CachedToken {
-  key: string;
+  account: ServiceAccount;
   accessToken: string;
   expiresAt: number;
 }
@@ -62,17 +41,17 @@ export function resetTokenCache(): void {
 
 export const googlePlayProvider: PurchaseProvider = {
   name: "google_play",
+  async prepareBatch(env: Env): Promise<void> {
+    await getAccessToken(parseServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON));
+  },
   async verify(request: VerifyRequest, env: Env): Promise<VerifyResult> {
     const account = parseServiceAccount(env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const accessToken = await getAccessToken(account);
 
-    const subscription = SUBSCRIPTION_PRODUCTS.has(request.productId);
-    const url = subscription
-      ? `${API_BASE}/${encodeURIComponent(request.packageName)}` +
-        `/purchases/subscriptionsv2/tokens/${encodeURIComponent(request.purchaseToken)}`
-      : `${API_BASE}/${encodeURIComponent(request.packageName)}` +
-        `/purchases/products/${encodeURIComponent(request.productId)}` +
-        `/tokens/${encodeURIComponent(request.purchaseToken)}`;
+    const url =
+      `${API_BASE}/${encodeURIComponent(request.packageName)}` +
+      `/purchases/products/${encodeURIComponent(request.productId)}` +
+      `/tokens/${encodeURIComponent(request.purchaseToken)}`;
 
     let response: Response;
     try {
@@ -84,18 +63,21 @@ export const googlePlayProvider: PurchaseProvider = {
     if (response.status === 400 || response.status === 404 || response.status === 410) {
       return { valid: false, reason: "purchase_not_found" };
     }
-    if (response.status === 401) {
+    if (response.status === 401 && cachedToken?.accessToken === accessToken) {
       cachedToken = null;
     }
     if (!response.ok) {
       throw new ProviderUnavailableError(`Google Play API returned ${response.status}`);
     }
 
-    if (subscription) {
-      const purchase = (await response.json()) as SubscriptionPurchaseV2;
-      return interpretSubscription(purchase, request.productId, Date.now());
+    let purchase: ProductPurchase;
+    try {
+      const body: unknown = await response.json();
+      if (typeof body !== "object" || body === null || Array.isArray(body)) throw new Error();
+      purchase = body as ProductPurchase;
+    } catch {
+      throw new ProviderUnavailableError("Google Play API returned invalid JSON");
     }
-    const purchase = (await response.json()) as ProductPurchase;
     return interpretPurchase(purchase, request.productId);
   },
 };
@@ -117,50 +99,17 @@ export function interpretPurchase(purchase: ProductPurchase, productId: string):
   }
 }
 
-/**
- * Maps a SubscriptionPurchaseV2 to a verification result: valid while the subscription is in an
- * entitled state and its line item for [productId] has not expired at [nowMs].
- */
-export function interpretSubscription(
-  purchase: SubscriptionPurchaseV2,
-  productId: string,
-  nowMs: number,
-): VerifyResult {
-  const item = purchase.lineItems?.find((line) => line.productId === productId);
-  if (!item) {
-    return { valid: false, reason: "product_mismatch" };
-  }
-  const state = purchase.subscriptionState ?? "";
-  if (state === "SUBSCRIPTION_STATE_PENDING") {
-    return { valid: false, reason: "purchase_pending" };
-  }
-  if (!ENTITLED_STATES.has(state)) {
-    return { valid: false, reason: "subscription_inactive" };
-  }
-  // ACTIVE and IN_GRACE_PERIOD are entitled whatever expiryTime says: during a grace period the
-  // line item can still carry the unextended billing date, already in the past. A CANCELED
-  // subscription stays paid only until its expiryTime.
-  if (state !== "SUBSCRIPTION_STATE_CANCELED") {
-    return { valid: true, productId, orderId: purchase.latestOrderId ?? "" };
-  }
-  const expiry = item.expiryTime ? Date.parse(item.expiryTime) : NaN;
-  if (!Number.isFinite(expiry) || expiry <= nowMs) {
-    return { valid: false, reason: "subscription_expired" };
-  }
-  return { valid: true, productId, orderId: purchase.latestOrderId ?? "" };
-}
-
 function parseServiceAccount(json: string | undefined): ServiceAccount {
   if (!json) {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON is not set");
   }
-  let parsed: Partial<ServiceAccount>;
+  let parsed: Partial<ServiceAccount> | null;
   try {
     parsed = JSON.parse(json) as Partial<ServiceAccount>;
   } catch {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON");
   }
-  if (typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
+  if (typeof parsed !== "object" || parsed === null || typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
     throw new ProviderUnavailableError("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key");
   }
   return {
@@ -172,7 +121,9 @@ function parseServiceAccount(json: string | undefined): ServiceAccount {
 
 async function getAccessToken(account: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  if (cachedToken && cachedToken.key === account.client_email && cachedToken.expiresAt > now) {
+  if (cachedToken && cachedToken.account.client_email === account.client_email &&
+      cachedToken.account.private_key === account.private_key && cachedToken.account.token_uri === account.token_uri &&
+      cachedToken.expiresAt > now) {
     return cachedToken.accessToken;
   }
 
@@ -196,13 +147,18 @@ async function getAccessToken(account: ServiceAccount): Promise<string> {
     throw new ProviderUnavailableError(`Google OAuth returned ${response.status}`);
   }
 
-  const body = (await response.json()) as { access_token?: string; expires_in?: number };
-  if (typeof body.access_token !== "string") {
+  let body: { access_token?: string; expires_in?: number } | null;
+  try {
+    body = await response.json() as typeof body;
+  } catch {
+    throw new ProviderUnavailableError("Google OAuth returned invalid JSON");
+  }
+  if (!body || typeof body.access_token !== "string" || !body.access_token) {
     throw new ProviderUnavailableError("Google OAuth response lacks access_token");
   }
   const lifetime = typeof body.expires_in === "number" ? body.expires_in : 3600;
   cachedToken = {
-    key: account.client_email,
+    account,
     accessToken: body.access_token,
     expiresAt: now + Math.max(0, lifetime - EXPIRY_MARGIN_SECONDS),
   };

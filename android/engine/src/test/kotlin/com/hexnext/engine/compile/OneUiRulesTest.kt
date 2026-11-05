@@ -16,6 +16,8 @@ class OneUiRulesTest {
         "com.sec.android.app.clockpackage", "com.sec.android.app.popupcalculator", "com.samsung.android.calendar",
         "com.samsung.android.lool", "com.samsung.android.app.aodservice", "com.samsung.android.app.smartcapture",
         "com.samsung.android.app.notes", "com.samsung.android.app.reminder",
+        "com.sec.android.app.sbrowser", "com.samsung.android.email.provider", "com.sec.android.app.music", "com.sec.android.app.voicenote",
+        "com.sec.android.app.shealth",
     )
 
     @Test
@@ -136,7 +138,7 @@ class OneUiRulesTest {
             val rules = OneUiRules.load(major)
             // Every group except the app-specific ones and the ink groups drawn on another group
             // (reached by device-verified exact names only) has generic name rules.
-            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.KEYBOARD_FUNCTION_KEY, ColorGroup.KEYBOARD_LABEL, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN) +
+            val appOnly = setOf(ColorGroup.KEYBOARD_BG, ColorGroup.KEYBOARD_KEY, ColorGroup.KEYBOARD_FUNCTION_KEY, ColorGroup.KEYBOARD_LABEL, ColorGroup.DIALER, ColorGroup.LOCK_SCREEN, ColorGroup.CALCULATOR_KEYS, ColorGroup.GALLERY_MENU, ColorGroup.VOICE_RECORDER_BUTTON) +
                 ColorGroup.ALL.filter { it.contrastOn != null }
             assertEquals(ColorGroup.ALL.filterNot { it in appOnly }.map { it.id }.toSet(), rules.colorGroups.keys, "One UI $major")
             val patterns = rules.colorGroups.values.flatten() + rules.colorGroupFamilies.values.flatMap { it.groups.values.flatten() }
@@ -169,7 +171,7 @@ class OneUiRulesTest {
         assertEquals(
             setOf(
                 "qs_tile_active", "qs_tile_inactive", "qs_panel_bg", "qs_tile_icon_on", "qs_tile_icon_off", "qs_text",
-                "notification_bg", "text_primary", "text_secondary",
+                "notification_bg", "text_primary", "text_secondary", "accent",
             ),
             exact.keys,
         )

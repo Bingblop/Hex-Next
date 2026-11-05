@@ -123,13 +123,17 @@ internal fun PreviewFrame(
 @Composable
 private fun PreviewTabRow(selected: PreviewTab, onSelect: (PreviewTab) -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // App tabs show only when the app is installed (no Email tab on a phone without Samsung Email).
+    val tabs = androidx.compose.runtime.remember(context) { visiblePreviewTabs(context.packageManager) }
+    androidx.compose.runtime.LaunchedEffect(selected, tabs) { if (selected !in tabs) onSelect(PreviewTab.SETTINGS) }
     Row(
         modifier = modifier
             .horizontalScroll(rememberScrollState())
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        for (entry in PreviewTab.entries) {
+        for (entry in tabs) {
             val isSelected = entry == selected
             Box(
                 modifier = Modifier
@@ -326,3 +330,11 @@ private fun GestureBar(scope: PreviewScope) {
         )
     }
 }
+
+/** The tabs whose app is installed (system tabs always). */
+internal fun visiblePreviewTabs(pm: android.content.pm.PackageManager): List<PreviewTab> =
+    PreviewTab.entries.filter { tab -> tab.packageName == null || isInstalled(pm, tab.packageName) }
+
+@Suppress("DEPRECATION")
+private fun isInstalled(pm: android.content.pm.PackageManager, pkg: String): Boolean =
+    runCatching { pm.getApplicationInfo(pkg, 0).enabled }.getOrDefault(false)

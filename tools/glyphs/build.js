@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Authors the 27 Hex Next dashboard glyphs as geometry, writes tools/glyphs/glyphs.svg (one 24x24
+// Authors the 29 Hex Next dashboard and power menu glyphs as geometry, writes tools/glyphs/glyphs.svg (one 24x24
 // symbol each), renders tools/glyphs/contact-sheet.png with Playwright for visual review, and
 // emits android/app/src/main/res/drawable/hx_glyph_<row>.xml VectorDrawables with the SAME pathData.
 //
@@ -125,11 +125,24 @@ const glyphs = {
   modes: [ring(12, 12, 7), raw(`M${pt(12, 5)} A7,7 0 0 1 ${pt(12, 19)} Z`),
     ...[0, 45, 90, 135, 180, 225, 270, 315].map((a) => { const [x1, y1] = polar(12, 12, 9.6, a), [x2, y2] = polar(12, 12, 10.8, a); return line(x1, y1, x2, y2, 1.5); })],
   software_update: [line(12, 4, 12, 14, 2.2), line(7.6, 10, 12, 14.4, 2.2), line(16.4, 10, 12, 14.4, 2.2), line(5, 16, 5, 19.5), line(5, 19.5, 19, 19.5), line(19, 19.5, 19, 16)],
+  // Power menu buttons a pack may leave out (drawn in its style by IconSynthesizer).
+  emergency_sos: [
+    raw('M6.4,3.6 L9.3,3.4 L10.9,7.7 L8.8,9.4 C9.9,11.8 12.2,14.1 14.6,15.2 L16.3,13.1 L20.6,14.7 L20.4,17.6 ' +
+      'C20.3,19.1 19,20.3 17.5,20.2 C10.1,19.6 4.4,13.9 3.8,6.5 C3.7,5 4.9,3.7 6.4,3.6 Z'),
+    arc(13.6, 10.4, 3.3, 272, 358, 1.8), arc(13.6, 10.4, 6.6, 272, 358, 1.8),
+  ],
+  medical_info: [
+    raw('M12,20.2 C6.2,15.9 3.5,12.8 3.5,9.2 C3.5,6.4 5.6,4.4 8.1,4.4 C9.8,4.4 11.2,5.3 12,6.7 C12.8,5.3 14.2,4.4 15.9,4.4 ' +
+      'C18.4,4.4 20.5,6.4 20.5,9.2 C20.5,12.8 17.8,15.9 12,20.2 Z ' +
+      'M12,17.7 C7.6,14.3 5.5,11.8 5.5,9.2 C5.5,7.5 6.7,6.4 8.1,6.4 C9.5,6.4 10.6,7.3 11.2,8.7 H12.8 ' +
+      'C13.4,7.3 14.5,6.4 15.9,6.4 C17.3,6.4 18.5,7.5 18.5,9.2 C18.5,11.8 16.4,14.3 12,17.7 Z', 'evenOdd'),
+    ...polyline([[7.2, 11.6], [9.4, 11.6], [10.6, 9.6], [12.6, 14], [13.9, 11.6], [16.8, 11.6]], 1.5),
+  ],
   tips: [arc(12, 10, 6, 130, 410), line(8.14, 14.6, 9.5, 17.3), line(15.86, 14.6, 14.5, 17.3), line(9.5, 17.5, 14.5, 17.5), line(10, 20.3, 14, 20.3)],
 };
 
 const names = Object.keys(glyphs);
-if (names.length !== 27) throw new Error(`expected 27 glyphs, got ${names.length}`);
+if (names.length !== 29) throw new Error(`expected 29 glyphs, got ${names.length}`);
 
 const here = __dirname;
 const repo = path.resolve(here, '..', '..');

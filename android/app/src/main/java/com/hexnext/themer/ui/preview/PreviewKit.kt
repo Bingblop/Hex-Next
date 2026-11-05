@@ -112,6 +112,9 @@ internal class PreviewPalette(
 
     operator fun get(group: ColorGroup): Color = colors[group]?.value ?: scheme.color(group).toColor()
 
+    /** True when [group] is on Auto and its app keeps its own colours (Contacts' colourful tiles). */
+    fun keptByApp(group: ColorGroup): Boolean = group in scheme.keptByApp
+
     /** A Monet shade (`accent1_300`) for decorative art, [fallback] when the scheme lacks it. */
     fun shade(key: String, fallback: Color): Color = scheme.shade(key)?.toColor() ?: fallback
 }
@@ -153,10 +156,27 @@ internal class PreviewScope(
     /** As [ui], for Settings resources. */
     fun settings(name: String, fallback: Color): Color = device.settings.get(name, dark)?.let { Color(it) } ?: fallback
 
+    /**
+     * The first of [names] the overlay for [pkg] writes (each tried as `<name>_light` /
+     * `<name>_dark` first, then bare), else [fallback]: what the phone really paints there.
+     */
+    fun appColor(pkg: String, names: List<String>, fallback: Color): Color {
+        val colors = device.apps[pkg] ?: (if (pkg == SETTINGS_PACKAGE) device.settings else null) ?: return fallback
+        val suffix = if (dark) "_dark" else "_light"
+        for (n in names) {
+            val v = colors.get(n + suffix, dark) ?: colors.get(n, dark)
+            if (v != null) return Color(v)
+        }
+        return fallback
+    }
+
     /** As [ui], for My Files resources. */
     fun myFiles(name: String, fallback: Color): Color = device.myFiles.get(name, dark)?.let { Color(it) } ?: fallback
 
     operator fun get(group: ColorGroup): Color = palette[group]
+
+    /** See [PreviewPalette.keptByApp]. */
+    fun keptByApp(group: ColorGroup): Boolean = palette.keptByApp(group)
 
     /** The contrast pick on [group]'s colour. */
     fun on(group: ColorGroup): Color = contentColorFor(palette[group])
@@ -310,6 +330,12 @@ private object PreviewFontCache {
  * An app icon: the rendered bitmap when present, else a circle in its fallback colour with a
  * simple white glyph. While icons render, fallbacks pulse gently.
  */
+/**
+ * Called with an icon slot (`pkg:drawable/name`) and its label when a preview icon is tapped;
+ * null where icons are not editable (the lab's bare preview, the onboarding peek).
+ */
+internal val LocalIconTap = androidx.compose.runtime.staticCompositionLocalOf<((String, String) -> Unit)?> { null }
+
 @Composable
 internal fun PreviewIconImage(
     icon: PreviewIcon,
@@ -317,7 +343,15 @@ internal fun PreviewIconImage(
     reduceMotion: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 28.dp,
+    slotPackage: String? = null,
 ) {
+    val onIconTap = LocalIconTap.current
+    @Suppress("NAME_SHADOWING")
+    val modifier = if (onIconTap != null && slotPackage != null && !icon.key.startsWith("default:")) {
+        modifier.clickable(onClickLabel = "Change ${icon.label} icon") { onIconTap("$slotPackage:drawable/${icon.key}", icon.label) }
+    } else {
+        modifier
+    }
     val bitmap = icon.bitmap
     if (bitmap != null) {
         Image(
@@ -801,3 +835,11 @@ internal fun PreviewSwitch(
         )
     }
 }
+
+internal const val SETTINGS_PACKAGE = "com.android.settings"
+
+/** Samsung's window background colours, most specific first. */
+internal val APP_BACKGROUND_NAMES = listOf("sesl_round_and_bgcolor", "basic_token_sys_background", "sesl_background_color")
+
+/** Samsung's rounded list / card colours, most specific first. */
+internal val APP_SURFACE_NAMES = listOf("basic_token_sys_surface_brightest", "sesl_list_bg_color", "basic_token_sys_surface_container_lowest")

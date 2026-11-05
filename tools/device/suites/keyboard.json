@@ -1,0 +1,35 @@
+{
+  "about": "Samsung Keyboard colours and pack key art.",
+  "steps": [
+    "install",
+    "scan",
+    "apply",
+    "lookup",
+    "capture"
+  ],
+  "confirm": true,
+  "modes": [
+    "dark",
+    "light"
+  ],
+  "captures": [
+    "keyboard"
+  ],
+  "lookups": [
+    "com.samsung.android.honeyboard:color/keyboard_background_dark",
+    "com.samsung.android.honeyboard:color/text_key_background_dark",
+    "com.samsung.android.honeyboard:color/function_key_background_dark",
+    "com.samsung.android.honeyboard:color/text_key_main_label_dark",
+    "com.samsung.android.honeyboard:drawable/key_bg",
+    "com.samsung.android.honeyboard:drawable/keyboard_background_image"
+  ],
+  "expect": {
+    "apply_ok": true,
+    "no_crash": true,
+    "overridden": [
+      "com.samsung.android.honeyboard:color/keyboard_background_dark",
+      "com.samsung.android.honeyboard:color/text_key_background_dark",
+      "com.samsung.android.honeyboard:color/function_key_background_dark"
+    ]
+  }
+}

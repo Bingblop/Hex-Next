@@ -30,6 +30,8 @@ public enum class ColorGroupSection(public val label: String) {
  *   [autoRole] but the palette's dark ink (neutral1 900) or light ink (neutral1 10), whichever
  *   reads better on that group's effective colour, so the icons follow a custom tile colour.
  *   [autoRole] and its shades are then only the ink used on the base group's own Auto colour.
+ * @property autoKeepsApp on Auto the app keeps its own colours (Contacts' colourful letter
+ *   tiles); [autoRole] is then only the starting colour of the picker.
  */
 public enum class ColorGroup(
     public val id: String,
@@ -41,6 +43,7 @@ public enum class ColorGroup(
     public val autoDarkShade: Int,
     public val quickSettings: Boolean = false,
     public val contrastOn: ColorGroup? = null,
+    public val autoKeepsApp: Boolean = false,
 ) {
     ACCENT("accent", "Accent", "Highlights, links, selected items and progress", ColorGroupSection.CORE, PaletteRole.ACCENT1, 600, 200),
     BACKGROUND("background", "Background", "Screen backgrounds of Settings and Samsung apps", ColorGroupSection.CORE, PaletteRole.NEUTRAL1, 50, 1000),
@@ -79,6 +82,22 @@ public enum class ColorGroup(
     KEYBOARD_LABEL(
         "keyboard_label", "Keyboard letters", "Letters, numbers and symbols on the keys",
         ColorGroupSection.APPS, PaletteRole.NEUTRAL1, 900, 10, contrastOn = KEYBOARD_KEY,
+    ),
+    CALCULATOR_KEYS(
+        "calculator_keys", "Calculator operator keys", "Calculator's round ÷ × − + and = keys",
+        ColorGroupSection.APPS, PaletteRole.ACCENT1, 600, 200,
+    ),
+    CALCULATOR_SYMBOLS(
+        "calculator_symbols", "Calculator key symbols", "The symbols on Calculator's operator keys",
+        ColorGroupSection.APPS, PaletteRole.ACCENT1, 0, 900, contrastOn = CALCULATOR_KEYS,
+    ),
+    GALLERY_MENU(
+        "gallery_menu", "Gallery menu buttons", "The round buttons of Gallery's menu; their icons keep their own colour",
+        ColorGroupSection.APPS, PaletteRole.ACCENT1, 100, 700,
+    ),
+    VOICE_RECORDER_BUTTON(
+        "voice_recorder_button", "Voice Recorder record button", "The big round record button and its microphone",
+        ColorGroupSection.APPS, PaletteRole.ACCENT1, 600, 200,
     ),
     DIALER("dialer", "Dialer and in-call", "Phone dialpad, call buttons and the in-call screen", ColorGroupSection.APPS, PaletteRole.ACCENT1, 600, 200),
     LOCK_SCREEN("lock_screen", "Lock screen and AOD clock", "Lock screen and Always On Display clock and text", ColorGroupSection.SYSTEM, PaletteRole.ACCENT1, 100, 100),

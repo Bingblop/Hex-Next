@@ -201,6 +201,8 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     var showPrivilege by rememberSaveable { mutableStateOf(false) }
     // The Studio's tap-to-edit sheet: "<group id>:<night>".
     var studioPick by rememberSaveable { mutableStateOf<String?>(null) }
+    // The icon tapped on the phone ("pkg:drawable/name|Label"), for IconChooserSheet.
+    var iconPick by rememberSaveable { mutableStateOf<String?>(null) }
     var elementsTick by remember { mutableIntStateOf(0) }
     // The last phone tap the Colours page has scrolled for; only a newer tap scrolls again.
     var elementsTickHandled by remember { mutableIntStateOf(0) }
@@ -452,6 +454,9 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                         onTargets = openTargets,
                     )
                     Box(Modifier.weight(1f).fillMaxWidth()) {
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            com.hexnext.themer.ui.preview.LocalIconTap provides { key, label -> iconPick = "$key|$label" },
+                        ) {
                         val page: @Composable (Destination) -> Unit = { dest ->
                             pages.SaveableStateProvider(
                                 when (dest) {
@@ -462,7 +467,14 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                 },
                             ) {
                                 when (dest) {
-                                    Destination.STUDIO -> StudioPage(viewModel, ui, previewModel, onElementTap, wide)
+                                    Destination.STUDIO -> StudioPage(
+                                        viewModel, ui, previewModel, onElementTap, wide,
+                                        applyBlockedReason = when {
+                                            !connected -> "Connect root or Shizuku to apply. The preview above already shows the result."
+                                            previewOnlyPack != null -> "Unlock ${ui.packDisplayName(previewOnlyPack)} to apply this theme. The preview above already shows the result."
+                                            else -> null
+                                        },
+                                    )
                                     Destination.SKINS -> SkinsPage(
                                         viewModel = viewModel,
                                         ui = ui,
@@ -525,6 +537,7 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                                 label = "destination",
                             ) { dest -> page(dest) }
                         }
+                        }
                     }
                 }
             }
@@ -537,6 +550,16 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     }
     if (pick != null) {
         StudioPickSheet(viewModel, ui, previewModel, pick.first, pick.second, onClose = { studioPick = null })
+    }
+
+    iconPick?.let { saved ->
+        IconChooserSheet(
+            viewModel, ui,
+            slotKey = saved.substringBefore('|'),
+            label = saved.substringAfter('|'),
+            night = previewDark,
+            onClose = { iconPick = null },
+        )
     }
 
     if (showPrivilege) {

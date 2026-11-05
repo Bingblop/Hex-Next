@@ -94,11 +94,12 @@ private fun dashboard(icons: List<PreviewIcon>): List<List<PreviewIcon>> {
  */
 @Composable
 internal fun PreviewSettings(state: StudioPreviewState, scope: PreviewScope, modifier: Modifier = Modifier) {
-    val background = scope[ColorGroup.BACKGROUND]
-    val surface = scope[ColorGroup.SURFACE]
+    // What Settings really paints (its planned overlay colours), else the groups before a scan.
+    val background = scope.appColor(SETTINGS_PACKAGE, APP_BACKGROUND_NAMES, scope[ColorGroup.BACKGROUND])
+    val surface = scope.appColor(SETTINGS_PACKAGE, APP_SURFACE_NAMES, scope[ColorGroup.SURFACE])
     val cardShape = RoundedCornerShape(20.dp)
     val groups = dashboard(state.settingsIcons)
-    Box(modifier.fillMaxSize().fill(ColorGroup.BACKGROUND, scope)) {
+    Box(modifier.fillMaxSize().fill(ColorGroup.BACKGROUND, scope, color = background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -122,7 +123,7 @@ internal fun PreviewSettings(state: StudioPreviewState, scope: PreviewScope, mod
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .fill(ColorGroup.SURFACE, scope, cardShape)
+                        .fill(ColorGroup.SURFACE, scope, cardShape, color = surface)
                         .padding(vertical = 2.dp),
                 ) {
                     // One UI 9 opens the first card with the Samsung account row.
@@ -172,7 +173,7 @@ private fun SettingsRowItem(icon: PreviewIcon, surface: Color, loading: Boolean,
                 .padding(horizontal = 12.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PreviewIconImage(icon, loading, scope.reduceMotion, size = 20.dp)
+            PreviewIconImage(icon, loading, scope.reduceMotion, size = 20.dp, slotPackage = "com.android.settings")
             Spacer(Modifier.width(14.dp))
             GroupText(icon.label, ColorGroup.TEXT_PRIMARY, surface, scope, modifier = Modifier.weight(1f), size = 13.sp, weight = FontWeight.Medium)
         }

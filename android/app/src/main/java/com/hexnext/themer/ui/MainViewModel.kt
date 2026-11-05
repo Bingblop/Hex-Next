@@ -637,7 +637,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
                 _ui.update { if (it.entitlement == state) it else it.copy(entitlement = state) }
                 // A verified purchase moves its preview-only zip into files/packs, where an apply
                 // can use it (refreshPacks); the preview renders locked and unlocked packs alike.
-                if (old.ready != state.ready || old.unlockAll != state.unlockAll || old.everything != state.everything ||
+                if (old.ready != state.ready || old.unlockAll != state.unlockAll ||
                     old.ownedProductIds != state.ownedProductIds
                 ) {
                     refreshPacks()
@@ -862,7 +862,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             postNotice(lockedNotice(stillLocked.first(), "Unlock ${packName(stillLocked.first())} to apply this theme"))
             return@runTask false
         }
-        val report = applier.apply(service, spec, ::log)
+        // A foreground service keeps the process from being frozen if the user leaves mid-apply.
+        val app = getApplication<Application>()
+        com.hexnext.themer.theme.ApplyKeepAliveService.start(app)
+        val report = try {
+            applier.apply(service, spec, ::log)
+        } finally {
+            com.hexnext.themer.theme.ApplyKeepAliveService.stop(app)
+        }
         // A safe mode from before this apply is over once the new theme is on: left set, it keeps
         // the SemWT re-assert (here and at boot) and early-hook detection off for the new theme,
         // and its banner back on every start. A safe mode that tripped during this apply is kept.
@@ -1686,6 +1693,50 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     /** Uses the icon [file] for the drawable [slotKey] (`pkg:drawable/name`); null gives the slot back to the pack. */
     fun assignIcon(slotKey: String, file: String?) = updateSpec { it.withCustomIcon(slotKey, file) }
 
+    /** Every unlocked pack's art for [slotKey], rendered off the main thread (see [ThemePreviewer.iconChoices]). */
+    fun loadIconChoices(slotKey: String, night: Boolean, onResult: (List<ThemePreviewer.IconChoice>) -> Unit) {
+        val spec = specToApply()
+        viewModelScope.launch {
+            val choices = withContext(Dispatchers.Default) { previewer.iconChoices(spec, slotKey, night) }
+            onResult(choices)
+        }
+    }
+
+    /** Uses [choice] (another pack's art) for [slotKey]: stored as a custom icon and assigned. */
+    fun useIconChoice(slotKey: String, label: String, choice: ThemePreviewer.IconChoice) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = assets.saveIcon(choice.bitmap, "$label · ${choice.packName}")
+                assignIcon(slotKey, asset.fileName)
+                postNotice(Notice("$label now uses ${choice.packName}", isSuccess = true))
+            } catch (t: Exception) {
+                postNotice(Notice("Couldn't use that icon: ${t.message ?: t.javaClass.simpleName}", isError = true))
+            } finally {
+                refreshAssets()
+            }
+        }
+    }
+
+    /**
+     * Imports the image at [uri] for [slotKey]: cropped to its visible pixels and sized for the
+     * slot, then assigned. A file that cannot be used (not an image, empty, too small or too
+     * large) leaves the slot as it was and says why.
+     */
+    fun importIconFor(slotKey: String, label: String, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val asset = assets.importImage(uri, CustomAssetStore.Kind.ICON)
+                assignIcon(slotKey, asset.fileName)
+                postNotice(Notice("$label now uses ${asset.displayName}", isSuccess = true))
+            } catch (t: Exception) {
+                log(LogLine(LogLevel.ERROR, "Importing the icon for $label failed: ${t.message ?: t.javaClass.simpleName}"))
+                postNotice(Notice("Couldn't use that image: ${t.message ?: t.javaClass.simpleName}", isError = true))
+            } finally {
+                refreshAssets()
+            }
+        }
+    }
+
     /** Uses the background [file] for [slotKey]; null gives the slot back to the pack or Samsung. */
     fun assignBackground(slotKey: String, file: String?) = updateSpec { it.withCustomBackground(slotKey, file) }
 
@@ -1904,7 +1955,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
 
     // ---- Pack unlocks ----
 
-    /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS], or an AI / everything product). */
+    /** Starts the store purchase of [productId] (a pack, [ProductIds.ALL_PACKS] or [ProductIds.AI_LIFETIME]). */
     fun unlock(activity: Activity, productId: String) {
         if (!entitlements.canPurchase) return
         bindBillingActivity(activity)
@@ -1968,13 +2019,9 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val newBundles = state.bundlePackIds - before.bundlePackIds
         val aiNow = state.unlocks(PaidFeature.AI_CREATION)
         when {
-            state.everything && !before.everything ->
-                postNotice(Notice("Everything unlocked, forever. Thank you!", isSuccess = true))
             state.unlockAll && !before.unlockAll -> postNotice(Notice("All packs unlocked. Thank you!", isSuccess = true))
             aiNow && !before.unlocks(PaidFeature.AI_CREATION) ->
                 postNotice(Notice("AI theme creation unlocked. Thank you!", isSuccess = true))
-            !aiNow && before.unlocks(PaidFeature.AI_CREATION) && ProductIds.AI_MONTHLY in before.ownedProductIds ->
-                postNotice(Notice("Your AI subscription has ended. Subscribe again to keep creating themes with AI"))
             newlyOwned.isNotEmpty() || newBundles.isNotEmpty() -> {
                 val names = (newlyOwned.filter { PackPricing.countOf(it) == null }.map { productName(it) } + newBundles.map { packName(it) })
                     .distinct()
@@ -1989,9 +2036,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     private fun productName(productId: String): String {
         when {
             productId == ProductIds.ALL_PACKS -> return "All packs"
-            productId == ProductIds.AI_MONTHLY -> return "AI theme creation (monthly)"
-            productId == ProductIds.AI_LIFETIME -> return "AI theme creation (forever)"
-            productId == ProductIds.EVERYTHING -> return "Everything"
+            productId == ProductIds.AI_LIFETIME -> return "AI theme creation"
             PackPricing.countOf(productId) != null -> return "Selected packs"
         }
         val state = _ui.value

@@ -78,6 +78,19 @@ private fun PreviewScreen(tab: PreviewTab, state: StudioPreviewState, scope: Pre
         PreviewTab.DIALER -> PreviewDialer(scope)
         PreviewTab.KEYBOARD -> PreviewKeyboard(scope)
         PreviewTab.POWER_MENU -> PreviewPowerMenu(state, scope)
+        PreviewTab.CONTACTS -> PreviewContacts(scope)
+        PreviewTab.CALCULATOR -> PreviewCalculator(scope)
+        PreviewTab.VOICE_RECORDER -> PreviewVoiceRecorder(scope)
+        PreviewTab.GALLERY -> PreviewGallery(scope)
+        PreviewTab.CLOCK -> PreviewClock(scope)
+        PreviewTab.CALENDAR -> PreviewCalendar(scope)
+        PreviewTab.NOTES -> PreviewNotes(scope)
+        PreviewTab.REMINDER -> PreviewReminder(scope)
+        PreviewTab.INTERNET -> PreviewInternet(scope)
+        PreviewTab.EMAIL -> PreviewEmail(scope)
+        PreviewTab.MUSIC -> PreviewMusic(scope)
+        PreviewTab.HEALTH -> PreviewHealth(scope)
+        PreviewTab.DEVICE_CARE -> PreviewDeviceCare(scope)
     }
 }
 

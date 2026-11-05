@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,9 +28,8 @@ import com.hexnext.themer.ui.findActivity
 
 /*
  * The paywall in front of AI creation ([PaidFeature.AI_CREATION]): "Describe your theme" and AI
- * icon generation. Three ways in, all through Google Play: a monthly subscription, a one-time
- * forever unlock of AI creation, and a one-time unlock of everything (every pack and every paid
- * feature, including ones added later). Prices always come from Play, never from this file.
+ * icon generation. One way in: a one-time Google Play purchase that unlocks AI creation forever.
+ * The price always comes from Play, never from this file.
  */
 
 /** The process-wide entitlements, for composables that gate a paid feature themselves. */
@@ -51,10 +48,9 @@ internal fun rememberEntitlementState(): EntitlementState {
 }
 
 /**
- * The locked state of an AI feature: what the subscription gives, the three Play products with
- * their prices, and Restore purchases. While the store has not answered yet but the cached hint
- * says AI was bought, a short "checking" line shows instead, so a subscriber never sees a paywall
- * flash on start.
+ * The locked state of an AI feature: what the unlock gives, its one Play product with the price,
+ * and Restore purchases. While the store has not answered yet but the cached hint says AI was
+ * bought, a short "checking" line shows instead, so a buyer never sees a paywall flash on start.
  *
  * @param what the feature in the user's words, such as "Describe your theme".
  */
@@ -75,6 +71,7 @@ internal fun AiPaywall(what: String, state: EntitlementState, modifier: Modifier
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text("Checking your purchases…", style = MaterialTheme.typography.bodySmall)
             }
+            TextButton(onClick = { entitlements.refresh() }) { Text("Check again") }
             return@Column
         }
         Text(
@@ -93,23 +90,14 @@ internal fun AiPaywall(what: String, state: EntitlementState, modifier: Modifier
             Text("Purchases aren't available in this build.", style = MaterialTheme.typography.bodySmall)
             return@Column
         }
-        val monthly = state.prices[ProductIds.AI_MONTHLY]
-        val lifetime = state.prices[ProductIds.AI_LIFETIME]
-        val everything = state.prices[ProductIds.EVERYTHING]
+        val price = state.prices[ProductIds.AI_LIFETIME]
         Button(
-            onClick = { buy(ProductIds.AI_MONTHLY) },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        ) { Text(if (monthly != null) "Subscribe · $monthly / month" else "Subscribe monthly") }
-        FilledTonalButton(
             onClick = { buy(ProductIds.AI_LIFETIME) },
+            enabled = !state.isPending(feature),
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        ) { Text(if (lifetime != null) "AI forever · $lifetime once" else "Unlock AI forever") }
-        OutlinedButton(
-            onClick = { buy(ProductIds.EVERYTHING) },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        ) { Text(if (everything != null) "Everything forever · $everything once" else "Unlock everything forever") }
+        ) { Text(if (price != null) "Unlock AI forever · $price" else "Unlock AI forever") }
         Text(
-            "Everything forever unlocks AI theme creation and every pack, including packs and features added later. The subscription renews monthly until you cancel it in Google Play.",
+            "One payment, no subscription. It unlocks Describe your theme and AI icons on this Google account for good. Theme packs are sold separately.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

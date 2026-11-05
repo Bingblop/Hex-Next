@@ -250,12 +250,32 @@ class ThemeCompilerCustomTest {
 
     @Test
     fun `synthesis is off when disabled, when the element is off, and without a pack`() {
-        assertTrue(compile(baseSpec.copy(synthesizeMissingIcons = false)).target(settings)!!.drawables.none { it.synthesis != null })
+        // The switch off: only the rows no pack draws (Galaxy AI) are still drawn.
+        assertTrue(compile(baseSpec.copy(synthesizeMissingIcons = false)).target(settings)!!.drawables.all { it.synthesis == null || it.synthesis!!.glyph == "galaxy_ai" })
         assertTrue(compile(baseSpec.copy(elementEnabled = mapOf("settings_icons" to false))).target(settings)!!.drawables.none { it.synthesis != null })
         assertTrue(compile(baseSpec.copy(simplePackId = null)).target(settings)!!.drawables.none { it.synthesis != null })
         assertTrue(compile(baseSpec.copy(simplePackId = "missing")).target(settings)!!.drawables.none { it.synthesis != null })
         // My Files never synthesises (a pack without My Files art gets the built-in icons instead).
         assertTrue(compile().target(myFiles)!!.drawables.none { it.synthesis != null })
+    }
+
+    @Test
+    fun `Galaxy AI is drawn in the pack style even with the switch off`() {
+        val withAi = table(
+            settings, listOf("dashboard_tint"),
+            mapOf(
+                "sec_ic_settings_display" to listOf(480),
+                "sec_ic_settings_battery" to listOf(480),
+                "sec_ic_settings_galaxy_ai" to listOf(480),
+            ),
+        )
+        val device = DeviceSnapshot(Fixtures.profile9, mapOf(settings to TargetSnapshot(settings, installed = true, table = withAi)), Fixtures.reference)
+        for (on in listOf(true, false)) {
+            val jobs = ThemeCompiler.compile(baseSpec.copy(synthesizeMissingIcons = on), device, packs, rules) { 1L }.target(settings)!!.drawables
+            val ai = jobs.filter { it.synthesis?.glyph == "galaxy_ai" }
+            assertTrue(ai.isNotEmpty(), "switch $on")
+            assertEquals(on, jobs.any { it.synthesis?.glyph == "battery" }, "battery follows the switch ($on)")
+        }
     }
 
     @Test

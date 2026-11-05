@@ -136,18 +136,15 @@ Play's formatted price once it has arrived, and these amounts until then. Free f
 theme, custom colours, icons, fonts, backgrounds) are never gated.
 
 AI theme creation ("Describe your theme" and AI icon generation, both with the user's own AI key)
-is the paid feature `PaidFeature.AI_CREATION`, unlocked by any of: `ai_monthly` (Play
-subscription, monthly base plan, $2.99), `ai_lifetime` (one-time, $29.99) or `everything`
-(one-time, $39.99). `everything` sets `EntitlementState.everything`, which unlocks every pack and
-every `PaidFeature`, including ones added later; a new paid feature only needs an enum entry and
-its UI gate. `all_packs` does not unlock AI. The gate is `ui/ai/AiPaywall.kt`: the Describe card
+is the paid feature `PaidFeature.AI_CREATION`, unlocked forever by the one-time product
+`ai_lifetime` ($4.99). There is no subscription. `all_packs` ($19.99, every current and future
+pack) does not unlock AI, and `ai_lifetime` unlocks no pack. A new paid feature only needs an enum
+entry (with its product id) and its UI gate. The gate is `ui/ai/AiPaywall.kt`: the Describe card
 and the icon sheet show the paywall instead of the prompt, and both request models re-check
-`unlocks(PaidFeature.AI_CREATION)` right before calling the provider. `PlayEntitlements` queries
-SUBS products and purchases next to INAPP (a failed SUBS query keeps the last subscription state),
-buys a subscription through its base-plan offer token, and shows the recurring price. The license
-server verifies `ai_monthly` with `purchases.subscriptionsv2` (active, grace period, or cancelled
-but still paid up to `expiryTime`). App settings → Purchases shows the AI status and, for a
-subscriber, "Manage subscription" (Play's subscriptions page).
+`unlocks(PaidFeature.AI_CREATION)` right before calling the provider, so a refund takes effect at
+once. `PlayEntitlements` loads `ProductIds.ONE_TIME_EXTRAS` (`all_packs`, `ai_lifetime`) next to
+the pack ids, and the license server verifies `ai_lifetime` like any other one-time product.
+App settings → Purchases shows the AI status. The owner build sets `EntitlementState.allFeatures`.
 
 Shared code only sees `billing/Entitlements.kt` (`PackEntitlements`, `EntitlementState`,
 `ProductIds`) and calls `EntitlementsFactory.create(context)`, which each flavor defines in its
@@ -164,11 +161,13 @@ app knows (`setCatalogue`: installed packs and the remote catalogue) and reads p
 activity resume and on "Restore purchases" (App settings). Owned products are recomputed from
 that answer each time, so a refund disappears. Each full query has a growing generation: one that
 finishes verifying after a newer one was applied is dropped, state is published under the lock in
-update order, and purchase-listener grants made after a query started survive its answer. Only `PURCHASED` purchases count; `PENDING` ones
+update order, and purchase-listener grants made after a query started survive its answer. A grant
+that the snapshot does not contain is checked once more, and dropped when the later snapshot still
+does not list it. Only `PURCHASED` purchases count; `PENDING` ones
 show as pending and unlock nothing. A purchase is verified before it is granted and acknowledged:
 
 1. `LICENSE_SERVER_URL` set: every unverified product goes to `POST <url>/v1/verify-batch` (up to
-   50 per request, one rate-limit slot; `server/README.md`; the value may be the base URL or a full
+   25 per request, one rate-limit slot; `server/README.md`; the value may be the base URL or a full
    endpoint, HTTPS only), falling back to one `POST <url>/v1/verify` per product when the server
    answers 404. A product counts when its answer is `{"valid":true,"productId":...}`. HTTP 429 is
    retried up to three times after `Retry-After` (at most 30 s each). When the server still cannot

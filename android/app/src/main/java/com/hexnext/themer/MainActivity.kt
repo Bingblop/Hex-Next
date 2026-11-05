@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (compat == Compatibility.Supported) ShizukuManager.init()
+        if (compat == Compatibility.Supported) ShizukuManager.init(this)
         enableEdgeToEdge()
         val settingsStore = AppSettingsStore.get(this)
         setContent {
