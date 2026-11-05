@@ -199,6 +199,7 @@ fun DiagnosticsScreen(
                             onClick = { share(state.latestReportTxt) },
                             enabled = state.latestReportTxt != null,
                         ) { Text("Share summary") }
+                        TextButton(onClick = { viewModel.createBetaBundle(::share) }) { Text("Share beta report") }
                     }
                 }
             }
