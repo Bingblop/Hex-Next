@@ -22,6 +22,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeout
 import rikka.shizuku.Shizuku
 import java.io.File
@@ -58,7 +59,10 @@ sealed interface ShizukuState {
 }
 
 object ShizukuManager {
-    data class RootRequest(val requesting: Boolean = false, val error: String? = null)
+    data class RootRequest(val requesting: Boolean = false, val error: String? = null) {
+        internal fun onBackgroundFailure(message: String): RootRequest =
+            if (requesting) this else RootRequest(error = message)
+    }
     private val _rootRequest = MutableStateFlow(RootRequest())
     val rootRequest: StateFlow<RootRequest> = _rootRequest.asStateFlow()
     private const val PERMISSION_REQUEST = 7301
@@ -167,9 +171,13 @@ object ShizukuManager {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: RemoteException) {
-                _rootRequest.value = RootRequest(error = "Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+                _rootRequest.update {
+                    it.onBackgroundFailure("Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+                }
             } catch (e: SecurityException) {
-                _rootRequest.value = RootRequest(error = "Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+                _rootRequest.update {
+                    it.onBackgroundFailure("Root access could not be started. Open your root manager, allow Hex Next, then try again.")
+                }
             }
         }
     }

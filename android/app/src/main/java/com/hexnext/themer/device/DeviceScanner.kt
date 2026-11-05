@@ -401,9 +401,11 @@ class DeviceScanner(context: Context) {
                 .filter { it.type == "color" && it.name.startsWith("system_") }
                 .mapNotNull { e -> e.defaultColor?.let { e.name to it } }
                 .toMap()
-        val live = runCatching { ExecOutput.fullText(service, service.exec("cmd overlay dump $MONET_PALETTE_ID")) }
-            .onFailure { errors.add("palette dump: ${it.message}") }
-            .getOrNull()
+        val live = runCatching {
+            val r = service.exec("cmd overlay dump $MONET_PALETTE_ID")
+            val text = ExecOutput.fullText(service, r)
+            completeOutput(r.code(), text)
+        }.onFailure { errors.add("palette dump: ${it.message}") }.getOrNull()
         val fromLive = live?.let(::parse).orEmpty()
         if (fromLive.size >= MIN_PALETTE_SHADES) {
             runCatching { known.parentFile?.mkdirs(); known.writeText(live!!) }
@@ -437,8 +439,11 @@ class DeviceScanner(context: Context) {
             val outcome = runCatching {
                 val r = service.exec("cmd overlay dump $overlayId")
                 val text = ExecOutput.fullText(service, r)
-                dumpFile.writeText(text)
-                r.code() to OverlayDump.parseAll(text).firstOrNull { it.overlayId == overlayId }
+                val code = r.code()
+                // Only a complete dump is written: SnapshotBuilder parses dumpFile, and a dump
+                // with entries replaces the remembered mapping below.
+                if (code == 0) dumpFile.writeText(text)
+                code to completeDump(code, text, overlayId)
             }
             val value = outcome.getOrNull()
             if (value != null) {
@@ -492,8 +497,9 @@ class DeviceScanner(context: Context) {
                     source = SemWtStatus.SOURCE_CACHED
                     resourceCount = old.entries.size
                     valueCount = old.entries.size + old.entries.count { it.nightValue != null }
+                    val reason = dumpError?.let { "$overlayId could not be dumped ($it)" } ?: "$overlayId is not on the phone now"
                     dumpError = null
-                    problems.add("$overlayId is not on the phone now; used the mapping remembered from an earlier scan")
+                    problems.add("$reason; used the mapping remembered from an earlier scan")
                 }
             }.onFailure { problems.add("remembered mapping: ${it.message}") }
         }
@@ -634,6 +640,19 @@ class DeviceScanner(context: Context) {
 
         /** Decodes a `TYPE_DIMENSION` complex value, e.g. `0x00001001` → `16.0dp`. */
         internal fun complexDimension(raw: Int): String = Dimens.format(raw)
+
+        /**
+         * [text] when its command exited 0, or null. A nonzero [code] includes the 125 that
+         * [ExecOutput.fullText] and the service set when a long output could not be read back or
+         * spilled; [text] is then only a prefix, and its first lines must not replace a complete
+         * remembered dump.
+         */
+        internal fun completeOutput(code: Int, text: String): String? = text.takeIf { code == 0 }
+
+        /** The [overlayId] section of a `cmd overlay dump` that exited 0 (see [completeOutput]), or null. */
+        internal fun completeDump(code: Int, text: String, overlayId: String): OverlayDump? =
+            completeOutput(code, text)?.let { complete -> OverlayDump.parseAll(complete).firstOrNull { it.overlayId == overlayId } }
+
         private const val SCAN_DIR = "scan"
         /** A scan in progress writes here; it becomes [SCAN_DIR] only when the scan finished. */
         private const val SCAN_STAGING_DIR = "scan.new"

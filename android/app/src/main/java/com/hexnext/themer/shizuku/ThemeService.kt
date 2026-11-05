@@ -101,6 +101,8 @@ class ThemeService() : IThemeService.Stub() {
             }
         } catch (t: Throwable) {
             bundle.apply {
+                // Only a prefix survives: report it as incomplete, like ExecOutput.fullText's 125.
+                putInt(KEY_CODE, 125)
                 putInt(KEY_OUTPUT_LENGTH, output.length)
                 putString(KEY_OUTPUT, output.take(EXEC_INLINE_LIMIT) + "\n… (truncated from ${output.length} characters: ${describe(t)})")
             }

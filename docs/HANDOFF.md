@@ -90,10 +90,24 @@ and earlier sessions' notes never count as approval.
     finding to investigate, not as noise.
 12. **Waiting on CI:** a CI success never wakes a thread on its own. Use a background waiter (`gh api …/actions/runs` loop), never end a turn just waiting.
 13. **After a green owner build that Kyle wants to test:**
-    1. Pin `RUN_ID` and `APK_ZIP_SHA256` (the `HexNext-Owner-Release` digest) in `tools/device/install.sh` and `tools/device/test-overlay.sh`.
-    2. Push the pin on a reviewable branch and open a PR; merge it after validation under his
-       standing authorization in `AGENTS.md`.
-    3. Send Kyle the install line from §5; he decides whether and when to run it on his phone.
+    1. `HexNext-Owner-Release` is encrypted transport, not an installable APK archive.
+       `tools/device/install.sh` accepts plaintext APK archives only. Never pin an encrypted Owner
+       archive in it or send the §5 installer shortcut for that artifact.
+    2. Use the existing CI release-signing and encryption path for private delivery from validated
+       main. When a separate private delivery recipient is needed, generate a fresh ephemeral
+       recipient locally and put only its public key on a build-only branch; never merge that
+       recipient override into main. Do not retrieve any existing phone or signing private key.
+    3. Before private delivery, verify the exact run/head and artifact ZIP digest. Unwrap the
+       textual passfile using the new recipient and matching RSA-OAEP parameters, then decrypt
+       with the workflow's AES-256-CBC/PBKDF2 parameters without printing key material. Check the
+       included APK checksum, native APK signatures and trusted release-certificate fingerprint;
+       require non-debuggable `com.hexnext.themer.owner`, the expected version, universal ABIs
+       and 16 KB compatibility. Withhold a failed or unsigned artifact.
+    4. Deliver only the verified APK and public checksums privately; he decides whether and when
+       to install it. Remove temporary recipient/passfile material when no longer needed. Keep
+       the main phone recipient unchanged and do not pin session-recipient ciphertext for the
+       phone installer. For supported plaintext artifacts only, propose `RUN_ID` and
+       `APK_ZIP_SHA256` pins in a reviewable PR and validate under `AGENTS.md`.
 14. **Attribution:** do not add attribution trailers, generated footers or model names to commits or PRs.
 15. **Remote Control** to Kyle's phone failed 3 times; don't retry unless he asks.
 16. **Kyle's feature requirements** (he asked for every one of these; keep them all reachable):
@@ -118,10 +132,11 @@ and earlier sessions' notes never count as approval.
   - Heavily debloated: no Clock, Calculator, Calendar, Notes or Messages.
   - Kyle resets his Samsung theme to default before tests.
 - **Route:** Kyle runs scripts in Termux and attaches the output files. Uploads land in `/mnt/project-files/uploads/hearth/`.
-  - Install: `curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/main/tools/device/install.sh && sh install.sh`, then **restart Shizuku**.
+  - Plaintext artifacts only: `curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/main/tools/device/install.sh && sh install.sh`, then **restart Shizuku**. This script does not decrypt `HexNext-Owner-Release`; use the private Owner delivery route in rule 13 instead.
   - Collect: same pattern with `collect.sh` (use `PKG=com.hexnext.themer.owner`). It writes `hexnext-collect.txt`, settings-drawables, systemui-colors and values files.
   - Also available: `diag.sh`, `icons-probe.sh`, `test-overlay.sh`.
-- Only one of the Play build and the owner build can theme at a time; uninstall the other.
+- Play and Owner use separate packages. Avoid theming from both at once, but preserve app data;
+  do not uninstall either as a workaround for a signing or installation error.
 
 ## 6. Proven overlay mechanics (One UI 9)
 - **Priority:** a fabricated overlay beats SemWT, and the last-enabled overlay wins.
@@ -240,7 +255,9 @@ Kyle tested build 41669190846 (commit 04cefca) with the Willemite pack. His scre
 4. Launcher option.
 5. Then the v1.0 items in §8.
 
-After each green build, propose the install.sh and test-overlay.sh pin in a reviewable PR, and ask Kyle for screenshots + `collect.sh` if he chooses to test it.
+For a supported plaintext APK artifact after a green build, propose the install.sh and
+test-overlay.sh pin in a reviewable PR, and ask Kyle for screenshots + `collect.sh` if he chooses
+to test it. Encrypted Owner artifacts follow rule 13 instead.
 
 **Uncommitted work:** none. A diagnosis workflow was stopped before it changed any files.
 

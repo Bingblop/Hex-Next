@@ -65,7 +65,8 @@ decision, not a fictional protection.
 
 ## UI and compatibility
 
-Follow `docs/DESIGN_SYSTEM.md`. Resource-backed labels and Material theme tokens are the default.
+Follow `docs/DESIGN_SYSTEM.md`; if absent, derive it from the existing native theme and components
+before adding controls, as required by `AGENTS.md`. Resource-backed labels and Material theme tokens are the default.
 Colors selected by users, generated palettes and supplied pack artwork are functional data.
 Decorative icons may have null descriptions when the containing accessible control already has
 a resource-backed label; avoid duplicate TalkBack speech.

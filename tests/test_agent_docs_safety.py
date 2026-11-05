@@ -1,4 +1,4 @@
-"""Agent-facing documentation must not grant standing authority or point at signing secrets."""
+"""Agent docs preserve owner-sourced authority, private builds and signing-secret boundaries."""
 from pathlib import Path
 import re
 import unittest
@@ -156,6 +156,32 @@ class AgentDocsSafetyTest(unittest.TestCase):
                        "`HEXNEXT_*` signing secrets", "repository secrets named in `README.md`"):
             with self.subTest(needle=needle):
                 self.assertIn(needle, text)
+
+    def test_design_system_fallback_is_consistent(self):
+        for path in (ROOT / "AGENTS.md", ROOT / ".github/copilot-instructions.md",
+                     ROOT / "docs/ENGINEERING_RULES.md"):
+            text = normalized(path)
+            with self.subTest(path=path.relative_to(ROOT).as_posix()):
+                self.assertIn("if absent, derive it from the existing native theme and components",
+                              text)
+
+    def test_owner_ciphertext_is_not_sent_to_the_plaintext_installer(self):
+        text = normalized(HANDOFF)
+        for needle in (
+            "`tools/device/install.sh` accepts plaintext APK archives only",
+            "Never pin an encrypted Owner archive in it",
+            "fresh ephemeral recipient",
+            "only its public key on a build-only branch",
+            "never merge that recipient override into main",
+            "verify the exact run/head and artifact ZIP digest",
+            "non-debuggable `com.hexnext.themer.owner`",
+            "trusted release-certificate fingerprint",
+            "he decides whether and when to install it",
+        ):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+        self.assertNotIn("Send Kyle the install line from §5", text)
+        self.assertNotIn("uninstall the other", text)
 
 
 if __name__ == "__main__":
