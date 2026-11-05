@@ -171,7 +171,7 @@ class OneUiRulesTest {
         assertEquals(
             setOf(
                 "qs_tile_active", "qs_tile_inactive", "qs_panel_bg", "qs_tile_icon_on", "qs_tile_icon_off", "qs_text",
-                "notification_bg", "text_primary", "text_secondary",
+                "notification_bg", "text_primary", "text_secondary", "accent",
             ),
             exact.keys,
         )

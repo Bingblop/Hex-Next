@@ -45,4 +45,11 @@ class CalculatorColorsTest {
         assertEquals(ColorGroup.VOICE_RECORDER_BUTTON.auto(theme, night = false), c["color/basic_token_sys_red_light" to ""])
         assertEquals(ColorGroup.VOICE_RECORDER_BUTTON.auto(theme, night = true), c["color/basic_token_sys_red_dark" to "night"] ?: c["color/basic_token_sys_red_dark" to ""])
     }
+
+    @Test
+    fun `system ui's colorPrimary (Wi-Fi and Bluetooth panel switches) follows the accent`() {
+        val theme = ThemeResolver.resolve(source)
+        val c = compileApp("com.android.systemui", listOf("sesl_primary_color_light", "sesl_primary_color_dark"))
+        assertEquals(ColorGroup.ACCENT.auto(theme, night = false), c["color/sesl_primary_color_light" to ""])
+    }
 }

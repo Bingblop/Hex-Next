@@ -84,6 +84,15 @@
         </provider>
 
         <service
+            android:name=".theme.ApplyKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's theme apply running when they leave the app mid-apply." />
+        </service>
+
+        <service
             android:name=".theme.RestoreService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

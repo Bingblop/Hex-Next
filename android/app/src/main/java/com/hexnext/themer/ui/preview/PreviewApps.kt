@@ -63,7 +63,8 @@ private val LocalAppPackage = androidx.compose.runtime.staticCompositionLocalOf<
 @Composable
 private fun appBg(scope: PreviewScope): Color {
     val pkg = LocalAppPackage.current ?: return scope[ColorGroup.BACKGROUND]
-    return scope.appColor(pkg, APP_BACKGROUND_NAMES, scope[ColorGroup.BACKGROUND])
+    // An app's own `windowBackground` colour first (Calculator: calc_edit_bg), then Samsung's.
+    return scope.appColor(pkg, listOf("windowBackground") + APP_BACKGROUND_NAMES, scope[ColorGroup.BACKGROUND])
 }
 
 /** The app's real card colour: its overlay's colour when planned, else [ColorGroup.SURFACE]. */

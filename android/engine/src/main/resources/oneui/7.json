@@ -193,6 +193,7 @@
       }
     },
     "systemui": {
+      "exact": {"accent": ["sesl_primary_color_light", "sesl_primary_color_dark"]},
       "groups": {
         "lock_screen": [
           "^(?!.*(background|(^|_)bg(_|$)|bgcolor|scrim|shadow|(^|_)dim(_|$))).*(^|_)(keyguard|lockscreen|lock_screen|kg|aod|lock)(_|$)"

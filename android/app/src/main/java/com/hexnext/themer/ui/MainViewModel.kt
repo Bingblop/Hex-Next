@@ -818,7 +818,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             postNotice(lockedNotice(stillLocked.first(), "Unlock ${packName(stillLocked.first())} to apply this theme"))
             return@runTask false
         }
-        val report = applier.apply(service, spec, ::log)
+        // A foreground service keeps the process from being frozen if the user leaves mid-apply.
+        val app = getApplication<Application>()
+        com.hexnext.themer.theme.ApplyKeepAliveService.start(app)
+        val report = try {
+            applier.apply(service, spec, ::log)
+        } finally {
+            com.hexnext.themer.theme.ApplyKeepAliveService.stop(app)
+        }
         // A safe mode from before this apply is over once the new theme is on: left set, it keeps
         // the SemWT re-assert (here and at boot) and early-hook detection off for the new theme,
         // and its banner back on every start. A safe mode that tripped during this apply is kept.
