@@ -659,6 +659,20 @@ public object ThemeCompiler {
             }
         }
 
+        // The system Material You palette apps outside One UI read (ColorBlendr's set), from the
+        // theme; after the groups and extras, before the pins, so a pinned shade still wins.
+        if (pkg == "android" && table != null && spec.systemPalette) {
+            val palette = SystemPalette.colors(
+                resolved(),
+                has = { table.find(it) != null },
+                isReference = { name -> table.find(name)?.values?.firstOrNull()?.value is ResourceValue.Reference },
+            )
+            for ((key, argb) in palette) {
+                values[key] = argb
+                fixed.remove(key)
+            }
+        }
+
         for ((pinKey, pin) in spec.colorPins) {
             if (pinKey.substringBefore(':', "") != pkg) continue
             val typeName = rules.rename(pinKey.substringAfter(':'))
