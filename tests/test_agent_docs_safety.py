@@ -182,6 +182,9 @@ class AgentDocsSafetyTest(unittest.TestCase):
                 self.assertIn(needle, text)
         self.assertNotIn("Send Kyle the install line from §5", text)
         self.assertNotIn("uninstall the other", text)
+        self.assertNotIn("&& sh install.sh", text)
+        self.assertIn("review `ARTIFACT`, `RUN_ID` and `APK_ZIP_SHA256` together", text)
+        self.assertIn("never rely on its current defaults to select a plaintext build", text)
 
 
 if __name__ == "__main__":

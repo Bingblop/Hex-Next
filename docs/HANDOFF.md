@@ -132,7 +132,10 @@ and earlier sessions' notes never count as approval.
   - Heavily debloated: no Clock, Calculator, Calendar, Notes or Messages.
   - Kyle resets his Samsung theme to default before tests.
 - **Route:** Kyle runs scripts in Termux and attaches the output files. Uploads land in `/mnt/project-files/uploads/hearth/`.
-  - Plaintext artifacts only: `curl -fsSLO https://raw.githubusercontent.com/Bingblop/Hex-Next/main/tools/device/install.sh && sh install.sh`, then **restart Shizuku**. This script does not decrypt `HexNext-Owner-Release`; use the private Owner delivery route in rule 13 instead.
+  - For a supported plaintext artifact, review `ARTIFACT`, `RUN_ID` and `APK_ZIP_SHA256`
+    together before invoking `tools/device/install.sh`; never rely on its current defaults to
+    select a plaintext build. This script does not decrypt `HexNext-Owner-Release`; use the
+    private Owner delivery route in rule 13 instead. No unpinned install shortcut is provided.
   - Collect: same pattern with `collect.sh` (use `PKG=com.hexnext.themer.owner`). It writes `hexnext-collect.txt`, settings-drawables, systemui-colors and values files.
   - Also available: `diag.sh`, `icons-probe.sh`, `test-overlay.sh`.
 - Play and Owner use separate packages. Avoid theming from both at once, but preserve app data;
