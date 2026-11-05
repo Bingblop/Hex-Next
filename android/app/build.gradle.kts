@@ -76,13 +76,15 @@ android {
         versionCode = 231
         versionName = "2.3.1"
 
-        // English-only release configuration
-        resourceConfigurations += listOf("en")
-
         // Support both 64-bit (arm64-v8a, x86_64) and 32-bit (armeabi-v7a, x86) architectures
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
         }
+    }
+
+    androidResources {
+        // Preserve the English-only resource filter using the supported application DSL.
+        localeFilters += "en"
     }
 
     // "play" is the Play Store build (Play Billing decides which packs are unlocked); "owner" is
