@@ -1795,6 +1795,8 @@ internal fun ApplyBar(
     lockedPackCount: Int = 0,
     lockedPackPrice: String? = null,
     previewOnlyPending: Boolean = false,
+    /** The pack the next apply uses ("Apply Carnelian"); null for colours only. */
+    packName: String? = null,
 ) {
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
     val status = LocalStatusPalette.current
@@ -1910,7 +1912,8 @@ internal fun ApplyBar(
                     if (applying) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     } else {
-                        Text("Apply theme")
+                        // The pack is named so a pick that did not take is seen before applying.
+                        Text(packName?.let { "Apply $it" } ?: "Apply theme", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

@@ -89,6 +89,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.hexnext.engine.compile.ApplyReport
+import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.TargetResult
 import com.hexnext.themer.R
@@ -453,6 +454,10 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
                     ),
                     previewOnlyPending = lockedPacks.any { ui.entitlement.isPending(it) } ||
                         (lockedPacks.size >= PackPricing.ALL_FROM && ProductIds.ALL_PACKS in ui.entitlement.pendingProductIds),
+                    packName = ui.spec.simplePackId?.let { default ->
+                        val others = if (ui.spec.mode == ThemeMode.ADVANCED) (ui.spec.elementPacks.values.toSet() - default).size else 0
+                        ui.packDisplayName(default) + if (others > 0) " +$others" else ""
+                    },
                 )
             }
         }
