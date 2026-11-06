@@ -1526,8 +1526,10 @@ class ThemeService() : IThemeService.Stub() {
      * The state directory must stay writable for the shell (uid 2000): the same phone can run the
      * service as root one day and as the ADB shell the next (Shizuku restarted over wireless
      * debugging). A directory root created is root:root 0755 and the shell could not write a single
-     * state file in it, so root hands every directory and file it writes here to the shell
-     * (`chown 2000:2000`); uid 1000, which cannot chown, opens its directories to all instead.
+     * state file in it, so root hands every directory and file it writes here to the shell, with
+     * the system group (`chown 2000:1000`, directories 0775) so a UID 1000 service can write too;
+     * uid 1000, which cannot chown, opens directories it owns to all. The launcher prepares the
+     * directory as root before every UID 1000 start ([MonitorScript.prepareStateDirScript]).
      * This also repairs a directory an older build left root-owned, on the next root write.
      *
      * Because the shell owns `/data/local/tmp` and this directory, any uid 2000 process can put a
@@ -1576,7 +1578,8 @@ class ThemeService() : IThemeService.Stub() {
                 val name = if (index == 0) d.path else d.name
                 append("mkdir '$name' 2>/dev/null; ")
                 append("cd -P '$name' && [ \"\$(pwd -P)\" = '${d.path}' ] || { echo '${d.path} is not a real directory' >&2; exit 1; }; ")
-                append("chmod 755 . && chown $SHELL_UID:$SHELL_UID . || exit 1; ")
+                // Group system (1000) keeps write access: the service may run as UID 1000 next time.
+                append("chmod 775 . && chown $SHELL_UID:${MonitorScript.SYSTEM_GID} . || exit 1; ")
             }
             append("(set -C; cat > '$tmpName') || { rm -f '$tmpName'; exit 1; }; ")
             if (shellOwned) append("chown -h $SHELL_UID:$SHELL_UID '$tmpName' && ")
@@ -1645,7 +1648,7 @@ class ThemeService() : IThemeService.Stub() {
     }
 
     /**
-     * Opens the state directory at [path] (created 0755 when missing) without following a
+     * Opens the state directory at [path] (created 0775 when missing) without following a
      * symlink, checks that it is a directory and makes it usable for the shell tier through the
      * descriptor: root chowns it to uid 2000, uid 1000 (no CAP_CHOWN) opens it to all. [label] is
      * its real path, for errors.
@@ -1667,7 +1670,7 @@ class ThemeService() : IThemeService.Stub() {
             when (Process.myUid()) {
                 0 -> {
                     runCatching { Os.fchmod(fd, MODE_DIR) }
-                    runCatching { Os.fchown(fd, SHELL_UID, SHELL_UID) }
+                    runCatching { Os.fchown(fd, SHELL_UID, MonitorScript.SYSTEM_GID) }
                 }
                 1000 -> runCatching { Os.fchmod(fd, MODE_DIR_OPEN) }
                 else -> runCatching { Os.fchmod(fd, MODE_DIR) }
@@ -1874,8 +1877,9 @@ class ThemeService() : IThemeService.Stub() {
         /** The ADB shell uid Shizuku runs as without root (colours-only tier). */
         const val SHELL_UID = 2000
 
-        /** 0755, 0777 and 0644 (Kotlin has no octal literals). */
-        private const val MODE_DIR = 493
+        /** 0775, 0777 and 0644 (Kotlin has no octal literals). */
+        /** 0775: owner shell, group system ([MonitorScript.SYSTEM_GID]) may write too. */
+        private const val MODE_DIR = 509
         private const val MODE_DIR_OPEN = 511
         private const val MODE_FILE = 420
         const val HEX_PREFIX = "HexNext"

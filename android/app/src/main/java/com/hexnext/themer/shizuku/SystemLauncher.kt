@@ -156,6 +156,15 @@ object SystemLauncher {
             "--nice-name=${SystemServer.PROCESS_NAME} $main $pkg $token ${Process.myPid()}"
         // One server per app process: an older one (from an app process that is gone) is replaced.
         val script = "pkill -x ${SystemServer.PROCESS_NAME} 2>/dev/null; setsid sh -c \"$server\" </dev/null >/dev/null 2>&1 &"
+        // Root first gives the UID 1000 service a state directory it can write in (see
+        // MonitorScript.prepareStateDirScript). Best effort: a refusal still lets the launch try.
+        if (uid == 1000) {
+            RootLaunchPolicy.firstSuccessful(listOf(arrayOf("su", "0", "-c", MonitorScript.prepareStateDirScript), arrayOf("su", "-c", MonitorScript.prepareStateDirScript))) { cmd ->
+                RootLaunchPolicy.runCommand(if (interactive) 45L else 8L) {
+                    ProcessBuilder(*cmd).redirectErrorStream(true).start()
+                }
+            }
+        }
         // KernelSU and Magisk su take the uid directly; some su builds only do it from root.
         val attempts = if (uid == 1000) listOf(
             arrayOf("su", uid.toString(), "-c", script),

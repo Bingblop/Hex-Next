@@ -12,8 +12,9 @@ import java.util.zip.ZipOutputStream
 
 /**
  * One zip a beta tester can send back: phone and app info, the latest scan report, the last
- * apply report and the newest build logs. It holds no keys or account data, only what Hex Next
- * itself wrote under `files/reports` and `files/logs`.
+ * apply report, the newest build logs and the activity log (pack picks, downloads, errors). It
+ * holds no keys or account data, only what Hex Next itself wrote under `files/reports`,
+ * `files/logs` and `files/activity`.
  */
 object BetaBundle {
 
@@ -27,11 +28,11 @@ object BetaBundle {
         val reports = File(context.filesDir, "reports")
         val logs = File(context.filesDir, "logs")
         val out = outputFile(context)
-        return write(out, deviceInfo(context), reports, logs)
+        return write(out, deviceInfo(context), reports, logs, activity = com.hexnext.themer.theme.ActivityLog.file(context.filesDir))
     }
 
     /** Builds the zip at [out] from the two folders; null when it could not be written. */
-    fun write(out: File, info: String, reports: File, logs: File, maxLogs: Int = MAX_LOGS): File? = runCatching {
+    fun write(out: File, info: String, reports: File, logs: File, maxLogs: Int = MAX_LOGS, activity: File? = null): File? = runCatching {
         out.parentFile?.mkdirs()
         val tmp = File(out.parentFile, out.name + ".tmp")
         ZipOutputStream(tmp.outputStream().buffered()).use { zip ->
@@ -40,6 +41,7 @@ object BetaBundle {
             zip.closeEntry()
             selectReports(reports, out.name).forEach { zip.add("reports/${it.name}", it) }
             selectLogs(logs, maxLogs).forEach { zip.add("logs/${it.name}", it) }
+            activity?.takeIf { it.isFile }?.let { zip.add("activity.log", it) }
         }
         if (!tmp.renameTo(out)) { tmp.copyTo(out, overwrite = true); tmp.delete() }
         out

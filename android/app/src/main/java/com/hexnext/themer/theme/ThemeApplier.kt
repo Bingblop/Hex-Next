@@ -205,6 +205,9 @@ class ThemeApplier(context: Context) {
             val pack = packs.pack(packId)
             if (pack != null) {
                 say(LogLevel.INFO, "Theme pack: ${pack.name} ($packId)", emptyMap())
+                if (spec.mode == com.hexnext.engine.compile.ThemeMode.ADVANCED && spec.elementPacks.isNotEmpty()) {
+                    say(LogLevel.INFO, "Part packs: " + spec.elementPacks.entries.joinToString { "${it.key}=${it.value}" }, emptyMap())
+                }
             } else {
                 note(LogLevel.WARN, "Theme pack $packId is not installed; colours only")
             }

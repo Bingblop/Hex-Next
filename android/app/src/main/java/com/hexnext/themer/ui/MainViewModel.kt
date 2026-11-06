@@ -64,6 +64,7 @@ import com.hexnext.themer.theme.FontInstaller
 import com.hexnext.themer.theme.InstalledPack
 import com.hexnext.themer.theme.InstalledPacks
 import com.hexnext.themer.theme.LogLevel
+import com.hexnext.themer.theme.ActivityLog
 import com.hexnext.themer.theme.LogLine
 import com.hexnext.themer.theme.MonetSeed
 import com.hexnext.themer.theme.PackStore
@@ -1844,6 +1845,7 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      */
     fun selectPack(id: String?) {
         updateSpec { it.copy(simplePackId = id) }
+        log(LogLine(LogLevel.INFO, "Pack selected: ${id?.let(::packName) ?: "none (colours only)"}"))
     }
 
     /**
@@ -1935,7 +1937,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
      * previewed (Apply still refuses it). With [selectWhenDone] the pack is selected afterwards.
      */
     fun downloadPack(entry: CatalogueEntry, selectWhenDone: Boolean = false) {
-        if (_ui.value.busy || entry.id in _ui.value.catalogue.downloading) return
+        if (entry.id in _ui.value.catalogue.downloading) return
+        if (_ui.value.busy) {
+            // Was a silent no-op: a pick made while an apply, remove or other download ran was lost.
+            log(LogLine(LogLevel.WARN, "${entry.name} not downloaded: Hex Next was busy. Pick it again when it is done."))
+            postNotice(Notice("Busy: pick ${entry.name} again in a moment", isError = true))
+            return
+        }
+        log(LogLine(LogLevel.INFO, "Downloading pack ${entry.name}" + if (selectWhenDone) " (selected when done)" else ""))
         val url = _ui.value.catalogue.url
         // An entry of the official catalogue is paid even before OfficialPacks has recorded its id,
         // so it is judged with that id already counted as official (never the cached hint).
@@ -2176,7 +2185,11 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
         val text = if (line.text.length > MAX_LOG_CHARS) line.text.take(MAX_LOG_CHARS) + " …" else line.text
         val bounded = if (text === line.text) line else line.copy(text = text)
         _log.update { (it + bounded).takeLast(MAX_LOG_LINES) }
+        activityLog.append(bounded)
     }
+
+    /** The activity log on disk, for the beta report ([ActivityLog]). */
+    private val activityLog by lazy { ActivityLog(ActivityLog.file(getApplication<Application>().filesDir)) }
 
     private suspend fun loadDeviceInfo() {
         if (_ui.value.oneUiVersion != null) return

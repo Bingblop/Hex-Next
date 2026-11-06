@@ -51,6 +51,25 @@ internal object MonitorScript {
     /** A prefix the staged monitor accepts as its second argument. */
     val PREFIX = Regex("^[A-Za-z0-9_]+$")
 
+    /** The group (system, uid/gid 1000) that may write in [DIR] besides its owner, the shell. */
+    const val SYSTEM_GID = 1000
+
+    /**
+     * Root's preparation of [DIR] before it starts the theme service as UID 1000.
+     *
+     * [DIR] lives in `/data/local/tmp` (shell:shell 0771) and belongs to the shell (uid 2000, mode
+     * 0755), so the UID 1000 service could neither create it nor write a file in it: every UID
+     * 1000 apply skipped the staged stability monitor and the SemWT state ("open failed: EACCES",
+     * lab-03x/04x; Kyle's 2.3.1 apply "mkdir failed: EACCES"). Root makes [DIR] and its
+     * subdirectories shell-owned with the system group, mode 0775. A symlink in [DIR]'s place is
+     * removed, never followed (toybox `find` does not follow links; `chown -h`). Failures are ignored: the service still
+     * starts and reports what it cannot write, as before.
+     */
+    val prepareStateDirScript: String =
+        ("d='$DIR'; [ -L \"£d\" ] && rm -f \"£d\"; mkdir -p \"£d\" && " +
+            "chown -h 2000:$SYSTEM_GID \"£d\" && chmod 775 \"£d\" && " +
+            "find \"£d\" -mindepth 1 -type d -exec chown -h 2000:$SYSTEM_GID {} + -exec chmod 775 {} +; true").replace('£', '$')
+
     val text: String by lazy { TEMPLATE.trimIndent().replace('£', '$') + "\n" }
 
     private const val TEMPLATE = """
