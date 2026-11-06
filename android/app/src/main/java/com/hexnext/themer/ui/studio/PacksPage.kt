@@ -53,8 +53,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.LiveOption
+import com.hexnext.engine.compile.OptionReach
 import com.hexnext.engine.compile.PackOptions
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
@@ -99,6 +101,7 @@ internal fun PacksPage(
     wide: Boolean,
 ) {
     val locks = PackLocks.of(ui)
+    val optionReach by viewModel.optionReach.collectAsStateWithLifecycle()
     val activity = LocalContext.current.findActivity()
     val onUnlock: (String) -> Unit = { productId -> activity?.let { viewModel.unlock(it, productId) } }
     // The gallery lists the whole catalogue, not only the packs on the phone: load it once.
@@ -132,6 +135,7 @@ internal fun PacksPage(
                 progress = ui.catalogue.downloading[row.id],
                 locks = locks,
                 spec = ui.spec,
+                optionReach = optionReach,
                 onSelect = {
                     when {
                         row.installed != null -> viewModel.selectPack(row.installed.id)
@@ -193,6 +197,7 @@ internal fun PacksPage(
                                 onOption = viewModel::setOption,
                                 onElementPack = viewModel::setElementPack,
                                 onElementEnabled = viewModel::setElementEnabled,
+                                optionReach = optionReach,
                             )
                         }
                     }
@@ -421,6 +426,7 @@ private fun PackGalleryRow(
     progress: Float?,
     locks: PackLocks,
     spec: ThemeSpec,
+    optionReach: OptionReach?,
     onSelect: () -> Unit,
     onDownload: () -> Unit,
     onUnlock: () -> Unit,
@@ -487,7 +493,7 @@ private fun PackGalleryRow(
         expanded = if (expanded && installed != null) {
             {
                 PackBadges(installed, locked = row.locked, pending = locks.pending(row.id), price = locks.singlePrice(row.id))
-                val options = remember(installed.pack) { PackOptions.all(installed.pack) }
+                val options = remember(installed.pack, optionReach) { PackOptions.all(installed.pack, optionReach) }
                 if (options.isNotEmpty()) {
                     Text("Options", style = MaterialTheme.typography.labelLarge)
                     OptionList(

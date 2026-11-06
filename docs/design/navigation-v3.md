@@ -36,8 +36,9 @@ difficult to navigate and links send you all over the place". The audit found:
 | **Settings** | Apps · Tools · Hex Next | Themed apps (scan runs in place), theme file / backup / build log / safe mode / **Advanced** (Diagnostics, Per-app colours) / device, and Hex Next's own settings. |
 
 `Destination.parse` keeps the old names as aliases (`STUDIO`/`COLOURS` → Theme, `SKINS` → Packs,
-`ICONS` → Library, `SYSTEM` → Settings) so `hexnext:` deep links and `tools/device/autotest.sh`
-still work.
+`ICONS` → Library, `SYSTEM` → Settings), and `destinationFor` retains `THEME:<section>` and
+`SETTINGS:<section>` links, mapping icon, font and background sections to Library. This keeps
+`hexnext:` deep links and `tools/device/autotest.sh` working.
 
 ## 2. Rules
 

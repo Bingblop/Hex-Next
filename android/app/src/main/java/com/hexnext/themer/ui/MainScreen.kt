@@ -136,6 +136,7 @@ import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.Element
 import com.hexnext.engine.compile.Elements
 import com.hexnext.engine.compile.LiveOption
+import com.hexnext.engine.compile.OptionReach
 import com.hexnext.engine.compile.PackOptions
 import com.hexnext.engine.compile.ThemeMode
 import com.hexnext.engine.compile.ThemeSpec
@@ -935,6 +936,7 @@ internal fun PartPackRow(
     onOption: (Pack, LiveOption, String, String?) -> Unit,
     onElementPack: (String, String?) -> Unit,
     onElementEnabled: (String, Boolean) -> Unit,
+    optionReach: OptionReach? = null,
 ) {
     var showDialog by rememberSaveable { mutableStateOf(false) }
     val enabled = spec.isElementEnabled(element.id)
@@ -967,8 +969,8 @@ internal fun PartPackRow(
         Switch(checked = enabled, onCheckedChange = null, enabled = !busy)
     }
     if (effective != null) {
-        val options = remember(effective.pack, element.id) {
-            PackOptions.all(effective.pack).filter { element.id in it.elementIds }
+        val options = remember(effective.pack, element.id, optionReach) {
+            PackOptions.all(effective.pack, optionReach).filter { element.id in it.elementIds }
         }
         OptionList(
             pack = effective.pack,

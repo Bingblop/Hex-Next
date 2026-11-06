@@ -166,6 +166,58 @@ internal enum class SettingsTab(val label: String) {
     APP("Hex Next"),
 }
 
+internal enum class ColoursTab(val label: String) {
+    ENGINE("Engine"),
+    ELEMENTS("Elements"),
+    QUICK_PANEL("Quick panel"),
+    SHADES("Shades"),
+}
+
+internal enum class IconsTab(val label: String) {
+    STYLE("Style"),
+    CUSTOM("Custom icons"),
+    FONTS("Fonts"),
+    BACKGROUNDS("Backgrounds"),
+}
+
+internal enum class ThemeSection(val label: String, val colours: ColoursTab? = null, val icons: IconsTab? = null) {
+    OVERVIEW("Overview"),
+    COLOURS("Colours", colours = ColoursTab.ENGINE),
+    ELEMENTS("Elements", colours = ColoursTab.ELEMENTS),
+    QUICK_PANEL("Quick panel", colours = ColoursTab.QUICK_PANEL),
+    SHADES("Shades", colours = ColoursTab.SHADES),
+    ICONS("Icons", icons = IconsTab.STYLE),
+    CUSTOM_ICONS("Custom icons", icons = IconsTab.CUSTOM),
+    FONTS("Fonts", icons = IconsTab.FONTS),
+    BACKGROUNDS("Backgrounds", icons = IconsTab.BACKGROUNDS);
+
+    companion object {
+        fun of(tab: ColoursTab): ThemeSection = entries.first { it.colours == tab }
+        fun of(tab: IconsTab): ThemeSection = entries.first { it.icons == tab }
+    }
+}
+
+internal enum class SettingsSection(val label: String) {
+    GENERAL("General"),
+    APPS("Themed apps"),
+    TOOLS("Tools"),
+}
+
+internal fun destinationFor(asked: String?): Triple<Destination, ThemeSection, SettingsSection> {
+    val name = asked.orEmpty().substringBefore(':')
+    val sub = asked.orEmpty().substringAfter(':', "")
+    val theme = ThemeSection.entries.firstOrNull { it.name == sub } ?: ThemeSection.OVERVIEW
+    val settings = SettingsSection.entries.firstOrNull { it.name == sub } ?: SettingsSection.GENERAL
+    return when (name) {
+        "STUDIO" -> Triple(Destination.THEME, ThemeSection.OVERVIEW, settings)
+        "SKINS" -> Triple(Destination.PACKS, theme, settings)
+        "COLOURS" -> Triple(Destination.THEME, ThemeSection.COLOURS, settings)
+        "ICONS" -> Triple(Destination.THEME, ThemeSection.ICONS, settings)
+        "SYSTEM" -> Triple(Destination.SETTINGS, theme, SettingsSection.APPS)
+        else -> Triple(Destination.parse(name) ?: Destination.THEME, theme, settings)
+    }
+}
+
 /** Width from which the shell shows a navigation rail and two panes. */
 internal val WIDE_WIDTH = 840.dp
 
@@ -223,13 +275,38 @@ fun StudioScreen(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
         }
     }
 
-    // `hexnext.destination` (a Destination name, old page names included) opens that page first.
+    // Keep the older section names working for deep links and device-lab screenshots.
+    val start = remember(activity) { destinationFor(activity?.intent?.getStringExtra(EXTRA_DESTINATION)) }
     var destination by rememberSaveable {
-        mutableStateOf(Destination.parse(activity?.intent?.getStringExtra(EXTRA_DESTINATION)) ?: Destination.THEME)
+        mutableStateOf(if (start.second.icons != null) Destination.LIBRARY else start.first)
     }
-    var themeTab by rememberSaveable { mutableStateOf(ThemeTab.PALETTE) }
-    var libraryTab by rememberSaveable { mutableStateOf(LibraryTab.ICONS) }
-    var settingsTab by rememberSaveable { mutableStateOf(SettingsTab.APPS) }
+    var themeTab by rememberSaveable {
+        mutableStateOf(
+            when (start.second) {
+                ThemeSection.ELEMENTS -> ThemeTab.ELEMENTS
+                ThemeSection.QUICK_PANEL -> ThemeTab.QUICK_PANEL
+                else -> ThemeTab.PALETTE
+            },
+        )
+    }
+    var libraryTab by rememberSaveable {
+        mutableStateOf(
+            when (start.second.icons) {
+                IconsTab.FONTS -> LibraryTab.FONTS
+                IconsTab.BACKGROUNDS -> LibraryTab.BACKGROUNDS
+                else -> LibraryTab.ICONS
+            },
+        )
+    }
+    var settingsTab by rememberSaveable {
+        mutableStateOf(
+            when (start.third) {
+                SettingsSection.GENERAL -> SettingsTab.APP
+                SettingsSection.APPS -> SettingsTab.APPS
+                SettingsSection.TOOLS -> SettingsTab.TOOLS
+            },
+        )
+    }
     var previewTab by rememberSaveable { mutableStateOf(PreviewTab.SETTINGS) }
     var previewDark by rememberSaveable { mutableStateOf(true) }
     // Icons are rendered from the night or day jobs to match the mockup's mode.

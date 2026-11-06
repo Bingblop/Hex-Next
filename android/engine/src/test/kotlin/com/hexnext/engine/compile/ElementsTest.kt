@@ -86,10 +86,17 @@ class ElementsTest {
         assertEquals(listOf("xxhdpi", "v26", "note"), b.tokens)
         assertEquals(listOf("note"), b.optionTokens)
 
+        // `_alt` is the pack's dark-mode twin (Carnelian's white-glyph Settings icons), not an option.
         val c = CategoryName.parse("settingsicon_alt-1sett")
-        assertFalse(c.night)
-        assertEquals(listOf("alt", "1sett"), c.optionTokens)
-        assertEquals(listOf("settingsicon-alt", "settingsicon-1sett", "settingsicon"), c.lookupKeys)
+        assertTrue(c.night)
+        assertTrue(c.alt)
+        assertEquals("settingsicon", c.base)
+        assertEquals(listOf("1sett"), c.optionTokens)
+        assertEquals(listOf("settingsicon-1sett", "settingsicon"), c.lookupKeys)
+        // A `-alt` token (Zircon's "Use more accent colour" switch) is still an option.
+        val z = CategoryName.parse("home-alt")
+        assertFalse(z.night)
+        assertEquals(listOf("alt"), z.optionTokens)
 
         assertEquals(emptyList(), a.optionTokens)
         assertEquals('p' - 'a' + 1, a.androidRank)
