@@ -167,6 +167,11 @@ public data class ColorGroupFamily(
  *   the target has them. Packs name dialog and popup art after the plugin's own slots (`dialog_`,
  *   `popup_`, `dialog_xmlonly_oui3_night`); no One UI 9 resource has those names, so without a copy
  *   the art never reached a dialog (device lab, lab-015/016: Force stop stayed stock grey).
+ * @property keepDrawables drawables (`drawable/name`, or a prefix ending in `*`) no pack may
+ *   replace on this version, in any target. One UI 9 builds the list "go to top" button from vector
+ *   drawables (`sem_go_to_top_light` is a `<vector>`); Carnelian replaced them with bitmaps and
+ *   Settings › Display, Settings › Sound and vibration and My Files › Internal storage crashed
+ *   on opening (2026-11-06). Willemite, proven in the lab, never writes them.
  * @property dashboardRows Settings dashboard row keys (`display`, `galaxy_ai` …) whose icons are
  *   `com.android.settings:drawable/sec_ic_settings_<row>`; the rows icon synthesis may fill in.
  * @property colorGroups [ColorGroup.id] → regular expressions over the bare colour name
@@ -188,12 +193,22 @@ public data class OneUiRules(
     val fallbackRenames: Map<String, String> = emptyMap(),
     val drawableCopies: Map<String, List<String>> = emptyMap(),
     val dashboardRows: List<String> = emptyList(),
+    val keepDrawables: List<String> = emptyList(),
     val colorGroups: Map<String, List<String>> = emptyMap(),
     val colorGroupPackages: Map<String, String> = emptyMap(),
     val colorGroupFamilies: Map<String, ColorGroupFamily> = emptyMap(),
 ) {
     /** [targets] without [deprecated] packages. */
     public val activeTargets: List<String> get() = targets.filterNot { it in deprecated }
+
+    /**
+     * True when [resourceName] (`pkg:drawable/name` or `drawable/name`) is one of [keepDrawables]
+     * and must stay the target's own.
+     */
+    public fun keepsDrawable(resourceName: String): Boolean {
+        val name = resourceName.substringAfter(':')
+        return keepDrawables.any { if (it.endsWith("*")) name.startsWith(it.dropLast(1)) else name == it }
+    }
 
     /** [typeName] (`type/name`) after [renamed]. */
     public fun rename(typeName: String): String = renamed[typeName] ?: typeName

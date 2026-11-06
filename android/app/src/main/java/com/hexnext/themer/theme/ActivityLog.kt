@@ -17,6 +17,9 @@ class ActivityLog(private val file: File, private val maxBytes: Long = MAX_BYTES
     private val writer = Executors.newSingleThreadExecutor { r -> Thread(r, "hexnext-activity-log").apply { isDaemon = true } }
 
     fun append(line: LogLine, now: Long = System.currentTimeMillis()) {
+        // Per-drawable frro offsets (hundreds per apply) stay in the build log only: in 2.3.2 they
+        // filled the file in one apply and pushed the Carnelian pick and its crash out.
+        if (line.level == LogLevel.INFO && line.text.contains(" lookup: frro://")) return
         val text = "${stamp(now)} ${line.level} ${line.text.replace('\n', ' ')}\n"
         writer.execute { runCatching { write(text) } }
     }
@@ -35,7 +38,7 @@ class ActivityLog(private val file: File, private val maxBytes: Long = MAX_BYTES
     private fun stamp(now: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(now))
 
     companion object {
-        const val MAX_BYTES: Long = 256L * 1024
+        const val MAX_BYTES: Long = 2L * 1024 * 1024
 
         fun file(filesDir: File): File = File(File(filesDir, "activity"), "activity.log")
     }
