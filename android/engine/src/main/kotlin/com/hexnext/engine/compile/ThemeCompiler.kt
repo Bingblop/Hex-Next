@@ -925,7 +925,8 @@ public object ThemeCompiler {
                     }
                     continue
                 }
-                jobs.putAll(elementJobs(element, pack))
+                // Drawables this One UI version must keep (OneUiRules.keepDrawables) are never planned.
+                jobs.putAll(elementJobs(element, pack).filterKeys { !rules.keepsDrawable(it.first) })
             }
             val overridden = HashSet<String>()
             customJobs(spec.customIcons, CustomAssets.CATEGORY_ICON, jobs, overridden)

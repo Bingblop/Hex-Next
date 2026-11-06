@@ -253,4 +253,15 @@ class OneUiRulesTest {
         val empty = OneUiRules.parse("""{"major": 9}""")
         assertTrue(empty.colorGroups.isEmpty() && empty.colorGroupPackages.isEmpty() && empty.colorGroupFamilies.isEmpty())
     }
+
+    @Test
+    fun `One UI 9 keeps the go-to-top drawables Carnelian crashed Settings and My Files with`() {
+        val r = OneUiRules.load(9)
+        assertTrue(r.keepsDrawable("com.android.settings:drawable/sesl_go_to_top_light"))
+        assertTrue(r.keepsDrawable("com.sec.android.app.myfiles:drawable/sesl_go_to_top_dark"))
+        assertTrue(r.keepsDrawable("android:drawable/sem_go_to_top_light"))
+        assertTrue(r.keepsDrawable("drawable/sem_list_go_to_top_dark"))
+        assertFalse(r.keepsDrawable("com.android.settings:drawable/sec_ic_settings_display"))
+        assertFalse(r.keepsDrawable("com.android.settings:drawable/sesl_switch_thumb_on"))
+    }
 }

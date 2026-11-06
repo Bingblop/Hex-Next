@@ -292,6 +292,7 @@
     "software_update",
     "tips"
   ],
+  "keepDrawables": ["drawable/sesl_go_to_top_*", "drawable/sem_go_to_top_*", "drawable/sesl_list_go_to_top_*", "drawable/sem_list_go_to_top_*"],
   "colorGroups": {
     "qs_tile_inactive": [
       "^(?!.*(icon|label|text|title|stroke)).*(^|_)tiles?_.*(inactive|(^|_)off(_|$)|unavailable|disabled|(^|_)dim(_|$))"
