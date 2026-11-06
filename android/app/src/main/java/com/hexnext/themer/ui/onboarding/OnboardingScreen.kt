@@ -366,7 +366,7 @@ private fun AccessPage(shizuku: ShizukuState, onRequestPermission: () -> Unit) {
     if (connected) {
         SectionCard("You're ready") {
             Text(
-                "Hex Next can now build and apply overlays. You can check it later from the Connection chip at the top of Studio.",
+                "Hex Next can now build and apply overlays. You can check it later from the status word at the top of the app.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -438,7 +438,7 @@ private fun PackPage(
             }
             EmptyState(
                 icon = Icons.Outlined.Info,
-                text = "No packs yet. Import a pack file now, or download some later with \"Get packs\" in Skins.",
+                text = "No packs yet. Import a pack file now, or download some later on the Packs tab.",
                 actionLabel = "Import pack file",
                 enabled = !busy,
                 onAction = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },

@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
@@ -29,16 +31,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hexnext.engine.compile.ColorGroup
+import com.hexnext.themer.R
 import com.hexnext.themer.ui.studio.PreviewTab
 import com.hexnext.themer.ui.studio.StudioPreviewState
 
@@ -89,11 +99,12 @@ internal fun PreviewFrame(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (compact) {
-                // The peek names the edited element in its header, so the hint row is not needed.
+                // The peek names the edited element in its header, so the hint row is not needed;
+                // the one-pill mode switch leaves the screen tabs room to show whole.
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     PreviewTabRow(tab, onTabChange, Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
-                    ModeToggle(dark, onDarkChange)
+                    ModeChip(dark, onDarkChange)
                 }
             } else {
                 PreviewTabRow(tab, onTabChange, Modifier.fillMaxWidth())
@@ -137,9 +148,29 @@ private fun PreviewTabRow(selected: PreviewTab, onSelect: (PreviewTab) -> Unit, 
     // App tabs show only when the app is installed (no Email tab on a phone without Samsung Email).
     val tabs = androidx.compose.runtime.remember(context) { visiblePreviewTabs(context.packageManager) }
     androidx.compose.runtime.LaunchedEffect(selected, tabs) { if (selected !in tabs) onSelect(PreviewTab.SETTINGS) }
+    val scroll = rememberScrollState()
     Row(
         modifier = modifier
-            .horizontalScroll(rememberScrollState())
+            // The row holds more tabs than fit: its edges fade where it scrolls on, so the cut
+            // pill reads as "more this way" rather than as a defect.
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val fade = 28.dp.toPx()
+                if (scroll.canScrollForward) {
+                    drawRect(
+                        brush = Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black, startX = size.width - fade, endX = size.width),
+                        blendMode = BlendMode.DstOut,
+                    )
+                }
+                if (scroll.canScrollBackward) {
+                    drawRect(
+                        brush = Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = 0f, endX = fade),
+                        blendMode = BlendMode.DstOut,
+                    )
+                }
+            }
+            .horizontalScroll(scroll)
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -194,6 +225,39 @@ private fun ModeToggle(dark: Boolean, onDarkChange: (Boolean) -> Unit, modifier:
                 )
             }
         }
+    }
+}
+
+/**
+ * The compact light/dark switch of the peek: one pill naming the mode the preview shows, with
+ * its sun or moon; a tap flips it. Styled like the screen tabs beside it.
+ */
+@Composable
+private fun ModeChip(dark: Boolean, onDarkChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .clip(CircleShape)
+            .border(1.dp, colors.outlineVariant, CircleShape)
+            .toggleable(value = dark, role = Role.Switch, onValueChange = onDarkChange)
+            .semantics { stateDescription = if (dark) "Dark preview. Tap for light" else "Light preview. Tap for dark" }
+            .padding(start = 10.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            painterResource(if (dark) R.drawable.hx_ic_dark_mode else R.drawable.hx_ic_light_mode),
+            contentDescription = null,
+            tint = colors.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            if (dark) "Dark" else "Light",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
+        )
     }
 }
 

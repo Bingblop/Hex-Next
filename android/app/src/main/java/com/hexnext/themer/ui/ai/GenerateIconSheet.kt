@@ -222,7 +222,7 @@ fun GenerateIconSheet(
                 }
                 if (paletteHint.isEmpty()) {
                     Text(
-                        "Match pack needs a pack with its own colours, chosen in Skins.",
+                        "Match pack needs a pack with its own colours, chosen on the Packs tab.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

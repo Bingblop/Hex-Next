@@ -1,7 +1,5 @@
 package com.hexnext.themer.ui.studio
 
-import com.hexnext.themer.ui.settings.AppSettingsStore
-import com.hexnext.themer.ui.settings.AppSettingsContent
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,7 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
-import com.hexnext.engine.compile.ApplyReport
 import com.hexnext.engine.compile.TargetOutcome
 import com.hexnext.engine.compile.ColorGroup
 import com.hexnext.engine.compile.TargetResult
@@ -70,6 +67,8 @@ import com.hexnext.themer.ui.MainViewModel
 import com.hexnext.themer.ui.Screen
 import com.hexnext.themer.ui.UiState
 import com.hexnext.themer.ui.restartProtectionText
+import com.hexnext.themer.ui.settings.AppSettingsStore
+import com.hexnext.themer.ui.settings.appSettingsItems
 import com.hexnext.engine.compile.ThemeSpec as EngineThemeSpec
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -77,44 +76,60 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * The Settings tab: General (the app's own appearance, behaviour, AI providers, purchases and
- * about), Themed apps (each target's result and switch, restart protection) and Tools (build
- * log, safe mode, diagnostics, device). No preview here: nothing on this tab changes the theme.
+ * Settings: Apps (what the last apply did per One UI app, with a switch to leave an app out),
+ * Tools (the theme file, backups, the build log, safe mode, Diagnostics and the per-app colour
+ * editor) and Hex Next (the app's own appearance, behaviour, AI keys, purchases and About). No
+ * preview here: nothing on this page changes the theme's look.
  */
 @Composable
 internal fun SettingsPage(
     viewModel: MainViewModel,
     ui: UiState,
     shizuku: ShizukuState,
-    section: SettingsSection,
-    onSection: (SettingsSection) -> Unit,
+    settingsStore: AppSettingsStore,
+    tab: SettingsTab,
+    onTab: (SettingsTab) -> Unit,
+    onScan: () -> Unit,
+    scanning: Boolean,
 ) {
-    val context = LocalContext.current
-    val store = remember(context) { AppSettingsStore.get(context) }
     Column(Modifier.fillMaxSize()) {
         SubTabs(
-            SettingsSection.entries,
-            section,
+            SettingsTab.entries,
+            tab,
             { it.label },
-            onSection,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+            onTab,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (section) {
-                SettingsSection.GENERAL -> AppSettingsContent(
-                    store = store,
-                    onOpenDiagnostics = { viewModel.navigate(Screen.DIAGNOSTICS) },
-                    onOpenAiProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
-                    onOpenOnboarding = { viewModel.navigate(Screen.ONBOARDING) },
-                    purchases = ui.entitlement,
-                    canPurchase = ui.canPurchase,
-                    onRestorePurchases = viewModel::restorePurchases,
-                    contentPadding = PAGE_PADDING,
-                )
-                SettingsSection.APPS -> TargetsTab(viewModel, ui)
-                SettingsSection.TOOLS -> ToolsTab(viewModel, ui, shizuku)
+            when (tab) {
+                SettingsTab.APPS -> AppsTab(viewModel, ui, onScan, scanning)
+                SettingsTab.TOOLS -> ToolsTab(viewModel, ui, shizuku)
+                SettingsTab.APP -> AppTab(viewModel, ui, settingsStore)
             }
         }
+    }
+}
+
+/** Hex Next's own settings, the same cards as the full App settings screen, without its top bar. */
+@Composable
+private fun AppTab(viewModel: MainViewModel, ui: UiState, store: AppSettingsStore) {
+    val settings by store.settings.collectAsStateWithLifecycle()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PAGE_PADDING,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        appSettingsItems(
+            settings = settings,
+            store = store,
+            // Diagnostics has its door on Tools; here only the AI keys and the setup guide open screens.
+            onOpenDiagnostics = null,
+            onOpenAiProviders = { viewModel.navigate(Screen.AI_PROVIDERS) },
+            onOpenOnboarding = { viewModel.navigate(Screen.ONBOARDING) },
+            purchases = ui.entitlement,
+            canPurchase = ui.canPurchase,
+            onRestorePurchases = viewModel::restorePurchases,
+        )
     }
 }
 
@@ -160,7 +175,7 @@ private fun targetLabel(context: Context, pkg: String): String = when (pkg) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
+private fun AppsTab(viewModel: MainViewModel, ui: UiState, onScan: () -> Unit, scanning: Boolean) {
     val context = LocalContext.current
     val report = ui.lastApply
     val scanned by viewModel.scannedTargets.collectAsStateWithLifecycle()
@@ -223,19 +238,11 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
 
         item(key = "header") {
             StudioCard(
-                title = "Targets",
+                title = "Themed apps",
                 eyebrow = if (report != null) "Last apply" else "Not applied yet",
-                subtitle = "Apply turns off Samsung's theme overlay for each app below and puts the Hex Next one in its place.",
+                subtitle = "Apply theme gives each app below a Hex Next overlay in place of Samsung's. Switch an app off to leave it with Samsung's look.",
             ) {
-                if (report != null) {
-                    TargetFacts(report)
-                } else {
-                    Text(
-                        "Apply theme builds one overlay for each app below. Switch an app off to leave it with Samsung's look.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                if (report != null) ApplyFacts(report)
             }
         }
 
@@ -244,12 +251,14 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
                 StudioCard(title = "No apps to show") {
                     if (scanned == null && noReportedTargets) {
                         Text("Reading the last scan…", style = MaterialTheme.typography.bodyMedium)
+                    } else if (scanning) {
+                        Text("Scanning your phone…", style = MaterialTheme.typography.bodyMedium)
                     } else {
                         EmptyState(
                             icon = Icons.Filled.Search,
                             text = "Scan your phone to see which One UI apps Hex Next can theme.",
                             actionLabel = "Scan phone",
-                            onAction = viewModel::openScan,
+                            onAction = onScan,
                         )
                     }
                 }
@@ -292,43 +301,6 @@ private fun TargetsTab(viewModel: MainViewModel, ui: UiState) {
                 )
             }
         }
-    }
-}
-
-/** The header facts of the last apply: apps themed, colours written, Samsung overlays turned off, time. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TargetFacts(report: ApplyReport) {
-    val colours = report.outcomes.sumOf { it.colorCount }
-    val seconds = ((report.finishedAt - report.startedAt).coerceAtLeast(0L) / 100L) / 10.0
-    // Only targets that were built count: OK, PARTIAL (both in okCount) and FAILED. Skipped,
-    // removed and EMPTY targets were never attempted, so they are not part of the denominator.
-    val attempted = report.okCount + report.failedCount
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        StatusChip(
-            "${report.okCount} of $attempted themed",
-            if (report.failedCount > 0) StatusTone.WARN else StatusTone.OK,
-        )
-        if (report.failedCount > 0) StatusChip("${report.failedCount} failed", StatusTone.BAD)
-        if (report.partialCount > 0) StatusChip("${report.partialCount} partial", StatusTone.WARN)
-        StatusChip("$colours colours", StatusTone.INFO)
-        if (report.semwtDisabledCount > 0) {
-            StatusChip(
-                "${report.semwtDisabledCount} Samsung theme ${if (report.semwtDisabledCount == 1) "overlay" else "overlays"} off",
-                StatusTone.NEUTRAL,
-            )
-        }
-        if (report.finishedAt > report.startedAt) StatusChip("$seconds s", StatusTone.NEUTRAL)
-    }
-    if (!report.finished) {
-        Text(
-            "The last apply did not finish. Apply again.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = statusColor(StatusTone.BAD),
-        )
     }
 }
 
@@ -407,7 +379,7 @@ private fun TargetRow(
                 },
             )
         }
-        TextButton(onClick = onResources, modifier = Modifier.heightIn(min = 48.dp)) { Text("Resources") }
+        TextButton(onClick = onResources, modifier = Modifier.heightIn(min = 48.dp)) { Text("Per-app colours") }
     }
 }
 
@@ -418,7 +390,7 @@ private enum class LogFilter(val label: String, val level: LogLevel?) {
 }
 
 @Composable
-internal fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState, library: Boolean = false) {
+private fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuState) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val diagnostics: DiagnosticsViewModel = composeViewModel()
@@ -467,8 +439,6 @@ internal fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuSta
         contentPadding = PAGE_PADDING,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Library: the theme file and the backups. Settings › Tools: log, safe mode, diagnostics.
-        if (library) {
         item(key = "file") {
             StudioCard(
                 title = "Theme file",
@@ -544,8 +514,6 @@ internal fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuSta
             }
         }
 
-        }
-        if (!library) {
         item(key = "log") {
             val log by viewModel.log.collectAsStateWithLifecycle()
             val lines = remember(log, logFilter) {
@@ -617,12 +585,17 @@ internal fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuSta
             }
         }
 
-        item(key = "diagnostics") {
-            StudioCard(title = "Diagnostics") {
+        item(key = "advanced") {
+            StudioCard(title = "Advanced") {
                 StudioNavRow(
                     title = "Diagnostics",
-                    summary = "Scan the phone, check Settings and share a report",
+                    summary = "Scan the phone, test Settings, share a report",
                     onClick = { viewModel.navigate(Screen.DIAGNOSTICS) },
+                )
+                StudioNavRow(
+                    title = "Per-app colours",
+                    summary = "Every colour of every scanned One UI app, with pins",
+                    onClick = { viewModel.openResources() },
                 )
             }
         }
@@ -636,7 +609,6 @@ internal fun ToolsTab(viewModel: MainViewModel, ui: UiState, shizuku: ShizukuSta
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
         }
     }
 

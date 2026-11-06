@@ -149,6 +149,10 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     packaging {
         jniLibs {
             // Uncompressed page-aligned 64-bit & 32-bit native libraries for Android 16 / One UI 9.0 (16KB page ready)
@@ -284,4 +288,10 @@ dependencies {
     "playImplementation"("com.android.billingclient:billing:8.3.0")
 
     testImplementation("junit:junit:4.13.2")
+    // Rendered screenshots of the shell on the JVM (ShellScreenshotTest): Robolectric draws the
+    // real composables with native graphics, so a layout can be checked without a phone.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

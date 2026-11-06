@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="settings_title">App settings</string>
+    <string name="settings_title">Hex Next settings</string>
     <string name="settings_back">Back</string>
     <string name="settings_ai_providers">AI providers</string>
     <string name="settings_ai_keys">AI keys</string>
@@ -10,7 +10,7 @@
     <string name="settings_diagnostics_summary">Check the phone, share a report and manage restart protection.</string>
 
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_appearance_summary">How Hex Next itself looks. The theme for your phone is made in Studio.</string>
+    <string name="settings_appearance_summary">How Hex Next itself looks. Your phone\'s theme is made on the Theme, Packs and Library tabs.</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_system">System</string>
     <string name="settings_theme_light">Light</string>
@@ -45,14 +45,14 @@
     <string name="settings_purchases_checking">Checking your purchases with Google Play…</string>
     <string name="settings_purchases_unchecked">Your purchases have not been checked yet.</string>
     <string name="settings_purchases_all_unlocked">All packs are unlocked, including packs added later.</string>
-    <string name="settings_purchases_none_unlocked">No packs unlocked yet. Unlock packs in Skins.</string>
+    <string name="settings_purchases_none_unlocked">No packs unlocked yet. Unlock packs on the Packs tab.</string>
     <plurals name="settings_purchases_packs_unlocked">
         <item quantity="one">%1$d pack unlocked.</item>
         <item quantity="other">%1$d packs unlocked.</item>
     </plurals>
     <string name="settings_ai_creation_unlocked">AI theme creation: unlocked forever.</string>
     <string name="settings_ai_creation_pending">AI theme creation: payment pending.</string>
-    <string name="settings_ai_creation_locked">AI theme creation: locked. Unlock it from Describe your theme on the Studio tab.</string>
+    <string name="settings_ai_creation_locked">AI theme creation: locked. Unlock it under Theme › AI.</string>
     <string name="settings_restore_purchases">Restore purchases</string>
     <string name="settings_restore_purchases_summary">Unlock packs and AI theme creation you bought before on this Google account.</string>
 

@@ -167,13 +167,14 @@ and earlier sessions' notes never count as approval.
   - Phone mockup with QS/Settings/Files/Power/Dialer/Keys tabs.
   - Colour engine card and per-resource colour list.
   - Use the system font, not the AI Studio font. The wording must describe what each feature really does.
-- **Navigation (2026-11-05):** four tabs, Theme, Packs, Library, Settings. Theme has one row of sections (Overview, Colours, Elements, Quick panel, Shades, Icons, Custom icons, Fonts, Backgrounds); Library holds the theme file and backups; Settings has General (App settings), Themed apps (targets, restart protection) and Tools (log, safe mode, diagnostics, device). Preview and Apply are pinned on Theme and Packs only. A tap on the phone edits in place (colour sheet), except on Elements and Quick panel where it scrolls to the row; it never switches tabs. `hexnext.destination` still accepts the old lab page names (STUDIO, SKINS, COLOURS, ICONS, SYSTEM) plus `THEME:<section>` / `SETTINGS:<section>`.
-- **Main files:** `ui/studio/StudioScreen.kt`, `ui/studio/ShellPages.kt` (Studio / Colours / Skins / … pages, PreviewPeek, PreviewedPage), `ui/MainScreen.kt` (PackCard, PackRow, CatalogueSkinRow, OptionList), `ui/MainViewModel.kt`.
-- **All 44 packs** are listed in Skins. Locked packs download to `files/packs-preview` and are **fully previewable**. Building or applying an overlay needs a verified purchase.
+- **Navigation v3 (2026-11-05, `docs/design/navigation-v3.md`):** four destinations, **Theme** (Palette · Elements · Quick panel · AI), **Packs**, **Library** (Icons · Fonts · Backgrounds), **Settings** (Apps · Tools · Hex Next). One status word in the top bar opens the Status sheet (connection, "It works", last apply, doors to Themed apps and Diagnostics); the status strip and gear are gone. Element taps, scans and shades all happen in place. The apply bar shows one **Connect** button while disconnected. Old destination names still parse as aliases for deep links.
+- **Main files:** `ui/studio/StudioScreen.kt` (shell, status sheet, apply bar wiring), `ui/studio/ShellPages.kt` (sub-tabs, peek, Theme and Library pages), `ui/studio/PacksPage.kt` (pack gallery), `ui/studio/SettingsPages.kt` (Apps / Tools / Hex Next), `ui/settings/AppSettingsScreen.kt` (`appSettingsItems`), `ui/MainScreen.kt` (ApplyBar, OptionList, PartPackRow), `ui/MainViewModel.kt`.
+- **Screenshots without a phone:** `ShellScreenshotTest` (Robolectric) renders every page to `android/app/build/shell-shots/`; see navigation-v3.md §3.
+- **All 44 packs** are listed in Packs, packs on the phone first. Locked packs download to `files/packs-preview` and are **fully previewable**. Building or applying an overlay needs a verified purchase.
 - **Live preview:**
   - The peek at the top of a page opens to the full phone on every committed edit (the `edits` counter in the view model).
   - Since adf0151, a floating **Preview** button appears once the peek scrolls out of view. It opens the phone in a sheet.
-- **Pack list (adf0151):** installed and catalogue skins share one name-ordered list. A picked skin stays in place and its options open right under it.
+- **Pack list:** installed and catalogue packs share one list, grouped "On this phone" then "More packs to download", each group by name. A picked pack stays in place and its badges and options open right under it.
 
 ## 8. Latest status (2026-11-03 ~16:20 UTC)
 - **Latest commits:**

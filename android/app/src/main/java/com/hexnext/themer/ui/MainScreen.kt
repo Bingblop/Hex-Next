@@ -128,6 +128,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
@@ -206,9 +207,10 @@ fun MainScreen(viewModel: MainViewModel) {
             if (id == 0L) return@collect
             // The slot lists and the preview come from the scan, wherever the user is now.
             viewModel.invalidateSlots()
-            // Diagnostics shows "Scan finished" itself; elsewhere the notice is dropped so it
-            // does not replay on the next visit.
-            if (viewModel.screen.value != Screen.DIAGNOSTICS) diagnostics.consumeScanFinished(id)
+            // Diagnostics and the shell each show "Scan finished" and consume it themselves;
+            // on the other screens the notice is dropped so it does not replay on the next visit.
+            val showing = viewModel.screen.value
+            if (showing != Screen.DIAGNOSTICS && showing != Screen.MAIN && showing != Screen.RESOURCES) diagnostics.consumeScanFinished(id)
         }
     }
     // Restart protection ends 10 minutes after an apply even if nobody taps "It works": re-read
@@ -219,10 +221,10 @@ fun MainScreen(viewModel: MainViewModel) {
             viewModel.refreshGuard()
         }
     }
-    // A scan that ended just as the user left Diagnostics, before its notice could show.
+    // A scan that ended just as the user left Diagnostics or the shell, before its notice could show.
     LaunchedEffect(screen) {
         val id = diagnostics.state.value.scanFinishedId
-        if (screen != Screen.DIAGNOSTICS && id != 0L) diagnostics.consumeScanFinished(id)
+        if (screen != Screen.DIAGNOSTICS && screen != Screen.MAIN && screen != Screen.RESOURCES && id != 0L) diagnostics.consumeScanFinished(id)
     }
 
     val content: @Composable (Screen) -> Unit = { target ->
@@ -754,183 +756,11 @@ internal fun HexField(seed: Int, onSeed: (Int) -> Unit, modifier: Modifier = Mod
     )
 }
 
-/**
- * Pack choice for the next apply. Simple mode: colours only or one installed pack, with the live
- * options of the selected pack under its row. Advanced mode: the default pack plus a pack per
- * part of One UI. Import and catalogue in both.
- */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-internal fun PackCard(
-    packs: List<InstalledPack>,
-    errors: Map<String, String>,
-    spec: ThemeSpec,
-    busy: Boolean,
-    catalogue: CatalogueState,
-    locks: PackLocks,
-    onUnlock: (String) -> Unit,
-    onSelect: (String?) -> Unit,
-    onMode: (ThemeMode) -> Unit,
-    onOption: (Pack, LiveOption, String, String?) -> Unit,
-    onElementPack: (String, String?) -> Unit,
-    onElementEnabled: (String, Boolean) -> Unit,
-    onImport: (Uri) -> Unit,
-    onDelete: (String) -> Unit,
-    onCatalogueUrl: (String) -> Unit,
-    onLoadCatalogue: () -> Unit,
-    onDownload: (CatalogueEntry) -> Unit,
-    /** A catalogue skin that is not on the phone yet was picked: download it (preview only while locked) and select it. */
-    onPreviewCatalogue: ((CatalogueEntry) -> Unit)? = null,
-    /** Hides options whose artwork has no target on this phone; null (no scan yet) shows every live option. */
-    optionReach: OptionReach? = null,
-) {
-    var showCatalogue by rememberSaveable { mutableStateOf(false) }
-    var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) onImport(uri)
-    }
-    val advanced = spec.mode == ThemeMode.ADVANCED
-    val selectedPack = packs.firstOrNull { it.id == spec.simplePackId }
-    SectionCard(
-        title = "Theme pack",
-        trailing = {
-            SingleChoiceSegmentedButtonRow {
-                SegmentedButton(
-                    selected = !advanced,
-                    onClick = { onMode(ThemeMode.SIMPLE) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    enabled = !busy,
-                    label = { Text("Simple") },
-                )
-                SegmentedButton(
-                    selected = advanced,
-                    onClick = { onMode(ThemeMode.ADVANCED) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    enabled = !busy,
-                    label = { Text("Advanced") },
-                )
-            }
-        },
-    ) {
-        Text(
-            "Simple uses one pack for everything. Advanced picks a pack for each part of One UI.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (locks.anyStillLocked(packs, catalogue.entries)) {
-            UnlockAllRow(locks = locks, busy = busy, onUnlock = onUnlock)
-        }
-        if (advanced) {
-            Text("Default pack", style = MaterialTheme.typography.labelLarge)
-        }
-        PackPicker(
-            packs = packs,
-            catalogue = catalogue,
-            spec = spec,
-            busy = busy,
-            locks = locks,
-            onSelect = onSelect,
-            onDownload = onDownload,
-            onPreview = onPreviewCatalogue ?: onDownload,
-            onUnlock = onUnlock,
-            onUninstall = { confirmDelete = it },
-        )
-        val chosen = selectedPack
-        if (chosen != null) {
-            val locked = locks.locked(chosen.id)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PaletteDots(chosen)
-                Text(
-                    if (locked) "Preview only, in the phone above. Unlock to apply." else "Shown in the live preview above.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(
-                    onClick = { confirmDelete = chosen.id },
-                    enabled = !busy,
-                    modifier = Modifier.semantics { contentDescription = "Remove ${chosen.name}" },
-                ) { Text("Remove") }
-            }
-            PackBadges(chosen, locked = locked, pending = locks.pending(chosen.id), price = locks.singlePrice(chosen.id))
-            Reveal(visible = !advanced) {
-                val options = remember(chosen.pack, optionReach) { PackOptions.all(chosen.pack, optionReach) }
-                OptionList(
-                    pack = chosen.pack,
-                    options = options,
-                    spec = spec,
-                    elementId = null,
-                    enabled = !busy,
-                    onOption = onOption,
-                )
-            }
-        } else if (packs.isEmpty() && catalogue.entries.isEmpty() && !catalogue.loading) {
-            Text(
-                "No extra packs yet. Your accent colour still applies.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (advanced) {
-            val parts = remember(packs) { coveredParts(packs) }
-            if (parts.isNotEmpty()) {
-                Text("Parts", style = MaterialTheme.typography.labelLarge)
-            }
-            parts.forEach { (element, covering) ->
-                ElementRow(
-                    element = element,
-                    covering = covering,
-                    packs = packs,
-                    spec = spec,
-                    busy = busy,
-                    locks = locks,
-                    onOption = onOption,
-                    onElementPack = onElementPack,
-                    onElementEnabled = onElementEnabled,
-                    optionReach = optionReach,
-                )
-            }
-        }
-        errors.forEach { (file, why) ->
-            Text("$file: $why", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) },
-                enabled = !busy,
-            ) { Text("Import pack file") }
-            TextButton(onClick = { showCatalogue = true }, enabled = !busy) { Text("Catalogue source") }
-        }
-    }
-    confirmDelete?.let { id ->
-        val name = packs.firstOrNull { it.id == id }?.name ?: id
-        ConfirmDialog(
-            title = "Remove $name?",
-            text = "The pack file is deleted from this phone. Parts that use it go back to colours only.",
-            confirmLabel = "Remove",
-            onConfirm = {
-                confirmDelete = null
-                onDelete(id)
-            },
-            onDismiss = { confirmDelete = null },
-        )
-    }
-    if (showCatalogue) {
-        CatalogueDialog(
-            state = catalogue,
-            busy = busy,
-            onUrl = onCatalogueUrl,
-            onLoad = onLoadCatalogue,
-            onDismiss = { showCatalogue = false },
-        )
-    }
-}
-
 /** The indent of blocks nested under a radio row: the 48 dp button plus the row's 8 dp gap. */
 internal val RADIO_INDENT = 56.dp
 
 /**
- * One radio row of [PackCard]; [content] fills the space right of the button. The row is the one
+ * One radio row of a pack option list; [content] fills the space right of the button. The row is the one
  * selectable node (named by its text, with its selected state); the button only draws.
  */
 @Composable
@@ -952,7 +782,7 @@ internal fun PackRow(selected: Boolean, enabled: Boolean, onClick: () -> Unit, c
  * Subtitle of a pack row: drawables · Settings icons · day and night. Only what the pack holds:
  * never an author, version or source name, which can tie a pack to where its artwork came from.
  */
-private fun packSummary(pack: InstalledPack): String = listOfNotNull(
+internal fun packSummary(pack: InstalledPack): String = listOfNotNull(
     "${pack.drawableCount} images",
     if (pack.hasSettingsIcons) "Settings icons" else null,
     if (pack.dayNight) "Day and night" else null,
@@ -960,7 +790,7 @@ private fun packSummary(pack: InstalledPack): String = listOfNotNull(
 
 /** The first three colours of the pack's own palette, as 14 dp dots; nothing when it has none. */
 @Composable
-private fun PaletteDots(pack: InstalledPack) {
+internal fun PaletteDots(pack: InstalledPack) {
     val colors = remember(pack.pack) { pack.pack.paletteArgb.values.take(3).map { it or 0xFF000000.toInt() } }
     if (colors.isEmpty()) return
     Row(
@@ -982,7 +812,7 @@ private fun PaletteDots(pack: InstalledPack) {
 /** Badges of a pack row: lock state, day and night, drawables, Settings icons. Each one a word. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PackBadges(pack: InstalledPack, locked: Boolean, pending: Boolean, price: String? = null) {
+internal fun PackBadges(pack: InstalledPack, locked: Boolean, pending: Boolean, price: String? = null) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (locked) {
             LockedLabel(pending = pending, price = price)
@@ -1031,16 +861,18 @@ internal fun SwitchRow(label: String, checked: Boolean, enabled: Boolean, onChec
  * when there are no options.
  */
 @Composable
-private fun OptionList(
+internal fun OptionList(
     pack: Pack,
     options: List<LiveOption>,
     spec: ThemeSpec,
     elementId: String?,
     enabled: Boolean,
     onOption: (Pack, LiveOption, String, String?) -> Unit,
+    /** The indent under the row the options belong to; 0 dp when the caller has indented already. */
+    indent: Dp = RADIO_INDENT,
 ) {
     if (options.isEmpty()) return
-    Column(Modifier.padding(start = RADIO_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(start = indent), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { live ->
             val current = PackOptions.value(spec, pack, live, elementId)
             if (live.option.type == PackOption.SELECT) {
@@ -1078,7 +910,7 @@ private fun NativeOptionNote() {
 }
 
 /** The parts of One UI, in registry order, that at least one installed pack covers, with those packs. */
-private fun coveredParts(packs: List<InstalledPack>): List<Pair<Element, List<InstalledPack>>> {
+internal fun coveredParts(packs: List<InstalledPack>): List<Pair<Element, List<InstalledPack>>> {
     val coverage = packs.associateWith { installed -> PackOptions.coveredElements(installed.pack).mapTo(HashSet()) { it.id } }
     return Elements.ALL.mapNotNull { element ->
         val covering = packs.filter { element.id in coverage.getValue(it) }
@@ -1094,7 +926,7 @@ private fun coveredParts(packs: List<InstalledPack>): List<Pair<Element, List<In
  * then takes no drawables for it from any pack, while colours still apply.
  */
 @Composable
-private fun ElementRow(
+internal fun PartPackRow(
     element: Element,
     covering: List<InstalledPack>,
     packs: List<InstalledPack>,
@@ -1834,7 +1666,7 @@ internal fun FontCard(
  * "Change source". The packs themselves are not listed here.
  */
 @Composable
-private fun CatalogueDialog(
+internal fun CatalogueDialog(
     state: CatalogueState,
     busy: Boolean,
     onUrl: (String) -> Unit,
@@ -1938,7 +1770,8 @@ internal fun restartProtectionText(unconfirmed: Boolean, expired: Boolean): Stri
  * in a compact bar. Apply and Remove are on only while [connected] and not [busy]; while
  * [applying] a progress bar and the last log line (a polite live region) show; while
  * [unconfirmed] an "It works" row sits on top. Tapping the summary opens the target list
- * ([onDetails]); while disconnected it opens the connection sheet ([onConnection]).
+ * ([onDetails]); while disconnected the summary and a single "Connect" button (in place of Apply
+ * and Remove, which could not be tapped) open the connection sheet ([onConnection]).
  *
  * While the theme uses packs that are not unlocked ([lockedPackCount]), the summary names the
  * price and Apply opens Play billing for those packs instead of building the theme.
@@ -2006,7 +1839,7 @@ internal fun ApplyBar(
             val summary = when {
                 lockedPackCount > 1 -> "Unlock $lockedPackCount packs to apply · ${lockedPackPrice.orEmpty()}".trim()
                 previewOnlyPack != null -> "Unlock $previewOnlyPack to apply · ${lockedPackPrice ?: "preview only"}"
-                !connected -> "Connect first: start Shizuku with root"
+                !connected -> "Not connected. Start Shizuku with root, then apply."
                 report == null -> "Not applied yet"
                 else -> lastApplyLine(report)
             }
@@ -2047,29 +1880,41 @@ internal fun ApplyBar(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            OutlinedButton(
-                onClick = { confirmRemove = true },
-                enabled = connected && !busy,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text("Remove") }
-            Button(
-                onClick = onApply,
-                enabled = !busy && !previewOnlyPending && (connected || lockedPackCount > 0 || previewOnlyPack != null),
-                shape = MaterialTheme.shapes.small,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .then(if (applying) Modifier.semantics { contentDescription = "Applying theme" } else Modifier),
-            ) {
-                if (applying) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                } else {
-                    // The pack is named so a pick that did not take is seen before applying.
-                    Text(packName?.let { "Apply $it" } ?: "Apply theme", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val needsUnlock = lockedPackCount > 0 || previewOnlyPack != null
+            if (!connected && !needsUnlock) {
+                // Nothing can be applied or removed without the connection: one button that opens
+                // the way to connect, instead of two buttons that cannot be tapped.
+                FilledTonalButton(
+                    onClick = onConnection,
+                    enabled = !busy,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) { Text("Connect") }
+            } else {
+                OutlinedButton(
+                    onClick = { confirmRemove = true },
+                    enabled = connected && !busy,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) { Text("Remove") }
+                Button(
+                    onClick = onApply,
+                    enabled = !busy && !previewOnlyPending && (connected || needsUnlock),
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .then(if (applying) Modifier.semantics { contentDescription = "Applying theme" } else Modifier),
+                ) {
+                    if (applying) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    } else {
+                        // The pack is named so a pick that did not take is seen before applying.
+                        Text(packName?.let { "Apply $it" } ?: "Apply theme", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
