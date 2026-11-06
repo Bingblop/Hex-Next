@@ -9,7 +9,6 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
-    "dependencies": { "mime": "^3.0.0" },
   },
   "devDependencies": {
     "@cloudflare/workers-types": "4.20260702.1",
