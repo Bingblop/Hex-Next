@@ -58,6 +58,7 @@ class PackAuditHarness {
                 val day = t.drawables.filter { !it.configuration.contains("night") }
                 out.append("$id\t${t.packageName}\t${day.size}\t${t.drawables.size}\n")
                 if (System.getenv("HEX_DETAIL") != null) for (d in t.drawables) out.append("  ${d.resourceName} ${d.configuration} el=${d.elementId} src=${d.source.category}/${d.source.resourceName} steps=${d.plan.steps}\n")
+                if (System.getenv("HEX_DETAIL") != null) for (s in t.skipped) out.append("  SKIP ${s.name} ${s.reason}\n")
             }
         }
         File(System.getenv("HEX_OUT") ?: "/tmp/audit.tsv").writeText(out.toString())
