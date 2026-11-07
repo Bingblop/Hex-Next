@@ -1,5 +1,5 @@
 {
-  "about": "Every pack in turn on one build: apply, Settings (home, Display, Sound and vibration), My Files > Internal storage, Quick panel, light and dark, with each pack's own crash buffer. Carnelian and the other go-to-top packs first, then the default pack and the 5 new packs; ends on Willemite.",
+  "about": "Every pack in turn on one build: apply, Settings (home, Display, Sound and vibration), My Files > Internal storage, Quick panel, light and dark, with each pack's own crash buffer. Carnelian and the other go-to-top packs first, then the default pack and the 5 new packs; ends on Willemite. Pass/fail is per pack in sweep.tsv (picked, applied, crashes) and screens.tsv (top activity at each shot); the sweep step fails if any pack did not apply or crashed.",
   "steps": [
     "install",
     "scan",
@@ -68,9 +68,5 @@
     "xenotime",
     "zircon",
     "willemite"
-  ],
-  "expect": {
-    "apply_ok": true,
-    "no_crash": true
-  }
+  ]
 }

@@ -59,6 +59,12 @@ home() { root "cmd statusbar collapse; input keyevent KEYCODE_HOME" >/dev/null 2
 shot() {
   local name="$1" png="$RES/shots/$1.png"
   root "screencap -p" >"$png" 2>/dev/null
+  if [ -n "${SWEEP_DIR:-}" ]; then
+    # What was on top at the shot (a crashed screen leaves the launcher or a dialog; the Quick
+    # panel sits over the launcher, so its row names the launcher too). Mode and capture come from
+    # step_capture.
+    printf '%s\t%s\t%s\t%s\n' "$MODE" "${SWEEP_CAP:-}" "$name" "$(root "dumpsys activity activities" 2>/dev/null | grep -m1 -E 'topResumedActivity|mResumedActivity' | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -1)" >>"$SWEEP_DIR/screens.tsv"
+  fi
   if command -v magick >/dev/null 2>&1 && [ -s "$png" ]; then
     magick "$png" -resize 50% -quality 82 "$RES/shots/$name.jpg" && rm -f "$png"
   fi
@@ -810,12 +816,8 @@ step_capture() {
     case "$MODE" in dark) root "cmd uimode night yes" ;; light) root "cmd uimode night no" ;; *) continue ;; esac
     sleep 3
     for c in $captures; do
-      log "capture $MODE $c"; capture_real "$c"
-      if [ -n "${SWEEP_DIR:-}" ]; then
-        # What was on top straight after the shot: a crashed screen leaves the launcher or a dialog.
-        printf '%s\t%s\t%s\n' "$MODE" "$c" "$(root "dumpsys activity activities" 2>/dev/null | grep -m1 -E 'topResumedActivity|mResumedActivity' | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -1)" >>"$SWEEP_DIR/screens.tsv"
-        home
-      else capture_preview "$c"; fi
+      log "capture $MODE $c"; SWEEP_CAP="$c" capture_real "$c"
+      if [ -n "${SWEEP_DIR:-}" ]; then home; else capture_preview "$c"; fi
     done
   done
   root "cmd uimode night $orig" >/dev/null 2>&1
@@ -828,7 +830,7 @@ step_capture() {
 # buffer is cleared before each pack so each crash belongs to the pack that caused it. Results are
 # pushed after every pack, so a long sweep shows progress and loses nothing if it stops.
 step_sweep() {
-  local id n=0 total picked applied crashes t0 d caps
+  local id n=0 total picked applied crashes t0 d caps failed=0
   total=$(jq -r '.packs // [] | length' "$JOB")
   caps=$(jq -r '(.captures // ["settings","display","sound","storage"]) | join(" ")' "$JOB")
   [ "$total" -gt 0 ] || { log "sweep: no packs"; return 1; }
@@ -853,9 +855,13 @@ step_sweep() {
     crashes=$(grep -A1 'FATAL EXCEPTION' "$d/crash-log.txt" 2>/dev/null | grep 'Process:' | grep -vc 'com.samsung.android.theme')
     printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$picked" "$applied" "$crashes" $(( $(date +%s) - t0 )) >>"$RES/sweep.tsv"
     log "sweep $id: picked=$picked applied=$applied crashes=$crashes"
+    [ "$applied" = yes ] && [ "$crashes" -eq 0 ] || failed=$((failed + 1))
     ( cd "$LAB" && git add -A "results/$(basename "$RES")" && git commit -qm "Sweep $(basename "$RES"): $id ($n/$total)" ) >/dev/null 2>&1
     push_lab >/dev/null 2>&1 || log "sweep: push after $id failed; kept locally"
   done
+  # Every pack is tried; the step fails when any pack did not apply or crashed something.
+  log "sweep: $((n - failed))/$n packs applied without a crash (results/<id>/sweep.tsv)"
+  [ "$failed" -eq 0 ]
 }
 
 step_collect() {

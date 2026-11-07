@@ -217,6 +217,12 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     index, errors = [], []
     for path in sorted(src.iterdir()):
+        if path.is_dir() and (path / "resources").is_dir() and not is_decompiled_plugin(path):
+            # A decompiled plugin missing its manifest: an error, so its pack is not dropped
+            # from index.json without notice.
+            errors.append({"file": path.name, "error": "no resources/AndroidManifest.xml"})
+            print(f"  error {path.name}: decompiled plugin folder without resources/AndroidManifest.xml")
+            continue
         if path.suffix.lower() not in (".apk", ".apks") and not is_decompiled_plugin(path):
             continue
         try:

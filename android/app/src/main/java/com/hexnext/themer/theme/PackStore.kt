@@ -458,6 +458,10 @@ class PackStore(
     }
 
     /** `<id>.zip` of pack [id] under its current id. */
+    /** True when [id] has a readable pack zip in the applicable pack directory. */
+    fun isInstalled(id: String): Boolean =
+        zipFor(id).let { it.isFile && runCatching { PackReader.read(it).id == PackIdAliases.current(id) }.getOrDefault(false) }
+
     private fun zipFor(id: String): File = File(dir, "${PackIdAliases.current(id)}.zip")
 
     /**

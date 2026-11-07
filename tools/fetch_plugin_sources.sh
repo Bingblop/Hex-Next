@@ -2,10 +2,12 @@
 # Downloads Kyle's legacy plugin + Hex Installer export (private repo Bingblop/hexnext-plugin-sources)
 # and unpacks every decompiled APK to <dir>/src/<package>/ (resources/, sources/). About 2.5 GB free
 # space needed. See docs/plugin-sources.md.
-#   tools/fetch_plugin_sources.sh [<dir>]      (default: ../hexplugins)
+#   tools/fetch_plugin_sources.sh [<dir>]      (default: hexplugins/ beside the Hex-Next checkout)
 set -euo pipefail
-dir=${1:-../hexplugins}
+here=$(cd "$(dirname "$0")" && pwd)
+dir=${1:-$here/../../hexplugins}
 mkdir -p "$dir"; dir=$(cd "$dir" && pwd)
+case "$dir/" in "$(cd "$here/.." && pwd)/"*) echo "refusing to unpack private sources inside the Hex-Next checkout: $dir"; exit 1 ;; esac
 repo="$dir/hexnext-plugin-sources"
 if [ -d "$repo/.git" ]; then git -C "$repo" pull -q
 else gh repo clone Bingblop/hexnext-plugin-sources "$repo" -- -q --depth 1; fi
