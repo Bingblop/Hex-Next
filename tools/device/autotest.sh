@@ -294,7 +294,9 @@ step_install() {
   root "dumpsys package $PKG | grep -E 'versionName|versionCode|lastUpdateTime' | head -3" >>"$RES/install.txt"
   # A job that tests Shizuku as another uid (system, 1000) keeps the server the user started.
   if [ "$(jq -r '.keep_shizuku // false' "$JOB")" = true ]; then log "install: keeping the running Shizuku"
-  else restart_shizuku; fi
+  # Shizuku is only a fallback (Hex Next launches through root first): without its starter the
+  # job goes on, and a step that needs Shizuku fails on its own.
+  else restart_shizuku || log "install: going on without restarting Shizuku"; fi
 }
 
 step_theme() {
