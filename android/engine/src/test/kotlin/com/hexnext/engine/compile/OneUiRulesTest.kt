@@ -264,4 +264,16 @@ class OneUiRulesTest {
         assertFalse(r.keepsDrawable("com.android.settings:drawable/sec_ic_settings_display"))
         assertFalse(r.keepsDrawable("com.android.settings:drawable/sesl_switch_thumb_on"))
     }
+
+    @Test
+    fun oneUi9SystemUiTakesTheSharedSeslWidgetsButNotItsOwnArt() {
+        val qs = OneUiRules.load(9).quickSettings
+        for (name in listOf(
+            "drawable/sesl_switch_thumb_on", "drawable/sesl_btn_check_to_on", "drawable/sesl_btn_radio_to_on",
+            "drawable/sesl_noti_badge", "drawable/sesl_tablayout_subtab_indicator_background_light",
+        )) org.junit.Assert.assertTrue(name, qs.allowsOutside(name))
+        for (name in listOf("drawable/clock_digit_1", "drawable/toast_morph_bg", "drawable/sesl_go_to_top_light")) {
+            org.junit.Assert.assertFalse(name, qs.allowsOutside(name))
+        }
+    }
 }
