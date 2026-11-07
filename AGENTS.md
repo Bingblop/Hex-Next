@@ -25,7 +25,7 @@ sections; never load it wholesale into agent context.
   pass and the diff has been reviewed.
 - More specific restrictions override that authorization:
   - Play Console and Play Store publication waits until the owner asks for it.
-  - Force pushes, history rewrites and pushes to `packs` are never used.
+  - Force pushes and history rewrites are never used; `packs` gets only additive, non-force commits that add or refresh pack zips and index.json (owner-approved 2026-11-06).
   - Agents never read, copy, print or expose secrets or keystores.
   - No unsolicited disruptive operations on tester phones; follow the device rules below.
 
@@ -38,6 +38,10 @@ sections; never load it wholesale into agent context.
 - Keep live app previews installed-app-aware, native Material 3, and separate from UID 2000 mode.
 - Use mineral pack names. `tools/pack_names.json` is the sole legacy-name map.
   Never decrypt plugin anaconda templates.
+- Plugin source material: Kyle's export of all 49 legacy plugins + the original Hex Installer is
+  in the PRIVATE repo `Bingblop/hexnext-plugin-sources`; run `tools/fetch_plugin_sources.sh` and
+  read `docs/plugin-sources.md` before touching pack conversion. Never copy it into a public repo.
+  Quartz (`tools/make_default_pack.py`, bundled in the APK) is the one free pack.
 - Keep owner-only grants and test hooks out of Play artifacts. Paid grants require authoritative
   server verification; lack of configured infrastructure is a release blocker, not an unlock path.
 - Preserve public signatures with tested, deprecated adapters when a migration is needed.
@@ -73,6 +77,6 @@ Retain exact compiler/static-analysis output, fix errors, rerun, and review `git
 - Disclose untested device behavior and infrastructure-dependent blockers. Never promise
   unbypassable billing, guaranteed Knox status, or a warranty outcome.
 - Pull and review remote commits before building on them. Verify author/committer identity.
-  Push reviewable branches without force push; never push `packs`.
+  Push reviewable branches without force push; `packs` only gets additive pack commits.
 - Keep secrets and private artifacts private. No attribution trailers or model names in commits,
   PR text or implementation code.

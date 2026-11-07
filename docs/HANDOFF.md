@@ -17,7 +17,7 @@ and earlier sessions' notes never count as approval.
   reviewed.
 - Play Console and Play Store publication waits until the owner asks for it. No unsolicited
   disruptive operations on tester phones.
-- Force pushes, history rewrites and pushes to `packs` are never used; secrets are never exposed.
+- Force pushes and history rewrites are never used; `packs` gets only additive, non-force commits that add or refresh pack zips and index.json (owner-approved 2026-11-06); secrets are never exposed.
 
 ## 1. What Hex Next is
 - An Android app (Kotlin + Jetpack Compose, package `com.hexnext.themer`) that themes Samsung One UI system apps.
@@ -338,3 +338,14 @@ to test it. Encrypted Owner artifacts follow rule 13 instead.
 - 2.3.2: UID 1000 service could not write its state directory (`/data/local/tmp/hexnext_owner`, shell-owned 0755): every UID 1000 apply since lab-03x skipped the staged stability monitor (Quick panel sizes) and could not save `semwt_state.json`. Root now prepares the directory before each UID 1000 launch (shell owner, system group, 0775; `MonitorScript.prepareStateDirScript`), and root/shell writes keep the group.
 - 2.3.3 (2026-11-06): with Carnelian applied, Settings › Display, Settings › Sound and vibration and My Files › Internal storage crashed on opening. Carnelian is the only pack in those screens that replaced the list "go to top" button drawables (`sesl_go_to_top_*` in 15 apps, `sem_go_to_top_*` in android), which One UI 9 builds as vectors; Willemite never writes them. `OneUiRules.keepDrawables` (9.json) now keeps them stock for every pack (9 packs wrote them: Carnelian, Citrine, Diopside, Ekanite, Fayalite, Idocrase, Lepidolite, Okenite, Zoisite). Lab job lab-044 (2.3.2 + Carnelian, opens the crashing screens, collects the crash buffer) is posted to confirm with the stack trace once the phone runner (`bash autotest.sh watch` in Termux) is running.
 - 2.3.3: the activity log keeps 2 MB and skips per-drawable frro offset lines (they filled 256 KB in one apply).
+
+## 2026-11-06: plugin sources, 5 new packs, free default pack (2.4.0)
+- Kyle exported all 49 legacy plugins + Hex Installer, decompiled per APK. Private copy:
+  `Bingblop/hexnext-plugin-sources`; `tools/fetch_plugin_sources.sh`; notes in `docs/plugin-sources.md`.
+- A rebuild of the 44 catalogue packs from it matches the `packs` branch, so the catalogue already
+  held every readable asset. The anaconda templates are still encrypted and stay unread.
+- New packs Aquamarine, Benitoite, Jadeite, Malachite, Tanzanite (paid; appended to `BundleGrant.ORDER`).
+  Play products for them must be created when the Play hold lifts.
+- Quartz: free default pack from Hex Installer's own palette/elements/previews, bundled at
+  `android/app/src/main/assets/packs/quartz.zip`, selected once on a fresh install.
+- Lab runner: `sweep` step + `tools/device/suites/pack-sweep.json` applies every pack in one job.

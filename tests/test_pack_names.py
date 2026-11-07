@@ -88,7 +88,7 @@ def audit_pack(pack: dict) -> list[str]:
 class PackNamesTest(unittest.TestCase):
     def test_entries_are_complete_and_unique(self):
         ids = [e["id"] for e in ENTRIES.values()]
-        self.assertEqual(len(ids), 44)
+        self.assertEqual(len(ids), 49)
         self.assertEqual(len(set(ids)), len(ids))
         former = [f for e in ENTRIES.values() for f in e["formerIds"]]
         self.assertEqual(len(set(former)), len(former))
@@ -97,7 +97,8 @@ class PackNamesTest(unittest.TestCase):
             self.assertRegex(e["id"], r"^[a-z]+$", key)
             self.assertEqual(e["name"], e["id"].capitalize(), key)
             self.assertEqual(e["version"], "1.0", key)
-            self.assertTrue(e["formerIds"], key)
+            # Packs added after the catalogue was renamed (2026-11-06) have no former id.
+            self.assertIsInstance(e["formerIds"], list, key)
 
     def test_new_names_share_nothing_with_their_sources(self):
         for key, e in ENTRIES.items():

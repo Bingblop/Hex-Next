@@ -64,6 +64,12 @@ object BundleGrant {
         "xenotime",
         "zircon",
         "zoisite",
+        // Added 2026-11-06.
+        "aquamarine",
+        "benitoite",
+        "jadeite",
+        "malachite",
+        "tanzanite",
     )
 
     private val indexOf: Map<String, Int> = ORDER.withIndex().associate { it.value to it.index }

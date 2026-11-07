@@ -51,7 +51,8 @@ class BundleGrantTest {
         assertEquals(PaidPacks.IDS, BundleGrant.ORDER.toSet())
         assertEquals(BundleGrant.ORDER.distinct(), BundleGrant.ORDER)
         assertEquals("agate", BundleGrant.ORDER.first())
-        assertEquals("zoisite", BundleGrant.ORDER.last())
+        assertEquals("zoisite", BundleGrant.ORDER[43])
+        assertEquals("tanzanite", BundleGrant.ORDER.last())
     }
 
     @Test

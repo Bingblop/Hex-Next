@@ -694,5 +694,74 @@
     "sourceAuthors": [
       "byAlS"
     ]
+  },
+  "glass-day-night-v5-0": {
+    "id": "aquamarine",
+    "name": "Aquamarine",
+    "version": "1.0",
+    "formerIds": [],
+    "sourcePackage": "project.vivid.ui.plugin.glassdn",
+    "sourceNames": [
+      "Glass Day/Night",
+      "Glass"
+    ],
+    "sourceAuthors": [
+      "Timmah"
+    ]
+  },
+  "kraken-3-1ui6-1": {
+    "id": "benitoite",
+    "name": "Benitoite",
+    "version": "1.0",
+    "formerIds": [],
+    "sourcePackage": "project.vivid.ui.plugin.kraken",
+    "sourceNames": [
+      "KRAKEN"
+    ],
+    "sourceAuthors": [
+      "byAlS"
+    ]
+  },
+  "kurama-tailed-beast": {
+    "id": "jadeite",
+    "name": "Jadeite",
+    "version": "1.0",
+    "formerIds": [],
+    "sourcePackage": "project.vivid.ui.plugin.kyuubi_mdr",
+    "sourceNames": [
+      "Kurama",
+      "Kyuubi"
+    ],
+    "sourceAuthors": [
+      "MDR"
+    ]
+  },
+  "project-x-px-06": {
+    "id": "malachite",
+    "name": "Malachite",
+    "version": "1.0",
+    "formerIds": [],
+    "sourcePackage": "project.vivid.ui.plugin.projectx",
+    "sourceNames": [
+      "Project X"
+    ],
+    "sourceAuthors": [
+      "Muhammad Jahanzeb"
+    ]
+  },
+  "tornado-kikoku-crying-devil": {
+    "id": "tanzanite",
+    "name": "Tanzanite",
+    "version": "1.0",
+    "formerIds": [],
+    "sourcePackage": "project.vivid.ui.plugin.toro",
+    "sourceNames": [
+      "Tornado_",
+      "Tornado",
+      "KIKOKU"
+    ],
+    "sourceAuthors": [
+      "MDR"
+    ]
   }
 }

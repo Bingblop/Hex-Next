@@ -43,6 +43,7 @@ import com.hexnext.engine.palette.ThemeAdjustments
 import com.hexnext.engine.palette.ThemeResolver
 import com.hexnext.themer.BuildConfig
 import com.hexnext.themer.ServiceTasks
+import com.hexnext.themer.billing.DefaultPack
 import com.hexnext.themer.billing.EntitlementState
 import com.hexnext.themer.billing.EntitlementsProvider
 import com.hexnext.themer.billing.OfficialPacks
@@ -595,7 +596,14 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
             specLoaded.countDown()
             refreshPreview()
             val seeded = runCatching { packStore.seedBundled() }.getOrElse { PackStore.Seeded(emptyList(), mapOf("assets/packs" to "${it.javaClass.simpleName}: ${it.message}")) }
-            if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Bundled test packs installed: ${seeded.added.joinToString()}"))
+            if (seeded.added.isNotEmpty()) log(LogLine(LogLevel.INFO, "Built-in packs installed: ${seeded.added.joinToString()}"))
+            // A fresh install starts on the free default pack instead of colours only (once: a
+            // later "colours only" choice is kept, even when a deleted default pack is re-seeded).
+            val prefs = getApplication<Application>().getSharedPreferences(PREFS_DEFAULT_PACK, android.content.Context.MODE_PRIVATE)
+            if (!prefs.getBoolean(KEY_DEFAULT_PACK_OFFERED, false) && DefaultPack.ID in packStore.bundledIds()) {
+                if (_ui.value.spec.simplePackId == null) selectPack(DefaultPack.ID)
+                prefs.edit().putBoolean(KEY_DEFAULT_PACK_OFFERED, true).apply()
+            }
             seeded.failed.forEach { (name, why) -> log(LogLine(LogLevel.WARN, "Bundled pack $name not installed: $why")) }
             if (debuggable && BuildConfig.DEBUG) {
                 val bundled = runCatching { packStore.bundledIds() }.getOrDefault(emptySet())
@@ -2204,6 +2212,8 @@ class MainViewModel(app: Application, private val savedState: SavedStateHandle) 
     }
 
     companion object {
+        private const val PREFS_DEFAULT_PACK = "hexnext_default_pack"
+        private const val KEY_DEFAULT_PACK_OFFERED = "offered"
         private const val KEY_SCREEN = "screen"
 
         /** [ServiceTasks] name of the editor's Apply theme or Remove theme. */

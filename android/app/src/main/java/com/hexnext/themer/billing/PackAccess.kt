@@ -19,7 +19,8 @@ object PackAccess {
      * ([PackIdAliases]) counts as its current id, so an older official zip is never free.
      */
     fun isPaid(packId: String, official: Set<String>): Boolean =
-        PackIdAliases.allIdsOf(packId).any { PaidPacks.isPaid(it) || it in official }
+        PackIdAliases.current(packId) != DefaultPack.ID &&
+            PackIdAliases.allIdsOf(packId).any { PaidPacks.isPaid(it) || it in official }
 
     /** True when [packId] may be used: a verified purchase, a free pack, or a debug bundled pack. */
     fun isUnlocked(state: EntitlementState, packId: String, bundled: Set<String>, official: Set<String>): Boolean =

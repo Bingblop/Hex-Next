@@ -19,6 +19,13 @@ class PackAccessTest {
     }
 
     @Test
+    fun theDefaultPackIsFreeEvenIfACatalogueListsIt() {
+        assertFalse(PackAccess.isPaid(DefaultPack.ID, setOf(DefaultPack.ID)))
+        assertTrue(PackAccess.isUnlocked(nothingOwned, DefaultPack.ID, bundled = emptySet(), official = setOf(DefaultPack.ID)))
+        assertFalse(DefaultPack.ID in PaidPacks.IDS)
+    }
+
+    @Test
     fun packsTheUserBuiltAreNeverLocked() {
         assertTrue(PackAccess.isUnlocked(nothingOwned, "my-own-pack", bundled = emptySet(), official = noOfficial))
         assertTrue(PackAccess.looksUnlocked(nothingOwned, "my-own-pack", bundled = emptySet(), official = noOfficial))
