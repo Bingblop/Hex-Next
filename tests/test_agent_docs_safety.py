@@ -79,7 +79,7 @@ class AgentDocsSafetyTest(unittest.TestCase):
                       text)
         self.assertIn("Play Console and Play Store publication waits until the owner asks for it", text)
         self.assertIn("No unsolicited disruptive operations on tester phones", text)
-        self.assertIn("Force pushes, history rewrites and pushes to `packs` are never used", text)
+        self.assertIn("Force pushes and history rewrites are never used; `packs` gets only additive, non-force commits", text)
         self.assertIn("secrets are never exposed", text)
         self.assertIn("Agents never search for, open, copy or print keystores", text)
         self.assertNotIn("release review", text)
@@ -124,7 +124,7 @@ class AgentDocsSafetyTest(unittest.TestCase):
         self.assertIn("More specific restrictions override that authorization", text)
         for restriction in (
             "Play Console and Play Store publication waits until the owner asks for it",
-            "Force pushes, history rewrites and pushes to `packs` are never used",
+            "Force pushes and history rewrites are never used; `packs` gets only additive, non-force commits",
             "Agents never read, copy, print or expose secrets or keystores",
             "No unsolicited disruptive operations on tester phones",
         ):

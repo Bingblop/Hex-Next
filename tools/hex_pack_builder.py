@@ -20,6 +20,9 @@ never touched; Hex Next generates those overlay parts itself.
 
 Usage:
     python3 tools/hex_pack_builder.py <plugin-dir> <out-dir>
+
+<plugin-dir> holds plugin .apk/.apks files and/or decompiled plugin folders (each with
+resources/AndroidManifest.xml, as decompiler.com and jadx write them).
 """
 from __future__ import annotations
 
@@ -34,6 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hex_plugin_catalog import CATEGORY_LABELS, catalog_one, base_apk_bytes  # noqa: E402
+from decompiled_plugin import catalog_decompiled, is_decompiled_plugin, plugin_zip_bytes  # noqa: E402
 from rename_packs import catalogue_identity, finalize_pack, index_entry, resolve  # noqa: E402,F401
 
 SLOT_RE = re.compile(r"^l?(x[xyz]|lx[xyz]|sx|lz[xy]|xg|lxg)\d+$")
@@ -75,8 +79,11 @@ def tint_descriptor(tint: str) -> dict:
 
 
 def build_pack(path: Path, out_dir: Path) -> dict:
-    meta = catalog_one(path)
-    raw = base_apk_bytes(path)
+    if is_decompiled_plugin(path):
+        # A plugin exported as a decompiled folder (resources/AndroidManifest.xml, res/, assets/).
+        meta, raw = catalog_decompiled(path), plugin_zip_bytes(path)
+    else:
+        meta, raw = catalog_one(path), base_apk_bytes(path)
     source_id = slug(f"{meta['name'] or meta['label']}-{meta['version']}")
     # The catalogue never shows the source plugin's name (tools/pack_names.json): a plugin
     # without a mapping is refused instead of shipping under its original name.
@@ -210,7 +217,13 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     index, errors = [], []
     for path in sorted(src.iterdir()):
-        if path.suffix.lower() not in (".apk", ".apks"):
+        if path.is_dir() and (path / "resources").is_dir() and not is_decompiled_plugin(path):
+            # A decompiled plugin missing its manifest: an error, so its pack is not dropped
+            # from index.json without notice.
+            errors.append({"file": path.name, "error": "no resources/AndroidManifest.xml"})
+            print(f"  error {path.name}: decompiled plugin folder without resources/AndroidManifest.xml")
+            continue
+        if path.suffix.lower() not in (".apk", ".apks") and not is_decompiled_plugin(path):
             continue
         try:
             index.append(build_pack(path, out))

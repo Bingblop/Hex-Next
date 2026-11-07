@@ -17,6 +17,9 @@ class ThemeStore(context: Context) {
 
     private val file = File(context.applicationContext.filesDir, FILE_NAME)
 
+    /** True when a theme was ever saved here (or its backup): false only on a fresh install. */
+    fun hasSaved(): Boolean = file.isFile || File(file.parentFile, BACKUP_NAME).isFile
+
     /**
      * The stored spec; [ThemeSpec.default] when the file is missing or unreadable. An unreadable
      * file (empty, truncated, malformed) is logged and moved aside to [BACKUP_NAME] first, so the

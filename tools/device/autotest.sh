@@ -59,6 +59,12 @@ home() { root "cmd statusbar collapse; input keyevent KEYCODE_HOME" >/dev/null 2
 shot() {
   local name="$1" png="$RES/shots/$1.png"
   root "screencap -p" >"$png" 2>/dev/null
+  if [ -n "${SWEEP_DIR:-}" ]; then
+    # What was on top at the shot (a crashed screen leaves the launcher or a dialog; the Quick
+    # panel sits over the launcher, so its row names the launcher too). Mode and capture come from
+    # step_capture.
+    printf '%s\t%s\t%s\t%s\n' "$MODE" "${SWEEP_CAP:-}" "$name" "$(root "dumpsys activity activities" 2>/dev/null | grep -m1 -E 'topResumedActivity|mResumedActivity' | grep -oE '[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+' | head -1)" >>"$SWEEP_DIR/screens.tsv"
+  fi
   if command -v magick >/dev/null 2>&1 && [ -s "$png" ]; then
     magick "$png" -resize 50% -quality 82 "$RES/shots/$name.jpg" && rm -f "$png"
   fi
@@ -719,6 +725,13 @@ capture_real() {
               # stays over the preview hook that follows.
               root "input keyevent KEYCODE_BACK; sleep 1; input keyevent KEYCODE_BACK; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" >/dev/null 2>&1 ;;
     myfiles)  root "monkey -p com.sec.android.app.myfiles -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-myfiles" ;;
+    storage)  # My Files > Internal storage (the folder list with the pack's file and folder icons).
+              root "monkey -p com.sec.android.app.myfiles -c android.intent.category.LAUNCHER 1" >/dev/null 2>&1; sleep 3
+              if tap_text 'Internal storage'; then sleep 3; shot "$PHASE$MODE-real-storage"
+              else log "storage: no Internal storage entry"; fi
+              root "am force-stop com.sec.android.app.myfiles" >/dev/null 2>&1 ;;
+    display)  root "am start -W -a android.settings.DISPLAY_SETTINGS" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-display" ;;
+    sound)    root "am start -W -a android.settings.SOUND_SETTINGS" >/dev/null 2>&1; sleep 3; shot "$PHASE$MODE-real-sound" ;;
     dialogs)  # A Settings alert dialog (App info > Force stop, cancelled) and a popup menu.
               root "am start -W -a android.settings.APPLICATION_DETAILS_SETTINGS -d package:com.android.chrome" >/dev/null 2>&1; sleep 3
               if tap_text 'Force stop'; then sleep 2; shot "$PHASE$MODE-real-dialog"; tap_text 'Cancel' || root "input keyevent KEYCODE_BACK"; fi
@@ -802,11 +815,53 @@ step_capture() {
   for MODE in $modes; do
     case "$MODE" in dark) root "cmd uimode night yes" ;; light) root "cmd uimode night no" ;; *) continue ;; esac
     sleep 3
-    for c in $captures; do log "capture $MODE $c"; capture_real "$c"; capture_preview "$c"; done
+    for c in $captures; do
+      log "capture $MODE $c"; SWEEP_CAP="$c" capture_real "$c"
+      if [ -n "${SWEEP_DIR:-}" ]; then home; else capture_preview "$c"; fi
+    done
   done
   root "cmd uimode night $orig" >/dev/null 2>&1
   root "cmd notification cancel hexnext_lab 0" >/dev/null 2>&1
   root "svc power stayon false" >/dev/null 2>&1
+}
+
+# Every pack in the job's "packs" list in turn: pick, apply, the job's captures, and that pack's own
+# crash buffer, under results/<id>/packs/<pack>/ (shots are <pack>-<mode>-real-<screen>). The crash
+# buffer is cleared before each pack so each crash belongs to the pack that caused it. Results are
+# pushed after every pack, so a long sweep shows progress and loses nothing if it stops.
+step_sweep() {
+  local id n=0 total picked applied crashes t0 d caps failed=0
+  total=$(jq -r '.packs // [] | length' "$JOB")
+  caps=$(jq -r '(.captures // ["settings","display","sound","storage"]) | join(" ")' "$JOB")
+  [ "$total" -gt 0 ] || { log "sweep: no packs"; return 1; }
+  printf 'pack\tpicked\tapplied\tcrashes\tseconds\n' >"$RES/sweep.tsv"
+  for id in $(jq -r '.packs[]' "$JOB"); do
+    case "$id" in ''|*[!a-z0-9_-]*) continue ;; esac
+    n=$((n + 1)); t0=$(date +%s); d="$RES/packs/$id"; mkdir -p "$d"
+    log "sweep $n/$total: $id"
+    root "logcat -b crash -c; rm -f $(app_dir)/last-crash.txt" >/dev/null 2>&1
+    picked=no; applied=no
+    hook pack --es id "$id" >>"$d/hook.jsonl" && tail -1 "$d/hook.jsonl" | grep -q '"ok":true' && picked=yes
+    if [ $picked = yes ]; then
+      hook apply --ez confirm true >>"$d/hook.jsonl" && tail -1 "$d/hook.jsonl" | grep -q '"ok":true' && applied=yes
+      sleep 30
+      root "cat $(app_dir)/reports/apply-last.json" >"$d/apply-last.json" 2>/dev/null
+      root "cat $(app_dir)/applied-theme.json" >"$d/applied-theme.json" 2>/dev/null
+      SWEEP_DIR="$d" PHASE="$id-" step_capture "$caps"
+    fi
+    root "logcat -d -b crash" >"$d/crash-log.txt" 2>/dev/null
+    root "cat $(app_dir)/last-crash.txt" >"$d/app-crash.txt" 2>/dev/null; [ -s "$d/app-crash.txt" ] || rm -f "$d/app-crash.txt"
+    # Galaxy Themes' own services crash while the app keeps them suspended: not the pack's doing.
+    crashes=$(grep -A1 'FATAL EXCEPTION' "$d/crash-log.txt" 2>/dev/null | grep 'Process:' | grep -vc 'com.samsung.android.theme')
+    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$picked" "$applied" "$crashes" $(( $(date +%s) - t0 )) >>"$RES/sweep.tsv"
+    log "sweep $id: picked=$picked applied=$applied crashes=$crashes"
+    [ "$applied" = yes ] && [ "$crashes" -eq 0 ] || failed=$((failed + 1))
+    ( cd "$LAB" && git add -A "results/$(basename "$RES")" && git commit -qm "Sweep $(basename "$RES"): $id ($n/$total)" ) >/dev/null 2>&1
+    push_lab >/dev/null 2>&1 || log "sweep: push after $id failed; kept locally"
+  done
+  # Every pack is tried; the step fails when any pack did not apply or crashed something.
+  log "sweep: $((n - failed))/$n packs applied without a crash (results/<id>/sweep.tsv)"
+  [ "$failed" -eq 0 ]
 }
 
 step_collect() {
@@ -839,7 +894,7 @@ run_job() {
   while [ $# -gt 0 ]; do
     s=$1; shift
     case "$s" in
-      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate|probe|unprobe|labkey) "step_$s" || failed="$failed $s" ;;
+      install|theme|scan|apply|remove|capture|collect|dumps|restartui|overlaystate|wait|fabtest|shizuku|waitrestore|lookup|arsc|pack|bare|pkginfo|bootlog|compoff|compon|suspend|unsuspend|undo|themestate|shizuku1000|appstate|probe|unprobe|labkey|sweep) "step_$s" || failed="$failed $s" ;;
       softreboot) step_softreboot "$*" ;;
     esac
     [ "$s" = install ] && [ -n "$failed" ] && break

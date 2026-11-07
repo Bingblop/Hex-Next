@@ -134,10 +134,10 @@ class PackStore(
     private val parsed = HashMap<String, Pack>()
 
     /**
-     * Copies the packs bundled under `assets/packs/` (debug builds only: the CI copies a few test
-     * packs there) into the pack directory, skipping ids that are already installed. Returns the
-     * ids it added and, per asset that could not be installed, why. A release build has no such
-     * assets and seeding is a no-op. Runs once at start-up, so it first deletes stale `.part`
+     * Copies the packs bundled under `assets/packs/` into the pack directory, skipping ids that are
+     * already installed: every build ships the free default pack there (`DefaultPack`), and debug
+     * builds also carry a few test packs the CI copies in. Returns the ids it added and, per asset
+     * that could not be installed, why. Runs once at start-up, so it first deletes stale `.part`
      * files that a download or install killed with the process left behind ([sweepStaleParts]).
      */
     fun seedBundled(): Seeded {
@@ -170,8 +170,8 @@ class PackStore(
     }
 
     /**
-     * Ids of the packs bundled under `assets/packs/` (debug builds only; empty in a release
-     * build). Debuggable builds treat them as unlocked so a test phone can apply them.
+     * Ids of the packs bundled under `assets/packs/`: the free default pack, plus the test packs of
+     * a debug build. Debuggable builds treat them all as unlocked so a test phone can apply them.
      */
     fun bundledIds(): Set<String> =
         runCatching { appContext.assets.list(ASSET_DIR)?.toList() }.getOrNull().orEmpty()
@@ -458,6 +458,10 @@ class PackStore(
     }
 
     /** `<id>.zip` of pack [id] under its current id. */
+    /** True when [id] has a readable pack zip in the applicable pack directory. */
+    fun isInstalled(id: String): Boolean =
+        zipFor(id).let { it.isFile && runCatching { PackReader.read(it).id == PackIdAliases.current(id) }.getOrDefault(false) }
+
     private fun zipFor(id: String): File = File(dir, "${PackIdAliases.current(id)}.zip")
 
     /**
